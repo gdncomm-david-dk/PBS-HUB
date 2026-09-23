@@ -7,14 +7,14 @@
     The control never writes. It emits ActionPayload; the canvas app performs the Patch, the Graph upload
     or the flow call, and answers through ActionResult with the same requestId.
   -->
-  <control namespace="Ops" constructor="Schedule" version="1.0.0" display-name-key="PBS Schedule" description-key="PBS Hub schedule board, session detail, single create and bulk or AI schedule upload." control-type="standard">
+  <control namespace="Ops" constructor="Schedule" version="1.1.0" display-name-key="PBS Schedule" description-key="PBS Hub schedule board, session detail, single create and bulk or AI schedule upload." control-type="standard">
     <external-service-usage enabled="false">
     </external-service-usage>
     <data-set name="schedules" display-name-key="Schedules (Schedule - PBS Hub)" description-key="Bind to the Schedule - PBS Hub list filtered to the selected period. Columns: Title, Date, BrandID, StudioID, HostID, Account, Platform, Shift, Sesi, StartTime, EndTime, JamLive, Status, CampaignName, TotalAccount, Position, LiveBreak." />
-    <data-set name="brands" display-name-key="Brands (Brand - PBS Hub)" description-key="Bind to the Brand - PBS Hub list. Columns: Title, NamaBrand, Status." />
+    <data-set name="brands" display-name-key="Brands (Brand - PBS Hub)" description-key="Bind to the Brand - PBS Hub list. Columns: ID, Title, BrandID (if present), NamaBrand, Status." />
     <data-set name="accounts" display-name-key="Accounts (Account - PBS Hub)" description-key="Bind to the Account - PBS Hub list. Columns: Title, AccountName, BrandID, Platform." />
     <data-set name="studios" display-name-key="Studios (Studio - PBS Hub)" description-key="Bind to the Studio - PBS Hub list. Columns: Title, NamaStudio, KapasitasHost, Status." />
-    <data-set name="hosts" display-name-key="Hosts (Host - PBS Hub)" description-key="Bind to ShowColumns of Host - PBS Hub with Title, NamaHost, HostName, Status only. Never bind KTP or bank columns." />
+    <data-set name="hosts" display-name-key="Hosts (Host - PBS Hub)" description-key="Bind to ShowColumns of Host - PBS Hub with ID, Title, HostID (if present), NamaHost, HostName, Status only. Never bind KTP or bank columns." />
     <data-set name="reports" display-name-key="Reports (Report - PBS Hub)" description-key="Optional. Report - PBS Hub for the same period. Locks a session and fills the report step. Columns: Title, ScheduleID, HostID, AccountID, Platform, LiveDate, Penjualan, Pesanan, TotalViewer, ApprovalStatus, Match, ApprovalComment." />
     <data-set name="absences" display-name-key="Absences (Host Absence - PBS Hub)" description-key="Optional. Host Absence - PBS Hub for the same period. Columns: Title, ScheduleID, HostID, Status, Keterangan, LiveDate." />
     <data-set name="clockins" display-name-key="Clock ins (Clock In - PBS Hub)" description-key="Optional. ShowColumns of Clock In - PBS Hub with Title, HostID, ClockInDate, CheckInTime, CheckOutTime, ClockInTime, ClockOutTime, IsInsideGeofence, CheckInOffice, Status. Never bind GPS or selfie columns." />

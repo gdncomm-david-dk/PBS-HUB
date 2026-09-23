@@ -353,8 +353,7 @@ export function BulkUpload(props: { env: Env; onClose: () => void }): React.Reac
                                             <td className="sc-ellipsis" title={r.file}>{r.file}</td>
                                             <td className="sc-nowrap">{r.dateKey ? formatDateShort(r.dateKey) : "—"}</td>
                                             <td>
-                                                {r.brandName || "—"}
-                                                <div className="sc-muted sc-mono">{r.brandId}</div>
+                                                {r.brandName || r.brandId || "—"}
                                             </td>
                                             <td>{r.hostName || "—"}</td>
                                             <td className="sc-nowrap">{r.studioId || "—"}</td>

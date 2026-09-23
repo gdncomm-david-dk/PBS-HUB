@@ -216,3 +216,24 @@ describe("upload helpers", () => {
         expect(Buffer.from(bytesToBase64(big), "base64").equals(Buffer.from(big))).toBe(true);
     });
 });
+
+describe("brand and host names", () => {
+    it("resolves names when the key is a BrandID/HostID column, a lookup, or the SharePoint ID", () => {
+        const b = mapBrands(recs([{ ID: 7, Title: "Aruna Beauty", BrandID: "BR-07" }]));
+        const h = mapHosts(recs([{ ID: 9, Title: "HST-9", HostName: "Dinda Maharani" }]));
+        const l = buildLookups(b, h, [], []);
+        const [a, c, d, e] = mapSchedules(
+            recs([
+                { Title: "SCD-1", Date: "2026-09-24", BrandID: "BR-07", HostID: "HST-9", StartTime: "08:00", EndTime: "10:00" },
+                { Title: "SCD-2", Date: "2026-09-24", BrandID: { Id: 7, Value: "whatever" }, HostID: { Id: 9, Value: "x" }, StartTime: "08:00", EndTime: "10:00" },
+                { Title: "SCD-3", Date: "2026-09-24", BrandID: "Aruna Beauty", HostID: "HST-9", StartTime: "08:00", EndTime: "10:00" },
+                { Title: "SCD-4", Date: "2026-09-24", BrandID: "BR-99", HostID: "HST-0", StartTime: "08:00", EndTime: "10:00" },
+            ]),
+            l,
+        );
+        expect([a.brandName, a.hostName, a.brandKnown]).toEqual(["Aruna Beauty", "Dinda Maharani", true]);
+        expect([c.brandName, c.brandId, c.hostName]).toEqual(["Aruna Beauty", "BR-07", "Dinda Maharani"]);
+        expect([d.brandName, d.brandId]).toEqual(["Aruna Beauty", "BR-07"]);
+        expect([e.brandName, e.brandKnown, e.hostKnown]).toEqual(["BR-99", false, false]);
+    });
+});

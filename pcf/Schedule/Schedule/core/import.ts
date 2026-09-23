@@ -196,6 +196,8 @@ export function checkFile(file: string, t: SheetTable, cx: CheckContext): FileCh
         dateKey: r.dateKey,
         brandId: r.brandId,
         brandName: r.brandName,
+        brandKnown: true,
+        hostKnown: true,
         studioId: r.studioId,
         hostId: r.hostId,
         hostName: r.hostName,

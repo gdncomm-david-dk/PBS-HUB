@@ -2,7 +2,7 @@ import * as React from "react";
 import { ScheduleRow } from "../core/types";
 import { conflictsFor, Slot } from "../core/schedule";
 import { formatMinutes, parseTimeToMinutes } from "../core/time";
-import { Banner, Button, cx, Field, Icon, Modal, Toggle } from "./components";
+import { Banner, Button, cx, Field, Icon, Modal } from "./components";
 import { Env, scheduleStatus } from "./shared";
 
 interface Values {
@@ -12,15 +12,15 @@ interface Values {
     studioId: string;
     hostId: string;
     platform: string;
-    shift: string;
     start: string;
     end: string;
     position: string;
-    sesi: string;
-    campaignName: string;
-    liveBreak: boolean;
     status: string;
 }
+
+/** Schedule.Position choice values. */
+export const POSITIONS = ["Main Host", "Co-Host"];
+const byName = (a: string, b: string): number => a.localeCompare(b, "id", { sensitivity: "base" });
 
 const hhmm = (m: number | null): string => (m === null ? "" : formatMinutes(m));
 
@@ -41,13 +41,9 @@ export function ScheduleForm(props: {
         studioId: src?.studioId ?? "",
         hostId: src?.hostId ?? "",
         platform: src?.platform ?? "",
-        shift: src?.shift ?? "",
         start: hhmm(src?.startMin ?? null),
         end: hhmm(src?.endMin ?? null),
-        position: src?.position ?? "",
-        sesi: src?.sesi ?? "",
-        campaignName: src?.campaignName ?? "",
-        liveBreak: !!src?.liveBreak && src.liveBreak.toLowerCase() === env.config.liveBreakYes.toLowerCase(),
+        position: src?.position || POSITIONS[0],
         status: props.mode === "edit" ? props.schedule?.status || "Planned" : "Planned",
     }));
     const [acked, setAcked] = React.useState<Set<string>>(new Set());
@@ -59,8 +55,7 @@ export function ScheduleForm(props: {
 
     const accounts = env.accounts.filter((a) => v.brandId && a.brandId.toLowerCase() === v.brandId.toLowerCase());
     const pickBrand = (brandId: string): void => {
-        const b = env.lk.brands.get(brandId.toLowerCase());
-        set({ brandId, accountId: "", campaignName: v.campaignName || b?.namaBrand || "" });
+        set({ brandId, accountId: "" });
     };
     const pickAccount = (accountId: string): void => {
         const a = env.lk.accounts.get(accountId.toLowerCase());
@@ -81,6 +76,7 @@ export function ScheduleForm(props: {
     if (endMin === null) errors.end = "Isi jam selesai.";
     else if (startMin !== null && endMin === startMin) errors.end = "Jam selesai harus berbeda dari jam mulai.";
     if (accounts.length > 0 && !v.accountId) errors.accountId = "Pilih account brand ini.";
+    if (!v.position) errors.position = "Pilih posisi.";
     const valid = Object.keys(errors).length === 0;
 
     // Warnings: the checks v1 never ran. Each must be acknowledged before saving.
@@ -118,15 +114,10 @@ export function ScheduleForm(props: {
             studioId: v.studioId,
             hostId: v.hostId,
             platform: v.platform,
-            shift: v.shift,
             startTime: v.start,
             endTime: v.end,
             jamLive,
             position: v.position,
-            sesi: v.sesi,
-            campaignName: v.campaignName,
-            liveBreak: v.liveBreak,
-            liveBreakValue: v.liveBreak ? env.config.liveBreakYes : env.config.liveBreakNo,
             totalAccount: v.accountId ? 1 : 0,
             status: v.status,
             acknowledgedWarnings: warnings.map((w) => w.text),
@@ -185,9 +176,10 @@ export function ScheduleForm(props: {
                 <Field label="Brand" htmlFor="f-brand" hint={err("brandId")} hintTone="danger">
                     <select id="f-brand" className={cx("sc-input", err("brandId") && "is-danger")} value={v.brandId} onChange={(e) => pickBrand(e.target.value)}>
                         <option value="">Pilih brand</option>
-                        {env.brands.map((b) => (
+                        {[...env.brands].sort((a, b) => byName(a.namaBrand, b.namaBrand)).map((b) => (
                             <option key={b.key} value={b.brandId}>
-                                {b.namaBrand} ({b.brandId}){!b.isActive ? " · nonaktif" : ""}
+                                {b.namaBrand}
+                                {!b.isActive ? " · nonaktif" : ""}
                             </option>
                         ))}
                     </select>
@@ -213,9 +205,10 @@ export function ScheduleForm(props: {
                         <option value="">Pilih host</option>
                         {env.hosts
                             .filter((h) => h.isActive || h.hostId === v.hostId)
+                            .sort((a, b) => byName(a.name, b.name))
                             .map((h) => (
                                 <option key={h.key} value={h.hostId}>
-                                    {h.name} ({h.hostId})
+                                    {h.name}
                                 </option>
                             ))}
                     </select>
@@ -234,26 +227,16 @@ export function ScheduleForm(props: {
                 <Field label="Jam selesai" htmlFor="f-end" hint={err("end") ?? (jamLive > 0 ? `${jamLive.toLocaleString("id-ID")} jam live` : undefined)} hintTone={err("end") ? "danger" : undefined}>
                     <input id="f-end" type="time" step={900} className={cx("sc-input", err("end") && "is-danger")} value={v.end} onChange={(e) => set({ end: e.target.value })} />
                 </Field>
-                <Field label="Shift" htmlFor="f-shift">
-                    <input id="f-shift" className="sc-input" list="sc-shifts" value={v.shift} onChange={(e) => set({ shift: e.target.value })} placeholder="mis. Pagi" />
-                    <datalist id="sc-shifts">
-                        {env.config.shifts.map((x) => (
-                            <option key={x} value={x} />
+                <Field label="Posisi" htmlFor="f-pos" hint={err("position")} hintTone="danger">
+                    <select id="f-pos" className={cx("sc-input", err("position") && "is-danger")} value={v.position} onChange={(e) => set({ position: e.target.value })}>
+                        {opt(POSITIONS, v.position).map((x) => (
+                            <option key={x} value={x}>
+                                {x}
+                            </option>
                         ))}
-                    </datalist>
+                    </select>
                 </Field>
-                <Field label="Posisi" htmlFor="f-pos">
-                    <input id="f-pos" className="sc-input" list="sc-positions" value={v.position} onChange={(e) => set({ position: e.target.value })} />
-                    <datalist id="sc-positions">
-                        {env.config.positions.map((x) => (
-                            <option key={x} value={x} />
-                        ))}
-                    </datalist>
-                </Field>
-                <Field label="Sesi" htmlFor="f-sesi">
-                    <input id="f-sesi" className="sc-input" value={v.sesi} onChange={(e) => set({ sesi: e.target.value })} placeholder="mis. 1" />
-                </Field>
-                {props.mode === "edit" ? (
+                {props.mode === "edit" && (
                     <Field label="Status" htmlFor="f-status">
                         <select id="f-status" className="sc-input" value={v.status} onChange={(e) => set({ status: e.target.value })}>
                             {opt(env.config.statuses, v.status).map((x) => (
@@ -263,21 +246,7 @@ export function ScheduleForm(props: {
                             ))}
                         </select>
                     </Field>
-                ) : (
-                    <div className="sc-field sc-field--toggle">
-                        <Toggle checked={v.liveBreak} onChange={(b) => set({ liveBreak: b })} label="Live break" description="Ada jeda di tengah sesi" />
-                    </div>
                 )}
-                {props.mode === "edit" && (
-                    <div className="sc-field sc-field--toggle sc-formgrid__full">
-                        <Toggle checked={v.liveBreak} onChange={(b) => set({ liveBreak: b })} label="Live break" description="Ada jeda di tengah sesi" />
-                    </div>
-                )}
-                <div className="sc-formgrid__full">
-                    <Field label="Campaign name" htmlFor="f-camp">
-                        <textarea id="f-camp" className="sc-input" rows={2} value={v.campaignName} onChange={(e) => set({ campaignName: e.target.value })} />
-                    </Field>
-                </div>
             </div>
 
             {warnings.length > 0 && (

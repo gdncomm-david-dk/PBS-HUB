@@ -3,7 +3,7 @@
 | Control | Screens | Managed solution | Canvas setup |
 |---|---|---|---|
 | `pbs_Ops.StudioDirectory` | Studio list, Studio detail | `releases/PBSStudioDirectory_managed_1.2.0.zip` | [`docs/studio-directory-canvas-setup.md`](docs/studio-directory-canvas-setup.md) |
-| `pbs_Ops.Schedule` | Schedule board, session detail, create/edit, bulk & AI upload | `releases/PBSSchedule_managed_1.0.0.zip` | [`docs/schedule-canvas-setup.md`](docs/schedule-canvas-setup.md) |
+| `pbs_Ops.Schedule` | Schedule board, session detail, create/edit, bulk & AI upload | `releases/PBSSchedule_managed_1.1.0.zip` | [`docs/schedule-canvas-setup.md`](docs/schedule-canvas-setup.md) |
 
 ## `pbs_Ops.StudioDirectory` (Studio list + Studio detail)
 
@@ -30,13 +30,15 @@ built on the SharePoint data model in `DESIGN.md`.
 
 - **Board** — KPIs (sessions and live hours in range, live now, conflicts, ended sessions without a report),
   date range with Hari ini / Minggu ini / Bulan ini, Brand / Host / Studio / Platform / Status filters and search.
-  **Kalender**: week columns × studio lanes, chips coloured by status, red dot on conflicts, lock when a report
-  is in, today tinted. **List**: Tanggal, Jam, Brand, Account, Host, Studio, Platform, Shift, Status, row menu,
-  "Muat lebih banyak" paging.
+  Everything is grouped by **brand** (A–Z) and sorted by date and start time, with brand and host **names**.
+  **Kalender**: week columns × brand lanes (or studio lanes), chips coloured by status, red dot on conflicts,
+  lock when a report is in, today tinted. **List**: a header per brand (sessions, hours), then Tanggal, Jam,
+  Account, Host (+ position), Studio, Platform, Status, row menu, "Muat lebih banyak" paging.
 - **Session detail** — the evidence chain Dijadwalkan → Clock in → Absen → Report host → Bukti AI → Verdict →
   Baris payroll; each step says what is missing and offers "Ingatkan host"; conflicts; other sessions of the
   same host or studio that day. Edit, duplicate, delete (locked once a report exists).
-- **Buat jadwal** (single, from the app) — Brand → Account dependent dropdowns, host / studio / account conflict and
+- **Buat jadwal** (single, from the app) — Tanggal, Studio, Brand → Account, Host, Platform, jam, Posisi
+  (Main Host / Co-Host); Brand → Account dependent dropdowns, host / studio / account conflict and
   capacity warnings that must each be ticked before saving.
 - **Upload massal** — multi-file `.xlsx`, parsed in the browser (the `Table1` table PBS0001A reads), per-row verdict
   (Valid / Peringatan / Ditolak) against master data and existing sessions, downloadable error list; each clean

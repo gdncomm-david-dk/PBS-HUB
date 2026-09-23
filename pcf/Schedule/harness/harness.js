@@ -57,7 +57,7 @@
         var row = {
             ID: id, Title: "SCD-" + id, Date: date, StudioID: studio, BrandID: brand, HostID: host, Account: acc, Platform: { Value: platOf[acc] },
             StartTime: hm(start), EndTime: hm(end), JamLive: (end - start) / 60, Status: { Value: status || "Planned" },
-            Shift: start < 720 ? "Pagi" : start < 1080 ? "Siang" : "Malam", Sesi: "1", CampaignName: "", LiveBreak: { Value: "No" }, Position: { Value: "Main" },
+            Shift: start < 720 ? "Pagi" : start < 1080 ? "Siang" : "Malam", Sesi: "1", CampaignName: "", LiveBreak: { Value: "No" }, Position: { Value: id % 3 === 0 ? "Co-Host" : "Main Host" },
         };
         if (extra) Object.keys(extra).forEach(function (k) { row[k] = extra[k]; });
         schedules.push(row);
@@ -171,7 +171,7 @@
         switch (req.action) {
             case "CREATE_SCHEDULE":
                 later(700, function () {
-                    var r = add(p.date, p.studioId, p.brandId, p.hostId, 0, 0, p.status, { Account: p.accountId, Platform: { Value: p.platform }, StartTime: p.startTime, EndTime: p.endTime, JamLive: p.jamLive, Shift: p.shift, Sesi: p.sesi, CampaignName: p.campaignName, LiveBreak: { Value: p.liveBreakValue }, Position: { Value: p.position } });
+                    var r = add(p.date, p.studioId, p.brandId, p.hostId, 0, 0, p.status, { Account: p.accountId, Platform: { Value: p.platform }, StartTime: p.startTime, EndTime: p.endTime, JamLive: p.jamLive, Position: { Value: p.position } });
                     reply(req.requestId, "ok", "", { scheduleId: r.Title, itemId: r.ID });
                 });
                 return;
@@ -179,7 +179,7 @@
                 later(600, function () {
                     var r = find(p);
                     if (!r) return reply(req.requestId, "error", "Jadwal tidak ditemukan.");
-                    Object.assign(r, { Date: p.date, StudioID: p.studioId, BrandID: p.brandId, HostID: p.hostId, Account: p.accountId, Platform: { Value: p.platform }, StartTime: p.startTime, EndTime: p.endTime, JamLive: p.jamLive, Shift: p.shift, Sesi: p.sesi, CampaignName: p.campaignName, LiveBreak: { Value: p.liveBreakValue }, Position: { Value: p.position }, Status: { Value: p.status } });
+                    Object.assign(r, { Date: p.date, StudioID: p.studioId, BrandID: p.brandId, HostID: p.hostId, Account: p.accountId, Platform: { Value: p.platform }, StartTime: p.startTime, EndTime: p.endTime, JamLive: p.jamLive, Position: { Value: p.position }, Status: { Value: p.status } });
                     reply(req.requestId, "ok", "", { scheduleId: r.Title });
                 });
                 return;

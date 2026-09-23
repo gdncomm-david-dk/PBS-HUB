@@ -3,8 +3,10 @@
 export interface BrandRow {
     key: string;
     itemId: number | null;
-    brandId: string;           // Title
-    namaBrand: string;         // NamaBrand
+    brandId: string;           // BrandID column, else Title
+    title: string;             // Title
+    namaBrand: string;         // NamaBrand (else Title when BrandID is the key); falls back to brandId
+    hasName: boolean;          // a real name was found, not just the ID
     status: string;
     isActive: boolean;
 }
@@ -31,8 +33,10 @@ export interface StudioRow {
 export interface HostRow {
     key: string;
     itemId: number | null;
-    hostId: string;            // Title
-    name: string;              // NamaHost / HostName / HostCode
+    hostId: string;            // HostID column, else Title
+    title: string;             // Title
+    name: string;              // NamaHost / HostName (else Title when HostID is the key); falls back to hostId
+    hasName: boolean;
     status: string;
     isActive: boolean;
 }
@@ -44,9 +48,11 @@ export interface ScheduleRow {
     dateKey: string;           // Date, local yyyy-mm-dd
     brandId: string;           // BrandID
     brandName: string;         // resolved from Brand - PBS Hub
+    brandKnown: boolean;       // false when only the ID could be shown
     studioId: string;          // StudioID
     hostId: string;            // HostID
     hostName: string;          // resolved from Host - PBS Hub
+    hostKnown: boolean;
     accountId: string;         // Account (text, the AccountID)
     accountName: string;       // resolved from Account - PBS Hub
     platform: string;          // Platform (Choice)

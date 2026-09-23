@@ -23,11 +23,7 @@ export function StatusBadge(props: { status: string }): React.ReactElement {
 
 export interface Config {
     platforms: string[];
-    shifts: string[];
-    positions: string[];
     statuses: string[];
-    liveBreakYes: string;
-    liveBreakNo: string;
     maxUploadMb: number;
     aiAccept: string;
     bulkFolder: string;

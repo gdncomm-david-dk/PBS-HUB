@@ -36,13 +36,19 @@ Set(varSchedResult, "");
 Conflicts are checked against the day before and the day after, because sessions can run overnight.
 For that reason every filter widens the range by one day on each side.
 
+**Names, not IDs.** The board shows brand and host *names*. `Schedule.BrandID`/`HostID` are matched to
+`BrandID`/`HostID` (or `Title`) of the Brand/Host list, and also to its `ID` when the schedule column is a
+lookup. The name comes from `NamaBrand` / `NamaHost` (or `HostName`); when the list keys on a `BrandID`/`HostID`
+column, `Title` is taken as the name. If a name still cannot be found, the ID is shown and a yellow banner
+lists which IDs are unmatched — that means the `brands`/`hosts` dataset is not bound or misses those columns.
+
 | Property | List (DESIGN.md) | Formula |
 |---|---|---|
 | `schedules` | `Schedule - PBS Hub` | `Filter('Schedule - PBS Hub', Date >= DateAdd(varSchedStart, -1, TimeUnit.Days) && Date <= DateAdd(varSchedEnd, 1, TimeUnit.Days))` |
-| `brands` | `Brand - PBS Hub` | `ShowColumns('Brand - PBS Hub', Title, NamaBrand, Status)` — never bind PIC contacts |
+| `brands` | `Brand - PBS Hub` | `ShowColumns('Brand - PBS Hub', ID, Title, NamaBrand, Status)` (add `BrandID` if the list has it) — never bind PIC contacts |
 | `accounts` | `Account - PBS Hub` | `'Account - PBS Hub'` |
 | `studios` | `Studio - PBS Hub` | `'Studio - PBS Hub'` |
-| `hosts` | `Host - PBS Hub` | `ShowColumns('Host - PBS Hub', Title, NamaHost, HostName, Status)` — **never bind the whole list** (KTP, NoRekening) |
+| `hosts` | `Host - PBS Hub` | `ShowColumns('Host - PBS Hub', ID, Title, NamaHost, HostName, Status)` (add `HostID` if the list has it) — **never bind the whole list** (KTP, NoRekening) |
 | `reports` | `Report - PBS Hub` | `Filter('Report - PBS Hub', LiveDate >= varSchedStart && LiveDate <= varSchedEnd)` |
 | `absences` | `Host Absence - PBS Hub` | `Filter('Host Absence - PBS Hub', LiveDate >= varSchedStart && LiveDate <= varSchedEnd)` |
 | `clockins` | `Clock In - PBS Hub` | `ShowColumns(Filter('Clock In - PBS Hub', ClockInDate >= varSchedStart && ClockInDate <= varSchedEnd), Title, HostID, ClockInDate, CheckInTime, CheckOutTime, ClockInTime, ClockOutTime, IsInsideGeofence, CheckInOffice, Status)` — never bind GPS or selfie columns |
@@ -69,10 +75,7 @@ JSON({
     userEmail: User().Email, userName: User().FullName,
     roles: Concat(colUserRoles, RoleCode, ","), permissions: Concat(colUserPermissions, PermissionCode, ","),
     config: {
-        shifts: ["Pagi", "Siang", "Malam"],          // suggestions in the form; existing values are added
-        positions: ["Main", "Co-host"],
         platforms: ["Shopee", "TikTok"],
-        liveBreakYes: "Yes", liveBreakNo: "No",      // Schedule.LiveBreak choice values ⚠️ confirm
         maxUploadMb: 10,
         bulkFolder: "Bulk Schedule", aiFolder: "Schedule AI Automation", bulkTable: "Table1",
         aiAccept: ".xlsx,.xls,.csv,.pdf,.png,.jpg,.jpeg,.docx,.txt",
@@ -80,6 +83,10 @@ JSON({
     }
 }, JSONFormat.Compact)
 ```
+
+The single-schedule form no longer asks for Shift, Sesi, Live break or Campaign name; the handlers below do
+not write those columns, so existing values stay as they are on edit. **Position** is a choice of
+`Main Host` / `Co-Host` — the `Schedule.Position` choice column must carry exactly these two values.
 
 If `Context.permissions` is non-empty, editing and uploading need `SCHEDULE_EDIT`. If it is empty, `Mode` decides.
 
@@ -105,11 +112,10 @@ If(rid <> varLastSchedRid,
                         Date: DateValue(Text(p.date)),
                         BrandID: Text(p.brandId), StudioID: Text(p.studioId), HostID: Text(p.hostId),
                         Account: Text(p.accountId), Platform: { Value: Text(p.platform) },
-                        Shift: Text(p.shift), Sesi: Text(p.sesi),
                         StartTime: Text(p.startTime), EndTime: Text(p.endTime),
                         JamLive: Value(p.jamLive), TotalLiveTime: Value(p.jamLive),
-                        Position: { Value: Text(p.position) }, LiveBreak: { Value: Text(p.liveBreakValue) },
-                        CampaignName: Text(p.campaignName), TotalAccount: Value(p.totalAccount),
+                        Position: { Value: Text(p.position) },   // "Main Host" or "Co-Host"
+                        TotalAccount: Value(p.totalAccount),
                         Status: { Value: "Planned" } }) },
                     // Second step, as v1: Title is only known after the insert (race R5).
                     Patch('Schedule - PBS Hub', n, { Title: "SCD-" & n.ID });
@@ -122,11 +128,9 @@ If(rid <> varLastSchedRid,
                     Date: DateValue(Text(p.date)),
                     BrandID: Text(p.brandId), StudioID: Text(p.studioId), HostID: Text(p.hostId),
                     Account: Text(p.accountId), Platform: { Value: Text(p.platform) },
-                    Shift: Text(p.shift), Sesi: Text(p.sesi),
                     StartTime: Text(p.startTime), EndTime: Text(p.endTime),
                     JamLive: Value(p.jamLive), TotalLiveTime: Value(p.jamLive),
-                    Position: { Value: Text(p.position) }, LiveBreak: { Value: Text(p.liveBreakValue) },
-                    CampaignName: Text(p.campaignName), Status: { Value: Text(p.status) } });
+                    Position: { Value: Text(p.position) }, Status: { Value: Text(p.status) } });
                 Set(varSchedId, Text(p.scheduleId)),
                 Set(varOk, false); Set(varErr, FirstError.Message)),
 
@@ -177,8 +181,20 @@ The control stays locked until its own `requestId` comes back. It waits 30 secon
 ### 5a. The upload body — test this first
 
 The control reads each file in the browser and sends it as **base64** (`p.contentBase64`, plus `p.mimeType`,
-`p.sizeBytes`, `p.fileName`). Today your app passes an attachment control's file to
-`Office365Groups.HttpRequest`; the control cannot hand canvas a file object, only text.
+`p.sizeBytes`, `p.fileName`). Your current upload is:
+
+```powerfx
+ForAll(Attachments.Attachments,
+    Office365Groups.HttpRequest(
+        "https://graph.microsoft.com/v1.0/sites/" & varSiteId & "/drives/" & varDriveId & "/root:/" & varFolder & "/" & ThisRecord.Name & ":/content",
+        "PUT", ThisRecord.Value));
+Reset(Attachments);
+```
+
+The handler keeps that exact Graph call; only two things change. `ThisRecord.Name` becomes `p.fileName` (already
+prefixed `ddMMyyHHmmss_`) and `varFolder` becomes `p.folder` (`bulkFolder` / `aiFolder` from Context). The
+difference is the body: `ThisRecord.Value` is a file object from the Attachments control, and a code component
+cannot create one — it can only hand canvas text. No `ForAll` is needed; the control sends one file per request.
 
 - **A — keep the Graph call in canvas** (above): pass the data URI
   `"data:<mime>;base64,<content>"` as the body. Canvas converts a data URI into bytes for file parameters, but

@@ -167,10 +167,12 @@ export const C = {
     liveBreak: ["LiveBreak", "Live Break"],
     campaign: ["CampaignName", "Campaign"],
     totalAccount: ["TotalAccount", "Total Account"],
-    namaBrand: ["NamaBrand", "BrandName"],
+    namaBrand: ["NamaBrand", "BrandName", "Brand Name", "Nama Brand"],
+    brandKey: ["BrandID", "Brand ID", "BrandCode"],
+    hostKey: ["HostID", "Host ID", "HostCode"],
     namaStudio: ["NamaStudio", "Nama Studio", "StudioName"],
     kapasitas: ["KapasitasHost", "Kapasitas Host", "Kapasitas"],
-    namaHost: ["NamaHost", "HostName", "HostCode"],
+    namaHost: ["NamaHost", "HostName", "Host Name", "Nama Host", "NamaLengkap", "FullName", "Nama"],
     accountName: ["AccountName", "Account Name"],
     accountBrand: ["BrandID", "Brand ID", "Brand"],
     scheduleId: ["ScheduleID", "Schedule ID"],
@@ -202,10 +204,13 @@ export function mapBrands(recs: RawRecord[]): BrandRow[] {
     const seen = new Set<string>();
     const out: BrandRow[] = [];
     for (const r of recs) {
-        const brandId = toText(r.get(C.title));
+        // The key is a BrandID column when the list has one (Title then usually holds the name), else Title.
+        const title = toText(r.get(C.title));
+        const brandId = toText(r.get(C.brandKey)) || title;
         if (!brandId) continue;
         const status = toText(r.get(C.status));
-        out.push({ key: uniqueKey(seen, brandId, r.id), itemId: toNum(r.get(C.id)), brandId, namaBrand: toText(r.get(C.namaBrand)) || brandId, status, isActive: isActiveStatus(status) });
+        const namaBrand = toText(r.get(C.namaBrand)) || (title && title !== brandId ? title : "");
+        out.push({ key: uniqueKey(seen, brandId, r.id), itemId: toNum(r.get(C.id)), brandId, title, namaBrand: namaBrand || brandId, hasName: !!namaBrand, status, isActive: isActiveStatus(status) });
     }
     return out;
 }
@@ -252,10 +257,12 @@ export function mapHosts(recs: RawRecord[]): HostRow[] {
     const seen = new Set<string>();
     const out: HostRow[] = [];
     for (const r of recs) {
-        const hostId = toText(r.get(C.title));
+        const title = toText(r.get(C.title));
+        const hostId = toText(r.get(C.hostKey)) || title;
         if (!hostId) continue;
         const status = toText(r.get(C.status));
-        out.push({ key: uniqueKey(seen, hostId, r.id), itemId: toNum(r.get(C.id)), hostId, name: toText(r.get(C.namaHost)) || hostId, status, isActive: isActiveStatus(status) });
+        const name = toText(r.get(C.namaHost)) || (title && title !== hostId ? title : "");
+        out.push({ key: uniqueKey(seen, hostId, r.id), itemId: toNum(r.get(C.id)), hostId, title, name: name || hostId, hasName: !!name, status, isActive: isActiveStatus(status) });
     }
     return out;
 }
@@ -276,13 +283,35 @@ const byLower = <T>(rows: T[], id: (r: T) => string): Map<string, T> => {
     return m;
 };
 
+/** Also answers by Title and SharePoint ID, so a schedule that stores either (or a lookup) still finds its row. */
+const withAliases = <T extends { title: string; itemId: number | null }>(rows: T[], id: (r: T) => string): Map<string, T> => {
+    const m = byLower(rows, id);
+    for (const r of rows) {
+        for (const k of [r.title.toLowerCase(), r.itemId !== null ? `#${r.itemId}` : ""]) if (k && !m.has(k)) m.set(k, r);
+    }
+    return m;
+};
+
 export function buildLookups(brands: BrandRow[], hosts: HostRow[], studios: StudioRow[], accounts: AccountRow[]): Lookups {
     return {
-        brands: byLower(brands, (b) => b.brandId),
-        hosts: byLower(hosts, (h) => h.hostId),
+        brands: withAliases(brands, (b) => b.brandId),
+        hosts: withAliases(hosts, (h) => h.hostId),
         studios: byLower(studios, (s) => s.studioId),
         accounts: byLower(accounts, (a) => a.accountId),
     };
+}
+
+/** A schedule BrandID/HostID can be text, a number, or a lookup ({Id, Value} / EntityReference). */
+function findRow<T>(m: Map<string, T>, raw: unknown): T | undefined {
+    const text = toText(raw).toLowerCase();
+    if (text && m.has(text)) return m.get(text);
+    const o = Array.isArray(raw) ? raw[0] : raw;
+    if (o && typeof o === "object" && !(o instanceof Date)) {
+        const x = o as Record<string, unknown>;
+        const id = toNum(x.Id ?? x.ID ?? x.LookupId ?? (x.id && typeof x.id === "object" ? (x.id as Record<string, unknown>).guid : x.id));
+        if (id !== null && m.has(`#${id}`)) return m.get(`#${id}`);
+    }
+    return undefined;
 }
 
 export function mapSchedules(recs: RawRecord[], lk: Lookups): ScheduleRow[] {
@@ -290,8 +319,12 @@ export function mapSchedules(recs: RawRecord[], lk: Lookups): ScheduleRow[] {
     for (const r of recs) {
         const dateKey = parseDateKey(r.get(C.date));
         if (!dateKey) continue;
-        const brandId = toText(r.get(C.brandId));
-        const hostId = toText(r.get(C.hostId));
+        const brandRaw = r.get(C.brandId);
+        const hostRaw = r.get(C.hostId);
+        const brand = findRow(lk.brands, brandRaw);
+        const host = findRow(lk.hosts, hostRaw);
+        const brandId = brand?.brandId || toText(brandRaw);
+        const hostId = host?.hostId || toText(hostRaw);
         const accountId = toText(r.get(C.account));
         const startRaw = r.get(C.startTime);
         const endRaw = r.get(C.endTime);
@@ -306,10 +339,12 @@ export function mapSchedules(recs: RawRecord[], lk: Lookups): ScheduleRow[] {
             scheduleId: toText(r.get(C.title)),
             dateKey,
             brandId,
-            brandName: lk.brands.get(brandId.toLowerCase())?.namaBrand || toText(r.get(["BrandName", "NamaBrand"])) || brandId,
+            brandName: (brand?.hasName && brand.namaBrand) || toText(r.get(["BrandName", "NamaBrand"])) || brand?.namaBrand || brandId,
+            brandKnown: !!brand?.hasName || !!toText(r.get(["BrandName", "NamaBrand"])),
             studioId: toText(r.get(C.studioId)),
             hostId,
-            hostName: lk.hosts.get(hostId.toLowerCase())?.name || toText(r.get(["HostName", "NamaHost"])) || hostId,
+            hostName: (host?.hasName && host.name) || toText(r.get(["HostName", "NamaHost"])) || host?.name || hostId,
+            hostKnown: !!host?.hasName || !!toText(r.get(["HostName", "NamaHost"])),
             accountId,
             accountName: lk.accounts.get(accountId.toLowerCase())?.accountName || accountId,
             platform: toText(r.get(C.platform)),

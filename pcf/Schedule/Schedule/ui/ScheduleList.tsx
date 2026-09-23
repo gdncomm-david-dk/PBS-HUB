@@ -2,13 +2,19 @@ import * as React from "react";
 import { ScheduleRow } from "../core/types";
 import { applyFilters, distinct, Filters, hasActiveFilter, hoursOf, phaseOf, rangeKeys, sortSessions, timeRange, weekStart } from "../core/schedule";
 import { BULAN_PENDEK, dateKeyToDate, formatDateShort, HARI, shiftDay, toDateKey } from "../core/time";
-import { Button, Card, cx, Icon, SkeletonRows } from "./components";
+import { Banner, Button, Card, cx, Icon, SkeletonRows } from "./components";
 import { Env, scheduleStatus, StatusBadge } from "./shared";
 import { DeleteDialog } from "./Dialogs";
 
 const PAGE = 50;
+const formatHours = (h: number): string => (Math.round(h * 10) / 10).toLocaleString("id-ID");
 
 type View = "calendar" | "list";
+type Lanes = "brand" | "studio";
+
+const byName = (a: string, b: string): number => a.localeCompare(b, "id", { sensitivity: "base" });
+/** Grouped by brand name (A–Z), then by date and start time. */
+export const sortByBrand = (a: ScheduleRow, b: ScheduleRow): number => byName(a.brandName, b.brandName) || sortSessions(a, b);
 
 const monthRange = (todayKey: string): [string, string] => {
     const d = dateKeyToDate(todayKey);
@@ -32,6 +38,7 @@ export function ScheduleList(props: {
 }): React.ReactElement {
     const { env } = props;
     const [view, setView] = React.useState<View>("calendar");
+    const [lanes, setLanes] = React.useState<Lanes>("brand");
     const wk = weekStart(env.todayKey);
     const [f, setF] = React.useState<Filters>({ from: wk, to: shiftDay(wk, 6), brandId: "", hostId: "", studioId: "", platform: "", status: "", q: "", only: "" });
     const [limit, setLimit] = React.useState(PAGE);
@@ -64,7 +71,7 @@ export function ScheduleList(props: {
     const missingReport = React.useCallback((s: ScheduleRow) => scheduleStatus(s.status).chip !== "off" && phaseOf(s, env.now) === "ended" && !env.ev.isLocked(s), [env.now, env.ev]);
     const inRange = React.useMemo(() => env.schedules.filter((s) => s.dateKey >= f.from && s.dateKey <= f.to), [env.schedules, f.from, f.to]);
     const rows = React.useMemo(
-        () => applyFilters(env.schedules, f, { conflicts: env.conflicts, missingReport }).sort(sortSessions),
+        () => applyFilters(env.schedules, f, { conflicts: env.conflicts, missingReport }).sort(sortByBrand),
         [env.schedules, f, env.conflicts, missingReport],
     );
 
@@ -73,9 +80,21 @@ export function ScheduleList(props: {
     const clash = inRange.filter((s) => env.conflicts.has(s.key));
     const noReport = inRange.filter(missingReport);
     const totalHours = active.reduce((t, s) => t + hoursOf(s), 0);
+    const unknownBrand = distinct(inRange.filter((s) => !s.brandKnown && s.brandId).map((s) => s.brandId));
+    const unknownHost = distinct(inRange.filter((s) => !s.hostKnown && s.hostId).map((s) => s.hostId));
+    const groups = React.useMemo(() => {
+        const m = new Map<string, { count: number; hours: number }>();
+        for (const s of rows) {
+            const g = m.get(s.brandName) ?? { count: 0, hours: 0 };
+            g.count++;
+            if (scheduleStatus(s.status).chip !== "off") g.hours += hoursOf(s);
+            m.set(s.brandName, g);
+        }
+        return m;
+    }, [rows]);
 
-    const brandOpts = env.brands.map((b) => ({ v: b.brandId, l: b.namaBrand }));
-    const hostOpts = env.hosts.map((h) => ({ v: h.hostId, l: h.name }));
+    const brandOpts = env.brands.map((b) => ({ v: b.brandId, l: b.namaBrand })).sort((a, b) => byName(a.l, b.l));
+    const hostOpts = env.hosts.map((h) => ({ v: h.hostId, l: h.name })).sort((a, b) => byName(a.l, b.l));
     const studioOpts = distinct([...env.studios.map((s) => s.studioId), ...inRange.map((s) => s.studioId)]).map((id) => ({ v: id, l: `${id}${env.lk.studios.get(id.toLowerCase())?.namaStudio ? " · " + env.studioName(id) : ""}` }));
     const platformOpts = distinct([...env.config.platforms, ...inRange.map((s) => s.platform)]).map((p) => ({ v: p, l: p }));
     const statusOpts = distinct([...env.config.statuses, ...inRange.map((s) => s.status)]).map((s) => ({ v: s, l: scheduleStatus(s).label }));
@@ -202,6 +221,16 @@ export function ScheduleList(props: {
                     </button>
                 </div>
                 {view === "calendar" && (
+                    <div className="sc-viewtoggle sc-viewtoggle--sm" role="tablist" aria-label="Baris kalender">
+                        <button type="button" role="tab" aria-selected={lanes === "brand"} className={cx(lanes === "brand" && "is-on")} onClick={() => setLanes("brand")}>
+                            Per brand
+                        </button>
+                        <button type="button" role="tab" aria-selected={lanes === "studio"} className={cx(lanes === "studio" && "is-on")} onClick={() => setLanes("studio")}>
+                            Per studio
+                        </button>
+                    </div>
+                )}
+                {view === "calendar" && (
                     <div className="sc-month">
                         <button type="button" className="sc-iconbtn" aria-label="Minggu sebelumnya" onClick={() => setWeek(shiftDay(f.from, -7))}>
                             {Icon.left()}
@@ -222,8 +251,16 @@ export function ScheduleList(props: {
                 </div>
             </div>
 
+            {(unknownBrand.length > 0 || unknownHost.length > 0) && !env.loading && (
+                <Banner tone="warning">
+                    Nama tidak ditemukan untuk{" "}
+                    {[unknownBrand.length ? `${unknownBrand.length} brand (${unknownBrand.slice(0, 5).join(", ")}${unknownBrand.length > 5 ? ", …" : ""})` : "", unknownHost.length ? `${unknownHost.length} host (${unknownHost.slice(0, 5).join(", ")}${unknownHost.length > 5 ? ", …" : ""})` : ""].filter(Boolean).join(" dan ")}
+                    , jadi ID yang ditampilkan. Pastikan dataset <b>brands</b> dan <b>hosts</b> di-bind dengan kolom ID dan nama (BrandID/Title + NamaBrand, HostID/Title + NamaHost).
+                </Banner>
+            )}
+
             {view === "calendar" ? (
-                <Calendar env={env} from={f.from} rows={rows} filtered={filtered} onCreate={props.onCreate} />
+                <Calendar env={env} from={f.from} rows={rows} filtered={filtered} lanes={lanes} onCreate={props.onCreate} />
             ) : (
                 <div className="sc-tablewrap">
                     <table className="sc-table">
@@ -231,28 +268,38 @@ export function ScheduleList(props: {
                             <tr>
                                 <th>Tanggal</th>
                                 <th>Jam</th>
-                                <th>Brand</th>
                                 <th>Account</th>
                                 <th>Host</th>
                                 <th>Studio</th>
                                 <th>Platform</th>
-                                <th>Shift</th>
                                 <th>Status</th>
                                 <th aria-label="Aksi" />
                             </tr>
                         </thead>
                         <tbody>
                             {env.loading && rows.length === 0 ? (
-                                <SkeletonRows rows={8} cols={10} />
+                                <SkeletonRows rows={8} cols={8} />
                             ) : rows.length === 0 ? (
                                 <tr>
-                                    <td colSpan={10}>
+                                    <td colSpan={8}>
                                         <EmptyState env={env} filtered={filtered} onClear={() => set({ brandId: "", hostId: "", studioId: "", platform: "", status: "", q: "", only: "" })} onCreate={() => props.onCreate()} />
                                     </td>
                                 </tr>
                             ) : (
-                                rows.slice(0, limit).map((s) => (
-                                    <ListRow key={s.key} env={env} s={s} onEdit={() => props.onEdit(s)} onDelete={() => setConfirmDelete(s)} />
+                                rows.slice(0, limit).map((s, i, shown) => (
+                                    <React.Fragment key={s.key}>
+                                        {(i === 0 || shown[i - 1].brandName !== s.brandName) && (
+                                            <tr className="sc-group">
+                                                <td colSpan={8}>
+                                                    <b>{s.brandName || "Tanpa brand"}</b>
+                                                    <span className="sc-muted">
+                                                        {groups.get(s.brandName)?.count ?? 0} sesi · {formatHours(groups.get(s.brandName)?.hours ?? 0)} jam
+                                                    </span>
+                                                </td>
+                                            </tr>
+                                        )}
+                                        <ListRow env={env} s={s} onEdit={() => props.onEdit(s)} onDelete={() => setConfirmDelete(s)} />
+                                    </React.Fragment>
                                 ))
                             )}
                         </tbody>
@@ -334,15 +381,16 @@ function ListRow(props: { env: Env; s: ScheduleRow; onEdit: () => void; onDelete
                 {timeRange(s)}
                 {clash && <i className="sc-conflictdot" title={clash.map((c) => c.message).join("\n")} />}
             </td>
-            <td>
-                <b>{s.brandName}</b>
+            <td className="sc-ellipsis" title={s.accountName}>
+                {s.accountName || "—"}
                 <div className="sc-muted sc-mono">{s.scheduleId || "ID belum terisi"}</div>
             </td>
-            <td className="sc-ellipsis" title={s.accountName}>{s.accountName || "—"}</td>
-            <td>{s.hostName || "—"}</td>
+            <td>
+                <b>{s.hostName || "—"}</b>
+                {s.position && <div className="sc-muted">{s.position}</div>}
+            </td>
             <td className="sc-nowrap">{s.studioId || "—"}</td>
             <td>{s.platform || "—"}</td>
-            <td>{s.shift || "—"}</td>
             <td className="sc-nowrap">
                 <StatusBadge status={s.status} />
                 {live && <span className="sc-livetag">Live</span>}
@@ -396,16 +444,19 @@ function RowMenu(props: { env: Env; locked: boolean; onOpen: () => void; onEdit:
 // ---------------------------------------------------------------------------------------------
 // Calendar: week columns × studio lanes
 
-function Calendar(props: { env: Env; from: string; rows: ScheduleRow[]; filtered: boolean; onCreate: (preset?: Partial<ScheduleRow>) => void }): React.ReactElement {
+function Calendar(props: { env: Env; from: string; rows: ScheduleRow[]; filtered: boolean; lanes: Lanes; onCreate: (preset?: Partial<ScheduleRow>) => void }): React.ReactElement {
     const { env } = props;
+    const byBrand = props.lanes === "brand";
     const days = rangeKeys(props.from, shiftDay(props.from, 6));
-    const laneIds = distinct([
-        ...(props.filtered ? [] : env.studios.filter((s) => s.isActive).map((s) => s.studioId)),
-        ...props.rows.map((s) => s.studioId || "—"),
-    ]);
+    const laneOf = (s: ScheduleRow): string => (byBrand ? s.brandName : s.studioId) || "—";
+    const laneIds = byBrand
+        ? distinct(props.rows.map(laneOf)).sort(byName)
+        : distinct([...(props.filtered ? [] : env.studios.filter((s) => s.isActive).map((s) => s.studioId)), ...props.rows.map(laneOf)]);
+    const brandOfLane = new Map<string, ScheduleRow>();
+    for (const s of props.rows) if (!brandOfLane.has(laneOf(s).toLowerCase())) brandOfLane.set(laneOf(s).toLowerCase(), s);
     const cell = new Map<string, ScheduleRow[]>();
     for (const s of props.rows) {
-        const k = `${(s.studioId || "—").toLowerCase()}|${s.dateKey}`;
+        const k = `${laneOf(s).toLowerCase()}|${s.dateKey}`;
         const a = cell.get(k);
         if (a) a.push(s);
         else cell.set(k, [s]);
@@ -437,7 +488,7 @@ function Calendar(props: { env: Env; from: string; rows: ScheduleRow[]; filtered
     return (
         <div className="sc-cal">
             <div className="sc-cal__row sc-cal__row--head">
-                <div className="sc-cal__lane">Studio</div>
+                <div className="sc-cal__lane">{byBrand ? "Brand" : "Studio"}</div>
                 {days.map((d) => {
                     const dt = dateKeyToDate(d);
                     return (
@@ -449,22 +500,38 @@ function Calendar(props: { env: Env; from: string; rows: ScheduleRow[]; filtered
                 })}
             </div>
             {laneIds.map((id) => {
-                const st = env.lk.studios.get(id.toLowerCase());
+                const st = byBrand ? undefined : env.lk.studios.get(id.toLowerCase());
+                const first = brandOfLane.get(id.toLowerCase());
+                const laneCount = props.rows.filter((s) => laneOf(s).toLowerCase() === id.toLowerCase()).length;
                 return (
                     <div key={id} className="sc-cal__row">
                         <div className="sc-cal__lane">
-                            <b className="sc-mono">{id}</b>
-                            <span className="sc-muted">{st ? `${st.namaStudio || ""} · ${Math.max(1, st.kapasitasHost || 1)} host` : "Tidak ada di master Studio"}</span>
+                            {byBrand ? (
+                                <>
+                                    <b>{id}</b>
+                                    <span className="sc-muted">{laneCount} sesi minggu ini</span>
+                                </>
+                            ) : (
+                                <>
+                                    <b className="sc-mono">{id}</b>
+                                    <span className="sc-muted">{st ? `${st.namaStudio || ""} · ${Math.max(1, st.kapasitasHost || 1)} host` : "Tidak ada di master Studio"}</span>
+                                </>
+                            )}
                         </div>
                         {days.map((d) => {
                             const items = (cell.get(`${id.toLowerCase()}|${d}`) ?? []).sort(sortSessions);
                             return (
                                 <div key={d} className={cx("sc-cal__cell", d === env.todayKey && "is-today", d < env.todayKey && "is-past")}>
                                     {items.map((s) => (
-                                        <CalChip key={s.key} env={env} s={s} />
+                                        <CalChip key={s.key} env={env} s={s} lane={props.lanes} />
                                     ))}
-                                    {env.canEdit && d >= env.todayKey && st && (
-                                        <button type="button" className="sc-cal__add" aria-label={`Buat jadwal ${id} ${d}`} onClick={() => props.onCreate({ studioId: st.studioId, dateKey: d })}>
+                                    {env.canEdit && d >= env.todayKey && (st || (byBrand && first)) && (
+                                        <button
+                                            type="button"
+                                            className="sc-cal__add"
+                                            aria-label={`Buat jadwal ${id} ${d}`}
+                                            onClick={() => props.onCreate(st ? { studioId: st.studioId, dateKey: d } : { brandId: first?.brandId ?? "", dateKey: d })}
+                                        >
                                             {Icon.plus(12)}
                                         </button>
                                     )}
@@ -478,7 +545,7 @@ function Calendar(props: { env: Env; from: string; rows: ScheduleRow[]; filtered
     );
 }
 
-function CalChip(props: { env: Env; s: ScheduleRow }): React.ReactElement {
+function CalChip(props: { env: Env; s: ScheduleRow; lane: Lanes }): React.ReactElement {
     const { env, s } = props;
     const st = scheduleStatus(s.status);
     const clash = env.conflicts.get(s.key);
@@ -492,11 +559,23 @@ function CalChip(props: { env: Env; s: ScheduleRow }): React.ReactElement {
                 {locked && <span className="sc-calchip__lock">{Icon.lock(11)}</span>}
                 {clash && <i className="sc-conflictdot" />}
             </span>
-            <b className="sc-calchip__brand">{s.brandName}</b>
-            <span className="sc-calchip__meta">
-                {s.hostName}
-                {s.platform ? ` · ${s.platform}` : ""}
-            </span>
+            {props.lane === "brand" ? (
+                <>
+                    <b className="sc-calchip__brand">{s.hostName || "—"}</b>
+                    <span className="sc-calchip__meta">
+                        {s.studioId}
+                        {s.platform ? ` · ${s.platform}` : ""}
+                    </span>
+                </>
+            ) : (
+                <>
+                    <b className="sc-calchip__brand">{s.brandName}</b>
+                    <span className="sc-calchip__meta">
+                        {s.hostName}
+                        {s.platform ? ` · ${s.platform}` : ""}
+                    </span>
+                </>
+            )}
         </button>
     );
 }

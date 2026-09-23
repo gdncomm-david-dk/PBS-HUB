@@ -76,11 +76,7 @@ export function App(props: AppProps): React.ReactElement {
     const config: Config = React.useMemo(
         () => ({
             platforms: distinct([...strList(cfg.platforms), ...props.accounts.map((a) => a.platform), ...props.schedules.map((s) => s.platform), "Shopee", "TikTok"]),
-            shifts: distinct([...strList(cfg.shifts), ...props.schedules.map((s) => s.shift)]),
-            positions: distinct([...strList(cfg.positions), ...props.schedules.map((s) => s.position)]),
             statuses: distinct([...strList(cfg.statuses), "Planned", "Done", "Waiting Report", "Finished", "Cancelled", "Leave", ...props.schedules.map((s) => s.status)]),
-            liveBreakYes: str(cfg.liveBreakYes, "Yes"),
-            liveBreakNo: str(cfg.liveBreakNo, "No"),
             maxUploadMb: numOr(cfg.maxUploadMb, 10),
             aiAccept: str(cfg.aiAccept, ".xlsx,.xls,.csv,.pdf,.png,.jpg,.jpeg,.docx,.txt"),
             bulkFolder: str(cfg.bulkFolder, "Bulk Schedule"),

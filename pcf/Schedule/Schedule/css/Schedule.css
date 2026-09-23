@@ -404,3 +404,8 @@
 .sc-record__cell b { max-width: 240px; overflow: hidden; text-overflow: ellipsis; }
 .sc-record__end { flex-wrap: wrap; justify-content: flex-end; }
 .sc-livetag { white-space: nowrap; }
+
+/* Brand groups in the list */
+.pbs-sc .sc-group td { background: var(--surface, #F5F7FA); padding: 8px 12px; border-top: 1px solid var(--border); font-size: 13px; }
+.pbs-sc .sc-group td b { margin-right: 8px; color: var(--text-primary); }
+.pbs-sc .sc-viewtoggle--sm button { padding: 0 10px; font-size: 12px; }
