@@ -399,3 +399,8 @@
 .sc-reasons { font-size: 12px; color: var(--text-secondary); min-width: 220px; }
 .sc-progress { display: flex; flex-direction: column; gap: 8px; padding: 14px 16px; border: 1px solid var(--border); border-radius: 8px; }
 .sc-progress__head { display: flex; justify-content: space-between; align-items: baseline; font-size: 13px; }
+.sc-record { flex-wrap: wrap; row-gap: 12px; }
+.sc-record__id { white-space: nowrap; }
+.sc-record__cell b { max-width: 240px; overflow: hidden; text-overflow: ellipsis; }
+.sc-record__end { flex-wrap: wrap; justify-content: flex-end; }
+.sc-livetag { white-space: nowrap; }

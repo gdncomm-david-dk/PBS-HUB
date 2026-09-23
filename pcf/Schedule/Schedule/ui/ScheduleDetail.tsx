@@ -10,7 +10,7 @@ import { DeleteDialog } from "./Dialogs";
 export function ScheduleDetail(props: { env: Env; schedule: ScheduleRow; onBack: () => void; onEdit: () => void; onDuplicate: () => void }): React.ReactElement {
     const { env, schedule: s } = props;
     const steps = React.useMemo(() => buildTimeline(s, env.ev, env.now), [s, env.ev, env.now]);
-    const firstOpen = steps.find((x) => x.state === "active" || x.state === "failed")?.id ?? steps[steps.length - 1].id;
+    const firstOpen = (steps.find((x) => x.state === "active" || x.state === "failed") ?? steps.find((x) => x.state === "pending") ?? steps[steps.length - 1]).id;
     const [sel, setSel] = React.useState<StepId>(firstOpen);
     const [confirmDelete, setConfirmDelete] = React.useState(false);
     const [reminding, setReminding] = React.useState(false);
