@@ -1,0 +1,69 @@
+import { jsonRecords, mapReports, mapSchedules, mapStudios } from "../StudioDirectory/core/data";
+import { formatIdr, formatIdrShort, ReportIndex, sessionGmv, studioGmv } from "../StudioDirectory/core/gmv";
+import { ScheduleIndex } from "../StudioDirectory/core/utilization";
+
+const rec = (rows: Record<string, unknown>[]) => jsonRecords(JSON.stringify(rows)) ?? [];
+const [studio] = mapStudios(rec([{ Title: "CWG-05", NamaStudio: "Kemang B", KapasitasHost: 2 }]));
+const schedules = mapSchedules(
+    rec([
+        { Title: "SCD-1", Date: "2026-09-10", StudioID: "CWG-05", BrandID: "BR-01", HostID: "H1", StartTime: "10:00", EndTime: "12:00", Status: "Done" },
+        { Title: "SCD-2", Date: "2026-09-10", StudioID: "CWG-05", BrandID: "BR-02", HostID: "H2", StartTime: "14:00", EndTime: "16:00", Status: "Done" },
+        { Title: "SCD-3", Date: "2026-09-11", StudioID: "CWG-05", BrandID: "BR-01", HostID: "H1", StartTime: "10:00", EndTime: "12:00", Status: "Done" },
+        { Title: "SCD-4", Date: "2026-09-12", StudioID: "CWG-05", BrandID: "BR-01", HostID: "H1", StartTime: "10:00", EndTime: "12:00", Status: "Cancelled" },
+        { Title: "SCD-5", Date: "2026-09-30", StudioID: "CWG-05", BrandID: "BR-02", HostID: "H2", StartTime: "10:00", EndTime: "12:00", Status: "Planned" },
+        { Title: "SCD-9", Date: "2026-09-10", StudioID: "CWG-07", BrandID: "BR-01", HostID: "H3", StartTime: "10:00", EndTime: "12:00", Status: "Done" },
+    ]),
+    new Map([["br-01", "Hanasui"], ["br-02", "WINGS"]]),
+    new Map(),
+);
+const reports = new ReportIndex(
+    mapReports(
+        rec([
+            // SCD-1 streamed on two accounts → two reports, summed
+            { Title: "R1", ScheduleID: "SCD-1", Penjualan: 10000000, ApprovalStatus: { Value: "Done" } },
+            { Title: "R2", ScheduleID: "SCD-1", Penjualan: 5000000, ApprovalStatus: { Value: "Done" } },
+            { Title: "R2", ScheduleID: "SCD-1", Penjualan: 5000000, ApprovalStatus: { Value: "Done" } }, // duplicate row
+            { Title: "R3", ScheduleID: "scd-2", Penjualan: 4000000, ApprovalStatus: { Value: "Waiting Approval" } },
+            { Title: "R4", ScheduleID: "SCD-9", Penjualan: 99000000, ApprovalStatus: "Done" }, // other studio
+            { Title: "R5", Penjualan: 1 }, // no ScheduleID → unattributable
+        ]),
+    ),
+);
+const idx = new ScheduleIndex(schedules);
+
+describe("studio GMV", () => {
+    const g = studioGmv(idx, reports, studio, "2026-09", "2026-09-20", 600);
+
+    it("sums reports through ScheduleID and ignores other studios and duplicates", () => {
+        expect(g.total).toBe(19000000);
+        expect(g.verified).toBe(15000000);
+        expect(g.pending).toBe(4000000);
+    });
+
+    it("counts sessions, reported sessions and overdue reports; cancelled sessions are excluded", () => {
+        expect(g.sessions).toBe(4);
+        expect(g.reportedSessions).toBe(2);
+        expect(g.missingReports).toBe(1); // SCD-3 ended without a report; SCD-5 is not due yet
+        expect(g.perSession).toBe(9500000);
+        expect(g.perHour).toBe(19000000 / 4);
+    });
+
+    it("ranks brands by GMV", () => {
+        expect(g.byBrand.map((b) => [b.brandName, b.gmv])).toEqual([["Hanasui", 15000000], ["WINGS", 4000000]]);
+    });
+
+    it("labels each session's report state", () => {
+        const byId = (id: string) => schedules.find((s) => s.scheduleId === id)!;
+        expect(sessionGmv(reports, byId("SCD-1"), "2026-09-20", 600).state).toBe("verified");
+        expect(sessionGmv(reports, byId("SCD-2"), "2026-09-20", 600).state).toBe("pending");
+        expect(sessionGmv(reports, byId("SCD-3"), "2026-09-20", 600).state).toBe("missing");
+        expect(sessionGmv(reports, byId("SCD-5"), "2026-09-20", 600).state).toBe("notDue");
+    });
+
+    it("formats rupiah", () => {
+        expect(formatIdr(1759842000)).toBe("Rp 1.759.842.000");
+        expect(formatIdrShort(1759842000)).toBe("Rp 1,8 M");
+        expect(formatIdrShort(13100000)).toBe("Rp 13,1 jt");
+        expect(formatIdrShort(820000)).toBe("Rp 820 rb");
+    });
+});

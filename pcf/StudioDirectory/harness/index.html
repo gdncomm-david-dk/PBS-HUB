@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="utf-8" />
+    <title>StudioDirectory harness</title>
+    <link rel="stylesheet" href="../out/controls/StudioDirectory/css/StudioDirectory.css" />
+    <style>
+        html, body { margin: 0; height: 100%; background: #EDEDEA; font: 12px system-ui, sans-serif; }
+        .bar { height: 36px; display: flex; align-items: center; gap: 12px; padding: 0 12px; background: #1a1a1a; color: #fff; }
+        .bar pre { margin: 0; flex: 1; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; color: #9ad; }
+        #host { position: absolute; top: 36px; left: 0; right: 0; bottom: 0; background: #fff; }
+    </style>
+</head>
+<body>
+    <div class="bar">
+        <b>pbs_Ops.StudioDirectory · harness</b>
+        <label>Mode <select id="mode"><option>Admin</option><option>ReadOnly</option></select></label>
+        <pre id="log">ActionPayload → (belum ada)</pre>
+    </div>
+    <div id="host"></div>
+    <script src="harness.js"></script>
+</body>
+</html>

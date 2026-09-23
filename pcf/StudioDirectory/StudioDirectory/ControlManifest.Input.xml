@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<manifest>
+  <!--
+    pbs_Ops.StudioDirectory — PBS Hub Studio list (SD-1) and Studio detail (SD-2).
+
+    Data mapping follows DESIGN.md (Database Schema):
+      studios   → "Studio - PBS Hub"        Title (StudioID), NamaStudio, KapasitasHost, LokasiStudio, Status
+      locations → "Studio Location - PBS"   Title, Latitude, Longitude, RadiusMeter, IsActive
+      schedules → "Schedule - PBS Hub"      Title, Date, BrandID, StudioID, HostID, StartTime, EndTime, JamLive, Status, ...
+      brands    → "Brand - PBS Hub"         Title (BrandID), NamaBrand            (optional, for display names)
+      hosts     → "Host - PBS Hub"          Title (HostID), NamaHost, HostName    (optional, for display names)
+      reports   → "Report - PBS Hub"        Title, ScheduleID, LiveDate, Penjualan, ApprovalStatus, Match (optional, for studio GMV)
+
+    Every dataset also has a *Json text fallback, for makers who prefer JSON(ShowColumns(...)).
+    The control never writes. It emits ActionPayload; the canvas app performs the Patch and
+    answers through ActionResult with the same requestId.
+  -->
+  <control namespace="Ops" constructor="StudioDirectory" version="1.1.0" display-name-key="PBS Studio Directory" description-key="PBS Hub studio list, studio detail, geofence editor and studio utilization." control-type="standard">
+    <external-service-usage enabled="false">
+    </external-service-usage>
+
+    <data-set name="studios" display-name-key="Studios (Studio - PBS Hub)" description-key="Bind to 'Studio - PBS Hub'. Columns: Title, NamaStudio, KapasitasHost, LokasiStudio, Status." />
+    <data-set name="locations" display-name-key="Locations (Studio Location - PBS)" description-key="Bind to 'Studio Location - PBS'. Columns: Title, Latitude, Longitude, RadiusMeter, IsActive." />
+    <data-set name="schedules" display-name-key="Schedules (Schedule - PBS Hub)" description-key="Bind to 'Schedule - PBS Hub', filtered to the previous and the selected month. Columns: Title, Date, BrandID, StudioID, HostID, StartTime, EndTime, JamLive, Status, Platform, Account, Shift, CampaignName." />
+    <data-set name="brands" display-name-key="Brands (Brand - PBS Hub)" description-key="Optional. Bind to 'Brand - PBS Hub' to show brand names. Columns: Title, NamaBrand." />
+    <data-set name="hosts" display-name-key="Hosts (Host - PBS Hub)" description-key="Optional. Bind to 'Host - PBS Hub' to show host names. Columns: Title, NamaHost, HostName." />
+
+    <data-set name="reports" display-name-key="Reports (Report - PBS Hub)" description-key="Optional. Bind to 'Report - PBS Hub' for the same period as schedules, to show GMV per studio. Columns: Title, ScheduleID, LiveDate, Penjualan, ApprovalStatus, Match, BrandID." />
+
+    <property name="StudiosJson" display-name-key="StudiosJson" description-key="Optional JSON fallback for the studios dataset: JSON(ShowColumns('Studio - PBS Hub', ...))." of-type="Multiple" usage="input" required="false" />
+    <property name="LocationsJson" display-name-key="LocationsJson" description-key="Optional JSON fallback for the locations dataset." of-type="Multiple" usage="input" required="false" />
+    <property name="SchedulesJson" display-name-key="SchedulesJson" description-key="Optional JSON fallback for the schedules dataset." of-type="Multiple" usage="input" required="false" />
+    <property name="BrandsJson" display-name-key="BrandsJson" description-key="Optional JSON fallback for the brands dataset." of-type="Multiple" usage="input" required="false" />
+    <property name="HostsJson" display-name-key="HostsJson" description-key="Optional JSON fallback for the hosts dataset." of-type="Multiple" usage="input" required="false" />
+    <property name="ReportsJson" display-name-key="ReportsJson" description-key="Optional JSON fallback for the reports dataset." of-type="Multiple" usage="input" required="false" />
+
+    <property name="Context" display-name-key="Context" description-key="JSON: { userEmail, userName, roles, permissions, config: { maxAccuracyMeters } }. Never carries row data." of-type="Multiple" usage="input" required="false" />
+    <property name="Mode" display-name-key="Mode" description-key="Admin shows edit actions. ReadOnly hides them." of-type="Enum" usage="input" required="false" default-value="Admin">
+      <value name="Admin" display-name-key="Admin">Admin</value>
+      <value name="ReadOnly" display-name-key="ReadOnly">ReadOnly</value>
+    </property>
+    <property name="ActionResult" display-name-key="ActionResult" description-key="JSON reply from canvas: { requestId, status: 'ok' | 'error', message, data }." of-type="Multiple" usage="input" required="false" />
+    <property name="OperatingHourStart" display-name-key="OperatingHourStart" description-key="Studio opening hour (0-23) used as the utilization denominator. Default 8." of-type="Whole.None" usage="input" required="false" default-value="8" />
+    <property name="OperatingHourEnd" display-name-key="OperatingHourEnd" description-key="Studio closing hour (1-24) used as the utilization denominator. Default 22." of-type="Whole.None" usage="input" required="false" default-value="22" />
+
+    <property name="SelectedStudioId" display-name-key="SelectedStudioId" description-key="StudioID of the open detail page. Set it to deep-link into a studio; read it to know which one is open. Blank = list." of-type="SingleLine.Text" usage="bound" required="false" />
+    <property name="ActionPayload" display-name-key="ActionPayload" description-key="JSON intent emitted by the control: { action, requestId, payload }. Handle it in OnChange." of-type="Multiple" usage="output" />
+
+    <resources>
+      <code path="index.ts" order="1" />
+      <css path="css/StudioDirectory.css" order="1" />
+    </resources>
+
+    <feature-usage>
+      <uses-feature name="Device.getCurrentPosition" required="false" />
+    </feature-usage>
+  </control>
+</manifest>
