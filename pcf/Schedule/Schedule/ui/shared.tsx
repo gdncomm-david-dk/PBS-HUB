@@ -30,6 +30,9 @@ export interface Config {
     aiFolder: string;
     bulkTable: string;
     templateUrl: string;
+    /** "control": files are picked, checked and sent by the control. "canvas": the buttons only emit
+     *  OPEN_UPLOAD and the app opens its own Attachments popup (the Graph PUT with ThisRecord.Value). */
+    uploadMode: "control" | "canvas";
 }
 
 export interface Pending {

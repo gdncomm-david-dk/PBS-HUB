@@ -137,6 +137,7 @@ export type ActionName =
     | "EDIT_SCHEDULE"
     | "DELETE_SCHEDULE"
     | "UPLOAD_SCHEDULE_FILE"
+    | "OPEN_UPLOAD"
     | "REMIND_HOST"
     | "NAV_SESSION_DETAIL";
 

@@ -79,7 +79,8 @@ JSON({
         maxUploadMb: 10,
         bulkFolder: "Bulk Schedule", aiFolder: "Schedule AI Automation", bulkTable: "Table1",
         aiAccept: ".xlsx,.xls,.csv,.pdf,.png,.jpg,.jpeg,.docx,.txt",
-        templateUrl: "<link to the bulk template in /PBS Power Apps/Template>"
+        templateUrl: "<link to the bulk template in /PBS Power Apps/Template>",
+        uploadMode: "control"   // or "canvas": keep your Attachments popup, see 5b
     }
 }, JSONFormat.Compact)
 ```
@@ -92,7 +93,7 @@ If `Context.permissions` is non-empty, editing and uploading need `SCHEDULE_EDIT
 
 ## 5. Handle actions (`OnChange`)
 
-`varSiteId` and `varDriveId` are the site and drive IDs your current Graph upload already uses
+`varSiteID` and `varDriveID` are the site and drive IDs your current Graph upload already uses
 (the `PBS Power Apps` library on `sites/StudioTeamBlibli`).
 
 ```powerfx
@@ -144,13 +145,13 @@ If(rid <> varLastSchedRid,
             IfError(
                 // Same Graph call as today; only the body source changes (see 5a).
                 Office365Groups.HttpRequest(
-                    "https://graph.microsoft.com/v1.0/sites/" & varSiteId & "/drives/" & varDriveId &
+                    "https://graph.microsoft.com/v1.0/sites/" & varSiteID & "/drives/" & varDriveID &
                         "/root:/" & EncodeUrl(Text(p.folder)) & "/" & EncodeUrl(Text(p.fileName)) & ":/content",
                     "PUT",
                     "data:" & Text(p.mimeType) & ";base64," & Text(p.contentBase64));
                 If(Text(p.kind) = "BULK",
                     // One run per file. v1 ran the flow for the FIRST file only.
-                    PBS0001A.Run(Text(p.fileName));
+                    'PBS0001A-CreateAutomatedSchedule[AIPowered]'.Run(Text(p.fileName));
                     Set(varMsg, "Terunggah, PBS0001A berjalan"),
                     Set(varMsg, "Terunggah, AI Schedule berjalan")),
                 Set(varOk, false); Set(varErr, FirstError.Message)),
@@ -172,7 +173,7 @@ If(rid <> varLastSchedRid,
 )))
 ```
 
-`PBS0001A.Run(...)` stands for the call your app already makes. Keep its real name and parameters. If the flow
+`'PBS0001A-CreateAutomatedSchedule[AIPowered]'.Run(...)` is the call your app already makes. If the flow
 returns the number of rows it created, add `created: <number>` to `data` and the dialog will show it.
 
 The control stays locked until its own `requestId` comes back. It waits 30 seconds for a save and
@@ -186,7 +187,7 @@ The control reads each file in the browser and sends it as **base64** (`p.conten
 ```powerfx
 ForAll(Attachments.Attachments,
     Office365Groups.HttpRequest(
-        "https://graph.microsoft.com/v1.0/sites/" & varSiteId & "/drives/" & varDriveId & "/root:/" & varFolder & "/" & ThisRecord.Name & ":/content",
+        "https://graph.microsoft.com/v1.0/sites/" & varSiteID & "/drives/" & varDriveID & "/root:/" & varFolder & "/" & ThisRecord.Name & ":/content",
         "PUT", ThisRecord.Value));
 Reset(Attachments);
 ```
@@ -207,8 +208,87 @@ cannot create one — it can only hand canvas text. No `ForAll` is needed; the c
   `base64ToBinary`). In the handler above, replace `Office365Groups.HttpRequest(...)` with
   `PBSUploadScheduleFile.Run(Text(p.folder), Text(p.fileName), Text(p.contentBase64))`.
 
-File names are `ddMMyyHHmmss_<original name>`. This is v1's prefix with a 24-hour clock, so files uploaded
-12 hours apart no longer collide.
+File names are `ddMMyyHHmmss_<original name>`, the same prefix as your `Text(Now(), "ddmmyyhhmmss_")`
+(Power Fx `hh` is already 24-hour when the format has no AM/PM).
+
+### 5b. Keep your current Attachments upload (`uploadMode: "canvas"`)
+
+If you would rather not change the upload at all, set `uploadMode: "canvas"` in `Context.config`. The
+**Upload massal** and **AI Schedule** buttons then only emit `OPEN_UPLOAD` (`p.kind` = `BULK` or `AI`) and your
+existing popup does the work. You lose the control's row check before upload; everything else stays.
+
+Add this branch to the `Switch` in `OnChange` (no `ActionResult` reply is needed):
+
+```powerfx
+        "OPEN_UPLOAD",
+            If(Text(p.kind) = "BULK",
+                Set(varPopUpAddScheduleAutomate, true),      // bulk popup with Attachments
+                Set(varPopUpAddScheduleAutomateAI, true)),   // AI popup with Attachments_1
+```
+
+Your bulk button can stay as it is, with two small fixes:
+
+```powerfx
+Set(varIsProcessingBulk, true);
+If(CountRows(Attachments.Attachments) = 0,
+    Notify("Please attach Excel/CSV file", NotificationType.Error, 3000);
+    Set(varIsProcessingBulk, false);
+    Exit());
+
+Set(varIdentifierBulk, Text(Now(), "ddmmyyhhmmss_"));
+// 1. Remember the names before Reset(Attachments) clears them (the Notify below read an empty list).
+ClearCollect(colBulkFiles, ForAll(Attachments.Attachments, { Name: varIdentifierBulk & ThisRecord.Name }));
+
+ForAll(Attachments.Attachments,
+    Office365Groups.HttpRequest(
+        "https://graph.microsoft.com/v1.0/sites/" & varSiteID & "/drives/" & varDriveID &
+            "/root:/Bulk Schedule/" & varIdentifierBulk & ThisRecord.Name & ":/content",
+        "PUT", ThisRecord.Value));
+
+// 2. One flow run per file. Today only the first file is processed; the others are uploaded but never read.
+ForAll(colBulkFiles, 'PBS0001A-CreateAutomatedSchedule[AIPowered]'.Run(Name));
+
+Notify("✅ Bulk upload started: " & Concat(colBulkFiles, Name, ", "), NotificationType.Success, 8000);
+Reset(Attachments);
+Set(varPopUpAddScheduleAutomate, false);
+Set(varIsProcessingBulk, false);
+Refresh('Schedule - PBS Hub');   // the control's schedules dataset reloads from the list
+```
+
+The AI Schedule button works the same way, with `Attachments_1` and the `Schedule AI Automation` folder.
+It calls no flow: PBS0002A starts on its own when the file lands in the folder.
+
+```powerfx
+Set(varIsProcessingBulk, true);
+If(CountRows(Attachments_1.Attachments) = 0,
+    Notify("Please attach PDF file", NotificationType.Error, 3000);
+    Set(varIsProcessingBulk, false);
+    Exit());
+
+Set(varIdentifierBulk, Text(Now(), "ddmmyyhhmmss_"));
+// Remember the names before Reset(Attachments_1) clears them.
+ClearCollect(colAiFiles, ForAll(Attachments_1.Attachments, { Name: varIdentifierBulk & ThisRecord.Name }));
+
+ForAll(Attachments_1.Attachments,
+    Office365Groups.HttpRequest(
+        "https://graph.microsoft.com/v1.0/sites/" & varSiteID & "/drives/" & varDriveID &
+            "/root:/Schedule AI Automation/" & varIdentifierBulk & ThisRecord.Name & ":/content",
+        "PUT", ThisRecord.Value));
+
+Notify("✅ AI Schedule started: " & Concat(colAiFiles, Name, ", ") & Char(10) &
+    "Jadwal muncul setelah PBS0002A selesai", NotificationType.Success, 8000);
+Reset(Attachments_1);
+Set(varPopUpAddScheduleAI, false);
+Set(varPopUpAddScheduleAutomateAI, false);
+Set(varPopUpAddScheduleConfirmationAI, false);
+Set(varPopUpAddScheduleOption, false);
+Set(varIsProcessingBulk, false);
+Refresh('Schedule - PBS Hub');
+```
+
+`Refresh('Schedule - PBS Hub')` replaces `ClearCollect(colSchedule, ...)` for the control: it binds to the list
+directly. The flow may still be writing rows, so the refresh can come too early; the board updates on the
+next refresh.
 
 ## 6. What the control checks (v1 checked none of this)
 

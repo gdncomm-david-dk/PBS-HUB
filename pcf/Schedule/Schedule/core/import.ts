@@ -256,8 +256,8 @@ export function errorCsv(checks: FileCheck[]): string {
 }
 
 /**
- * File name as stored in the library. v1 prefixed Text(Now(), "ddmmyyhhmmss_"), whose hh is the 12-hour clock
- * (collides 12 hours apart, DESIGN.md UC-2). This keeps the shape with a 24-hour clock.
+ * File name as stored in the library: the same prefix as the app's Text(Now(), "ddmmyyhhmmss_"), with a
+ * 24-hour clock (Power Fx hh is 24-hour when the format has no AM/PM).
  */
 export function uploadName(original: string, at: Date): string {
     const pad = (n: number): string => (n < 10 ? "0" + n : String(n));

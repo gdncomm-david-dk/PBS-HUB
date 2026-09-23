@@ -83,6 +83,7 @@ export function App(props: AppProps): React.ReactElement {
             aiFolder: str(cfg.aiFolder, "Schedule AI Automation"),
             bulkTable: str(cfg.bulkTable, "Table1"),
             templateUrl: str(cfg.templateUrl, ""),
+            uploadMode: str(cfg.uploadMode, "control").toLowerCase() === "canvas" ? "canvas" : "control",
         }),
         [cfg, props.accounts, props.schedules],
     );
@@ -196,8 +197,8 @@ export function App(props: AppProps): React.ReactElement {
                         env={env}
                         onCreate={(preset) => setDialog({ kind: "create", preset })}
                         onEdit={(s) => setDialog({ kind: "edit", schedule: s })}
-                        onBulk={() => setDialog({ kind: "bulk" })}
-                        onAi={() => setDialog({ kind: "ai" })}
+                        onBulk={() => (config.uploadMode === "canvas" ? emit("OPEN_UPLOAD", { kind: "BULK", folder: config.bulkFolder }) : setDialog({ kind: "bulk" }))}
+                        onAi={() => (config.uploadMode === "canvas" ? emit("OPEN_UPLOAD", { kind: "AI", folder: config.aiFolder }) : setDialog({ kind: "ai" }))}
                     />
                 )}
             </div>
