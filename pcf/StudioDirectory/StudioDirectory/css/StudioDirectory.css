@@ -415,3 +415,4 @@ button.sd-geo--danger:hover { text-decoration: underline; }
 .sd-studiochip.is-self { background: var(--surface); cursor: default; font-weight: 700; }
 .sd-diag { margin-top: 8px; display: flex; flex-direction: column; gap: 4px; font: 12px/1.5 ui-monospace, "SF Mono", Menlo, Consolas, monospace; word-break: break-word; }
 .pbs-sd code { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; font-size: 12px; }
+.sd-version { color: var(--text-muted); font-size: 11px; }

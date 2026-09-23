@@ -1,4 +1,4 @@
-# pbs_Ops.StudioDirectory — canvas app setup
+# pbs_Ops.StudioMaster — canvas app setup
 
 The control renders the **Studio list (SD-1)** and **Studio detail (SD-2)** screens. It reads the SharePoint
 lists described in `DESIGN.md` and **never writes**: it emits an `ActionPayload`, the canvas app does the
@@ -6,14 +6,15 @@ lists described in `DESIGN.md` and **never writes**: it emits an `ActionPayload`
 
 ## 1. Import
 
-1. Power Apps → **Solutions → Import** → `releases/PBSHubStudio_managed_1.3.0.zip` (managed). From 1.3.0 the
-   solution is **`PBSHubStudio`** ("PBS Hub - Studio"); it replaces the older `PBSStudioDirectory`. The control
-   inside keeps its name, so the canvas app does not need to re-insert it. Once 1.3.0 is imported, delete the
-   old `PBSStudioDirectory` solution; the control stays because the new solution also holds it.
+1. Power Apps → **Solutions → Import** → `releases/PBSStudioMaster_managed_1.4.0.zip` (managed). From 1.4.0 the
+   solution is **`PBSStudioMaster`** ("PBS Hub - Studio Master") and the control is **`pbs_Ops.StudioMaster`**
+   ("PBS Studio Master"). Both identifiers are new, so nothing from the older `PBSStudioDirectory` /
+   `PBSHubStudio` solutions or the old `pbs_Ops.StudioDirectory` control is reused or cached.
 2. Canvas app → **Settings → Updates** → turn on **Power Apps component framework for canvas apps**.
-3. **Insert → Get more components → Code** → `PBS Studio Directory` (`pbs_Ops.StudioDirectory`).
-   After importing a newer version, reopen the app in the editor and accept **Update code components**; until
-   you do, the app keeps running the previous version of the control.
+3. **Insert → Get more components → Code** → `PBS Studio Master` (`pbs_Ops.StudioMaster`). Delete the old
+   *PBS Studio Directory* control from the screen and set the properties below on the new one (same names).
+   The page header shows `pbs_Ops.StudioMaster 1.4.0`: if you do not see it, the app is still running an
+   old control. After importing a newer version later, accept **Update code components** in the editor.
 4. Give it the full screen next to `BlibliUniversalSidebar`. Minimum width 1040 px.
 
 ## 2. Period variables
@@ -162,3 +163,5 @@ The control stays locked until its own `requestId` comes back, and gives up afte
 | **Geofence link** | Studio.LocationID → Studio Location | The lookup item ID first, else the shown value against `Studio Location.LocationID` (then `Title`). One location serves many studios; the list, detail and Geofence tab show how many, and editing a shared geofence warns that it applies to all of them. A LocationID that no location carries is shown as *LocationID tidak ditemukan*. Studios without a LocationID fall back to the v1 name match (a `StudioID` column → `Title = StudioID` → `Title = NamaStudio`) and are offered a one-click *Tautkan* |
 
 These are display metrics. Nothing that money depends on is computed in the control.
+
+Once the app runs `pbs_Ops.StudioMaster`, the old solutions `PBSStudioDirectory` and `PBSHubStudio` can be deleted.

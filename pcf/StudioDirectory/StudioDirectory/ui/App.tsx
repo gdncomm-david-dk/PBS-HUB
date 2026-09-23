@@ -69,6 +69,9 @@ export interface Env {
 
 const REQUEST_TIMEOUT_MS = 30000;
 
+/** Shown on the page so the app maker can see which build the canvas app is running. Keep in step with the manifest. */
+export const CONTROL_VERSION = "pbs_Ops.StudioMaster 1.4.0";
+
 const SUCCESS_TEXT: Partial<Record<ActionName, string>> = {
     CREATE_STUDIO: "Studio berhasil ditambahkan.",
     EDIT_STUDIO: "Perubahan studio tersimpan.",

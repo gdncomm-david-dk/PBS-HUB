@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8" ?>
 <manifest>
   <!--
-    pbs_Ops.StudioDirectory — PBS Hub Studio list (SD-1) and Studio detail (SD-2).
+    pbs_Ops.StudioMaster (formerly pbs_Ops.StudioDirectory) — PBS Hub Studio list (SD-1) and Studio detail (SD-2).
 
     Data mapping follows DESIGN.md (Database Schema):
       studios   → "Studio - PBS Hub"        Title (StudioID), NamaStudio, KapasitasHost, LokasiStudio, Status
@@ -15,7 +15,7 @@
     The control never writes. It emits ActionPayload; the canvas app performs the Patch and
     answers through ActionResult with the same requestId.
   -->
-  <control namespace="Ops" constructor="StudioDirectory" version="1.3.0" display-name-key="PBS Studio Directory" description-key="PBS Hub studio list, studio detail, geofence editor and studio utilization." control-type="standard">
+  <control namespace="Ops" constructor="StudioMaster" version="1.4.0" display-name-key="PBS Studio Master" description-key="PBS Hub Studio Master: studio list, studio detail, location and geofence, utilization, live usage, GMV." control-type="standard">
     <external-service-usage enabled="false">
     </external-service-usage>
 

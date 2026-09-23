@@ -14,7 +14,7 @@ import {
     studioMonth,
 } from "../core/utilization";
 import { Badge, Banner, Bar, Button, Card, cx, DailyChart, Icon, SkeletonRows, utilTone } from "./components";
-import { Env } from "./App";
+import { CONTROL_VERSION, Env } from "./App";
 import { GeoCell, geoIssueText, geoState, MIN_SAFE_RADIUS, needsAction, StudioStatusBadge } from "./shared";
 import { hasLocationColumn, locationKey } from "../core/data";
 
@@ -202,7 +202,7 @@ export function StudioList(props: { env: Env; onCreate: () => void }): React.Rea
         <>
             <div className="sd-pagehead">
                 <div>
-                    <div className="sd-crumb">Master data</div>
+                    <div className="sd-crumb">Master data <span className="sd-version" title="Versi kontrol yang sedang jalan">· {CONTROL_VERSION}</span></div>
                     <h1 className="sd-h1">Studio</h1>
                     <div className="sd-sub">
                         {studios.length} studio · {missingGeo} belum punya geofence · {formatDateLong(todayKey)} · {formatMinutes(nowMin)}

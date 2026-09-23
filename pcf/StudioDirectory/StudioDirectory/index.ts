@@ -45,7 +45,7 @@ function parseActionResult(raw: string | null | undefined): ActionResult | null 
     }
 }
 
-export class StudioDirectory implements ComponentFramework.StandardControl<IInputs, IOutputs> {
+export class StudioMaster implements ComponentFramework.StandardControl<IInputs, IOutputs> {
     private root: Root;
     private context: ComponentFramework.Context<IInputs>;
     private notifyOutputChanged: () => void;

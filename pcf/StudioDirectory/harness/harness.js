@@ -1,4 +1,4 @@
-/* Local preview harness for pbs_Ops.StudioDirectory.
+/* Local preview harness for pbs_Ops.StudioMaster.
  * Loads the real bundle.js, feeds it mock datasets shaped like the SharePoint lists in DESIGN.md,
  * and plays the canvas role: it applies ActionPayload to the mock data and answers via ActionResult.
  * Open harness/index.html after `npm run build`. Not shipped in the solution.
