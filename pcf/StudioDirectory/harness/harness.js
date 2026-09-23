@@ -123,21 +123,28 @@
     });
 
     // ------------------------------------------------------------------ dataset mock
-    var flat = function (v) { return v && typeof v === "object" && "Value" in v ? v.Value : v; };
+    // Canvas hands a PCF dataset lookups as an EntityReference; choices as their value.
+    var flat = function (v) {
+        if (v && typeof v === "object" && "Id" in v) return { id: { guid: String(v.Id) }, name: v.Value, etn: "lookup" };
+        return v && typeof v === "object" && "Value" in v ? v.Value : v;
+    };
+    // ?nolocationcol=1 drops LocationID from the studios dataset, as when it is not added under Fields.
+    var dropCol = params.get("nolocationcol") === "1" ? "LocationID" : "";
     function makeDataset(rows, loading) {
         var cols = {};
-        rows.forEach(function (r) { Object.keys(r).forEach(function (k) { cols[k] = 1; }); });
+        rows.forEach(function (r) { Object.keys(r).forEach(function (k) { if (!(dropCol && k === dropCol && r.NamaStudio !== undefined)) cols[k] = 1; }); });
         var ids = rows.map(function (r) { return String(r.ID); });
         var records = {};
         rows.forEach(function (r) {
             records[String(r.ID)] = {
                 getRecordId: function () { return String(r.ID); },
                 getValue: function (c) {
+                    if (dropCol && c === dropCol && r.NamaStudio !== undefined) return null;
                     var v = flat(r[c]);
                     if (c === "Date" && typeof v === "string") { var p = v.split("-"); return new Date(+p[0], +p[1] - 1, +p[2]); }
                     return v === undefined ? null : v;
                 },
-                getFormattedValue: function (c) { var v = flat(r[c]); return v === undefined || v === null ? "" : String(v); },
+                getFormattedValue: function (c) { if (dropCol && c === dropCol && r.NamaStudio !== undefined) return ""; var v = flat(r[c]); if (v && v.name !== undefined) v = v.name; return v === undefined || v === null ? "" : String(v); },
             };
         });
         return {

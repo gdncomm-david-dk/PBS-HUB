@@ -6,9 +6,14 @@ lists described in `DESIGN.md` and **never writes**: it emits an `ActionPayload`
 
 ## 1. Import
 
-1. Power Apps → **Solutions → Import** → `releases/PBSStudioDirectory_managed_1.2.0.zip` (managed).
+1. Power Apps → **Solutions → Import** → `releases/PBSHubStudio_managed_1.3.0.zip` (managed). From 1.3.0 the
+   solution is **`PBSHubStudio`** ("PBS Hub - Studio"); it replaces the older `PBSStudioDirectory`. The control
+   inside keeps its name, so the canvas app does not need to re-insert it. Once 1.3.0 is imported, delete the
+   old `PBSStudioDirectory` solution; the control stays because the new solution also holds it.
 2. Canvas app → **Settings → Updates** → turn on **Power Apps component framework for canvas apps**.
 3. **Insert → Get more components → Code** → `PBS Studio Directory` (`pbs_Ops.StudioDirectory`).
+   After importing a newer version, reopen the app in the editor and accept **Update code components**; until
+   you do, the app keeps running the previous version of the control.
 4. Give it the full screen next to `BlibliUniversalSidebar`. Minimum width 1040 px.
 
 ## 2. Period variables
@@ -37,6 +42,11 @@ Set(varStudioResult, "");
 All `Filter` clauses above are delegable to SharePoint. The control pages through every result page itself.
 For each dataset, open **Fields → Edit** and add the columns listed in the property's description, so the
 dataset carries them.
+
+**Fields decide which columns arrive.** A canvas dataset only carries the columns listed under the property's
+**Edit fields**. If `LocationID` is not added there, for `studios` and for `locations`, no studio can be linked.
+The list page shows a *Mapping lokasi* banner with the link counts and, under *Lihat kolom*, the columns each
+dataset actually delivers.
 
 **Studio ↔ Studio Location.** `Studio - PBS Hub.LocationID` is a SharePoint lookup to `Studio Location - PBS`
 that shows the location's `LocationID` column. One location serves many studios (e.g. `LOC-CWG` holds every

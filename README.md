@@ -2,7 +2,7 @@
 
 | Control | Screens | Managed solution | Canvas setup |
 |---|---|---|---|
-| `pbs_Ops.StudioDirectory` | Studio list, Studio detail | `releases/PBSStudioDirectory_managed_1.2.0.zip` | [`docs/studio-directory-canvas-setup.md`](docs/studio-directory-canvas-setup.md) |
+| `pbs_Ops.StudioDirectory` | Studio list, Studio detail | `releases/PBSHubStudio_managed_1.3.0.zip` | [`docs/studio-directory-canvas-setup.md`](docs/studio-directory-canvas-setup.md) |
 | `pbs_Ops.Schedule` | Schedule board, session detail, create/edit, bulk & AI upload | `releases/PBSSchedule_managed_1.2.0.zip` | [`docs/schedule-canvas-setup.md`](docs/schedule-canvas-setup.md) |
 
 ## `pbs_Ops.StudioDirectory` (Studio list + Studio detail)
@@ -53,7 +53,7 @@ pcf/StudioDirectory/            PCF project (pac pcf init, standard control, Rea
   tests/                        Jest unit tests for core/
   harness/                      local preview with mock data (not shipped)
 pcf/Schedule/                   PCF project for pbs_Ops.Schedule (same layout)
-solution/PBSStudioDirectory/    Dataverse solution project (pac solution init), builds the managed zip
+solution/PBSHubStudio/          Dataverse solution project (pac solution init), builds the managed zip
 solution/PBSSchedule/           same, for pbs_Ops.Schedule
 releases/                       built managed solution
 ```
@@ -63,7 +63,7 @@ releases/                       built managed solution
 ```bash
 cd pcf/StudioDirectory && npm install && npm test && npm run build
 # preview: open pcf/StudioDirectory/harness/index.html (after npm run build)
-cd ../../solution/PBSStudioDirectory && dotnet build -c Release   # → bin/Release/PBSStudioDirectory.zip (managed)
+cd ../../solution/PBSHubStudio && dotnet build -c Release   # → bin/Release/PBSHubStudio.zip (managed)
 # Schedule: same steps in pcf/Schedule and solution/PBSSchedule
 ```
 

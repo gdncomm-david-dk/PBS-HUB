@@ -12,7 +12,12 @@ export interface RawRecord {
     get(names: readonly string[]): unknown;
 }
 
-const norm = (s: string): string => s.toLowerCase().replace(/[\s_\-()]/g, "");
+// SharePoint encodes spaces and symbols in internal names (Location_x0020_ID); decode before comparing.
+const norm = (s: string): string =>
+    s
+        .replace(/_x([0-9a-f]{4})_/gi, (_m, h: string) => String.fromCharCode(parseInt(h, 16)))
+        .toLowerCase()
+        .replace(/[\s_\-()]/g, "");
 
 /** Flattens SharePoint complex values: Choice {Value}, Person {DisplayName}, Lookup {Value}, arrays. */
 export function flatten(v: unknown): unknown {
@@ -135,6 +140,27 @@ export function jsonRecords(raw: string | null | undefined): RawRecord[] | null 
         });
 }
 
+/** Column names the source actually carries (JSON keys, or the dataset columns added in Fields). */
+export function sourceColumns(ds: DataSet | undefined, json: string | null | undefined): { from: "json" | "dataset" | "none"; columns: string[] } {
+    if (json && json.trim()) {
+        try {
+            const parsed: unknown = JSON.parse(json);
+            if (Array.isArray(parsed)) {
+                const keys = new Set<string>();
+                for (const o of parsed.slice(0, 50)) if (o && typeof o === "object") Object.keys(o as object).forEach((k) => keys.add(k));
+                return { from: "json", columns: Array.from(keys) };
+            }
+        } catch {
+            /* fall through to the dataset */
+        }
+    }
+    if (!isBound(ds)) return { from: "none", columns: [] };
+    return { from: "dataset", columns: (ds.columns ?? []).map((c) => c.name) };
+}
+
+/** True when one of the columns answers to the LocationID aliases. */
+export const hasLocationColumn = (columns: string[]): boolean => columns.some((c) => (C.locationId as readonly string[]).some((a) => norm(a) === norm(c)));
+
 /** JSON wins when it is non-empty; otherwise the dataset is used. */
 export function pickSource(ds: DataSet | undefined, json: string | null | undefined): RawRecord[] {
     return jsonRecords(json) ?? datasetRecords(ds);
@@ -160,7 +186,7 @@ const C = {
     longitude: ["Longitude", "Lon", "Lng"],
     radius: ["RadiusMeter", "Radius Meter", "Radius"],
     isActive: ["IsActive", "Is Active", "Active"],
-    locationId: ["LocationID", "Location ID", "LocationId"],
+    locationId: ["LocationID", "Location ID", "LocationId", "LocationID0", "Location", "StudioLocation", "Studio Location"],
     date: ["Date", "LiveDate", "Tanggal"],
     brandId: ["BrandID", "Brand ID"],
     hostId: ["HostID", "Host ID"],

@@ -13,10 +13,10 @@ import {
     studioDay,
     studioMonth,
 } from "../core/utilization";
-import { Badge, Bar, Button, Card, cx, DailyChart, Icon, SkeletonRows, utilTone } from "./components";
+import { Badge, Banner, Bar, Button, Card, cx, DailyChart, Icon, SkeletonRows, utilTone } from "./components";
 import { Env } from "./App";
 import { GeoCell, geoIssueText, geoState, MIN_SAFE_RADIUS, needsAction, StudioStatusBadge } from "./shared";
-import { locationKey } from "../core/data";
+import { hasLocationColumn, locationKey } from "../core/data";
 
 type Filter = "all" | "active" | "inactive" | "action";
 
@@ -75,6 +75,63 @@ export function LiveTile(props: { env: Env; studio: StudioRow; live: LiveInfo })
                 </>
             )}
         </button>
+    );
+}
+
+/**
+ * Explains why studios are not linked to Studio Location, from what the sources actually carry.
+ * In canvas a dataset only brings the columns added under Fields, so a missing LocationID is the usual cause.
+ */
+export function LocationLinkCheck(props: { env: Env }): React.ReactElement | null {
+    const { env } = props;
+    const [open, setOpen] = React.useState(false);
+    if (env.loading.studios || env.loading.locations || env.studios.length === 0) return null;
+    const counts = { lookup: 0, legacy: 0, broken: 0, none: 0 };
+    const broken: string[] = [];
+    for (const s of env.studios) {
+        const l = env.linkOf(s).link;
+        counts[l]++;
+        if (l === "broken" && broken.length < 4) broken.push(`${s.studioId} → “${s.locationRef}”`);
+    }
+    if (counts.lookup === env.studios.length) return null;
+    const src = env.sources;
+    const studioHasCol = hasLocationColumn(src.studios.columns);
+    const locHasCol = hasLocationColumn(src.locations.columns);
+    const where = (x: typeof src.studios, prop: string, json: string): string =>
+        x.from === "json" ? `di formula ${json} (ShowColumns)` : `di properti ${prop} → Edit fields`;
+    let cause: React.ReactNode;
+    if (env.locations.length === 0)
+        cause = <>Dataset <b>locations</b> kosong. Bind <code>locations</code> ke list Studio Location - PBS.</>;
+    else if (!studioHasCol)
+        cause = <>Dataset <b>studios</b> tidak membawa kolom <b>LocationID</b>. Tambahkan kolom itu {where(src.studios, "studios", "StudiosJson")}.</>;
+    else if (!locHasCol)
+        cause = <>Dataset <b>locations</b> tidak membawa kolom <b>LocationID</b>. Tambahkan kolom itu {where(src.locations, "locations", "LocationsJson")}.</>;
+    else if (counts.broken > 0)
+        cause = <>Kolom sudah ada, tetapi {counts.broken} studio menunjuk LocationID yang tidak ada di Studio Location ({broken.join(", ")}{counts.broken > broken.length ? ", …" : ""}).</>;
+    else cause = <>Kolom LocationID ada, tetapi {counts.none + counts.legacy} studio belum diisi LocationID-nya di list Studio.</>;
+    return (
+        <Banner
+            tone={counts.lookup === 0 ? "warning" : "info"}
+            action={
+                <button type="button" className="sd-link" onClick={() => setOpen((o) => !o)}>
+                    {open ? "Tutup detail" : "Lihat kolom"}
+                </button>
+            }
+        >
+            <div>
+                <b>Mapping lokasi:</b> {counts.lookup} tertaut lewat LocationID · {counts.legacy} dicocokkan dari nama · {counts.broken} LocationID tidak ditemukan · {counts.none} belum ada. {cause}
+            </div>
+            {open && (
+                <div className="sd-diag">
+                    <div>
+                        <b>studios</b> ({src.studios.from}): {src.studios.columns.join(", ") || "—"}
+                    </div>
+                    <div>
+                        <b>locations</b> ({src.locations.from}): {src.locations.columns.join(", ") || "—"}
+                    </div>
+                </div>
+            )}
+        </Banner>
     );
 }
 
@@ -279,6 +336,8 @@ export function StudioList(props: { env: Env; onCreate: () => void }): React.Rea
                     <span><i className="sd-dot sd-dot--today" /> hari ini</span>
                 </div>
             </Card>
+
+            <LocationLinkCheck env={env} />
 
             <div className="sd-toolbar">
                 <div className="sd-search">

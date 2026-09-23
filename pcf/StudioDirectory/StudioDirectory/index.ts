@@ -12,6 +12,7 @@ import {
     mapStudios,
     parseContext,
     pickSource,
+    sourceColumns,
 } from "./core/data";
 import { ActionName, ActionResult } from "./core/types";
 import { LatLon } from "./core/geo";
@@ -126,6 +127,10 @@ export class StudioDirectory implements ComponentFramework.StandardControl<IInpu
             locations: mapLocations(pickSource(p.locations, p.LocationsJson?.raw)),
             schedules: mapSchedules(pickSource(p.schedules, p.SchedulesJson?.raw), brandNames, hostNames),
             reports: mapReports(pickSource(p.reports, p.ReportsJson?.raw)),
+            sources: {
+                studios: sourceColumns(p.studios, p.StudiosJson?.raw),
+                locations: sourceColumns(p.locations, p.LocationsJson?.raw),
+            },
             loading: {
                 studios: pagingMore("studios", p.studios, p.StudiosJson?.raw),
                 locations: isLoading(p.locations, p.LocationsJson?.raw),

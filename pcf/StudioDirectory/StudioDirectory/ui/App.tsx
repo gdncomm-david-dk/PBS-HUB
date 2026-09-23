@@ -15,6 +15,8 @@ export interface AppProps {
     locations: LocationRow[];
     schedules: ScheduleRow[];
     reports: ReportRow[];
+    /** Which columns the studios / locations sources carry — used to explain a missing LocationID link. */
+    sources: { studios: SourceInfo; locations: SourceInfo };
     loading: { studios: boolean; locations: boolean; schedules: boolean; reports: boolean };
     ctx: ModuleContext;
     mode: "Admin" | "ReadOnly";
@@ -25,6 +27,11 @@ export interface AppProps {
     emit: (action: ActionName, payload: Record<string, unknown>) => string;
     onSelectStudio: (studioId: string) => void;
     getPosition: () => Promise<LatLon>;
+}
+
+export interface SourceInfo {
+    from: "json" | "dataset" | "none";
+    columns: string[];
 }
 
 export interface Pending {
@@ -38,6 +45,7 @@ export interface Env {
     studios: StudioRow[];
     locations: LocationRow[];
     locationOf: (s: StudioRow) => LocationRow | null;
+    sources: AppProps["sources"];
     /** The studio's location and how it was matched (lookup, legacy name match, broken LocationID, none). */
     linkOf: (s: StudioRow) => { loc: LocationRow | null; link: LocationLink };
     /** Studios that share a location — one Studio Location row can serve many studios. */
@@ -191,6 +199,7 @@ export function App(props: AppProps): React.ReactElement {
         studios: props.studios,
         locations: props.locations,
         locationOf,
+        sources: props.sources,
         linkOf,
         studiosAt,
         idx,
