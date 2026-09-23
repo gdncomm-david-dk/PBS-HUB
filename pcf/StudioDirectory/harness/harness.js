@@ -35,7 +35,7 @@
         { ID: 15, Title: "Studio Pondok Indah", Latitude: -6.265801, Longitude: 106.784302, RadiusMeter: 100, IsActive: true },
     ];
     var brands = [
-        ["BR-01", "Hanasui"], ["BR-02", "WINGS"], ["BR-03", "Scarlett Whitening"], ["BR-04", "Somethinc"], ["BR-05", "Wardah"], ["BR-06", "Skintific"],
+        ["BR-01", "Contoh Aruna"], ["BR-02", "Contoh Kirana"], ["BR-03", "Contoh Lestari"], ["BR-04", "Contoh Nirmala"], ["BR-05", "Contoh Sekar"], ["BR-06", "Contoh Tirta"],
     ].map(function (b, i) { return { ID: 100 + i, Title: b[0], NamaBrand: b[1] }; });
     var hosts = [
         ["HST-001", "Dinda Maharani"], ["HST-002", "Rani Salsabila"], ["HST-003", "Vina Anggraini"], ["HST-004", "Sari Puspita"],
