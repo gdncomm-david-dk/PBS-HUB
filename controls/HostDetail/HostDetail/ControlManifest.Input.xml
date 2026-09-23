@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<manifest>
+  <control namespace="Ops" constructor="HostDetail" version="1.0.0" display-name-key="PBS Ops Host Detail" description-key="PBS Hub Ops Console HD-2: one host with tabs Ringkasan, Jadwal, Report, Payroll and Data pribadi (masked, reveal is logged by canvas)." control-type="standard">
+    <external-service-usage enabled="false"></external-service-usage>
+
+    <property name="Context" display-name-key="Context" description-key="JSON {userEmail,userName,roles,permissions,config}. config: scoreInitial, scoreMin, scoreMax, piiRevealSeconds (30), payrollLabelOffset (-1)." of-type="Multiple" usage="input" required="false" />
+    <property name="HostJson" display-name-key="HostJson" description-key="JSON of ONE [Host - PBS Hub] row with masking hints KtpLast4, NorekLast4, PhoneLast4, HasRekening, HasAlamat, HasNamaRekening, HasPersonalEmail, Bank. Never send the raw KTP, NoRekening, Alamat, PhoneNumber or PersonalEmail." of-type="Multiple" usage="input" required="false" />
+    <property name="SchedulesJson" display-name-key="SchedulesJson" description-key="JSON rows of [Schedule - PBS Hub] for this host (recent and upcoming)." of-type="Multiple" usage="input" required="false" />
+    <property name="ReportsJson" display-name-key="ReportsJson" description-key="JSON rows of [Report - PBS Hub] for this host: Title, LiveDate, BrandID, Platform, Penjualan, ApprovalStatus, ApprovalComment, Modified." of-type="Multiple" usage="input" required="false" />
+    <property name="ClockInJson" display-name-key="ClockInJson" description-key="JSON rows of [Clock In - PBS Hub] for this host, current and previous month: ClockInDate, CheckInTime, CheckOutTime, HKTugas, Insentif, Streak. No GPS or selfie columns." of-type="Multiple" usage="input" required="false" />
+    <property name="PayrollDataJson" display-name-key="PayrollDataJson" description-key="JSON rows of [Payroll Data] for this host: payroll_id, Periode, JumlahHari, TotalGaji, PPh21, NetTHP, Bank, NorekLast4. Never send Employee_ID or the full Norek." of-type="Multiple" usage="input" required="false" />
+    <property name="PayrollJson" display-name-key="PayrollJson" description-key="JSON rows of [Payroll - PBS Hub] the lines refer to (Title, Periode, Status, gate columns, Created)." of-type="Multiple" usage="input" required="false" />
+    <property name="ScoreTxJson" display-name-key="ScoreTxJson" description-key="JSON rows of [FAS STUDIO] HostScoreTransactions for this host: TransactionID, RuleID, TransactionType, Point, ScoreBefore, ScoreAfter, Reason, Notes, Status, CreatedDate, CreatedBy." of-type="Multiple" usage="input" required="false" />
+    <property name="ThresholdsJson" display-name-key="ThresholdsJson" description-key="JSON rows of [FAS STUDIO] HostScoreThreshold: ThresholdID, Label, Description, MinimumScore, MaximumScore, Tone, Active, SortOrder." of-type="Multiple" usage="input" required="false" />
+    <property name="BrandsJson" display-name-key="BrandsJson" description-key="JSON rows of [Brand - PBS Hub] (Title, NamaBrand) for names in Jadwal and Report." of-type="Multiple" usage="input" required="false" />
+    <property name="StudiosJson" display-name-key="StudiosJson" description-key="JSON rows of [Studio - PBS Hub] (Title, NamaStudio) for names in Jadwal." of-type="Multiple" usage="input" required="false" />
+    <property name="RevealedJson" display-name-key="RevealedJson" description-key="JSON {hostId,field,value} set by canvas only after it logged a REVEAL_PII request. Clear it on HIDE_PII and on screen exit." of-type="Multiple" usage="input" required="false" />
+    <property name="DefaultTab" display-name-key="DefaultTab" description-key="Tab shown first." of-type="Enum" usage="input" required="false" default-value="Summary">
+      <value name="Summary" display-name-key="Summary">Summary</value>
+      <value name="Schedule" display-name-key="Schedule">Schedule</value>
+      <value name="Reports" display-name-key="Reports">Reports</value>
+      <value name="Payroll" display-name-key="Payroll">Payroll</value>
+      <value name="Personal" display-name-key="Personal">Personal</value>
+    </property>
+    <property name="IsLoading" display-name-key="IsLoading" description-key="true while canvas is loading: renders skeletons." of-type="TwoOptions" usage="input" required="false" />
+    <property name="ReferenceDate" display-name-key="ReferenceDate" description-key="Optional ISO date-time used as now (testing)." of-type="SingleLine.Text" usage="input" required="false" />
+    <property name="ActionResult" display-name-key="ActionResult" description-key="Canvas reply {requestId,status,message} to REVEAL_PII and SET_HOST_STATUS." of-type="SingleLine.Text" usage="input" required="false" />
+    <property name="ActionPayload" display-name-key="ActionPayload" description-key="JSON {action,requestId,payload}: BACK, RELOAD, NAV, OPEN_SCHEDULE, OPEN_REPORT, OPEN_RUN, REVEAL_PII, HIDE_PII, SET_HOST_STATUS." of-type="SingleLine.Text" usage="output" required="false" />
+
+    <resources>
+      <code path="index.ts" order="1" />
+    </resources>
+  </control>
+</manifest>

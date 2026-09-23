@@ -1,0 +1,12 @@
+{
+  "name": "pbs-ops-hostdetail",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "build": "pcf-scripts build",
+    "build:dev": "pcf-scripts build",
+    "clean": "pcf-scripts clean",
+    "refreshTypes": "pcf-scripts refreshTypes",
+    "start": "pcf-scripts start watch"
+  }
+}

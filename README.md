@@ -1,9 +1,10 @@
-# PBS Hub — Ops Console PCF (Dashboard, Report, Report Detail, Payroll)
+# PBS Hub — Ops Console PCF (Dashboard, Report, Report Detail, Payroll, Host)
 
 Power Apps code components (PCF) untuk canvas app PBS Hub, dibuat dari design handoff
-*PBS Ops Console* (artboard 3a/3b, 4a, 4b–4d, Payroll P-1–P-5) dengan data mapping mengikuti `DESIGN.md`
+*PBS Ops Console* (artboard 3a/3b, 4a, 4b–4d, Payroll P-1–P-5, Host HD-1/HD-2) dengan data mapping mengikuti `DESIGN.md`
 (list SharePoint v1: `Report - PBS Hub`, `Report Automation - PBS Hub`, `Schedule - PBS Hub`,
-`Clock In - PBS Hub`, `Host`, `Studio`, `Brand`, `Payroll`, `Payroll Data`).
+`Clock In - PBS Hub`, `Host`, `Studio`, `Brand`, `Payroll`, `Payroll Data`, `[FAS STUDIO] HostScoreTransactions`,
+`HostScoreThreshold`).
 
 | Control | Layar | Folder |
 |---|---|---|
@@ -12,8 +13,10 @@ Power Apps code components (PCF) untuk canvas app PBS Hub, dibuat dari design ha
 | `pbs_Ops.ReportDetail` | Report detail — adjudikasi klaim host vs bukti AI | `controls/ReportDetail` |
 | `pbs_Ops.PayrollRuns` | Payroll — daftar run + preflight Jalankan payroll (P-1, P-2) | `controls/PayrollRuns` |
 | `pbs_Ops.PayrollRunDetail` | Detail run — baris per host, tracker approval, status slip (P-3–P-5) | `controls/PayrollRunDetail` |
+| `pbs_Ops.HostList` | Host — direktori, skor + band, peringatan tanpa data bank (HD-1) | `controls/HostList` |
+| `pbs_Ops.HostDetail` | Detail host — ringkasan skor/ledger, jadwal, report, payroll, data pribadi tersamar (HD-2) | `controls/HostDetail` |
 
-**Output:** `dist/PBSHubOpsPCF_1_1_0_0_managed.zip` — managed solution, dibangun dengan target MSBuild
+**Output:** `dist/PBSHubOpsPCF_1_2_0_0_managed.zip` — managed solution, dibangun dengan target MSBuild
 resmi Power Platform (`Microsoft.PowerApps.MSBuild.Solution`).
 
 Cara pasang dan formula Power Fx lengkap (properti, `OnChange`, Patch ke SharePoint):
@@ -27,6 +30,7 @@ shared/            logika + UI bersama (dipakai semua control)
   reconcile.ts     join Report ↔ Report Automation, aturan ±5 % PBS0005A, enam Alasan
   dashboard.ts     agregasi kartu dashboard
   payroll.ts       periode (P8), gate approval dari Status + kolom audit, preflight, baris per host
+  host.ts          band skor, cek ledger vs CurrentScore, periode terdampak saat nonaktif, masking data pribadi
   contract.ts      Context, ActionPayload/ActionResult, useAction (requestId lock)
   ui.tsx styles.ts token Blu Basic internal-app, badge, tombol pill, 4 state tabel
 controls/<Name>/   project PCF (ControlManifest.Input.xml, index.ts, *View.tsx, .pcfproj)
@@ -40,15 +44,15 @@ tests/             unit test Jest untuk logika data
 ```bash
 npm install
 npm test                 # unit test logika (Jest)
-npm run build            # build 5 control (pcf-scripts, production)
+npm run build            # build 7 control (pcf-scripts, production)
 npm run typecheck
 npm run solution         # managed zip → dist/  (butuh .NET SDK 8+)
 ```
 
 Uji tampilan tanpa Power Apps: `npm run build`, lalu buka `harness/index.html` di browser
-(`?c=Dashboard`, `?c=ReportReview`, `?c=ReportDetail&r=RPT-20862`, `?c=PayrollRuns&pay=none`, `?c=PayrollRunDetail&run=118`).
+(`?c=Dashboard`, `?c=ReportReview`, `?c=ReportDetail&r=RPT-20862`, `?c=PayrollRuns&pay=none`, `?c=PayrollRunDetail&run=118`, `?c=HostList`, `?c=HostDetail&h=HST-012`).
 `node harness/flows.js <dir>` menjalankan cek interaksi (approve → mengirim → hasil, konflik, revisi, bulk approve,
-filter, paging, preflight payroll, expand baris, kirim ulang slip).
+filter, paging, preflight payroll, expand baris, kirim ulang slip, buka/sembunyikan data pribadi, nonaktifkan host).
 
 ## Keputusan desain
 
@@ -57,7 +61,9 @@ filter, paging, preflight payroll, expand baris, kirim ulang slip).
 - **Standard control dengan React di-bundle** (bukan virtual control), karena dukungan virtual React control
   di canvas belum terverifikasi di tenant ini.
 - **Data lewat JSON teks**, di-shape di canvas dengan `ForAll(…)`. Tidak ada `KTP`/`NoRekening`/GPS/selfie
-  yang masuk control; dashboard cukup `HasRekening`.
+  yang masuk control; dashboard cukup `HasRekening`. Detail host hanya menerima petunjuk samaran
+  (`KtpLast4`, `NorekLast4`, `HasAlamat`, …); nilai asli dikirim satu kolom per `REVEAL_PII` setelah canvas
+  menulis log akses, dan hilang otomatis.
 - **Kosakata status v1 dipertahankan** (`Waiting Approval`, `Need Revision`, `Done`, `Match`/`Unmatch`) supaya
   PBS0005A dan layar v1 tetap konsisten.
 - **Payroll dibaca apa adanya dari v1.** Periode data = label − 1 bulan (P8), total dari `Payroll Data` (P9),

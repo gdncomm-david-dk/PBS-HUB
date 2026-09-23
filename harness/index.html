@@ -20,6 +20,8 @@
 <script src="../controls/ReportDetail/out/controls/ReportDetail/bundle.js"></script>
 <script src="../controls/PayrollRuns/out/controls/PayrollRuns/bundle.js"></script>
 <script src="../controls/PayrollRunDetail/out/controls/PayrollRunDetail/bundle.js"></script>
+<script src="../controls/HostList/out/controls/HostList/bundle.js"></script>
+<script src="../controls/HostDetail/out/controls/HostDetail/bundle.js"></script>
 <script src="sample-data.js"></script>
 </head>
 <body>
@@ -30,6 +32,9 @@
   |
   <a href="?c=PayrollRuns">PayrollRuns</a> <a href="?c=PayrollRuns&pay=none">tanpa run terbuka</a> <a href="?c=PayrollRuns&pay=done&pf=block">terblokir</a> <a href="?c=PayrollRuns&pay=assembling">disusun</a> <a href="?c=PayrollRuns&s=loading">loading</a> <a href="?c=PayrollRuns&s=empty">empty</a> |
   <a href="?c=PayrollRunDetail&run=118">Run 118</a> <a href="?c=PayrollRunDetail&run=118&tab=Approval">approval</a> <a href="?c=PayrollRunDetail&run=115&tab=Approval">ditolak</a> <a href="?c=PayrollRunDetail&run=117&slips=1&tab=Payslip">slip</a> <a href="?c=PayrollRunDetail&run=116">manual</a>
+  |
+  <a href="?c=HostList">HostList</a> <a href="?c=HostList&s=loading">loading</a> <a href="?c=HostList&s=empty">empty</a> |
+  <a href="?c=HostDetail&h=HST-001">Host 001</a> <a href="?c=HostDetail&h=HST-003">drift</a> <a href="?c=HostDetail&h=HST-012">nonaktif</a> <a href="?c=HostDetail&h=HST-008&tab=Personal">data pribadi</a> <a href="?c=HostDetail&h=HST-001&role=FAS_Team">tanpa izin PII</a>
   <label><input type="checkbox" id="auto" checked> auto-reply ok</label>
 </div>
 <div id="stage"></div>
@@ -69,6 +74,21 @@
       ClockInJson: J(r.ID >= 118 ? S.clockInsAug : []), PayslipJson: J(q.get("slips") ? S.payslips : []),
     });
   }
+  // Host: ?h=HST-001 · ?role=FAS_Team (no PII / payroll) · ?leak=1 (raw KTP in the row)
+  if (q.get("role")) params.Context = J(Object.assign({}, S.context, { roles: q.get("role") }));
+  if (c === "HostList") Object.assign(params, { HostsJson: J(empty ? [] : S.hosts), ThresholdsJson: J(S.thresholds) });
+  const hostId = q.get("h") || "HST-001";
+  if (c === "HostDetail") {
+    const hRow = Object.assign({}, S.hosts.find((x) => x.Title === hostId), q.get("leak") ? { KTP: "3174051203900001" } : {});
+    delete hRow.LedgerScore;
+    params.DefaultTab = q.get("tab") || "Summary";
+    const mine = (rows) => rows.filter((x) => x.HostID === hostId);
+    Object.assign(params, {
+      HostJson: J(s === "loading" ? [] : [hRow]), SchedulesJson: J(mine(S.schedules.concat(S.hostExtraSchedules))), ReportsJson: J(mine(S.reports)),
+      ClockInJson: J(mine(S.clockIns.concat(S.clockInsAug, S.hostExtraClockIns))), PayrollDataJson: J(mine(linesAll)), PayrollJson: J(runsAll),
+      ScoreTxJson: J(S.scoreTx[hostId] || []), ThresholdsJson: J(S.thresholds), BrandsJson: J(S.brands), StudiosJson: J(S.studios), RevealedJson: "",
+    });
+  }
   const Ctor = window.__registry["Ops." + c];
   const log = (m) => { document.getElementById("log").textContent = m + "\n" + document.getElementById("log").textContent; };
   const context = () => ({
@@ -98,7 +118,18 @@
       }, Number(q.get("pfdelay") || 500));
       return;
     }
-    if (document.getElementById("auto").checked && !["NAV", "FILTER_CHANGED", "OPEN_REPORT", "BACK", "RELOAD", "OPEN_EVIDENCE", "LOAD_MORE", "OPEN_RUN"].includes(p.action)) {
+    if (p.action === "REVEAL_PII") {
+      // Canvas stand-in: log the access, then hand back the one value.
+      setTimeout(() => {
+        const i = S.hosts.findIndex((x) => x.Title === p.payload.hostId);
+        params.RevealedJson = J({ hostId: p.payload.hostId, field: p.payload.field, value: S.piiValues(S.hosts[i], i)[p.payload.field] });
+        params.ActionResult = J({ requestId: p.requestId, status: q.get("reply") || "ok", message: q.get("reply") === "error" ? "Akses ditolak: izin HOST_PII_VIEW tidak ada." : "" });
+        ctl.updateView(context());
+      }, Number(q.get("delay") || 400));
+      return;
+    }
+    if (p.action === "HIDE_PII") { params.RevealedJson = ""; ctl.updateView(context()); return; }
+    if (document.getElementById("auto").checked && !["NAV", "FILTER_CHANGED", "OPEN_REPORT", "BACK", "RELOAD", "OPEN_EVIDENCE", "LOAD_MORE", "OPEN_RUN", "OPEN_HOST", "ADD_HOST", "OPEN_SCHEDULE"].includes(p.action)) {
       setTimeout(() => {
         params.ActionResult = J({ requestId: p.requestId, status: q.get("reply") || "ok", message: "", decidedBy: "Bayu Prasetyo", decidedAt: "2026-09-14T11:37:00" });
         ctl.updateView(context());

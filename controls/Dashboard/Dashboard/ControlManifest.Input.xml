@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8" ?>
 <manifest>
-  <control namespace="Ops" constructor="Dashboard" version="1.1.0" display-name-key="PBS Ops Dashboard" description-key="PBS Hub Ops Console D-1: read-only queue dashboard (what is waiting for the team today). Emits navigation actions only." control-type="standard">
+  <control namespace="Ops" constructor="Dashboard" version="1.2.0" display-name-key="PBS Ops Dashboard" description-key="PBS Hub Ops Console D-1: read-only queue dashboard (what is waiting for the team today). Emits navigation actions only." control-type="standard">
     <external-service-usage enabled="false"></external-service-usage>
 
     <property name="Context" display-name-key="Context" description-key="JSON {userEmail,userName,roles,permissions,config}. config: maxShiftHours (12), missingReportDays (2), tolerancePct (5), confidenceThreshold (0.85)." of-type="Multiple" usage="input" required="false" />

@@ -199,5 +199,63 @@ const assert = (c, m) => { if (!c) { console.log("FAIL", m); process.exitCode = 
     await go(q);
     await shot(n);
   }
+  // ---- Host ------------------------------------------------------------------------------------
+  await go("c=HostList");
+  assert((await p.locator("tbody tr").count()) === 12, "host list shows every host");
+  assert((await p.getByRole("img", { name: /Data bank belum lengkap/ }).count()) === 2, "hosts without bank flagged amber");
+  await p.getByRole("button", { name: "Tampilkan" }).click();
+  await p.waitForTimeout(150);
+  assert((await p.locator("tbody tr").count()) === 2, "Tampilkan filters to active hosts without bank");
+  await p.getByRole("searchbox").fill("zzz");
+  await p.waitForTimeout(150);
+  assert(await p.getByText("Tidak ada host yang cocok dengan filter").isVisible(), "empty-filtered state");
+  await go("c=HostList");
+  await p.getByLabel("Band skor").selectOption("BAND-1");
+  await p.waitForTimeout(150);
+  assert((await p.locator("tbody tr").count()) === 1, "band filter");
+  await p.getByRole("button", { name: "Buka" }).first().click();
+  pl = await payloads();
+  assert(pl.some((x) => x.action === "OPEN_HOST" && x.payload.hostId === "HST-007"), "OPEN_HOST carries the HostID");
+  await go("c=HostList&s=empty");
+  assert(await p.getByText("Belum ada host").isVisible(), "empty host list");
+
+  await go("c=HostDetail&h=HST-003");
+  assert(await p.getByText("Skor tersimpan tidak cocok dengan ledger.").isVisible(), "ledger drift warning");
+  assert((await p.locator("tr.void").count()) === 1, "voided transaction struck through");
+  await go("c=HostDetail&h=HST-012");
+  assert(await p.getByText(/Host nonaktif sejak 5 Sep 2026/).isVisible(), "deactivated host names the date");
+  assert(await p.getByText("2 kehadiran (Rp360.000) · 1 jadwal belum berjalan").isVisible(), "affected period lists attendance and sessions");
+  await go("c=HostDetail&h=HST-001&role=FAS_Team");
+  assert((await p.getByRole("tab", { name: "Data pribadi" }).count()) === 0 && (await p.getByRole("tab", { name: "Payroll" }).count()) === 0, "no permission: Data pribadi and Payroll tabs absent");
+  await go("c=HostDetail&h=HST-001&tab=Personal");
+  assert(await p.getByText("••••••••1234").isVisible(), "KTP masked by default");
+  assert((await p.getByText("317405").count()) === 0, "raw KTP not in the DOM before reveal");
+  await p.getByRole("button", { name: "Lihat" }).first().click();
+  await p.waitForTimeout(700);
+  pl = await payloads();
+  assert(pl.some((x) => x.action === "REVEAL_PII" && x.payload.field === "KTP" && x.payload.hostId === "HST-001"), "REVEAL_PII names host and field");
+  assert(await p.getByText(/^3174051203901234/).isVisible(), "revealed value shown after canvas reply");
+  await shot("f-host-pii-open");
+  await p.getByRole("button", { name: "Sembunyikan" }).click();
+  await p.waitForTimeout(200);
+  pl = await payloads();
+  assert(pl.some((x) => x.action === "HIDE_PII") && (await p.getByText(/^3174051203901234/).count()) === 0, "Sembunyikan hides and tells canvas");
+  await go("c=HostDetail&h=HST-001&leak=1");
+  assert(await p.getByText(/HostJson memuat kolom sensitif/).isVisible(), "raw KTP in HostJson is called out");
+  await go("c=HostDetail&h=HST-001&delay=300");
+  await p.getByRole("button", { name: "Nonaktifkan", exact: true }).click();
+  await p.waitForTimeout(150);
+  assert(await p.getByRole("button", { name: "Nonaktifkan host" }).isDisabled(), "deactivate needs a reason");
+  await p.locator("#pbs-hs-reason").fill("Kontrak selesai");
+  await p.getByRole("button", { name: "Nonaktifkan host" }).click();
+  await p.waitForTimeout(600);
+  pl = await payloads();
+  const hs = pl.find((x) => x.action === "SET_HOST_STATUS");
+  assert(hs && hs.payload.status === "Inactive" && hs.payload.reason === "Kontrak selesai" && hs.payload.upcomingSchedules.length === 4, "SET_HOST_STATUS carries reason and sessions to reassign");
+  assert((await p.getByRole("dialog").count()) === 0, "modal closes on ok");
+  for (const [n, q] of [["f-hl-loading", "c=HostList&s=loading"], ["f-hd-loading", "c=HostDetail&s=loading"]]) {
+    await go(q);
+    await shot(n);
+  }
   await b.close();
 })();

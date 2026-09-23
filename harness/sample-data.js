@@ -11,12 +11,26 @@
   ].map(([Title, NamaBrand]) => ({ Title, NamaBrand, Status: { Value: "Active" } }));
 
   const hostNames = ["Dinda Maharani", "Rani Salsabila", "Bagus Nugroho", "Sari Puspita", "Vina Anggraini", "Putri Ayu", "Kevin Pratama", "Nadia Kusuma", "Fajar Ramadhan", "Laras Wening", "Tegar Saputra", "Mega Lestari"];
+  const PACKAGES = ["Reguler", "Premium", "Part-time"];
+  const SCORES = [104, 118, 92, 71, 96, 88, 55, 101, 84, 99, 112, 63];
   const hosts = hostNames.map((NamaHost, i) => ({
     Title: `HST-${String(i + 1).padStart(3, "0")}`,
+    HostCode: `PBSH-${String(i + 1).padStart(3, "0")}`,
     NamaHost,
     Status: { Value: i === 11 ? "Inactive" : "Active" },
+    Package: { Value: PACKAGES[i % 3] },
+    Email: { DisplayName: NamaHost, Email: NamaHost.toLowerCase().replace(/[^a-z]+/g, ".") + "@example.com" },
+    JoinDate: `202${i < 5 ? 5 : 6}-${String(((i * 5) % (i < 5 ? 12 : 8)) + 1).padStart(2, "0")}-${String(((i * 7) % 27) + 1).padStart(2, "0")}`,
+    RegistrationDate: `202${i < 5 ? 5 : 6}-${String(((i * 5) % (i < 5 ? 12 : 8)) + 1).padStart(2, "0")}-${String(((i * 7) % 27) + 1).padStart(2, "0")}`,
+    RegisteredBy: "Bayu Prasetyo",
+    InitialScore: 100, CurrentScore: SCORES[i], MinimumScore: 0, MaximumScore: 200,
     HasRekening: !(i === 7 || i === 9),
+    // Masking hints computed in canvas: never the raw KTP / NoRekening / Alamat / PhoneNumber.
+    KtpLast4: String(1234 + i * 311).slice(-4), PhoneLast4: String(5678 + i * 97).slice(-4),
+    NorekLast4: i === 7 || i === 9 ? "" : String(4821 + i * 137).slice(-4), Bank: i === 7 || i === 9 ? "" : ["BCA", "Mandiri", "BNI", "BRI"][i % 4],
+    HasAlamat: i !== 9, HasNamaRekening: !(i === 7 || i === 9), HasPersonalEmail: i % 3 !== 2,
   }));
+  hosts[11].DeactivatedDate = "2026-09-05";
 
   const studios = [
     ["STD-01", "CWG-03", 2], ["STD-02", "CWG-05", 1], ["STD-03", "BSD-02", 1], ["STD-04", "Studio Kemang A", 1], ["STD-05", "Studio Kemang B", 1],
@@ -179,5 +193,53 @@
     config: { tolerancePct: 5, confidenceThreshold: 0.85, maxShiftHours: 12, missingReportDays: 2 },
   };
 
-  window.PBS_SAMPLE = { REF, brands, hosts, studios, schedules, reports, evidence, clockIns, payrolls, context, clockInsAug, clockInsAugBlocked, payrollRuns, payrollHistory, payrollLines, payslips };
+  // ---- host detail & credit score ([FAS STUDIO] HostScoreThreshold / HostScoreTransactions) ------
+  const thresholds = [
+    { ThresholdID: "BAND-1", Label: "Kritis", Description: "Di bawah batas minimum: dievaluasi bersama PIC studio.", MinimumScore: 0, MaximumScore: 59, Tone: { Value: "Danger" }, Active: true, SortOrder: 1 },
+    { ThresholdID: "BAND-2", Label: "Perlu perhatian", Description: "Beberapa penalty terakhir menurunkan skor.", MinimumScore: 60, MaximumScore: 84, Tone: { Value: "Warning" }, Active: true, SortOrder: 2 },
+    { ThresholdID: "BAND-3", Label: "Baik", Description: "Performa sesuai standar studio.", MinimumScore: 85, MaximumScore: 114, Tone: { Value: "Info" }, Active: true, SortOrder: 3 },
+    { ThresholdID: "BAND-4", Label: "Sangat baik", Description: "Konsisten tepat waktu dan target GMV tercapai.", MinimumScore: 115, MaximumScore: 200, Tone: { Value: "Success" }, Active: true, SortOrder: 4 },
+  ];
+  const RULES = [
+    ["RULE-01", "Live tepat waktu", "Reward", 2], ["RULE-02", "Report terlambat lebih dari 2 hari", "Penalty", -5], ["RULE-03", "Target GMV tercapai", "Reward", 5],
+    ["RULE-04", "Tidak hadir tanpa kabar", "Penalty", -10], ["RULE-05", "Feedback brand positif", "Reward", 3],
+  ];
+  // [rule index, day in Aug/Sep, voided]
+  const txPlan = {
+    "HST-001": [[0, "08-04"], [2, "08-09"], [1, "08-15"], [4, "08-21"], [0, "08-28"], [2, "09-02", true], [0, "09-05"], [4, "09-11"]],
+    "HST-003": [[1, "08-06"], [3, "08-19"], [2, "09-01"], [0, "09-08", true]],
+    "HST-012": [[3, "08-12"], [3, "08-26"], [1, "09-03"]],
+  };
+  const scoreTx = {};
+  Object.entries(txPlan).forEach(([hostId, plan]) => {
+    let score = 100; let n = 0;
+    scoreTx[hostId] = plan.map(([ri, md, voided]) => {
+      const [RuleID, Reason, TransactionType, Point] = RULES[ri];
+      const before = score; score = Math.max(0, Math.min(200, score + Point)); n++;
+      const row = { ID: 7000 + Object.keys(scoreTx).length * 20 + n, TransactionID: `TX-2026${md.replace("-", "")}-10${String(n).padStart(2, "0")}00`, HostID: hostId, RuleID, TransactionType: { Value: TransactionType }, Point,
+        ScoreBefore: before, ScoreAfter: score, Reason, Notes: voided ? "Salah host, dibatalkan" : Point < 0 ? "Dicatat dari laporan PIC studio" : "", Status: { Value: voided ? "Void" : "Active" },
+        CreatedDate: `2026-${md}T10:${String(n * 3).padStart(2, "0")}:00`, CreatedBy: { DisplayName: "Bayu Prasetyo", Email: "bayu@example.com" } };
+      if (voided) score = before; // the void is recorded on the row; CurrentScore is not recomputed in v1
+      return row;
+    });
+  });
+  // HST-001 stored score matches its ledger; HST-003 still carries the voided +2 (drift).
+  const sumActive = (id) => scoreTx[id].filter((t) => t.Status.Value === "Active").reduce((s, t) => s + t.Point, 100);
+  hosts[0].CurrentScore = sumActive("HST-001");
+  hosts[2].CurrentScore = sumActive("HST-003") + 2;
+  hosts[2].LedgerScore = sumActive("HST-003");
+  hosts[11].CurrentScore = sumActive("HST-012");
+  // HST-012: deactivated on 5 Sep, still clocked in afterwards and still on a future session.
+  const hostExtraClockIns = [8, 9].map((day) => ({ ID: 9900 + day, HostID: "HST-012", ClockInDate: d(day), CheckInTime: d(day, "08:04"), CheckOutTime: d(day, "17:02"), IsInsideGeofence: true, HKTugas: 180000, Insentif: 0, Streak: 0 }));
+  const hostExtraSchedules = [
+    { ID: 3290, Title: "SCD-3290", Date: d(18), StartTime: "19:00", EndTime: "21:00", BrandID: "BRD-006", HostID: "HST-012", StudioID: "STD-04", Status: { Value: "Planned" }, Platform: { Value: "Shopee" } },
+    { ID: 3291, Title: "SCD-3291", Date: d(4), StartTime: "10:00", EndTime: "12:00", BrandID: "BRD-002", HostID: "HST-012", StudioID: "STD-05", Status: { Value: "Done" }, Platform: { Value: "TikTok" } },
+  ];
+  // What canvas hands back after it logged a REVEAL_PII (dummy values).
+  const piiValues = (h, i) => ({
+    KTP: `317405${String(120390 + i).padStart(6, "0")}${h.KtpLast4}`, NoRekening: `${h.Bank} 0${String(88123 + i * 71)}${h.NorekLast4}`, NamaRekening: h.NamaHost.toUpperCase(),
+    Alamat: `Jl. Kemang Raya No. ${10 + i}, Jakarta Selatan`, PhoneNumber: `+62 812 ${String(3000 + i * 13).slice(-4)} ${h.PhoneLast4}`, PersonalEmail: h.NamaHost.split(" ")[0].toLowerCase() + ".personal@example.com",
+  });
+
+  window.PBS_SAMPLE = { REF, thresholds, scoreTx, hostExtraClockIns, hostExtraSchedules, piiValues, brands, hosts, studios, schedules, reports, evidence, clockIns, payrolls, context, clockInsAug, clockInsAugBlocked, payrollRuns, payrollHistory, payrollLines, payslips };
 })();

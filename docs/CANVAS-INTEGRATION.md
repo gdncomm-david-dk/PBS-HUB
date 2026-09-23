@@ -1,6 +1,6 @@
 # Integrasi canvas — PBS Hub Ops PCF
 
-Lima code component di solusi `PBSHubOpsPCF` (managed):
+Tujuh code component di solusi `PBSHubOpsPCF` (managed):
 
 | Control | Layar desain | Fungsi |
 |---|---|---|
@@ -9,6 +9,8 @@ Lima code component di solusi `PBSHubOpsPCF` (managed):
 | `pbs_Ops.ReportDetail` | Ops Console 4b/4c/4d (R-2) | Detail report: klaim host vs bukti AI vs selisih, Setujui / Perlu revisi / Eskalasi. |
 | `pbs_Ops.PayrollRuns` | Payroll P-1 + P-2 | Daftar run payroll (status, total, 4 titik approval, slip) + modal **Jalankan payroll** dengan preflight. |
 | `pbs_Ops.PayrollRunDetail` | Payroll P-3 + P-4 + P-5 | Baris per host (expand ke Clock In), tracker 4 gate approval, status slip gaji. |
+| `pbs_Ops.HostList` | Host HD-1 | Direktori host: package, status, skor + band, peringatan tanpa data bank. |
+| `pbs_Ops.HostDetail` | Host HD-2 | Satu host: Ringkasan (skor + ledger), Jadwal, Report, Payroll, Data pribadi (tersamar, dibuka dengan log). |
 
 Semua control hanya merender **isi modul** (judul, filter, tabel, kartu). Header dan sidebar tetap dari
 app (`BlibliUniversalSidebar`).
@@ -48,7 +50,11 @@ Set(
                 pageSize: 50,
                 payrollLabelOffset: -1,     // Payroll.Periode = bulan run, data = bulan sebelumnya (P8)
                 payrollAssemblyMinutes: 30, // run baru < 30 menit dengan gate 1 terbuka = "Sedang disusun"
-                payrollAnyPeriod: false     // true hanya kalau flow sudah menerima periode sebagai input
+                payrollAnyPeriod: false,    // true hanya kalau flow sudah menerima periode sebagai input
+                scoreInitial: First('[FAS STUDIO] ScoreConfig').InitialScore,   // dipakai kalau kolom Host kosong
+                scoreMin: First('[FAS STUDIO] ScoreConfig').MinimumScore,
+                scoreMax: First('[FAS STUDIO] ScoreConfig').MaximumScore,
+                piiRevealSeconds: 30        // data pribadi yang dibuka hilang otomatis
             }
         },
         JSONFormat.Compact
@@ -65,6 +71,8 @@ Izin kalau `permissions` kosong (model legacy `Role - PBS Hub`, satu-satunya yan
 | `RECONCILIATION_CONFIG` (tombol Konfigurasi toleransi) | ✓ | ✓ | – |
 | `PAYROLL_VIEW` (tombol Buka payroll) | ✓ | – | – |
 | `PAYROLL_RUN` (Jalankan payroll, Kirim ulang slip) | ✓ | – | – |
+| `HOST_EDIT` (Tambah host, Edit, Nonaktifkan) | ✓ | ✓ | – |
+| `HOST_PII_VIEW` (tab Data pribadi: KTP, rekening, alamat, telepon) | ✓ | – | – |
 
 Kalau nanti pindah ke `[FAS STUDIO] RolePermissions`, isi `permissions: Concat(colUserPermissions, Value, ",")`
 dan control hanya memakai daftar itu.
@@ -557,7 +565,199 @@ Aksi: `BACK`, `RELOAD` (`{payrollId, title}`) tidak mengunci. `RESEND_PAYSLIPS`
 (`{payrollId, title, items: [{lineId, name, email, hostId}]}`) mengunci dan wajib dibalas; tombolnya
 hanya muncul untuk `PAYROLL_RUN` dan hanya aktif kalau ada slip Gagal/Bounce di `PayslipJson`.
 
-## 8. Alasan (kolom *Alasan* di antrean)
+## 8. Host
+
+### Data mapping
+
+| Kolom v1 | Dikirim sebagai | Catatan |
+|---|---|---|
+| `Title` | `Title` | HostID, kunci join ke Schedule, Report, Clock In, Score |
+| `HostCode` / `NamaHost` / `HostName` | sama | Tampil: `HostCode` (fallback `Title`), nama: `NamaHost` → `HostName` |
+| `Status` (Choice) | `Status: Status.Value` | `Active` / `Inactive`. Payroll v1 **tidak** menyaring kolom ini |
+| `Package` (Choice) | `Package: Package.Value` | |
+| `Email` (Person) | `Email: Email.Email` | Email kerja |
+| `JoinDate`, `RegistrationDate`, `RegisteredBy` | sama | |
+| `InitialScore`, `CurrentScore`, `MinimumScore`, `MaximumScore` | sama | Kosong → `scoreInitial/scoreMin/scoreMax` di Context (`[FAS STUDIO] ScoreConfig`) |
+| `NoRekening`, `Bank` | `HasRekening`, `NorekLast4`, `Bank` | **Nomor lengkap tidak pernah dikirim** |
+| `KTP` | `KtpLast4` | Hanya di HostDetail |
+| `PhoneNumber` | `PhoneLast4` | Hanya di HostDetail |
+| `Alamat`, `NamaRekening`, `PersonalEmail` | `HasAlamat`, `HasNamaRekening`, `HasPersonalEmail` | Boolean saja |
+| (belum ada) | `DeactivatedDate` | Opsional. Tanpa kolom ini, "periode terdampak" = bulan berjalan + bulan lalu |
+| `[FAS STUDIO] HostScoreTransactions` | `ScoreTxJson` | Hanya `Status = Active` (atau kosong) yang dihitung |
+| `[FAS STUDIO] HostScoreThreshold` | `ThresholdsJson` | `Tone` boleh `Success/Warning/Danger/Info` atau hijau/kuning/merah/biru |
+
+Kalau `HostJson`/`HostsJson` ternyata memuat `KTP`, `NoRekening`, `Alamat`, `PhoneNumber`, `PersonalEmail`,
+`NamaRekening` atau `Employee_ID`, control tetap menyamarkannya **dan** menampilkan banner merah: datanya
+sudah terkirim ke perangkat, jadi perbaiki `ForAll` di canvas.
+
+**Data pribadi dibuka satu kolom per permintaan.** Tombol *Lihat* mengirim `REVEAL_PII`; canvas menulis log
+akses dulu, baru mengisi `RevealedJson` dengan satu nilai. Nilai hilang sendiri setelah `piiRevealSeconds`
+(default 30) — control mengirim `HIDE_PII` dan canvas mengosongkan variabelnya. Tab *Data pribadi* hanya ada
+untuk `HOST_PII_VIEW`; tanpa izin itu tab-nya tidak dirender sama sekali.
+
+Log akses butuh list baru **`Host PII Access Log`** (Title, HostID, Field, ViewedBy, ViewedAt). Kalau log
+gagal ditulis, data **tidak** dibuka.
+
+### HostList
+
+**Screen.OnVisible**
+
+```powerfx
+Set(varHlLoading, true);
+Concurrent(
+    ClearCollect(colHlHost, 'Host - PBS Hub'),
+    ClearCollect(colScoreBand, Filter('[FAS STUDIO] HostScoreThreshold', Active))
+);
+Set(varHlLoading, false);
+Clear(colPbsProcessed);
+```
+
+**Properti**
+
+```powerfx
+Context        = varPbsCtx
+IsLoading      = varHlLoading
+HasMore        = CountRows(colHlHost) >= 2000   // batas delegasi: tampilkan "Muat lebih banyak"
+ActionResult   = varHlResult
+HostsJson      = JSON(ForAll(colHlHost, {ID: ID, Title: Title, HostCode: HostCode, NamaHost: NamaHost, Status: Status.Value, Package: Package.Value, Email: Email.Email, JoinDate: JoinDate, InitialScore: InitialScore, CurrentScore: CurrentScore, MinimumScore: MinimumScore, MaximumScore: MaximumScore, HasRekening: !IsBlank(NoRekening) && !IsBlank(Bank)}), JSONFormat.Compact)
+ThresholdsJson = JSON(ForAll(colScoreBand, {ThresholdID: ThresholdID, Label: Label, Description: Description, MinimumScore: MinimumScore, MaximumScore: MaximumScore, Tone: Tone.Value, Active: Active, SortOrder: SortOrder}), JSONFormat.Compact)
+```
+
+`LedgerScore` (jumlah ledger per host) opsional; kalau dikirim, baris yang `CurrentScore`-nya berbeda diberi
+ikon peringatan. Jangan hitung dengan `Sum(Filter(HostScoreTransactions…))` per baris di list besar (S5,
+delegasi) — lebih baik dari flow terjadwal.
+
+**OnChange**
+
+```powerfx
+If(!IsBlank(Self.ActionPayload),
+    With({req: ParseJSON(Self.ActionPayload)},
+        With({act: Text(req.action), rid: Text(req.requestId), p: req.payload},
+            If(!(rid in colPbsProcessed.Id),
+                Collect(colPbsProcessed, {Id: rid});
+                Switch(act,
+                    "OPEN_HOST", Set(varSelectedHostId, Text(p.hostId)); Navigate(scrHostDetail),
+                    "ADD_HOST", Navigate(scrHostForm),                       // form v1 (HOST0001A)
+                    "LOAD_MORE", Notify("Gunakan filter untuk mempersempit daftar host.", NotificationType.Information)
+                )
+            )
+        )
+    )
+)
+```
+
+Aksi: `OPEN_HOST` (`{hostId, id}`), `ADD_HOST`, `FILTER_CHANGED` (`{filters, sort}`), `LOAD_MORE` — semuanya
+tidak mengunci. Tombol *Tambah host* hanya untuk `HOST_EDIT`.
+
+### HostDetail
+
+**Screen.OnVisible** / **OnHidden**
+
+```powerfx
+// OnVisible
+Set(varHdLoading, true);
+Set(varHdReveal, "");
+Set(varHdHost, LookUp('Host - PBS Hub', Title = varSelectedHostId));
+Set(varHdFrom, Date(Year(Today()), Month(Today()) - 1, 1));   // bulan lalu + bulan ini
+Concurrent(
+    ClearCollect(colHdSched, Filter('Schedule - PBS Hub', HostID = varSelectedHostId, Date >= DateAdd(Today(), -60, TimeUnit.Days))),
+    ClearCollect(colHdReport, Filter('Report - PBS Hub', HostID = varSelectedHostId)),
+    ClearCollect(colHdClockIn, Filter('Clock In - PBS Hub', HostID = varSelectedHostId, ClockInDate >= varHdFrom)),
+    ClearCollect(colHdLine, Filter('Payroll Data', Employee_Email = varHdHost.Email.Email)),
+    ClearCollect(colHdTx, Filter('[FAS STUDIO] HostScoreTransactions', HostID = varSelectedHostId)),
+    ClearCollect(colScoreBand, Filter('[FAS STUDIO] HostScoreThreshold', Active))
+);
+ClearCollect(colHdRun, Filter('Payroll - PBS Hub', Title in colHdLine.payroll_id));
+Set(varHdLoading, false);
+Clear(colPbsProcessed);
+
+// OnHidden: nilai yang sudah dibuka tidak boleh tertinggal di variabel.
+Set(varHdReveal, "")
+```
+
+**Properti**
+
+```powerfx
+Context         = varPbsCtx
+DefaultTab      = "Summary"          // Summary | Schedule | Reports | Payroll | Personal
+IsLoading       = varHdLoading
+ActionResult    = varHdResult
+RevealedJson    = varHdReveal
+HostJson        = JSON(ForAll(Table(varHdHost), {ID: ID, Title: Title, HostCode: HostCode, NamaHost: NamaHost, Status: Status.Value, Package: Package.Value, Email: Email.Email, JoinDate: JoinDate, RegistrationDate: RegistrationDate, RegisteredBy: RegisteredBy, InitialScore: InitialScore, CurrentScore: CurrentScore, MinimumScore: MinimumScore, MaximumScore: MaximumScore, Modified: Modified, Bank: Bank, HasRekening: !IsBlank(NoRekening) && !IsBlank(Bank), NorekLast4: Right(NoRekening, 4), KtpLast4: Right(KTP, 4), PhoneLast4: Right(PhoneNumber, 4), HasAlamat: !IsBlank(Alamat), HasNamaRekening: !IsBlank(NamaRekening), HasPersonalEmail: !IsBlank(PersonalEmail)}), JSONFormat.Compact)
+SchedulesJson   = JSON(ForAll(colHdSched, {ID: ID, Title: Title, Date: Date, StartTime: StartTime, EndTime: EndTime, BrandID: BrandID, StudioID: StudioID, HostID: HostID, Platform: Platform.Value, Status: Status.Value}), JSONFormat.Compact)
+ReportsJson     = JSON(ForAll(colHdReport, {ID: ID, Title: Title, LiveDate: LiveDate, BrandID: BrandID, HostID: HostID, Platform: Platform.Value, Penjualan: Penjualan, ApprovalStatus: ApprovalStatus.Value, ApprovalComment: ApprovalComment, Modified: Modified}), JSONFormat.Compact)
+ClockInJson     = JSON(ForAll(colHdClockIn, {HostID: HostID, ClockInDate: ClockInDate, CheckInTime: CheckInTime, CheckOutTime: CheckOutTime, HKTugas: HKTugas, Insentif: Insentif, Streak: Streak}), JSONFormat.Compact)
+PayrollDataJson = JSON(ForAll(colHdLine, {Title: Title, payroll_id: payroll_id, HostID: varSelectedHostId, Periode: Periode, JumlahHari: JumlahHari, TotalGaji: TotalGaji, PPh21: PPh21, NetTHP: NetTHP, Bank: Bank, NorekLast4: Right(Norek, 4), HasRekening: !IsBlank(Norek) && !IsBlank(Bank)}), JSONFormat.Compact)
+PayrollJson     = JSON(ForAll(colHdRun, {ID: ID, Title: Title, PayrollName: PayrollName, Periode: Periode, Status: Status.Value, PBSApproval: PBSApproval, HCApproval: HCApproval, FASApproval: FASApproval, Created: Created, Modified: Modified}), JSONFormat.Compact)
+ScoreTxJson     = JSON(ForAll(colHdTx, {ID: ID, TransactionID: TransactionID, RuleID: RuleID, TransactionType: TransactionType.Value, Point: Point, ScoreBefore: ScoreBefore, ScoreAfter: ScoreAfter, Reason: Reason, Notes: Notes, Status: Status.Value, CreatedDate: CreatedDate, CreatedBy: CreatedBy.DisplayName}), JSONFormat.Compact)
+ThresholdsJson  = JSON(ForAll(colScoreBand, {ThresholdID: ThresholdID, Label: Label, Description: Description, MinimumScore: MinimumScore, MaximumScore: MaximumScore, Tone: Tone.Value, Active: Active, SortOrder: SortOrder}), JSONFormat.Compact)
+BrandsJson      = JSON(ShowColumns('Brand - PBS Hub', Title, NamaBrand), JSONFormat.Compact)
+StudiosJson     = JSON(ShowColumns('Studio - PBS Hub', Title, NamaStudio), JSONFormat.Compact)
+```
+
+**OnChange**
+
+```powerfx
+If(!IsBlank(Self.ActionPayload),
+    With({req: ParseJSON(Self.ActionPayload)},
+        With({act: Text(req.action), rid: Text(req.requestId), p: req.payload},
+            If(!(rid in colPbsProcessed.Id),
+                Collect(colPbsProcessed, {Id: rid});
+                Switch(act,
+                    "BACK", Set(varHdReveal, ""); Back(),
+                    "RELOAD", Refresh('Host - PBS Hub'); Set(varHdHost, LookUp('Host - PBS Hub', Title = varSelectedHostId)),
+                    "NAV", Switch(Text(p.target),
+                        "EDIT_HOST", Navigate(scrHostForm),
+                        "SCORE_LEDGER", Navigate(scrCreditScore),
+                        "SCHEDULE", Navigate(scrSchedule)),
+                    "OPEN_SCHEDULE", Set(varSelectedScheduleId, Value(p.scheduleId)); Navigate(scrScheduleDetail),
+                    "OPEN_REPORT", Set(varSelectedReportId, Value(p.reportId)); Navigate(scrReportDetail),
+                    "OPEN_RUN", Set(varSelectedPayrollId, Value(p.runId)); Navigate(scrPayrollRunDetail),
+                    "HIDE_PII", Set(varHdReveal, ""),
+                    "REVEAL_PII",
+                        With({f: Text(p.field)},
+                            If(userRole.Value <> "PBS_Team",
+                                Set(varHdResult, JSON({requestId: rid, status: "error", message: "Tidak punya izin membuka data pribadi."}, JSONFormat.Compact)),
+                            With({log: IfError(Patch('Host PII Access Log', Defaults('Host PII Access Log'), {Title: rid, HostID: varSelectedHostId, Field: f, ViewedBy: User().Email, ViewedAt: Now()}), Blank())},
+                                If(IsBlank(log),
+                                    Set(varHdResult, JSON({requestId: rid, status: "error", message: "Log akses gagal ditulis, data tidak dibuka."}, JSONFormat.Compact)),
+                                    Set(varHdReveal, JSON({hostId: varSelectedHostId, field: f, value: Switch(f,
+                                        "KTP", varHdHost.KTP, "NoRekening", varHdHost.NoRekening, "NamaRekening", varHdHost.NamaRekening,
+                                        "Alamat", varHdHost.Alamat, "PhoneNumber", varHdHost.PhoneNumber, "PersonalEmail", varHdHost.PersonalEmail)}, JSONFormat.Compact));
+                                    Set(varHdResult, JSON({requestId: rid, status: "ok"}, JSONFormat.Compact))
+                                )
+                            ))
+                        ),
+                    "SET_HOST_STATUS",
+                        With({cur: LookUp('Host - PBS Hub', ID = Value(p.id))},
+                            If(Text(cur.Modified, DateTimeFormat.UTC) <> Text(DateTimeValue(Text(p.expectedModified)), DateTimeFormat.UTC),
+                                Set(varHdResult, JSON({requestId: rid, status: "conflict", decidedBy: cur.'Modified By'.DisplayName, decidedAt: cur.Modified}, JSONFormat.Compact)),
+                                IfError(
+                                    Patch('Host - PBS Hub', cur, {Status: {Value: Text(p.status)}});
+                                    Set(varHdHost, LookUp('Host - PBS Hub', ID = Value(p.id)));
+                                    Set(varHdResult, JSON({requestId: rid, status: "ok", message: "Status host disimpan."}, JSONFormat.Compact)),
+                                    Set(varHdResult, JSON({requestId: rid, status: "error", message: FirstError.Message}, JSONFormat.Compact))
+                                )
+                            )
+                        )
+                )
+            )
+        )
+    )
+)
+```
+
+Aksi yang **mengunci** dan wajib dibalas: `REVEAL_PII` (`{hostId, id, field}`; `field` salah satu
+`KTP | NoRekening | NamaRekening | Alamat | PhoneNumber | PersonalEmail`) dan `SET_HOST_STATUS`
+(`{hostId, id, status: "Inactive"|"Active", reason, effectiveDate, expectedModified, upcomingSchedules}`).
+`reason` wajib saat menonaktifkan; simpan ke kolom catatan kalau ada, atau ke list log. `upcomingSchedules`
+= jadwal mendatang yang perlu dialihkan ke host lain. Lainnya (`BACK`, `RELOAD`, `NAV`, `OPEN_SCHEDULE`,
+`OPEN_REPORT`, `OPEN_RUN`, `HIDE_PII`) tidak mengunci.
+
+Tab *Payroll* hanya untuk `PAYROLL_VIEW`, tab *Data pribadi* hanya untuk `HOST_PII_VIEW`, tombol *Edit* /
+*Nonaktifkan* hanya untuk `HOST_EDIT`.
+
+## 9. Alasan (kolom *Alasan* di antrean)
 
 Dihitung di control dari Report + Report Automation, urutan prioritas:
 
@@ -574,17 +774,26 @@ Dihitung di control dari Report + Report Automation, urutan prioritas:
 Bulk approve hanya bisa untuk **Confidence rendah** yang ketujuh metriknya cocok. Selama kolom `Confidence`
 belum ada di v1, bulk approve tidak akan muncul — itu disengaja.
 
-## 9. Pemasangan
+## 10. Pemasangan
 
 1. Power Platform admin center → environment → **Settings → Product → Features** → aktifkan
    *Allow publishing of canvas apps with code components*.
-2. make.powerapps.com → **Solutions → Import solution** → `PBSHubOpsPCF_1_1_0_0_managed.zip`
-   (sudah pernah import 1.0.0.0? Import ini meng-upgrade solusi yang sama).
+2. make.powerapps.com → **Solutions → Import solution** → `PBSHubOpsPCF_1_2_0_0_managed.zip`
+   (sudah pernah import versi lama? Import ini meng-**upgrade** solusi yang sama — pilih *Upgrade*, bukan
+   *Stage for upgrade* yang belum di-*Apply*).
 3. Di canvas app: **Insert → Get more components → Code** → pilih `PBS Ops Dashboard`,
-   `PBS Ops Report Review`, `PBS Ops Report Detail`, `PBS Ops Payroll Runs`, `PBS Ops Payroll Run Detail`.
+   `PBS Ops Report Review`, `PBS Ops Report Detail`, `PBS Ops Payroll Runs`, `PBS Ops Payroll Run Detail`,
+   `PBS Ops Host List`, `PBS Ops Host Detail`.
 4. Taruh tiap control di layar masing-masing (ukuran = area konten di samping sidebar), isi properti
-   sesuai bagian 4–7.
+   sesuai bagian 4–8.
 
-Update: naikkan `version` di ketiga `ControlManifest.Input.xml` **dan** `Version` di
+**Control di app tidak berubah setelah import?** Canvas app menyimpan salinan code component saat
+disisipkan. Setelah upgrade solusi: buka app di Studio → akan muncul banner *"Updated code components
+detected"* → **Update**. Kalau banner tidak muncul: tutup Studio, hard refresh browser (Ctrl+Shift+R), buka
+lagi. Lalu **Save + Publish** app. Pastikan juga di Solutions → PBS Hub Ops PCF → History bahwa versi
+1.2.0.0 benar-benar terpasang. Versi control di solusi ini: Dashboard / ReportReview / ReportDetail
+1.2.0, PayrollRuns / PayrollRunDetail 1.1.0, HostList / HostDetail 1.0.0.
+
+Update: naikkan `version` di setiap `ControlManifest.Input.xml` yang bundelnya berubah **dan** `Version` di
 `solution/PBSHubOpsPCF/src/Other/Solution.xml`, lalu `npm run release`. Managed solution hanya bisa
-di-upgrade dengan versi yang lebih tinggi.
+di-upgrade dengan versi yang lebih tinggi, dan canvas hanya menawarkan *Update* kalau versi control naik.

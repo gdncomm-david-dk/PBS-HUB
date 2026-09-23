@@ -75,13 +75,13 @@ export function parseContext(raw: string | null | undefined): ModuleContext {
 /**
  * Permission check. When canvas sends no permission list at all (v1 only has the legacy
  * `Role - PBS Hub` choice), the check falls back to the role: PBS_Team and FAS_Team get the Ops
- * permissions, except payroll which v1 restricts to PBS_Team.
+ * permissions, except payroll and host personal data (KTP, bank, address), which stay with PBS_Team.
  */
 export function hasPermission(ctx: ModuleContext, code: string): boolean {
   if (ctx.permissions.length > 0) return ctx.permissions.includes(code);
   const roles = ctx.roles.map((r) => r.toUpperCase().replace(/[\s-]/g, "_"));
   if (roles.includes("PBS_TEAM")) return true;
-  if (roles.includes("FAS_TEAM")) return !code.startsWith("PAYROLL");
+  if (roles.includes("FAS_TEAM")) return !code.startsWith("PAYROLL") && !code.startsWith("HOST_PII");
   return false;
 }
 

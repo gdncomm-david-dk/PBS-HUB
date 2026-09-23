@@ -2,7 +2,7 @@
   "name": "pbs-hub-pcf",
   "private": true,
   "version": "1.0.0",
-  "description": "PBS Hub Ops Console PCF code components: Dashboard, ReportReview, ReportDetail",
+  "description": "PBS Hub Ops Console PCF code components: Dashboard, ReportReview, ReportDetail, PayrollRuns, PayrollRunDetail, HostList, HostDetail",
   "workspaces": [
     "controls/*"
   ],

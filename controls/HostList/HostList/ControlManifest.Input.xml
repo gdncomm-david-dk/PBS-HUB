@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<manifest>
+  <control namespace="Ops" constructor="HostList" version="1.0.0" display-name-key="PBS Ops Host List" description-key="PBS Hub Ops Console HD-1: host directory with package, status, credit score band and a warning for hosts without bank details." control-type="standard">
+    <external-service-usage enabled="false"></external-service-usage>
+
+    <property name="Context" display-name-key="Context" description-key="JSON {userEmail,userName,roles,permissions,config}. config: pageSize (50), scoreInitial, scoreMin, scoreMax (ScoreConfig)." of-type="Multiple" usage="input" required="false" />
+    <property name="HostsJson" display-name-key="HostsJson" description-key="JSON rows of [Host - PBS Hub]: Title, HostCode, NamaHost, Status, Package, Email, JoinDate, InitialScore, CurrentScore, MinimumScore, MaximumScore, plus HasRekening computed in canvas. Optional LedgerScore. Never send KTP, NoRekening, Alamat, PhoneNumber or PersonalEmail." of-type="Multiple" usage="input" required="false" />
+    <property name="ThresholdsJson" display-name-key="ThresholdsJson" description-key="JSON rows of [FAS STUDIO] HostScoreThreshold: ThresholdID, Label, Description, MinimumScore, MaximumScore, Tone, Active, SortOrder." of-type="Multiple" usage="input" required="false" />
+    <property name="HasMore" display-name-key="HasMore" description-key="true when the server has more hosts than were sent: shows Muat lebih banyak (LOAD_MORE)." of-type="TwoOptions" usage="input" required="false" />
+    <property name="IsLoading" display-name-key="IsLoading" description-key="true while canvas is loading: renders skeleton rows." of-type="TwoOptions" usage="input" required="false" />
+    <property name="ReferenceDate" display-name-key="ReferenceDate" description-key="Optional ISO date-time used as now (testing)." of-type="SingleLine.Text" usage="input" required="false" />
+    <property name="ActionResult" display-name-key="ActionResult" description-key="Canvas reply {requestId,status,message}. Only shown as a banner; the list has no locking action." of-type="SingleLine.Text" usage="input" required="false" />
+    <property name="ActionPayload" display-name-key="ActionPayload" description-key="JSON {action,requestId,payload}: OPEN_HOST, ADD_HOST, FILTER_CHANGED, LOAD_MORE, NAV." of-type="SingleLine.Text" usage="output" required="false" />
+
+    <resources>
+      <code path="index.ts" order="1" />
+    </resources>
+  </control>
+</manifest>
