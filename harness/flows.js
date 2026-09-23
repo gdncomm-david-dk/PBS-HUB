@@ -48,7 +48,24 @@ const assert = (c, m) => { if (!c) { console.log("FAIL", m); process.exitCode = 
   await send.click();
   pl = await payloads();
   const rv = pl.find((x) => x.action === "REQUEST_REVISION");
-  assert(rv && rv.payload.approvalStatus === "Need Revision" && rv.payload.flaggedMetrics.join() === "Penjualan,CTOR", "REQUEST_REVISION payload with flagged metrics");
+  assert(rv && rv.payload.approvalStatus === "Need Revision" && rv.payload.flaggedMetrics.join() === "Penjualan,Pesanan,ProdukTerjual,JumlahPembeli,CTR,CTOR,PeakViewer", "REQUEST_REVISION flags every differing metric");
+  assert(!rv.payload.flaggedMetrics.some((m) => ["Durasi(Min)", "Durasi", "AddToCart", "TotalViewer", "Comment", "Share"].includes(m)), "0% metrics never flagged");
+
+  // All metrics in one table; 0% rows cannot be checked; unchecking narrows the payload.
+  await go("c=ReportDetail&r=RPT-20862");
+  assert((await p.locator(".pbs-table tbody tr").first().locator("xpath=ancestor::table").locator("tbody tr").count()) === 12, "all 12 metrics in the table");
+  assert((await p.getByText("Tidak dibandingkan").count()) === 0, "no uncompared section");
+  await p.getByRole("button", { name: "Perlu revisi" }).click();
+  assert(await p.getByRole("checkbox", { name: /Durasi/ }).isDisabled(), "0% metric checkbox disabled");
+  await p.getByRole("checkbox", { name: /Pesanan/ }).uncheck();
+  await p.locator("#pbs-rev-note").fill("Cek ulang.");
+  await p.getByRole("button", { name: "Kirim permintaan" }).click();
+  pl = await payloads();
+  assert(!pl.find((x) => x.action === "REQUEST_REVISION").payload.flaggedMetrics.includes("Pesanan"), "unchecked metric left out");
+
+  // Identical claim and evidence: nothing to revise.
+  await go("c=ReportDetail&r=RPT-20860");
+  assert(await p.getByRole("button", { name: "Perlu revisi" }).isDisabled(), "Perlu revisi disabled when every metric matches");
 
   // No evidence.
   await go("c=ReportDetail&r=RPT-20865");
@@ -88,13 +105,32 @@ const assert = (c, m) => { if (!c) { console.log("FAIL", m); process.exitCode = 
   await p.getByLabel("Alasan").selectOption("LOW_CONFIDENCE");
   assert(await p.getByText("Tidak ada report yang cocok dengan filter").isVisible(), "empty-filtered state");
   await shot("f-emptyfiltered");
-  await p.getByRole("button", { name: "Tinjau" }).count();
 
-  // Open report emits the row reference.
+  // Row actions: Detail opens the report screen.
   await go("c=ReportReview");
-  await p.getByRole("button", { name: "Tinjau" }).nth(2).click();
+  await p.getByRole("button", { name: "Detail", exact: true }).nth(2).click();
   pl = await payloads();
-  assert(pl.some((x) => x.action === "OPEN_REPORT" && x.payload.title === "RPT-20862"), "OPEN_REPORT payload");
+  assert(pl.some((x) => x.action === "OPEN_REPORT" && x.payload.title === "RPT-20862"), "Detail emits OPEN_REPORT");
+
+  // Row actions: Review opens a popup; approving there closes it and shows the banner.
+  await go("c=ReportReview&delay=300");
+  await p.getByRole("button", { name: "Review", exact: true }).nth(2).click();
+  const dlg = p.getByRole("dialog");
+  assert(await dlg.getByText("Review RPT-20862").isVisible(), "review popup opens");
+  await shot("f-rr-popup");
+  await dlg.getByRole("button", { name: "Setujui", exact: true }).click();
+  pl = await payloads();
+  assert(pl.some((x) => x.action === "APPROVE" && x.payload.title === "RPT-20862"), "APPROVE from popup");
+  await p.waitForTimeout(600);
+  assert((await p.getByRole("dialog").count()) === 0, "popup closes after ok");
+  assert(await p.getByText("Keputusan tersimpan: report disetujui.").isVisible(), "list shows success banner");
+
+  // Popup "Lihat detail" goes to the report screen.
+  await go("c=ReportReview");
+  await p.getByRole("button", { name: "Review", exact: true }).nth(1).click();
+  await p.getByRole("dialog").getByRole("button", { name: "Lihat detail" }).click();
+  pl = await payloads();
+  assert(pl.some((x) => x.action === "OPEN_REPORT"), "Lihat detail emits OPEN_REPORT");
 
   // Paging: pageSize 10 local, then LOAD_MORE when HasMore.
   await go("c=ReportReview&tab=All");

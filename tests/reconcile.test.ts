@@ -1,4 +1,4 @@
-import { COMPARED_METRICS, compareMetric, indexEvidence, reconcile, reviewState, numericTail, reasonDetail } from "../shared/reconcile";
+import { COMPARED_METRICS, compareMetric, sameValue, indexEvidence, reconcile, reviewState, numericTail, reasonDetail } from "../shared/reconcile";
 import { fmtSignedPct } from "../shared/format";
 
 const claim = { ID: 20863, Title: "RPT-20863", HostID: "HST-1", Penjualan: 12400000, Pesanan: 340, ProdukTerjual: 512, JumlahPembeli: 288, CTR: 4.8, CTOR: 11.4, PeakViewer: 3120, ApprovalStatus: "Waiting Approval" };
@@ -54,11 +54,30 @@ describe("reconcile — reason codes", () => {
     const zeros = Object.fromEntries(COMPARED_METRICS.map((m) => [m.key, 0]));
     expect(reconcile({ ...claim, ...zeros }, indexEvidence([{ ...ev, ...zeros }]), opts).reason).toBe("ZERO_ZERO");
   });
+  it("ZERO_ZERO still applies when only the extra metrics carry values", () => {
+    const zeros = { ...Object.fromEntries(COMPARED_METRICS.map((m) => [m.key, 0])), "Durasi(Min)": 120, TotalViewer: 400 };
+    expect(reconcile({ ...claim, ...zeros }, indexEvidence([{ ...ev, ...zeros }]), opts).reason).toBe("ZERO_ZERO");
+  });
   it("LOW_CONFIDENCE only when a confidence value is present and below the threshold", () => {
     const matching = { ...ev, ...Object.fromEntries(COMPARED_METRICS.map((m) => [m.key, (claim as Record<string, unknown>)[m.key]])) };
     expect(reconcile(claim, indexEvidence([{ ...matching, Confidence: 0.6 }]), opts).reason).toBe("LOW_CONFIDENCE");
     expect(reconcile(claim, indexEvidence([{ ...matching, Confidence: 91 }]), opts).reason).toBe("ALL_MATCH");
     expect(reconcile(claim, indexEvidence([matching]), opts).reason).toBe("ALL_MATCH");
+  });
+});
+
+describe("reconcile — all metrics", () => {
+  it("compares the five extra metrics when they are sent, and skips them when neither side has them", () => {
+    const withExtra = reconcile({ ...claim, "Durasi(Min)": 60, AddToCart: 10 }, indexEvidence([{ ...ev, "Durasi(Min)": 181, AddToCart: 10 }]), opts);
+    expect(withExtra.metrics.map((m) => m.def.key)).toEqual(["Penjualan", "Pesanan", "ProdukTerjual", "JumlahPembeli", "CTR", "CTOR", "PeakViewer", "Durasi", "AddToCart"]);
+    expect(withExtra.outOfTolerance.map((m) => m.def.key)).toContain("Durasi");
+    expect(reconcile(claim, indexEvidence([ev]), opts).metrics).toHaveLength(7);
+  });
+  it("sameValue marks exact matches (0 %) only", () => {
+    expect(sameValue({ claim: 7, evidence: 7 })).toBe(true);
+    expect(sameValue({ claim: 0, evidence: 0 })).toBe(true);
+    expect(sameValue({ claim: 7, evidence: 7.1 })).toBe(false);
+    expect(sameValue({ claim: 7, evidence: null })).toBe(false);
   });
 });
 

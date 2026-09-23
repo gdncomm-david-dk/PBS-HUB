@@ -91,8 +91,8 @@ di bawah yang disarankan.
 | `ScheduleID`, `HostID`, `BrandID`, `AccountID` | idem | nama, filter, cek bukti yatim |
 | `Platform`, `Account` | Platform (Choice), Account | kolom Platform, Akun, pilihan prompt |
 | `LiveDate` | LiveDate | tanggal live (kirim `Text(LiveDate,"yyyy-mm-dd")`) |
-| `Penjualan`, `Pesanan`, `ProdukTerjual`, `JumlahPembeli`, `CTR`, `CTOR`, `PeakViewer` | idem | **7 metrik yang dibandingkan PBS0005A** |
-| `DurasiMin`, `AddToCart`, `TotalViewer`, `Comment`, `Share` | `Durasi(Min)`, … | strip "Tidak dibandingkan" (M1) |
+| `Penjualan`, `Pesanan`, `ProdukTerjual`, `JumlahPembeli`, `CTR`, `CTOR`, `PeakViewer` | idem | 7 metrik inti PBS0005A (selalu dibandingkan) |
+| `DurasiMin`, `AddToCart`, `TotalViewer`, `Comment`, `Share` | `Durasi(Min)`, … | ikut dibandingkan di tabel yang sama bila klaim atau bukti berisi nilai |
 | `ApprovalStatus`, `Match` | Choice | tab & status (`Waiting Approval`/kosong = menunggu, `Need Revision` = perlu revisi, `Done` = selesai; komentar `Automated…` = otomatis) |
 | `ApprovalComment`, `Approver`, `ApproverEmail` | idem | ringkasan keputusan, banner "sudah diputuskan oleh…" |
 | `Attachment` | Attachment (Note, URL) | fallback URL screenshot |
@@ -211,11 +211,18 @@ DefaultTab   = "Waiting"
 IsLoading    = varRrLoading
 HasMore      = CountRows(colRrReport) >= varRrTop
 ActionResult = varRrResult
-ReportsJson  = JSON(ForAll(colRrReport, {ID: ID, Title: Title, ScheduleID: ScheduleID, HostID: HostID, BrandID: BrandID, AccountID: AccountID, Account: Account, Platform: Platform.Value, LiveDate: Text(LiveDate, "yyyy-mm-dd"), Penjualan: Penjualan, Pesanan: Pesanan, ProdukTerjual: ProdukTerjual, JumlahPembeli: JumlahPembeli, CTR: CTR, CTOR: CTOR, PeakViewer: PeakViewer, ApprovalStatus: ApprovalStatus.Value, Match: Match.Value, ApprovalComment: ApprovalComment, ApproverEmail: ApproverEmail, Created: Created, Modified: Modified}), JSONFormat.Compact)
-EvidenceJson = JSON(ForAll(colRrEvidence, {ID: ID, Title: Title, HostID: HostID, ScheduleID: ScheduleID, AccountID: AccountID, Penjualan: Penjualan, Pesanan: Pesanan, ProdukTerjual: ProdukTerjual, JumlahPembeli: JumlahPembeli, CTR: CTR, CTOR: CTOR, PeakViewer: PeakViewer, Status: Status.Value, Created: Created}), JSONFormat.Compact)
+ReportsJson  = JSON(ForAll(colRrReport, {ID: ID, Title: Title, ScheduleID: ScheduleID, HostID: HostID, BrandID: BrandID, AccountID: AccountID, Account: Account, Platform: Platform.Value, LiveDate: Text(LiveDate, "yyyy-mm-dd"), Penjualan: Penjualan, Pesanan: Pesanan, ProdukTerjual: ProdukTerjual, JumlahPembeli: JumlahPembeli, CTR: CTR, CTOR: CTOR, PeakViewer: PeakViewer, DurasiMin: 'Durasi(Min)', AddToCart: AddToCart, TotalViewer: TotalViewer, Comment: Comment, Share: Share, ApprovalStatus: ApprovalStatus.Value, Match: Match.Value, ApprovalComment: ApprovalComment, Approver: Approver.DisplayName, ApproverEmail: ApproverEmail, Attachment: Attachment, Created: Created, Modified: Modified}), JSONFormat.Compact)
+EvidenceJson = JSON(ForAll(colRrEvidence, {ID: ID, Title: Title, HostID: HostID, ScheduleID: ScheduleID, AccountID: AccountID, Platform: Platform.Value, Penjualan: Penjualan, Pesanan: Pesanan, ProdukTerjual: ProdukTerjual, JumlahPembeli: JumlahPembeli, CTR: CTR, CTOR: CTOR, PeakViewer: PeakViewer, DurasiMin: 'Durasi(Min)', AddToCart: AddToCart, TotalViewer: TotalViewer, Comment: Comment, Share: Share, Status: Status.Value, Attachment: Attachment, Created: Created}), JSONFormat.Compact)
 HostsJson    = JSON(ForAll('Host - PBS Hub', {Title: Title, NamaHost: NamaHost}), JSONFormat.Compact)
 BrandsJson   = JSON(ForAll('Brand - PBS Hub', {Title: Title, NamaBrand: NamaBrand}), JSONFormat.Compact)
 ```
+
+Setiap baris punya dua tombol: **Review** membuka popup (tabel metrik lengkap, bukti, dan tombol
+keputusan) sehingga reviewer bisa langsung menyetujui / minta revisi dari antrean; **Detail** mengirim
+`OPEN_REPORT` untuk pindah ke layar ReportDetail. Popup juga punya tautan *Lihat detail* (`OPEN_REPORT`).
+Karena itu `OnChange` ReportReview harus menangani **aksi keputusan yang sama** dengan ReportDetail
+(`APPROVE`, `APPROVE_WITHOUT_EVIDENCE`, `REQUEST_REVISION`, `ESCALATE`, `REMIND_HOST`, `OPEN_EVIDENCE`)
+dan membalas lewat `varRrResult`. Popup tertutup sendiri setelah `status: "ok"`.
 
 **OnChange**
 
@@ -226,6 +233,18 @@ If(!IsBlank(Self.ActionPayload),
             If(!(rid in colPbsProcessed.Id),
                 Collect(colPbsProcessed, {Id: rid});
                 Switch(act,
+                    "OPEN_EVIDENCE", Launch(Text(p.url)),
+                    "RELOAD", Refresh('Report - PBS Hub'); ClearCollect(colRrReport, FirstN(Sort('Report - PBS Hub', ID, SortOrder.Descending), varRrTop)),
+                    "REMIND_HOST",
+                        IfError(
+                            Office365Outlook.SendEmailV2(
+                                LookUp('Host - PBS Hub', Title = Text(p.hostId)).Email.Email,
+                                "Bukti report " & Text(p.title) & " belum masuk",
+                                "Halo, screenshot untuk report " & Text(p.title) & " belum kami terima. Mohon unggah ke folder Report Automation dengan nama ReportID_Platform_AccountID."
+                            );
+                            Set(varRrResult, JSON({requestId: rid, status: "ok"}, JSONFormat.Compact)),
+                            Set(varRrResult, JSON({requestId: rid, status: "error", message: FirstError.Message}, JSONFormat.Compact))
+                        ),
                     "OPEN_REPORT",
                         Set(varSelectedReportId, Value(p.reportId));
                         Navigate(ScreenReportDetail),
@@ -257,6 +276,40 @@ If(!IsBlank(Self.ActionPayload),
                             Set(varRrResult, JSON({requestId: rid, status: "error", message: "Bulk approve gagal: " & FirstError.Message}, JSONFormat.Compact))
                         ),
                     "FILTER_CHANGED", false
+                );
+                // Keputusan dari popup: logika sama persis dengan ReportDetail (§6), balasan ke varRrResult.
+                If(act in ["APPROVE", "APPROVE_WITHOUT_EVIDENCE", "REQUEST_REVISION", "ESCALATE"],
+                    With({cur: LookUp('Report - PBS Hub', ID = Value(p.reportId))},
+                        If(
+                            !(cur.ApprovalStatus.Value = "Waiting Approval" || IsBlank(cur.ApprovalStatus.Value)),
+                            Set(varRrResult, JSON({requestId: rid, status: "conflict",
+                                decidedBy: Coalesce(cur.Approver.DisplayName, cur.ApproverEmail, "orang lain"),
+                                decidedAt: cur.Modified}, JSONFormat.Compact)),
+                            IfError(
+                                Patch('Report - PBS Hub', cur, {
+                                    ApprovalStatus: {Value: Text(p.approvalStatus)},
+                                    Match: If(IsBlank(Text(p.match)), cur.Match, {Value: Text(p.match)}),
+                                    ApprovalComment: Text(p.comment),
+                                    ApproverEmail: User().Email,
+                                    Approver: {
+                                        '@odata.type': "#Microsoft.Azure.Connectors.SharePoint.SPListExpandedUser",
+                                        Claims: "i:0#.f|membership|" & Lower(User().Email),
+                                        DisplayName: User().FullName, Email: User().Email,
+                                        Department: "", JobTitle: "", Picture: ""
+                                    },
+                                    TanggalRevisi: If(act = "REQUEST_REVISION", Now(), cur.TanggalRevisi)
+                                });
+                                If(!IsBlank(Text(p.evidenceId)) && !IsBlank(Text(p.match)),
+                                    Patch('Report Automation - PBS Hub',
+                                        LookUp('Report Automation - PBS Hub', ID = Value(p.evidenceId)),
+                                        {Status: {Value: Text(p.match)}}));
+                                Refresh('Report - PBS Hub');
+                                ClearCollect(colRrReport, FirstN(Sort('Report - PBS Hub', ID, SortOrder.Descending), varRrTop));
+                                Set(varRrResult, JSON({requestId: rid, status: "ok"}, JSONFormat.Compact)),
+                                Set(varRrResult, JSON({requestId: rid, status: "error", message: "Gagal menyimpan " & Text(p.title) & ": " & FirstError.Message}, JSONFormat.Compact))
+                            )
+                        )
+                    )
                 )
             )
         )
@@ -289,7 +342,7 @@ BrandsJson   = JSON(ForAll('Brand - PBS Hub', {Title: Title, NamaBrand: NamaBran
 |---|---|---|---|
 | `APPROVE` | `Done` | `Match` | komentar reviewer |
 | `APPROVE_WITHOUT_EVIDENCE` | `Done` | kosong (jangan diubah) | `[Tanpa bukti] …` (wajib diisi) |
-| `REQUEST_REVISION` | `Need Revision` | `Unmatch` | catatan + `Metrik yang perlu dibetulkan: …`; `flaggedMetrics: ["Penjualan","CTOR"]` |
+| `REQUEST_REVISION` | `Need Revision` | `Unmatch` | catatan + `Metrik yang perlu dibetulkan: …`; `flaggedMetrics: ["Penjualan","CTOR"]` (hanya metrik yang selisihnya ≠ 0 %) |
 | `ESCALATE` | tetap (`Waiting Approval`) | tetap | `[Eskalasi] …` |
 | `REMIND_HOST` | – | – | kirim email/notifikasi ke host (`hostId`) |
 
@@ -355,6 +408,10 @@ If(!IsBlank(Self.ActionPayload),
     )
 )
 ```
+
+**Minta revisi.** Semua metrik tampil di satu tabel. Di panel revisi, metrik yang selisihnya ≠ 0 % sudah
+tercentang; metrik yang sama persis (0 %) tidak bisa dicentang dan tidak pernah dikirim di `flaggedMetrics`.
+Kalau semua metrik sama persis, tombol *Perlu revisi* nonaktif.
 
 Tiga sifat yang harus dipertahankan:
 
@@ -765,20 +822,20 @@ Dihitung di control dari Report + Report Automation, urutan prioritas:
 |---|---|
 | Bukti belum ada | tidak ada baris Report Automation yang ter-join |
 | Bukti yatim | bukti ter-join tapi `HostID`/`ScheduleID`/`AccountID`/`BrandID` berbeda (M6) |
-| Metrik kosong | salah satu dari 7 metrik kosong di bukti |
-| Nol lawan nol | ketujuh metrik 0 di klaim dan bukti (M4) |
+| Metrik kosong | salah satu metrik kosong di bukti (7 metrik inti selalu; 5 metrik tambahan bila klaim atau bukti berisi nilai) |
+| Nol lawan nol | ketujuh metrik inti 0 di klaim dan bukti (M4), meskipun durasi/viewer terisi |
 | Confidence rendah | kolom `Confidence` ada dan < `confidenceThreshold` |
 | Di luar toleransi | ada metrik di luar `bukti × (1 ± 5 %)`, rumus sama dengan PBS0005A |
-| Semua cocok | ketujuh metrik dalam toleransi (menunggu karena flow belum memutuskan) |
+| Semua cocok | semua metrik dalam toleransi (menunggu karena flow belum memutuskan) |
 
-Bulk approve hanya bisa untuk **Confidence rendah** yang ketujuh metriknya cocok. Selama kolom `Confidence`
+Bulk approve hanya bisa untuk **Confidence rendah** yang semua metriknya cocok. Selama kolom `Confidence`
 belum ada di v1, bulk approve tidak akan muncul — itu disengaja.
 
 ## 10. Pemasangan
 
 1. Power Platform admin center → environment → **Settings → Product → Features** → aktifkan
    *Allow publishing of canvas apps with code components*.
-2. make.powerapps.com → **Solutions → Import solution** → `PBSHubOpsPCF_1_2_0_0_managed.zip`
+2. make.powerapps.com → **Solutions → Import solution** → `PBSHubOpsPCF_1_3_0_0_managed.zip`
    (sudah pernah import versi lama? Import ini meng-**upgrade** solusi yang sama — pilih *Upgrade*, bukan
    *Stage for upgrade* yang belum di-*Apply*).
 3. Di canvas app: **Insert → Get more components → Code** → pilih `PBS Ops Dashboard`,
@@ -791,8 +848,12 @@ belum ada di v1, bulk approve tidak akan muncul — itu disengaja.
 disisipkan. Setelah upgrade solusi: buka app di Studio → akan muncul banner *"Updated code components
 detected"* → **Update**. Kalau banner tidak muncul: tutup Studio, hard refresh browser (Ctrl+Shift+R), buka
 lagi. Lalu **Save + Publish** app. Pastikan juga di Solutions → PBS Hub Ops PCF → History bahwa versi
-1.2.0.0 benar-benar terpasang. Versi control di solusi ini: Dashboard / ReportReview / ReportDetail
-1.2.0, PayrollRuns / PayrollRunDetail 1.1.0, HostList / HostDetail 1.0.0.
+1.3.0.0 benar-benar terpasang. Versi control di solusi ini: Dashboard / ReportReview / ReportDetail
+1.3.0, PayrollRuns / PayrollRunDetail 1.2.0, HostList / HostDetail 1.1.0.
+
+**Tampilan rusak di app (tabel tidak full, tombol tanpa border, checkbox hilang)?** Itu CSS global Power
+Apps player yang menimpa style control. Sejak 1.3.0 setiap control dirender di dalam Shadow DOM sehingga
+CSS host tidak bisa masuk; cukup *Update code components* ke versi 1.3.0.
 
 Update: naikkan `version` di setiap `ControlManifest.Input.xml` yang bundelnya berubah **dan** `Version` di
 `solution/PBSHubOpsPCF/src/Other/Solution.xml`, lalu `npm run release`. Managed solution hanya bisa

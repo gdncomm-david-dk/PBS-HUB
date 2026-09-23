@@ -34,7 +34,7 @@ export const COMPARED_METRICS: MetricDef[] = [
   { key: "PeakViewer", label: "Peak viewer", format: "int", fields: ["PeakViewer", "Peak_x0020_Viewer"] },
 ];
 
-/** Captured on both sides but NOT compared by PBS0005A (finding M1). Shown so nobody waits on them. */
+/** Captured on both sides but not compared by PBS0005A (finding M1). The reviewer compares them too. */
 export const UNCOMPARED_METRICS: MetricDef[] = [
   { key: "Durasi", label: "Durasi", format: "min", fields: ["Durasi(Min)", "Durasi_x0028_Min_x0029_", "DurasiMin", "Durasi"] },
   { key: "AddToCart", label: "AddToCart", format: "int", fields: ["AddToCart", "Add_x0020_To_x0020_Cart"] },
@@ -42,6 +42,14 @@ export const UNCOMPARED_METRICS: MetricDef[] = [
   { key: "Comment", label: "Comment", format: "int", fields: ["Comment"] },
   { key: "Share", label: "Share", format: "int", fields: ["Share"] },
 ];
+
+/** Every metric the host reports and the AI reads, in display order. All of them are compared. */
+export const ALL_METRICS: MetricDef[] = [...COMPARED_METRICS, ...UNCOMPARED_METRICS];
+
+/** Claim and evidence are identical (0 % difference): nothing for the host to fix. */
+export function sameValue(m: { claim: number | null; evidence: number | null }): boolean {
+  return m.claim !== null && m.evidence !== null && Math.abs(m.claim - m.evidence) < 1e-9;
+}
 
 export type ReasonCode =
   | "OUT_OF_TOLERANCE"
@@ -212,7 +220,10 @@ export function reconcile(report: Row, idx: EvidenceIndex, opts: ReconcileOption
 }
 
 export function reconcileWith(report: Row, evidence: Row | undefined, evidenceCount: number, opts: ReconcileOptions = DEFAULT_OPTIONS): Reconciliation {
-  const metrics = COMPARED_METRICS.map((d) => compareMetric(d, report, evidence, opts.tolerancePct));
+  // The seven PBS0005A metrics always; the other five whenever either side carries a value.
+  const metrics = ALL_METRICS.map((d) => compareMetric(d, report, evidence, opts.tolerancePct)).filter(
+    (m) => COMPARED_METRICS.includes(m.def) || m.claim !== null || m.evidence !== null,
+  );
   const outOfTolerance = metrics.filter((m) => !m.within);
   const allWithin = outOfTolerance.length === 0;
   const confidence = readConfidence(evidence);
@@ -222,7 +233,8 @@ export function reconcileWith(report: Row, evidence: Row | undefined, evidenceCo
   const mismatchedKeys = identityMismatch(report, evidence);
   if (mismatchedKeys.length > 0) return { ...base, reason: "ORPHAN_EVIDENCE", mismatchedKeys };
   if (metrics.some((m) => m.note === "evidence-empty")) return { ...base, reason: "METRIC_EMPTY", mismatchedKeys };
-  if (metrics.every((m) => m.note === "zero-zero")) return { ...base, reason: "ZERO_ZERO", mismatchedKeys };
+  // Zero sales on every core metric is suspicious even when duration/viewers are filled.
+  if (metrics.filter((m) => COMPARED_METRICS.includes(m.def)).every((m) => m.note === "zero-zero")) return { ...base, reason: "ZERO_ZERO", mismatchedKeys };
   if (confidence !== null && confidence < opts.confidenceThreshold) return { ...base, reason: "LOW_CONFIDENCE", mismatchedKeys };
   if (!allWithin) return { ...base, reason: "OUT_OF_TOLERANCE", mismatchedKeys };
   return { ...base, reason: "ALL_MATCH", mismatchedKeys };
@@ -241,7 +253,7 @@ export function reasonDetail(r: Reconciliation, fmtSignedPct: (x: number | null)
       return r.allWithin ? "cocok" : `${r.outOfTolerance.length} metrik beda`;
     case "METRIC_EMPTY": {
       const n = r.metrics.filter((m) => m.note === "evidence-empty").length;
-      return `${n} dari 7 kosong`;
+      return `${n} dari ${r.metrics.length} kosong`;
     }
     case "ORPHAN_EVIDENCE":
       return `${r.mismatchedKeys.join(", ")} beda`;

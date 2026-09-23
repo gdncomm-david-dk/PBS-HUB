@@ -23,6 +23,10 @@
 <script src="../controls/HostList/out/controls/HostList/bundle.js"></script>
 <script src="../controls/HostDetail/out/controls/HostDetail/bundle.js"></script>
 <script src="sample-data.js"></script>
+<script>
+  // ?hostile=1 mimics the player's global CSS that broke the controls before they moved into Shadow DOM.
+  if (new URLSearchParams(location.search).get("hostile")) document.write('<style>table{width:auto!important;border-collapse:collapse!important}button{border:0!important;background:none!important;border-radius:0!important}input[type=checkbox]{opacity:0!important}dl,dt,dd{display:inline!important;margin:0 8px!important}div{box-sizing:content-box}</style>');
+</script>
 </head>
 <body>
 <div id="bar">

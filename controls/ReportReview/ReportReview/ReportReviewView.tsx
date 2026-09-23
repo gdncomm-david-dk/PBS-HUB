@@ -3,8 +3,10 @@ import { ModuleContext, UseActionResult, configNumber, hasPermission } from "../
 import { Row, date, localDayKey } from "../../../shared/data";
 import { fmtAge, fmtDayMonth, fmtNumber, fmtSignedPct } from "../../../shared/format";
 import { REASONS, REVIEW_STATES, ReasonCode, ReviewState, reasonDetail } from "../../../shared/reconcile";
+import { DECISION_ACTIONS, DECISION_DONE_TEXT, DecisionPanel, EvidenceRail, MetricsTable, ReportHeader } from "../../../shared/reportUi";
 import { ReportItem, buildReportItems, itemRef } from "../../../shared/reportItems";
-import { Badge, Button, EmptyState, EndOfData, FilterDate, FilterSelect, InfoBanner, ModuleHeader, ResultBanner, SkeletonRows, Spinner } from "../../../shared/ui";
+import { Badge, Button, EmptyState, EndOfData, FilterDate, FilterSelect, Icon, InfoBanner, ModuleHeader, Pill, ResultBanner, SkeletonRows, Spinner } from "../../../shared/ui";
+import { fmtAgo as fmtAgoText } from "../../../shared/format";
 
 export type Tab = "Waiting" | "Revision" | "Done" | "All";
 
@@ -72,6 +74,20 @@ export function ReportReviewView(props: ReportReviewProps): React.ReactElement {
   const [filters, setFilters] = React.useState<Filters>(NO_FILTERS);
   const [shown, setShown] = React.useState(pageSize);
   const [selected, setSelected] = React.useState<Set<string>>(new Set());
+  const [reviewId, setReviewId] = React.useState<string | null>(null);
+  const hostRef = React.useRef<HTMLDivElement>(null);
+  const reviewing = reviewId ? items.find((i) => (i.id || i.title) === reviewId) ?? null : null;
+  const openReview = (it: ReportItem) => {
+    const scroller = hostRef.current?.closest(".pbs-root");
+    if (scroller) scroller.scrollTop = 0;
+    action.clearResult();
+    setReviewId(it.id || it.title);
+  };
+  // A decision saved from the pop-up closes it; the list shows the banner and canvas reloads rows.
+  React.useEffect(() => {
+    const r = action.lastResult;
+    if (r && r.status === "ok" && DECISION_ACTIONS.includes(r.action)) setReviewId(null);
+  }, [action.lastResult]);
 
   const filterActive = Object.values(filters).some((v) => v !== "");
 
@@ -153,7 +169,7 @@ export function ReportReviewView(props: ReportReviewProps): React.ReactElement {
       items: selectedItems.map(itemRef),
       approvalStatus: "Done",
       match: "Match",
-      comment: "Disetujui massal: confidence rendah, semua 7 metrik dalam toleransi.",
+      comment: "Disetujui massal: confidence rendah, semua metrik dalam toleransi.",
       approverEmail: ctx.userEmail,
     });
   };
@@ -162,6 +178,7 @@ export function ReportReviewView(props: ReportReviewProps): React.ReactElement {
   const cols = showBulk ? 8 : 7;
 
   return (
+    <div className="pbs-host" ref={hostRef}>
     <div className="pbs-page">
       <ModuleHeader
         crumb="Review"
@@ -180,7 +197,7 @@ export function ReportReviewView(props: ReportReviewProps): React.ReactElement {
         }
       />
 
-      <ResultBanner result={action.lastResult} onClose={action.clearResult} okText="Report tersimpan." />
+      <ResultBanner result={reviewing || action.lastResult?.status === "conflict" ? null : action.lastResult} onClose={action.clearResult} okText={action.lastResult ? DECISION_DONE_TEXT[action.lastResult.action] ?? "Report tersimpan." : undefined} />
 
       <div className="pbs-tabs" role="tablist">
         {(["Waiting", "Revision", "Done", "All"] as Tab[]).map((t) => (
@@ -250,6 +267,7 @@ export function ReportReviewView(props: ReportReviewProps): React.ReactElement {
                   onToggle={() => toggle(it.id)}
                   disabled={!!pending}
                   onOpen={() => action.fire("OPEN_REPORT", itemRef(it))}
+                  onReview={() => openReview(it)}
                 />
               ))}
             </tbody>
@@ -299,6 +317,74 @@ export function ReportReviewView(props: ReportReviewProps): React.ReactElement {
         )}
       </div>
     </div>
+    {reviewing ? (
+      <ReviewModal
+        item={reviewing}
+        ctx={ctx}
+        action={action}
+        readOnly={props.readOnly}
+        now={now}
+        tolerancePct={opts.tolerancePct}
+        onClose={() => setReviewId(null)}
+        onDetail={() => {
+          setReviewId(null);
+          action.fire("OPEN_REPORT", itemRef(reviewing));
+        }}
+      />
+    ) : null}
+    </div>
+  );
+}
+
+function ReviewModal(props: {
+  item: ReportItem;
+  ctx: ModuleContext;
+  action: UseActionResult;
+  readOnly: boolean;
+  now: Date;
+  tolerancePct: number;
+  onClose: () => void;
+  onDetail: () => void;
+}): React.ReactElement {
+  const { item, action } = props;
+  const pending = !!action.pending && DECISION_ACTIONS.includes(action.pending.action);
+  const conflict = action.lastResult?.status === "conflict" ? action.lastResult : null;
+  const error = action.lastResult?.status === "error" ? action.lastResult : null;
+  const reason = REASONS[item.rec.reason];
+  const st = REVIEW_STATES[item.state];
+  return (
+    <div className="pbs-overlay" role="presentation" onKeyDown={(e) => e.key === "Escape" && !pending && props.onClose()}>
+      <div className="pbs-modal wide" role="dialog" aria-modal="true" aria-labelledby="pbs-rv-title">
+        <div className="pbs-modal-h">
+          <h2 id="pbs-rv-title">Review {item.title}</h2>
+          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+            <Button variant="ghost" size="sm" onClick={props.onDetail} disabled={pending}>
+              <Icon name="external" size={14} /> Lihat detail
+            </Button>
+            <button type="button" className="pbs-x" onClick={props.onClose} disabled={pending} aria-label="Tutup">
+              <Icon name="x" />
+            </button>
+          </div>
+        </div>
+        <div className="pbs-modal-b">
+          <ReportHeader item={item} pill={item.state === "WAITING" ? <Pill tone={reason.tone}>{reason.label}</Pill> : <Pill tone={st.tone}>{st.label}</Pill>} />
+          {conflict ? (
+            <InfoBanner tone="warn">
+              Report ini sudah diputuskan oleh {conflict.decidedBy || "orang lain"}
+              {conflict.decidedAt ? ` ${fmtAgoText(new Date(conflict.decidedAt), props.now)}` : ""}. Keputusanmu tidak disimpan.
+            </InfoBanner>
+          ) : null}
+          {error ? <InfoBanner tone="err">{error.message || "Gagal menyimpan. Coba lagi."}</InfoBanner> : null}
+          <div className="pbs-rv">
+            <div style={{ minWidth: 0, display: "grid", gap: 16 }}>
+              <MetricsTable item={item} tolerancePct={props.tolerancePct} />
+              <DecisionPanel key={item.id || item.title} item={item} ctx={props.ctx} action={action} readOnly={props.readOnly} tolerancePct={props.tolerancePct} now={props.now} />
+            </div>
+            <EvidenceRail compact item={item} ctx={props.ctx} onOpen={(url) => action.fire("OPEN_EVIDENCE", { url, reportId: item.id, title: item.title })} />
+          </div>
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -316,6 +402,7 @@ function ReportRow(props: {
   disabled: boolean;
   onToggle: () => void;
   onOpen: () => void;
+  onReview: () => void;
 }): React.ReactElement {
   const { it, now } = props;
   const reason = REASONS[it.rec.reason];
@@ -360,9 +447,14 @@ function ReportRow(props: {
         )}
       </td>
       <td className="r">
-        <Button variant="secondary" size="sm" onClick={props.onOpen}>
-          {props.tab === "Waiting" ? "Tinjau" : "Lihat"}
-        </Button>
+        <span className="pbs-rowact">
+          <Button size="sm" variant={it.state === "WAITING" ? "primary" : "secondary"} onClick={props.onReview}>
+            {it.state === "WAITING" ? "Review" : "Lihat"}
+          </Button>
+          <Button variant="ghost" size="sm" onClick={props.onOpen}>
+            Detail
+          </Button>
+        </span>
       </td>
     </tr>
   );

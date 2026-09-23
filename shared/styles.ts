@@ -5,10 +5,19 @@ import { FONT_BOLD, FONT_MEDIUM, FONT_REGULAR } from "./assets.generated";
  * under `.pbs-root` so nothing leaks into the canvas app or another control on the same screen.
  * Light mode is enforced: the Power Apps player must not push a dark theme into the control.
  */
-export const CSS = `
+/** Fonts must be declared in the document: @font-face inside a shadow root is ignored by Chromium. */
+export const FONT_CSS = `
 @font-face{font-family:"Blibli";src:url(${FONT_REGULAR}) format("woff2");font-weight:400;font-style:normal;font-display:swap}
 @font-face{font-family:"Blibli";src:url(${FONT_MEDIUM}) format("woff2");font-weight:500;font-style:normal;font-display:swap}
 @font-face{font-family:"Blibli";src:url(${FONT_BOLD}) format("woff2");font-weight:600 800;font-style:normal;font-display:swap}
+`;
+
+/**
+ * Rendered inside each control's shadow root, so the Power Apps player's own CSS (table, button,
+ * input and dl rules) cannot reach it. Inherited properties are reset at :host.
+ */
+export const CSS = `
+:host{all:initial;display:block;width:100%;height:100%}
 .pbs-root{--p:#0072FF;--p-dk:#0050BD;--p-dkr:#002E7A;--p-tint:#E1F1FF;--p-tint2:#F4F9FF;--info-bg:#E8F4FF;--info-bd:#B3D9FF;
 --ok:#02C82B;--ok-tx:#0A7A24;--ok-bg:#E9FAEE;--warn:#FFCD00;--warn-tx:#7A5B00;--warn-ic:#8A6A00;--warn-bg:#FFF4D6;--warn-bg2:#FFF9E0;--warn-bd:#FFE0B3;
 --bad:#FF4646;--bad-tx:#C0292A;--bad-bg:#FFE8E8;--bad-bg2:#FFF9F9;--bad-bd:#FFC9C9;--tx:#000;--tx2:#60686E;--dis:#9AA1A6;--bd:#E8E8E8;--row:#F5F5F5;--sf:#F5F5F5;--sf2:#FAFAF9;
@@ -187,19 +196,22 @@ font-family:"Blibli","Helvetica Neue",Arial,sans-serif;font-size:13px;line-heigh
 .pbs-ic-btn{border:0;background:none;padding:0;display:inline-flex;color:var(--warn-ic);cursor:help;vertical-align:middle}
 .pbs-periods{list-style:none;margin:10px 0 0;padding:0;display:grid;gap:6px}
 .pbs-periods li{display:flex;gap:10px;align-items:baseline;flex-wrap:wrap;font-size:13px}
+.pbs-modal.wide{width:1080px}
+.pbs-rv{display:grid;grid-template-columns:minmax(0,1fr) 320px;gap:16px;align-items:start}
+@media (max-width:900px){.pbs-rv{grid-template-columns:minmax(0,1fr)}}
+.pbs-rowact{display:inline-flex;gap:8px;justify-content:flex-end;white-space:nowrap}
+.pbs-rev-row{display:flex;align-items:center;gap:12px;padding:10px;border-top:1px solid var(--row);cursor:pointer}
+.pbs-rev-row.off{cursor:default;color:var(--dis)}
 .pbs-sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
 `;
 
-let injected = false;
-export function injectStyles(): void {
-  if (injected || typeof document === "undefined") return;
-  if (document.getElementById("pbs-ops-styles-v2")) {
-    injected = true;
-    return;
-  }
+let fontsInjected = false;
+export function injectFonts(): void {
+  if (fontsInjected || typeof document === "undefined") return;
+  fontsInjected = true;
+  if (document.getElementById("pbs-ops-fonts")) return;
   const el = document.createElement("style");
-  el.id = "pbs-ops-styles-v2";
-  el.textContent = CSS;
+  el.id = "pbs-ops-fonts";
+  el.textContent = FONT_CSS;
   document.head.appendChild(el);
-  injected = true;
 }

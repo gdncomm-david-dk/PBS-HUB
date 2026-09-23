@@ -16,7 +16,7 @@ Power Apps code components (PCF) untuk canvas app PBS Hub, dibuat dari design ha
 | `pbs_Ops.HostList` | Host — direktori, skor + band, peringatan tanpa data bank (HD-1) | `controls/HostList` |
 | `pbs_Ops.HostDetail` | Detail host — ringkasan skor/ledger, jadwal, report, payroll, data pribadi tersamar (HD-2) | `controls/HostDetail` |
 
-**Output:** `dist/PBSHubOpsPCF_1_2_0_0_managed.zip` — managed solution, dibangun dengan target MSBuild
+**Output:** `dist/PBSHubOpsPCF_1_3_0_0_managed.zip` — managed solution, dibangun dengan target MSBuild
 resmi Power Platform (`Microsoft.PowerApps.MSBuild.Solution`).
 
 Cara pasang dan formula Power Fx lengkap (properti, `OnChange`, Patch ke SharePoint):
@@ -51,10 +51,18 @@ npm run solution         # managed zip → dist/  (butuh .NET SDK 8+)
 
 Uji tampilan tanpa Power Apps: `npm run build`, lalu buka `harness/index.html` di browser
 (`?c=Dashboard`, `?c=ReportReview`, `?c=ReportDetail&r=RPT-20862`, `?c=PayrollRuns&pay=none`, `?c=PayrollRunDetail&run=118`, `?c=HostList`, `?c=HostDetail&h=HST-012`).
+Tambahkan `&hostile=1` untuk menyuntikkan CSS global yang agresif (meniru Power Apps player) — tampilan harus
+tetap utuh karena control dirender di Shadow DOM.
 `node harness/flows.js <dir>` menjalankan cek interaksi (approve → mengirim → hasil, konflik, revisi, bulk approve,
 filter, paging, preflight payroll, expand baris, kirim ulang slip, buka/sembunyikan data pribadi, nonaktifkan host).
 
 ## Keputusan desain
+
+- **Shadow DOM.** Setiap control me-mount React di dalam shadow root sendiri beserta CSS-nya, jadi CSS global
+  Power Apps player tidak bisa menimpa tabel, tombol, atau checkbox. Font (`@font-face`) dipasang di `<head>`
+  dokumen karena font di dalam shadow root diabaikan browser.
+- **Semua metrik dalam satu tabel.** 7 metrik inti PBS0005A plus Durasi, AddToCart, TotalViewer, Comment,
+  Share dibandingkan dengan rumus toleransi yang sama. Minta revisi hanya mengambil metrik yang selisihnya ≠ 0 %.
 
 - **PCF tidak menulis.** Semua tulis lewat `ActionPayload` → `OnChange` canvas → `ActionResult`. Tombol
   terkunci sampai `requestId` kembali; sukses tidak diklaim sebelum canvas membalas.

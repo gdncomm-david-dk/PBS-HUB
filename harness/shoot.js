@@ -1,4 +1,4 @@
-// Renders harness scenarios to PNGs: node harness/shoot.js <outDir> "name|query|Button;Button" ...
+// Renders harness scenarios to PNGs: node harness/shoot.js <outDir> "name|query|Button;=ExactButton" ...
 const { chromium } = require("playwright");
 const path = require("path");
 (async () => {
@@ -13,7 +13,9 @@ const path = require("path");
     await p.waitForTimeout(500);
     if (action) {
       for (const step of action.split(";")) {
-        await p.getByRole("button", { name: step, exact: false }).first().click();
+        const [label, idx] = step.split("@");
+        const exact = label.startsWith("=");
+        await p.getByRole("button", { name: exact ? label.slice(1) : label, exact }).nth(Number(idx || 0)).click();
         await p.waitForTimeout(300);
       }
     }

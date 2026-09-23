@@ -1,6 +1,6 @@
 import * as React from "react";
 import { createRoot, Root } from "react-dom/client";
-import { injectStyles } from "./styles";
+import { CSS, injectFonts } from "./styles";
 
 /**
  * Shared plumbing for the three standard (non-virtual) React controls. React is bundled into each
@@ -17,13 +17,26 @@ export class ReactHost {
   private notify: (() => void) | null = null;
 
   init(container: HTMLDivElement, notifyOutputChanged: () => void, trackResize: (v: boolean) => void): void {
-    injectStyles();
+    injectFonts();
     this.container = container;
     this.notify = notifyOutputChanged;
     trackResize(true);
     container.style.width = "100%";
     container.style.height = "100%";
-    this.root = createRoot(container);
+    // Shadow DOM isolates the control from the player's global CSS (it overrode table width,
+    // button borders, checkboxes and dl grids in canvas apps).
+    let mount: HTMLElement = container;
+    if (typeof container.attachShadow === "function") {
+      const shadow = container.shadowRoot ?? container.attachShadow({ mode: "open" });
+      shadow.innerHTML = "";
+      const style = document.createElement("style");
+      style.textContent = CSS;
+      mount = document.createElement("div");
+      mount.style.width = "100%";
+      mount.style.height = "100%";
+      shadow.append(style, mount);
+    }
+    this.root = createRoot(mount);
   }
 
   readonly emit = (json: string): void => {
