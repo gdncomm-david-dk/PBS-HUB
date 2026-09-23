@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<title>PBS Ops PCF harness</title>
+<style>
+  body{margin:0;background:#EDEDEA;font:12px ui-monospace,Menlo,monospace}
+  #bar{display:flex;gap:8px;align-items:center;padding:8px 12px;background:#1a1a1a;color:#fff;flex-wrap:wrap}
+  #bar a{color:#9cf}
+  #stage{margin:16px;background:#fff;border:1px solid #ddd}
+  #log{margin:0 16px 16px;white-space:pre-wrap;background:#111;color:#9f9;padding:10px;max-height:220px;overflow:auto}
+</style>
+<script>
+  // Minimal stand-in for the Power Apps runtime: registerControl + a context with {raw} parameters.
+  window.__registry = {};
+  window.ComponentFramework = { registerControl: (name, ctor) => { window.__registry[name] = ctor; } };
+</script>
+<script src="../controls/Dashboard/out/controls/Dashboard/bundle.js"></script>
+<script src="../controls/ReportReview/out/controls/ReportReview/bundle.js"></script>
+<script src="../controls/ReportDetail/out/controls/ReportDetail/bundle.js"></script>
+<script src="sample-data.js"></script>
+</head>
+<body>
+<div id="bar">
+  <a href="?c=Dashboard">Dashboard</a> <a href="?c=Dashboard&s=loading">loading</a> <a href="?c=Dashboard&s=empty">empty</a> |
+  <a href="?c=ReportReview">ReportReview</a> <a href="?c=ReportReview&s=loading">loading</a> <a href="?c=ReportReview&s=empty">empty</a> |
+  <a href="?c=ReportDetail&r=RPT-20862">Detail (luar toleransi)</a> <a href="?c=ReportDetail&r=RPT-20865">tanpa bukti</a> <a href="?c=ReportDetail&r=RPT-20870">sudah diputuskan</a> <a href="?c=ReportDetail&r=RPT-20861">bukti yatim</a>
+  <label><input type="checkbox" id="auto" checked> auto-reply ok</label>
+</div>
+<div id="stage"></div>
+<pre id="log"></pre>
+<script>
+(function () {
+  const q = new URLSearchParams(location.search);
+  const c = q.get("c") || "Dashboard", s = q.get("s") || "", W = Number(q.get("w") || 1060), H = Number(q.get("h") || 1400);
+  const S = window.PBS_SAMPLE;
+  const J = (x) => JSON.stringify(x);
+  const params = { Context: J(S.context), ReferenceDate: S.REF, ActionResult: "", IsLoading: s === "loading", HasMore: false, Mode: q.get("mode") || "Admin", DefaultTab: q.get("tab") || "Waiting" };
+  const empty = s === "loading" || s === "empty";
+  if (c === "Dashboard") Object.assign(params, {
+    SchedulesJson: J(empty ? [] : S.schedules), ReportsJson: J(empty ? [] : S.reports), EvidenceJson: J(empty ? [] : S.evidence),
+    ClockInJson: J(empty ? [] : S.clockIns), HostsJson: J(S.hosts), StudiosJson: J(S.studios), BrandsJson: J(S.brands), PayrollJson: J(S.payrolls),
+  });
+  if (c === "ReportReview") Object.assign(params, { ReportsJson: J(empty ? [] : S.reports), EvidenceJson: J(empty ? [] : S.evidence), HostsJson: J(S.hosts), BrandsJson: J(S.brands) });
+  if (c === "ReportDetail") {
+    const rep = S.reports.find((r) => r.Title === (q.get("r") || "RPT-20862"));
+    Object.assign(params, { ReportJson: J(rep ? [rep] : []), EvidenceJson: J(S.evidence.filter((e) => rep && e.Title === rep.Title)), HostsJson: J(S.hosts), BrandsJson: J(S.brands) });
+  }
+  const Ctor = window.__registry["Ops." + c];
+  const log = (m) => { document.getElementById("log").textContent = m + "\n" + document.getElementById("log").textContent; };
+  const context = () => ({
+    parameters: Object.fromEntries(Object.entries(params).map(([k, v]) => [k, { raw: v }])),
+    mode: { allocatedWidth: W, allocatedHeight: H, trackContainerResize() {} },
+  });
+  const stage = document.getElementById("stage");
+  stage.style.width = W + "px";
+  const div = document.createElement("div");
+  stage.appendChild(div);
+  const ctl = new Ctor();
+  window.__payloads = [];
+  ctl.init(context(), () => {
+    const out = ctl.getOutputs().ActionPayload;
+    window.__payloads.push(JSON.parse(out));
+    log("ActionPayload " + out);
+    const p = JSON.parse(out);
+    if (document.getElementById("auto").checked && !["NAV", "FILTER_CHANGED", "OPEN_REPORT", "BACK", "RELOAD", "OPEN_EVIDENCE", "LOAD_MORE"].includes(p.action)) {
+      setTimeout(() => {
+        params.ActionResult = J({ requestId: p.requestId, status: q.get("reply") || "ok", message: "", decidedBy: "Bayu Prasetyo", decidedAt: "2026-09-14T11:37:00" });
+        ctl.updateView(context());
+      }, Number(q.get("delay") || 800));
+    }
+  }, {}, div);
+  ctl.updateView(context());
+  window.__rerender = (patch) => { Object.assign(params, patch || {}); ctl.updateView(context()); };
+})();
+</script>
+</body>
+</html>

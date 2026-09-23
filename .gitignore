@@ -1,0 +1,9 @@
+node_modules/
+**/out/
+**/generated/
+bin/
+obj/
+*.binlog
+.DS_Store
+# v1 solution export — local reference only (contains employee e-mails and tenant ids).
+export/

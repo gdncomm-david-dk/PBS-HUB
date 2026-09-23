@@ -1,0 +1,16 @@
+{
+  "compilerOptions": {
+    "target": "ES2019",
+    "lib": ["ES2020", "DOM"],
+    "module": "commonjs",
+    "moduleResolution": "node",
+    "jsx": "react",
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "noEmit": true,
+    "types": ["jest", "powerapps-component-framework", "node"]
+  },
+  "include": ["shared", "tests", "controls/*/*/index.ts", "controls/*/*/*.tsx", "controls/*/*/generated/*.d.ts"]
+}

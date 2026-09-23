@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<manifest>
+  <control namespace="Ops" constructor="Dashboard" version="1.0.0" display-name-key="PBS Ops Dashboard" description-key="PBS Hub Ops Console D-1: read-only queue dashboard (what is waiting for the team today). Emits navigation actions only." control-type="standard">
+    <external-service-usage enabled="false"></external-service-usage>
+
+    <property name="Context" display-name-key="Context" description-key="JSON {userEmail,userName,roles,permissions,config}. config: maxShiftHours (12), missingReportDays (2), tolerancePct (5), confidenceThreshold (0.85)." of-type="Multiple" usage="input" required="false" />
+    <property name="SchedulesJson" display-name-key="SchedulesJson" description-key="JSON rows of 'Schedule - PBS Hub' for this week (Mon-Sun) plus the last missingReportDays+30 days." of-type="Multiple" usage="input" required="false" />
+    <property name="ReportsJson" display-name-key="ReportsJson" description-key="JSON rows of 'Report - PBS Hub': waiting ones plus those linked to the schedules above." of-type="Multiple" usage="input" required="false" />
+    <property name="EvidenceJson" display-name-key="EvidenceJson" description-key="JSON rows of 'Report Automation - PBS Hub' for the waiting reports and today." of-type="Multiple" usage="input" required="false" />
+    <property name="ClockInJson" display-name-key="ClockInJson" description-key="JSON rows of 'Clock In - PBS Hub' for the current month (no GPS or selfie columns needed)." of-type="Multiple" usage="input" required="false" />
+    <property name="HostsJson" display-name-key="HostsJson" description-key="JSON rows of 'Host - PBS Hub': Title, NamaHost, Status, HasRekening. Never send KTP or NoRekening." of-type="Multiple" usage="input" required="false" />
+    <property name="StudiosJson" display-name-key="StudiosJson" description-key="JSON rows of 'Studio - PBS Hub': Title, NamaStudio, KapasitasHost, Status." of-type="Multiple" usage="input" required="false" />
+    <property name="BrandsJson" display-name-key="BrandsJson" description-key="JSON rows of 'Brand - PBS Hub': Title, NamaBrand." of-type="Multiple" usage="input" required="false" />
+    <property name="PayrollJson" display-name-key="PayrollJson" description-key="JSON rows of 'Payroll - PBS Hub': Title, Periode, Status, Created (latest few)." of-type="Multiple" usage="input" required="false" />
+    <property name="IsLoading" display-name-key="IsLoading" description-key="true while canvas is still loading the lists: renders skeletons." of-type="TwoOptions" usage="input" required="false" />
+    <property name="ReferenceDate" display-name-key="ReferenceDate" description-key="Optional ISO date-time used as 'now' (testing). Blank = the device clock." of-type="SingleLine.Text" usage="input" required="false" />
+    <property name="ActionResult" display-name-key="ActionResult" description-key="Canvas reply {requestId,status,message}. Unused by navigation, reserved." of-type="SingleLine.Text" usage="input" required="false" />
+    <property name="ActionPayload" display-name-key="ActionPayload" description-key="JSON {action,requestId,payload} emitted on click. Handle it in OnChange." of-type="SingleLine.Text" usage="output" required="false" />
+
+    <resources>
+      <code path="index.ts" order="1" />
+    </resources>
+  </control>
+</manifest>

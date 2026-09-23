@@ -1,0 +1,126 @@
+// Sample rows shaped exactly like the v1 SharePoint lists in DESIGN.md (Database Schema).
+// Reference "now": Monday 14 September 2026 11:42 (same as the Ops Console design artboards).
+// Names and IDs are dummy data from the design handoff.
+(function () {
+  const REF = "2026-09-14T11:42:00";
+  const d = (day, time) => `2026-09-${String(day).padStart(2, "0")}${time ? "T" + time + ":00" : ""}`;
+
+  const brands = [
+    ["BRD-001", "Hanasui"], ["BRD-002", "Somethinc"], ["BRD-003", "Scarlett Whitening"], ["BRD-004", "Kahf"],
+    ["BRD-005", "Y.O.U Beauty"], ["BRD-006", "Emina"], ["BRD-007", "SIDOMUNCUL"], ["BRD-008", "WINGS"],
+  ].map(([Title, NamaBrand]) => ({ Title, NamaBrand, Status: { Value: "Active" } }));
+
+  const hostNames = ["Dinda Maharani", "Rani Salsabila", "Bagus Nugroho", "Sari Puspita", "Vina Anggraini", "Putri Ayu", "Kevin Pratama", "Nadia Kusuma", "Fajar Ramadhan", "Laras Wening", "Tegar Saputra", "Mega Lestari"];
+  const hosts = hostNames.map((NamaHost, i) => ({
+    Title: `HST-${String(i + 1).padStart(3, "0")}`,
+    NamaHost,
+    Status: { Value: i === 11 ? "Inactive" : "Active" },
+    HasRekening: !(i === 7 || i === 9),
+  }));
+
+  const studios = [
+    ["STD-01", "CWG-03", 2], ["STD-02", "CWG-05", 1], ["STD-03", "BSD-02", 1], ["STD-04", "Studio Kemang A", 1], ["STD-05", "Studio Kemang B", 1],
+  ].map(([Title, NamaStudio, KapasitasHost]) => ({ Title, NamaStudio, KapasitasHost, Status: { Value: "Active" } }));
+
+  let sid = 3200;
+  const sch = (day, start, end, brand, host, studio, status, platform) => ({
+    ID: ++sid, Title: `SCD-${sid}`, Date: d(day), StartTime: start, EndTime: end, BrandID: brand, HostID: host, StudioID: studio,
+    Status: { Value: status || "Planned" }, Platform: { Value: platform || "TikTok" }, JamLive: 2,
+  });
+  const schedules = [
+    // today
+    sch(14, "10:00", "12:00", "BRD-001", "HST-001", "STD-02"),
+    sch(14, "09:00", "11:00", "BRD-004", "HST-002", "STD-01"),
+    sch(14, "16:00", "18:00", "BRD-002", "HST-001", "STD-02"),
+    sch(14, "19:00", "21:00", "BRD-003", "HST-002", "STD-03", "Planned", "Shopee"),
+    // this week: host double booked + studio over capacity
+    sch(17, "14:00", "16:00", "BRD-002", "HST-001", "STD-02"),
+    sch(17, "15:00", "17:00", "BRD-006", "HST-001", "STD-03"),
+    sch(18, "10:00", "12:00", "BRD-001", "HST-003", "STD-01"),
+    sch(18, "10:30", "12:30", "BRD-004", "HST-004", "STD-01"),
+    sch(18, "11:00", "13:00", "BRD-008", "HST-005", "STD-01"),
+    // past sessions (some without reports)
+    sch(10, "10:00", "12:00", "BRD-001", "HST-003", "STD-01", "Done"),
+    sch(11, "13:00", "15:00", "BRD-005", "HST-004", "STD-04", "Done", "Lazada"),
+    sch(12, "19:00", "21:00", "BRD-008", "HST-002", "STD-01", "Done"),
+    sch(13, "10:00", "12:00", "BRD-002", "HST-001", "STD-02", "Done"),
+    sch(13, "13:00", "15:00", "BRD-006", "HST-005", "STD-05", "Done", "Shopee"),
+    sch(14, "07:00", "09:00", "BRD-007", "HST-001", "STD-02", "Done"),
+    sch(14, "07:00", "09:00", "BRD-003", "HST-002", "STD-04", "Done", "Shopee"),
+    sch(9, "10:00", "12:00", "BRD-004", "HST-006", "STD-04", "Done"),
+    sch(10, "15:00", "17:00", "BRD-002", "HST-007", "STD-05", "Done"),
+    sch(11, "15:00", "17:00", "BRD-001", "HST-008", "STD-03", "Done"),
+    sch(12, "09:00", "11:00", "BRD-006", "HST-009", "STD-04", "Done", "Shopee"),
+    sch(12, "13:00", "15:00", "BRD-003", "HST-010", "STD-05", "Cancelled", "Shopee"),
+    // past sessions with no report at all -> "Report belum masuk"
+    sch(10, "19:00", "21:00", "BRD-005", "HST-006", "STD-04", "Done"),
+    sch(11, "19:00", "21:00", "BRD-007", "HST-007", "STD-05", "Done"),
+    sch(12, "16:00", "18:00", "BRD-004", "HST-008", "STD-03", "Waiting Report"),
+  ];
+
+  const M = (Penjualan, Pesanan, ProdukTerjual, JumlahPembeli, CTR, CTOR, PeakViewer, extra) =>
+    Object.assign({ Penjualan, Pesanan, ProdukTerjual, JumlahPembeli, CTR, CTOR, PeakViewer, "Durasi(Min)": 120, AddToCart: 610, TotalViewer: 18400, Comment: 930, Share: 112 }, extra || {});
+
+  const byTitle = Object.fromEntries(schedules.map((s) => [s.Title, s]));
+  let rid = 20859;
+  const reports = [];
+  const evidence = [];
+  const rep = (scd, status, metrics, created, extra) => {
+    const s = byTitle[scd];
+    const id = ++rid;
+    const r = Object.assign({
+      ID: id, Title: `RPT-${id}`, ScheduleID: scd, HostID: s.HostID, BrandID: s.BrandID, AccountID: `ACC-${s.BrandID.slice(-3)}`,
+      Account: s.BrandID === "BRD-008" ? "wingsofficialstore" : s.BrandID.toLowerCase().replace("brd-", "brand") + ".official",
+      Platform: s.Platform, LiveDate: s.Date, ApprovalStatus: { Value: status }, Match: { Value: "" }, Created: created, Modified: created,
+      Attachment: "",
+    }, metrics, extra || {});
+    reports.push(r);
+    return r;
+  };
+  const evi = (r, metrics, created, extra) => {
+    evidence.push(Object.assign({ ID: 900 + evidence.length, Title: r.Title, HostID: r.HostID, ScheduleID: r.ScheduleID, AccountID: r.AccountID, Platform: r.Platform, Status: { Value: "Unmatch" }, Created: created, Attachment: `https://gdncomm.sharepoint.com/sites/StudioTeamBlibli/PBS%20Power%20Apps/Report%20Automation/${r.Title}_${r.Platform.Value}_${r.Account}.png` }, metrics, extra || {}));
+  };
+
+  // Waiting — one per reason, matching artboard 4a.
+  const z = M(0, 0, 0, 0, 0, 0, 0);
+  let r = rep("SCD-3210", "Waiting Approval", z, d(10, "13:10")); evi(r, z, d(10, "13:20"));
+  r = rep("SCD-3211", "Waiting Approval", M(5120000, 168, 201, 150, 3.9, 8.2, 1400), d(11, "16:05")); evi(r, M(5100000, 167, 200, 150, 3.9, 8.2, 1390), d(11, "16:20"), { HostID: "HST-009" });
+  r = rep("SCD-3212", "Waiting Approval", M(12400000, 340, 512, 288, 4.8, 11.4, 3120), d(12, "21:02")); evi(r, M(10980000, 331, 498, 284, 4.62, 9.85, 3080), d(12, "21:04"), { Confidence: 0.91 });
+  r = rep("SCD-3213", "Waiting Approval", M(8450000, 212, 260, 190, 5.1, 10.2, 2210), d(13, "12:30")); evi(r, M(8450000, 212, 259, 190, 5.1, 10.2, 2200), d(13, "12:40"), { Confidence: 0.62 });
+  r = rep("SCD-3214", "Waiting Approval", M(3900000, 98, 120, 90, 2.8, 7.4, 870), d(13, "15:20")); evi(r, M(3890000, 98, 120, 90, 2.8, 7.4, 870), d(13, "15:25"), { Confidence: 0.71 });
+  r = rep("SCD-3215", "", M(5120000, 168, 201, 150, 3.9, 8.2, 1400), d(14, "09:10"));
+  r = rep("SCD-3216", "Waiting Approval", M(2750000, 70, 85, 66, 2.1, 6.3, 640), d(14, "09:40")); evi(r, M(2750000, 70, 85, null, 2.1, 6.3, 640), d(14, "09:45"));
+
+  // Decided today by the flow.
+  const autos = ["SCD-3217", "SCD-3218", "SCD-3219"];
+  autos.forEach((scd, i) => {
+    const rr = rep(scd, "Done", M(4000000 + i * 1e6, 100, 120, 90, 3, 7, 900), d(14, "08:0" + i), { ApprovalComment: "Automated Match by AI", ApproverEmail: "studio.blibli@example.com", Match: { Value: "Match" }, Modified: d(14, "08:1" + i) });
+    evi(rr, M(4000000 + i * 1e6, 100, 120, 90, 3, 7, 900), d(14, "08:0" + i), { Status: { Value: "Match" } });
+  });
+  // Need revision + manual decisions.
+  rep("SCD-3220", "Need Revision", M(6100000, 150, 170, 130, 4, 9, 1500), d(12, "11:00"), { Approver: { DisplayName: "Bayu Prasetyo", Email: "bayu@example.com" }, ApproverEmail: "bayu@example.com", ApprovalComment: "Penjualan tidak sesuai screenshot", Modified: "2026-09-14T11:37:00" });
+
+  const clockIns = [];
+  let cid = 1;
+  hosts.slice(0, 10).forEach((h, i) => {
+    for (let day = 1; day <= 13; day++) {
+      if ((day + i) % 7 === 0) continue;
+      const inside = !(i === 3 && day === 11) && !(i === 5 && day === 12);
+      clockIns.push({ ID: cid++, HostID: h.Title, EmployeeName: h.NamaHost, ClockInDate: d(day), CheckInTime: d(day, "08:0" + (i % 10)), CheckOutTime: d(day, "17:1" + (i % 10)), IsInsideGeofence: inside, HKTugas: 180000, Streak: day === 13 && i < 8 ? 75000 : 0 });
+    }
+  });
+  clockIns.push({ ID: cid++, HostID: "HST-001", ClockInDate: d(14), CheckInTime: d(14, "06:55"), IsInsideGeofence: false });
+  clockIns.push({ ID: cid++, HostID: "HST-007", ClockInDate: d(13), CheckInTime: d(13, "08:10"), IsInsideGeofence: true });
+
+  const payrolls = [
+    { ID: 117, Title: "PAY-117", Periode: "Jul 2026", Status: { Value: "Done" }, Created: "2026-08-01T12:00:00" },
+    { ID: 118, Title: "PAY-118", Periode: "Aug 2026", Status: { Value: "Done" }, Created: "2026-09-01T12:00:00" },
+  ];
+
+  const context = {
+    userEmail: "annisa@example.com", userName: "Annisa Hanifah", roles: "PBS_Team", permissions: "",
+    config: { tolerancePct: 5, confidenceThreshold: 0.85, maxShiftHours: 12, missingReportDays: 2 },
+  };
+
+  window.PBS_SAMPLE = { REF, brands, hosts, studios, schedules, reports, evidence, clockIns, payrolls, context };
+})();

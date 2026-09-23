@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<manifest>
+  <control namespace="Ops" constructor="ReportReview" version="1.0.0" display-name-key="PBS Ops Report Review" description-key="PBS Hub Ops Console R-1: report list and reconciliation queue (Report vs Report Automation), ordered by age, with reason codes and restricted bulk approve." control-type="standard">
+    <external-service-usage enabled="false"></external-service-usage>
+
+    <property name="Context" display-name-key="Context" description-key="JSON {userEmail,userName,roles,permissions,config}. config: tolerancePct (5), confidenceThreshold (0.85), pageSize (50)." of-type="Multiple" usage="input" required="false" />
+    <property name="ReportsJson" display-name-key="ReportsJson" description-key="JSON rows of 'Report - PBS Hub' (ID, Title, ScheduleID, HostID, BrandID, AccountID, Platform, Account, LiveDate, 7+5 metrics, ApprovalStatus, Match, ApprovalComment, Approver, Created, Modified)." of-type="Multiple" usage="input" required="false" />
+    <property name="EvidenceJson" display-name-key="EvidenceJson" description-key="JSON rows of 'Report Automation - PBS Hub' for the same reports (ID, Title, HostID, ScheduleID, AccountID, metrics, Status, Created)." of-type="Multiple" usage="input" required="false" />
+    <property name="BrandsJson" display-name-key="BrandsJson" description-key="JSON rows of 'Brand - PBS Hub': Title, NamaBrand." of-type="Multiple" usage="input" required="false" />
+    <property name="HostsJson" display-name-key="HostsJson" description-key="JSON rows of 'Host - PBS Hub': Title, NamaHost. Never send KTP or NoRekening." of-type="Multiple" usage="input" required="false" />
+    <property name="DefaultTab" display-name-key="DefaultTab" description-key="Tab shown first." of-type="Enum" usage="input" required="false" default-value="Waiting">
+      <value name="Waiting" display-name-key="Waiting">Waiting</value>
+      <value name="Revision" display-name-key="Revision">Revision</value>
+      <value name="Done" display-name-key="Done">Done</value>
+      <value name="All" display-name-key="All">All</value>
+    </property>
+    <property name="Mode" display-name-key="Mode" description-key="Admin shows bulk approve; ReadOnly hides every decision." of-type="Enum" usage="input" required="false" default-value="Admin">
+      <value name="Admin" display-name-key="Admin">Admin</value>
+      <value name="ReadOnly" display-name-key="ReadOnly">ReadOnly</value>
+    </property>
+    <property name="HasMore" display-name-key="HasMore" description-key="true when canvas can load more rows (server paging): shows 'Muat lebih banyak' and emits LOAD_MORE." of-type="TwoOptions" usage="input" required="false" />
+    <property name="IsLoading" display-name-key="IsLoading" description-key="true while canvas is loading: renders skeleton rows." of-type="TwoOptions" usage="input" required="false" />
+    <property name="ReferenceDate" display-name-key="ReferenceDate" description-key="Optional ISO date-time used as 'now' (testing)." of-type="SingleLine.Text" usage="input" required="false" />
+    <property name="ActionResult" display-name-key="ActionResult" description-key="Canvas reply {requestId,status,message} to BULK_APPROVE." of-type="SingleLine.Text" usage="input" required="false" />
+    <property name="ActionPayload" display-name-key="ActionPayload" description-key="JSON {action,requestId,payload}: OPEN_REPORT, BULK_APPROVE, LOAD_MORE, FILTER_CHANGED, NAV." of-type="SingleLine.Text" usage="output" required="false" />
+
+    <resources>
+      <code path="index.ts" order="1" />
+    </resources>
+  </control>
+</manifest>
