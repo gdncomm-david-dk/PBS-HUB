@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<manifest>
+  <!--
+    pbs_Ops.Schedule - PBS Hub Schedule board (S-1), session detail (S-2), create or edit session,
+    bulk upload and AI schedule upload. Data mapping follows DESIGN.md (Database Schema).
+
+    The control never writes. It emits ActionPayload; the canvas app performs the Patch, the Graph upload
+    or the flow call, and answers through ActionResult with the same requestId.
+  -->
+  <control namespace="Ops" constructor="Schedule" version="1.0.0" display-name-key="PBS Schedule" description-key="PBS Hub schedule board, session detail, single create and bulk or AI schedule upload." control-type="standard">
+    <external-service-usage enabled="false">
+    </external-service-usage>
+    <data-set name="schedules" display-name-key="Schedules (Schedule - PBS Hub)" description-key="Bind to the Schedule - PBS Hub list filtered to the selected period. Columns: Title, Date, BrandID, StudioID, HostID, Account, Platform, Shift, Sesi, StartTime, EndTime, JamLive, Status, CampaignName, TotalAccount, Position, LiveBreak." />
+    <data-set name="brands" display-name-key="Brands (Brand - PBS Hub)" description-key="Bind to the Brand - PBS Hub list. Columns: Title, NamaBrand, Status." />
+    <data-set name="accounts" display-name-key="Accounts (Account - PBS Hub)" description-key="Bind to the Account - PBS Hub list. Columns: Title, AccountName, BrandID, Platform." />
+    <data-set name="studios" display-name-key="Studios (Studio - PBS Hub)" description-key="Bind to the Studio - PBS Hub list. Columns: Title, NamaStudio, KapasitasHost, Status." />
+    <data-set name="hosts" display-name-key="Hosts (Host - PBS Hub)" description-key="Bind to ShowColumns of Host - PBS Hub with Title, NamaHost, HostName, Status only. Never bind KTP or bank columns." />
+    <data-set name="reports" display-name-key="Reports (Report - PBS Hub)" description-key="Optional. Report - PBS Hub for the same period. Locks a session and fills the report step. Columns: Title, ScheduleID, HostID, AccountID, Platform, LiveDate, Penjualan, Pesanan, TotalViewer, ApprovalStatus, Match, ApprovalComment." />
+    <data-set name="absences" display-name-key="Absences (Host Absence - PBS Hub)" description-key="Optional. Host Absence - PBS Hub for the same period. Columns: Title, ScheduleID, HostID, Status, Keterangan, LiveDate." />
+    <data-set name="clockins" display-name-key="Clock ins (Clock In - PBS Hub)" description-key="Optional. ShowColumns of Clock In - PBS Hub with Title, HostID, ClockInDate, CheckInTime, CheckOutTime, ClockInTime, ClockOutTime, IsInsideGeofence, CheckInOffice, Status. Never bind GPS or selfie columns." />
+    <data-set name="evidence" display-name-key="Evidence (Report Automation - PBS Hub)" description-key="Optional. Report Automation - PBS Hub for the same period. Columns: Title, ScheduleID, Status, Penjualan, StartHour, EndHour." />
+    <property name="SchedulesJson" display-name-key="SchedulesJson" description-key="Optional JSON array fallback for the schedules dataset. A non-empty value wins over the dataset." of-type="Multiple" usage="input" required="false" />
+    <property name="BrandsJson" display-name-key="BrandsJson" description-key="Optional JSON array fallback for the brands dataset. A non-empty value wins over the dataset." of-type="Multiple" usage="input" required="false" />
+    <property name="AccountsJson" display-name-key="AccountsJson" description-key="Optional JSON array fallback for the accounts dataset. A non-empty value wins over the dataset." of-type="Multiple" usage="input" required="false" />
+    <property name="StudiosJson" display-name-key="StudiosJson" description-key="Optional JSON array fallback for the studios dataset. A non-empty value wins over the dataset." of-type="Multiple" usage="input" required="false" />
+    <property name="HostsJson" display-name-key="HostsJson" description-key="Optional JSON array fallback for the hosts dataset. A non-empty value wins over the dataset." of-type="Multiple" usage="input" required="false" />
+    <property name="ReportsJson" display-name-key="ReportsJson" description-key="Optional JSON array fallback for the reports dataset. A non-empty value wins over the dataset." of-type="Multiple" usage="input" required="false" />
+    <property name="AbsencesJson" display-name-key="AbsencesJson" description-key="Optional JSON array fallback for the absences dataset. A non-empty value wins over the dataset." of-type="Multiple" usage="input" required="false" />
+    <property name="ClockInsJson" display-name-key="ClockInsJson" description-key="Optional JSON array fallback for the clockins dataset. A non-empty value wins over the dataset." of-type="Multiple" usage="input" required="false" />
+    <property name="EvidenceJson" display-name-key="EvidenceJson" description-key="Optional JSON array fallback for the evidence dataset. A non-empty value wins over the dataset." of-type="Multiple" usage="input" required="false" />
+    <property name="Context" display-name-key="Context" description-key="JSON: { userEmail, userName, roles, permissions, config }. Never carries row data." of-type="Multiple" usage="input" required="false" />
+    <property name="Mode" display-name-key="Mode" description-key="Admin can create, edit, delete and upload. ReadOnly only views." of-type="Enum" usage="input" required="false" default-value="Admin">
+      <value name="Admin" display-name-key="Admin">Admin</value>
+      <value name="ReadOnly" display-name-key="ReadOnly">ReadOnly</value>
+    </property>
+    <property name="ActionResult" display-name-key="ActionResult" description-key="JSON reply from canvas: { requestId, status: ok or error, message, data }." of-type="Multiple" usage="input" required="false" />
+    <property name="SelectedScheduleId" display-name-key="SelectedScheduleId" description-key="ScheduleID of the open session, blank for the board. Set it to deep-link." of-type="SingleLine.Text" usage="bound" required="false" />
+    <property name="ActionPayload" display-name-key="ActionPayload" description-key="JSON intent emitted by the control: { action, requestId, payload }. Handle it in OnChange." of-type="Multiple" usage="output" />
+    <resources>
+      <code path="index.ts" order="1" />
+      <css path="css/Schedule.css" order="1" />
+    </resources>
+  </control>
+</manifest>

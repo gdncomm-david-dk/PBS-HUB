@@ -1,5 +1,10 @@
 # PBS Hub — PCF
 
+| Control | Screens | Managed solution | Canvas setup |
+|---|---|---|---|
+| `pbs_Ops.StudioDirectory` | Studio list, Studio detail | `releases/PBSStudioDirectory_managed_1.1.1.zip` | [`docs/studio-directory-canvas-setup.md`](docs/studio-directory-canvas-setup.md) |
+| `pbs_Ops.Schedule` | Schedule board, session detail, create/edit, bulk & AI upload | `releases/PBSSchedule_managed_1.0.0.zip` | [`docs/schedule-canvas-setup.md`](docs/schedule-canvas-setup.md) |
+
 ## `pbs_Ops.StudioDirectory` (Studio list + Studio detail)
 
 Power Apps code component for the **Studio** and **Studio detail** screens of the PBS Hub Ops Console,
@@ -17,10 +22,23 @@ built on the SharePoint data model in `DESIGN.md`.
     session of the month** with GMV and report status.
 - Create / edit studio modal.
 
-**Output:** `releases/PBSStudioDirectory_managed_1.1.1.zip` — managed Dataverse solution.
-Setup and Power Fx: [`docs/studio-directory-canvas-setup.md`](docs/studio-directory-canvas-setup.md).
+## `pbs_Ops.Schedule` (Schedule + session detail)
 
-### Layout
+- **Board** — KPIs (sessions and live hours in range, live now, conflicts, ended sessions without a report),
+  date range with Hari ini / Minggu ini / Bulan ini, Brand / Host / Studio / Platform / Status filters and search.
+  **Kalender**: week columns × studio lanes, chips coloured by status, red dot on conflicts, lock when a report
+  is in, today tinted. **List**: Tanggal, Jam, Brand, Account, Host, Studio, Platform, Shift, Status, row menu,
+  "Muat lebih banyak" paging.
+- **Session detail** — the evidence chain Dijadwalkan → Clock in → Absen → Report host → Bukti AI → Verdict →
+  Baris payroll; each step says what is missing and offers "Ingatkan host"; conflicts; other sessions of the
+  same host or studio that day. Edit, duplicate, delete (locked once a report exists).
+- **Buat jadwal** (single, from the app) — Brand → Account dependent dropdowns, host / studio / account conflict and
+  capacity warnings that must each be ticked before saving.
+- **Upload massal** — multi-file `.xlsx`, parsed in the browser (the `Table1` table PBS0001A reads), per-row verdict
+  (Valid / Peringatan / Ditolak) against master data and existing sessions, downloadable error list; each clean
+  file is uploaded through the canvas Graph call and PBS0001A runs per file.
+- **AI Schedule** — upload to `/Schedule AI Automation` for PBS0002A.
+
 
 ```
 pcf/StudioDirectory/            PCF project (pac pcf init, standard control, React 18)
@@ -28,7 +46,9 @@ pcf/StudioDirectory/            PCF project (pac pcf init, standard control, Rea
   StudioDirectory/ui/           React UI
   tests/                        Jest unit tests for core/
   harness/                      local preview with mock data (not shipped)
+pcf/Schedule/                   PCF project for pbs_Ops.Schedule (same layout)
 solution/PBSStudioDirectory/    Dataverse solution project (pac solution init), builds the managed zip
+solution/PBSSchedule/           same, for pbs_Ops.Schedule
 releases/                       built managed solution
 ```
 
@@ -38,6 +58,7 @@ releases/                       built managed solution
 cd pcf/StudioDirectory && npm install && npm test && npm run build
 # preview: open pcf/StudioDirectory/harness/index.html (after npm run build)
 cd ../../solution/PBSStudioDirectory && dotnet build -c Release   # → bin/Release/PBSStudioDirectory.zip (managed)
+# Schedule: same steps in pcf/Schedule and solution/PBSSchedule
 ```
 
 Requires Node 18+, .NET SDK 8 and the Power Platform CLI (`dotnet tool install -g Microsoft.PowerApps.CLI.Tool`).
