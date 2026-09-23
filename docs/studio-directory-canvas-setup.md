@@ -6,7 +6,7 @@ lists described in `DESIGN.md` and **never writes**: it emits an `ActionPayload`
 
 ## 1. Import
 
-1. Power Apps → **Solutions → Import** → `releases/PBSStudioDirectory_managed_1.1.0.zip` (managed).
+1. Power Apps → **Solutions → Import** → `releases/PBSStudioDirectory_managed_1.1.1.zip` (managed).
 2. Canvas app → **Settings → Updates** → turn on **Power Apps component framework for canvas apps**.
 3. **Insert → Get more components → Code** → `PBS Studio Directory` (`pbs_Ops.StudioDirectory`).
 4. Give it the full screen next to `BlibliUniversalSidebar`. Minimum width 1040 px.

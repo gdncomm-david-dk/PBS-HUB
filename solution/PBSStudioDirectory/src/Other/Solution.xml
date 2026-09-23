@@ -10,7 +10,7 @@
     <Descriptions>
       <Description description="PCF pbs_Ops.StudioDirectory: studio list, studio detail, geofence editor, utilization, live usage, GMV and schedules." languagecode="1033" />
     </Descriptions>
-    <Version>1.1.0.0</Version>
+    <Version>1.1.1.0</Version>
     <!-- Solution Package Type: Unmanaged(0)/Managed(1)/Both(2)-->
     <Managed>2</Managed>
     <Publisher>

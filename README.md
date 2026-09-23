@@ -17,7 +17,7 @@ built on the SharePoint data model in `DESIGN.md`.
     session of the month** with GMV and report status.
 - Create / edit studio modal.
 
-**Output:** `releases/PBSStudioDirectory_managed_1.1.0.zip` — managed Dataverse solution.
+**Output:** `releases/PBSStudioDirectory_managed_1.1.1.zip` — managed Dataverse solution.
 Setup and Power Fx: [`docs/studio-directory-canvas-setup.md`](docs/studio-directory-canvas-setup.md).
 
 ### Layout
