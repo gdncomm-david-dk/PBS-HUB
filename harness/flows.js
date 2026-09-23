@@ -293,5 +293,42 @@ const assert = (c, m) => { if (!c) { console.log("FAIL", m); process.exitCode = 
     await go(q);
     await shot(n);
   }
+  // ---- Manual clock-in -------------------------------------------------------------------------
+  await go("c=HostList&delay=300");
+  await p.getByRole("button", { name: "Clock in" }).nth(1).click();
+  let ci = p.getByRole("dialog");
+  assert(await ci.getByText("Clock in manual · PBSH-002").isVisible(), "clock-in popup opens from the list row");
+  const save = ci.getByRole("button", { name: "Simpan clock in" });
+  assert(await save.isDisabled(), "save disabled until all fields are filled");
+  await p.selectOption("#pbs-ci-date", "2026-09-14");
+  assert((await p.inputValue("#pbs-ci-in")) === String(7 * 60) && (await p.inputValue("#pbs-ci-out")) === String(21 * 60), "times prefilled from the schedule");
+  await p.selectOption("#pbs-ci-out", String(6 * 60));
+  assert(await ci.getByText("Jam clock out harus setelah jam clock in.").isVisible(), "clock-out before clock-in is rejected");
+  await p.selectOption("#pbs-ci-out", String(21 * 60));
+  await p.selectOption("#pbs-ci-status", "Hadir - Tugas");
+  assert(await ci.getByText("HKTugas Rp180.000").isVisible(), "HKTugas shown for the status");
+  await shot("f-clockin");
+  await save.click();
+  pl = await payloads();
+  const add = pl.find((x) => x.action === "ADD_CLOCK_IN");
+  assert(add && add.payload.hostId === "HST-002" && add.payload.clockInDate === "2026-09-14" && add.payload.clockInTime === "07:00" && add.payload.clockOutTime === "21:00" && add.payload.status === "Hadir - Tugas" && add.payload.hkTugas === 180000, "ADD_CLOCK_IN payload");
+  await p.waitForTimeout(600);
+  assert((await p.getByRole("dialog").count()) === 0, "popup closes after ok");
+  assert(await p.getByText(/Clock in tersimpan: CLK-9001/).isVisible(), "canvas message shown in the banner");
+  await p.getByRole("button", { name: "Clock in" }).nth(1).click();
+  assert(await p.getByText(/sudah clock in di semua jadwalnya/).isVisible(), "day is no longer offered after the clock-in");
+
+  // Host detail: the same popup; no missed day means "already clocked in".
+  await go("c=HostDetail&h=HST-001");
+  await p.getByRole("button", { name: /Clock in/ }).click();
+  assert(await p.getByText(/Dinda Maharani sudah clock in di semua jadwalnya/).isVisible(), "host detail: already clocked in");
+  await go("c=HostDetail&h=HST-006&reply=error");
+  await p.getByRole("button", { name: /Clock in/ }).click();
+  await p.selectOption("#pbs-ci-date", { index: 1 });
+  await p.selectOption("#pbs-ci-status", "Hadir - Retainer");
+  await p.getByRole("button", { name: "Simpan clock in" }).click();
+  await p.waitForTimeout(600);
+  assert(await p.getByRole("dialog").getByText("Gagal menyimpan: akses ditolak.").isVisible(), "error stays inside the popup");
+
   await b.close();
 })();

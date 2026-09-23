@@ -1,4 +1,5 @@
 import { hasPermission, parseContext } from "../shared/contract";
+import { availableClockInDates, clockInStatuses } from "../shared/clockIn";
 import { bandOf, buildHost, buildLedger, buildSessions, checkLedger, deactivationImpact, maskedPii, parseBands, revealedFor, sensitiveKeysIn, toneFromText } from "../shared/host";
 
 const NOW = new Date("2026-09-14T11:42:00");
@@ -98,5 +99,33 @@ describe("personal data", () => {
     expect(hasPermission(parseContext(JSON.stringify({ roles: "FAS_Team" })), "HOST_PII_VIEW")).toBe(false);
     expect(hasPermission(parseContext(JSON.stringify({ roles: "FAS_Team" })), "HOST_EDIT")).toBe(true);
     expect(hasPermission(parseContext(JSON.stringify({ roles: "PBS_Team" })), "HOST_PII_VIEW")).toBe(true);
+  });
+});
+
+
+describe("manual clock-in", () => {
+  const sch = [
+    { Title: "SCD-1", HostID: "HST-001", Date: "2026-09-10", StartTime: "10:00", EndTime: "12:00" },
+    { Title: "SCD-2", HostID: "HST-001", Date: "2026-09-12", StartTime: "13:00", EndTime: "15:00" },
+    { Title: "SCD-3", HostID: "HST-001", Date: "2026-09-12", StartTime: "19:00", EndTime: "21:00" },
+    { Title: "SCD-4", HostID: "HST-001", Date: "2026-09-13", StartTime: "10:00", EndTime: "12:00", Status: "Cancelled" },
+    { Title: "SCD-5", HostID: "HST-001", Date: "2026-09-20", StartTime: "10:00", EndTime: "12:00" },
+    { Title: "SCD-6", HostID: "HST-002", Date: "2026-09-11", StartTime: "10:00", EndTime: "12:00" },
+    { Title: "SCD-7", HostID: "HST-001", Date: "2026-09-14", StartTime: "08:00", EndTime: "09:00" },
+  ];
+  const ins = [{ HostID: "HST-001", ClockInDate: "2026-09-10T00:00:00" }, { HostID: "HST-002", ClockInDate: "2026-09-12" }];
+  it("offers scheduled days without a clock-in, up to today, oldest first", () => {
+    const d = availableClockInDates(sch, ins, "HST-001", NOW);
+    expect(d.map((x) => x.key)).toEqual(["2026-09-12", "2026-09-14"]);
+    expect(d[0]).toMatchObject({ start: 13 * 60, end: 21 * 60 });
+    expect(d[0]?.sessions.map((s) => s.title)).toEqual(["SCD-2", "SCD-3"]);
+  });
+  it("is empty when every scheduled day already has a clock-in", () => {
+    expect(availableClockInDates(sch, [...ins, { HostID: "hst-001", ClockInDate: "2026-09-12" }, { HostID: "HST-001", CheckInTime: "2026-09-14T08:05:00" }], "HST-001", NOW)).toEqual([]);
+  });
+  it("maps status to HKTugas, overridable from config", () => {
+    expect(clockInStatuses({})).toEqual([{ label: "Hadir - Tugas", hk: 180000 }, { label: "Hadir - Retainer", hk: 30000 }]);
+    expect(clockInStatuses({ clockInStatuses: ["Hadir - Tugas", "Izin"] })).toEqual([{ label: "Hadir - Tugas", hk: 180000 }, { label: "Izin", hk: 0 }]);
+    expect(clockInStatuses({ clockInStatuses: [{ label: "Hadir - Tugas", hk: 200000 }] })[0]?.hk).toBe(200000);
   });
 });

@@ -73,6 +73,7 @@ Izin kalau `permissions` kosong (model legacy `Role - PBS Hub`, satu-satunya yan
 | `PAYROLL_RUN` (Jalankan payroll, Kirim ulang slip) | ✓ | – | – |
 | `HOST_EDIT` (Tambah host, Edit, Nonaktifkan) | ✓ | ✓ | – |
 | `HOST_PII_VIEW` (tab Data pribadi: KTP, rekening, alamat, telepon) | ✓ | – | – |
+| `HOST_CLOCKIN` (Clock in manual untuk host yang lupa clock in) | ✓ | ✓ | – |
 
 Kalau nanti pindah ke `[FAS STUDIO] RolePermissions`, isi `permissions: Concat(colUserPermissions, Value, ",")`
 dan control hanya memakai daftar itu.
@@ -678,7 +679,12 @@ HasMore        = CountRows(colHlHost) >= 2000   // batas delegasi: tampilkan "Mu
 ActionResult   = varHlResult
 HostsJson      = JSON(ForAll(colHlHost, {ID: ID, Title: Title, HostCode: HostCode, NamaHost: NamaHost, Status: Status.Value, Package: Package.Value, Email: Email.Email, JoinDate: JoinDate, InitialScore: InitialScore, CurrentScore: CurrentScore, MinimumScore: MinimumScore, MaximumScore: MaximumScore, HasRekening: !IsBlank(NoRekening) && !IsBlank(Bank)}), JSONFormat.Compact)
 ThresholdsJson = JSON(ForAll(colScoreBand, {ThresholdID: ThresholdID, Label: Label, Description: Description, MinimumScore: MinimumScore, MaximumScore: MaximumScore, Tone: Tone.Value, Active: Active, SortOrder: SortOrder}), JSONFormat.Compact)
+SchedulesJson  = JSON(ForAll(scheduleFiltered, {Title: Title, HostID: HostID, Date: Date, StartTime: StartTime, EndTime: EndTime, Status: Status.Value}), JSONFormat.Compact)
+ClockInJson    = JSON(ForAll(clockInFiltered, {HostID: HostID, ClockInDate: ClockInDate}), JSONFormat.Compact)
 ```
+
+`SchedulesJson` dan `ClockInJson` hanya dipakai popup **Clock in** (lihat di bawah); cukup kolom di atas.
+`scheduleFiltered` / `clockInFiltered` = koleksi yang sudah ada di app v1.
 
 `LedgerScore` (jumlah ledger per host) opsional; kalau dikirim, baris yang `CurrentScore`-nya berbeda diberi
 ikon peringatan. Jangan hitung dengan `Sum(Filter(HostScoreTransactions…))` per baris di list besar (S5,
@@ -695,7 +701,31 @@ If(!IsBlank(Self.ActionPayload),
                 Switch(act,
                     "OPEN_HOST", Set(varSelectedHostId, Text(p.hostId)); Navigate(scrHostDetail),
                     "ADD_HOST", Navigate(scrHostForm),                       // form v1 (HOST0001A)
-                    "LOAD_MORE", Notify("Gunakan filter untuk mempersempit daftar host.", NotificationType.Information)
+                    "LOAD_MORE", Notify("Gunakan filter untuk mempersempit daftar host.", NotificationType.Information),
+                    "ADD_CLOCK_IN",
+                        With({d: DateValue(Text(p.clockInDate)), hid: Text(p.hostId)},
+                            If(!IsBlank(LookUp('Clock In - PBS Hub', HostID = hid && ClockInDate = d)),
+                                // Sudah ada clock in di tanggal itu (host clock in sendiri / admin lain).
+                                Set(varHlResult, JSON({requestId: rid, status: "conflict", message: "Host ini sudah punya clock in di " & Text(d, "dd mmm yyyy") & "."}, JSONFormat.Compact)),
+                                IfError(
+                                    Set(varNewClockIn, Patch('Clock In - PBS Hub', Defaults('Clock In - PBS Hub'), {
+                                        HostID: hid,
+                                        HostName: Text(p.hostName),
+                                        ClockInDate: d,
+                                        ClockInTime: Text(p.clockInTime),     // "HH:mm"
+                                        ClockOutTime: Text(p.clockOutTime),
+                                        Status: {Value: Text(p.status)},
+                                        HKTugas: Value(p.hkTugas)
+                                    }));
+                                    Patch('Clock In - PBS Hub', varNewClockIn, {Title: "CLK-" & Text(varNewClockIn.ID, "0000")});
+                                    Collect(clockInFiltered, varNewClockIn);        // tanggal ini hilang dari pilihan
+                                    Set(varHlResult, JSON({requestId: rid, status: "ok",
+                                        message: "Clock in tersimpan: CLK-" & Text(varNewClockIn.ID, "0000") & " · " & Text(d, "dd mmm yyyy") & " " & Text(p.clockInTime) & "–" & Text(p.clockOutTime) & " · HKTugas Rp " & Text(Value(p.hkTugas), "#,##0")}, JSONFormat.Compact));
+                                    Set(varNewClockIn, Blank()),
+                                    Set(varHlResult, JSON({requestId: rid, status: "error", message: "Gagal menyimpan clock in: " & FirstError.Message}, JSONFormat.Compact))
+                                )
+                            )
+                        )
                 )
             )
         )
@@ -703,8 +733,26 @@ If(!IsBlank(Self.ActionPayload),
 )
 ```
 
-Aksi: `OPEN_HOST` (`{hostId, id}`), `ADD_HOST`, `FILTER_CHANGED` (`{filters, sort}`), `LOAD_MORE` — semuanya
-tidak mengunci. Tombol *Tambah host* hanya untuk `HOST_EDIT`.
+Aksi: `OPEN_HOST` (`{hostId, id}`), `ADD_HOST`, `FILTER_CHANGED` (`{filters, sort}`), `LOAD_MORE` — tidak
+mengunci. Tombol *Tambah host* hanya untuk `HOST_EDIT`.
+
+**Clock in manual** (menggantikan `varPopUpAddClockIn` + combobox v1). Tombol *Clock in* di tiap baris
+HostList dan di header HostDetail membuka popup:
+
+- **Tanggal**: hanya tanggal yang ada di jadwal host dan **belum ada clock in** — rumus yang sama dengan
+  `colAvailableDates` v1, diurutkan dari yang terlama. Dibatasi sampai hari ini dan jadwal yang dibatalkan
+  tidak ikut. Kalau tidak ada tanggal tersisa, popup menampilkan *"… sudah clock in di semua jadwalnya"*.
+- **Jam clock in / clock out**: pilihan per 30 menit, terisi otomatis dari jam jadwal hari itu; clock out
+  harus setelah clock in.
+- **Status**: `Hadir - Tugas` (HKTugas 180.000) dan `Hadir - Retainer` (30.000). Bisa diganti lewat
+  `config.clockInStatuses` di Context, mis. `[{label: "Hadir - Tugas", hk: 180000}, {label: "Izin", hk: 0}]`.
+
+`ADD_CLOCK_IN` **mengunci** sampai dibalas. Payload: `{hostId, hostName, clockInDate: "yyyy-mm-dd",
+clockInTime: "HH:mm", clockOutTime: "HH:mm", status, hkTugas, scheduleIds}`. Balas `ok` dengan `message`
+(tampil sebagai banner, popup tertutup), `conflict` kalau tanggal itu ternyata sudah punya clock in, atau
+`error`. Kalau `ClockInTime`/`ClockOutTime` di list bertipe Date and Time, ganti dengan
+`DateValue(Text(p.clockInDate)) + TimeValue(Text(p.clockInTime))`. Tombol hanya untuk izin `HOST_CLOCKIN`
+(fallback role: PBS_Team dan FAS_Team).
 
 ### HostDetail
 
@@ -771,6 +819,30 @@ If(!IsBlank(Self.ActionPayload),
                     "OPEN_REPORT", Set(varSelectedReportId, Value(p.reportId)); Navigate(scrReportDetail),
                     "OPEN_RUN", Set(varSelectedPayrollId, Value(p.runId)); Navigate(scrPayrollRunDetail),
                     "HIDE_PII", Set(varHdReveal, ""),
+                    "ADD_CLOCK_IN",
+                        With({d: DateValue(Text(p.clockInDate)), hid: Text(p.hostId)},
+                            If(!IsBlank(LookUp('Clock In - PBS Hub', HostID = hid && ClockInDate = d)),
+                                // Sudah ada clock in di tanggal itu (host clock in sendiri / admin lain).
+                                Set(varHdResult, JSON({requestId: rid, status: "conflict", message: "Host ini sudah punya clock in di " & Text(d, "dd mmm yyyy") & "."}, JSONFormat.Compact)),
+                                IfError(
+                                    Set(varNewClockIn, Patch('Clock In - PBS Hub', Defaults('Clock In - PBS Hub'), {
+                                        HostID: hid,
+                                        HostName: Text(p.hostName),
+                                        ClockInDate: d,
+                                        ClockInTime: Text(p.clockInTime),     // "HH:mm"
+                                        ClockOutTime: Text(p.clockOutTime),
+                                        Status: {Value: Text(p.status)},
+                                        HKTugas: Value(p.hkTugas)
+                                    }));
+                                    Patch('Clock In - PBS Hub', varNewClockIn, {Title: "CLK-" & Text(varNewClockIn.ID, "0000")});
+                                    Collect(colHdClockIn, varNewClockIn);        // tanggal ini hilang dari pilihan
+                                    Set(varHdResult, JSON({requestId: rid, status: "ok",
+                                        message: "Clock in tersimpan: CLK-" & Text(varNewClockIn.ID, "0000") & " · " & Text(d, "dd mmm yyyy") & " " & Text(p.clockInTime) & "–" & Text(p.clockOutTime) & " · HKTugas Rp " & Text(Value(p.hkTugas), "#,##0")}, JSONFormat.Compact));
+                                    Set(varNewClockIn, Blank()),
+                                    Set(varHdResult, JSON({requestId: rid, status: "error", message: "Gagal menyimpan clock in: " & FirstError.Message}, JSONFormat.Compact))
+                                )
+                            )
+                        ),
                     "REVEAL_PII",
                         With({f: Text(p.field)},
                             If(userRole.Value <> "PBS_Team",
@@ -811,8 +883,11 @@ Aksi yang **mengunci** dan wajib dibalas: `REVEAL_PII` (`{hostId, id, field}`; `
 = jadwal mendatang yang perlu dialihkan ke host lain. Lainnya (`BACK`, `RELOAD`, `NAV`, `OPEN_SCHEDULE`,
 `OPEN_REPORT`, `OPEN_RUN`, `HIDE_PII`) tidak mengunci.
 
+`ADD_CLOCK_IN` sama dengan di HostList (lihat di atas); tombol *Clock in* di header menampilkan jumlah jadwal
+yang belum ada clock in-nya.
+
 Tab *Payroll* hanya untuk `PAYROLL_VIEW`, tab *Data pribadi* hanya untuk `HOST_PII_VIEW`, tombol *Edit* /
-*Nonaktifkan* hanya untuk `HOST_EDIT`.
+*Nonaktifkan* hanya untuk `HOST_EDIT`, tombol *Clock in* hanya untuk `HOST_CLOCKIN`.
 
 ## 9. Alasan (kolom *Alasan* di antrean)
 
@@ -835,7 +910,7 @@ belum ada di v1, bulk approve tidak akan muncul — itu disengaja.
 
 1. Power Platform admin center → environment → **Settings → Product → Features** → aktifkan
    *Allow publishing of canvas apps with code components*.
-2. make.powerapps.com → **Solutions → Import solution** → `PBSHubOpsPCF_1_3_0_0_managed.zip`
+2. make.powerapps.com → **Solutions → Import solution** → `PBSHubOpsPCF_1_4_0_0_managed.zip`
    (sudah pernah import versi lama? Import ini meng-**upgrade** solusi yang sama — pilih *Upgrade*, bukan
    *Stage for upgrade* yang belum di-*Apply*).
 3. Di canvas app: **Insert → Get more components → Code** → pilih `PBS Ops Dashboard`,
@@ -848,12 +923,12 @@ belum ada di v1, bulk approve tidak akan muncul — itu disengaja.
 disisipkan. Setelah upgrade solusi: buka app di Studio → akan muncul banner *"Updated code components
 detected"* → **Update**. Kalau banner tidak muncul: tutup Studio, hard refresh browser (Ctrl+Shift+R), buka
 lagi. Lalu **Save + Publish** app. Pastikan juga di Solutions → PBS Hub Ops PCF → History bahwa versi
-1.3.0.0 benar-benar terpasang. Versi control di solusi ini: Dashboard / ReportReview / ReportDetail
-1.3.0, PayrollRuns / PayrollRunDetail 1.2.0, HostList / HostDetail 1.1.0.
+1.4.0.0 benar-benar terpasang. Versi control di solusi ini: Dashboard / ReportReview / ReportDetail
+1.3.0, PayrollRuns / PayrollRunDetail 1.2.0, HostList / HostDetail 1.2.0.
 
 **Tampilan rusak di app (tabel tidak full, tombol tanpa border, checkbox hilang)?** Itu CSS global Power
 Apps player yang menimpa style control. Sejak 1.3.0 setiap control dirender di dalam Shadow DOM sehingga
-CSS host tidak bisa masuk; cukup *Update code components* ke versi 1.3.0.
+CSS host tidak bisa masuk; cukup *Update code components* ke versi terbaru.
 
 Update: naikkan `version` di setiap `ControlManifest.Input.xml` yang bundelnya berubah **dan** `Version` di
 `solution/PBSHubOpsPCF/src/Other/Solution.xml`, lalu `npm run release`. Managed solution hanya bisa

@@ -2,6 +2,7 @@ import * as React from "react";
 import { ModuleContext, UseActionResult, configNumber, hasPermission } from "../../../shared/contract";
 import { Row } from "../../../shared/data";
 import { fmtDateShort, fmtNumber } from "../../../shared/format";
+import { ClockInModal } from "../../../shared/clockIn";
 import { HOST_STATUS, HostModel, HostStatus, buildHosts, parseBands, scoreDefaults } from "../../../shared/host";
 import { Badge, Button, EmptyState, EndOfData, FilterSelect, Icon, InfoBanner, ModuleHeader, ResultBanner, SkeletonRows, Spinner } from "../../../shared/ui";
 
@@ -9,6 +10,8 @@ export interface HostListProps {
   ctx: ModuleContext;
   hosts: Row[];
   thresholds: Row[];
+  schedules: Row[];
+  clockIns: Row[];
   hasMore: boolean;
   loading: boolean;
   now: Date;
@@ -100,10 +103,24 @@ export function HostListView(props: HostListProps): React.ReactElement {
   const pkgOptions = [...new Set(hosts.map((h) => h.pkg).filter(Boolean))].sort().map((p) => ({ value: p, label: p }));
   const bandOptions = bands.map((b) => ({ value: b.id, label: b.label })).concat(hosts.some((h) => h.band === null) ? [{ value: "none", label: "Tanpa band" }] : []);
   const canEdit = hasPermission(ctx, "HOST_EDIT");
+  const canClockIn = hasPermission(ctx, "HOST_CLOCKIN");
+  const [clockInFor, setClockInFor] = React.useState<HostModel | null>(null);
+  React.useEffect(() => {
+    if (action.lastResult?.action === "ADD_CLOCK_IN" && action.lastResult.status === "ok") setClockInFor(null);
+  }, [action.lastResult]);
+  const hostRef = React.useRef<HTMLDivElement>(null);
+  const openClockIn = (h: HostModel) => {
+    const scroller = hostRef.current?.closest(".pbs-root");
+    if (scroller) scroller.scrollTop = 0;
+    if (action.lastResult?.action === "ADD_CLOCK_IN") action.clearResult();
+    setClockInFor(h);
+  };
+  // Errors of the popup stay in the popup.
+  const bannerResult = clockInFor && action.lastResult?.action === "ADD_CLOCK_IN" ? null : action.lastResult;
   const firstLoad = props.loading && hosts.length === 0;
 
   return (
-    <div className="pbs-page">
+    <div className="pbs-page pbs-host" ref={hostRef}>
       <ModuleHeader
         crumb="Master data"
         title="Host"
@@ -121,7 +138,7 @@ export function HostListView(props: HostListProps): React.ReactElement {
         }
       />
 
-      <ResultBanner result={action.lastResult} onClose={action.clearResult} />
+      <ResultBanner result={bannerResult} okText={bannerResult?.action === "ADD_CLOCK_IN" ? "Clock in tersimpan." : undefined} onClose={action.clearResult} />
 
       {leaked.length > 0 ? (
         <InfoBanner tone="err" icon="lock">
@@ -198,7 +215,15 @@ export function HostListView(props: HostListProps): React.ReactElement {
               {firstLoad ? (
                 <SkeletonRows rows={8} cols={7} />
               ) : (
-                visible.map((h) => <HostRow key={h.hostId} h={h} onOpen={() => action.fire("OPEN_HOST", { hostId: h.hostId, id: h.id })} />)
+                visible.map((h) => (
+                  <HostRow
+                    key={h.hostId}
+                    h={h}
+                    onOpen={() => action.fire("OPEN_HOST", { hostId: h.hostId, id: h.id })}
+                    onClockIn={canClockIn ? () => openClockIn(h) : undefined}
+                    busy={!!action.pending}
+                  />
+                ))
               )}
             </tbody>
           </table>
@@ -249,13 +274,27 @@ export function HostListView(props: HostListProps): React.ReactElement {
           <EndOfData text={`Semua ${fmtNumber(filtered.length)} host sudah ditampilkan`} />
         )}
       </div>
+
+      {clockInFor ? (
+        <ClockInModal
+          ctx={ctx}
+          hostId={clockInFor.hostId}
+          hostCode={clockInFor.code}
+          hostName={clockInFor.name}
+          schedules={props.schedules}
+          clockIns={props.clockIns}
+          now={props.now}
+          action={action}
+          onClose={() => setClockInFor(null)}
+        />
+      ) : null}
     </div>
   );
 }
 
 const BAND_TEXT: Record<string, string> = { success: "pbs-t-ok", danger: "pbs-t-bad", warning: "pbs-t-warn", info: "pbs-t-info", neutral: "" };
 
-function HostRow(props: { h: HostModel; onOpen: () => void }): React.ReactElement {
+function HostRow(props: { h: HostModel; onOpen: () => void; onClockIn?: () => void; busy: boolean }): React.ReactElement {
   const { h } = props;
   const st = HOST_STATUS[h.status];
   const noBankTip = "Data bank belum lengkap: transfer dan slip gaji gagal, dan preflight payroll memblokir host ini.";
@@ -308,9 +347,16 @@ function HostRow(props: { h: HostModel; onOpen: () => void }): React.ReactElemen
         {fmtDateShort(h.joined)}
       </td>
       <td className="r">
-        <Button variant="secondary" size="sm" onClick={props.onOpen}>
-          Buka
-        </Button>
+        <span className="pbs-rowact">
+          {props.onClockIn ? (
+            <Button variant="ghost" size="sm" onClick={props.onClockIn} disabled={props.busy} title="Tambah clock in untuk jadwal yang terlewat">
+              <Icon name="clock" size={14} /> Clock in
+            </Button>
+          ) : null}
+          <Button variant="secondary" size="sm" onClick={props.onOpen}>
+            Buka
+          </Button>
+        </span>
       </td>
     </tr>
   );

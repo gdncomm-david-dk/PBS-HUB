@@ -80,7 +80,7 @@
   }
   // Host: ?h=HST-001 · ?role=FAS_Team (no PII / payroll) · ?leak=1 (raw KTP in the row)
   if (q.get("role")) params.Context = J(Object.assign({}, S.context, { roles: q.get("role") }));
-  if (c === "HostList") Object.assign(params, { HostsJson: J(empty ? [] : S.hosts), ThresholdsJson: J(S.thresholds) });
+  if (c === "HostList") Object.assign(params, { HostsJson: J(empty ? [] : S.hosts), ThresholdsJson: J(S.thresholds), SchedulesJson: J(S.schedules.concat(S.hostExtraSchedules)), ClockInJson: J(S.clockIns.concat(S.clockInsAug, S.hostExtraClockIns)) });
   const hostId = q.get("h") || "HST-001";
   if (c === "HostDetail") {
     const hRow = Object.assign({}, S.hosts.find((x) => x.Title === hostId), q.get("leak") ? { KTP: "3174051203900001" } : {});
@@ -128,6 +128,20 @@
         const i = S.hosts.findIndex((x) => x.Title === p.payload.hostId);
         params.RevealedJson = J({ hostId: p.payload.hostId, field: p.payload.field, value: S.piiValues(S.hosts[i], i)[p.payload.field] });
         params.ActionResult = J({ requestId: p.requestId, status: q.get("reply") || "ok", message: q.get("reply") === "error" ? "Akses ditolak: izin HOST_PII_VIEW tidak ada." : "" });
+        ctl.updateView(context());
+      }, Number(q.get("delay") || 400));
+      return;
+    }
+    if (p.action === "ADD_CLOCK_IN" && document.getElementById("auto").checked) {
+      // Canvas stand-in: reject a day that already has a clock-in, else append the row.
+      setTimeout(() => {
+        const rows = JSON.parse(params.ClockInJson || "[]");
+        const dup = rows.some((x) => x.HostID === p.payload.hostId && String(x.ClockInDate).slice(0, 10) === p.payload.clockInDate);
+        if (!dup && q.get("reply") !== "error") {
+          rows.push({ ID: 99001, Title: "CLK-9001", HostID: p.payload.hostId, ClockInDate: p.payload.clockInDate, ClockInTime: p.payload.clockInTime, ClockOutTime: p.payload.clockOutTime, HKTugas: p.payload.hkTugas });
+          params.ClockInJson = J(rows);
+        }
+        params.ActionResult = J({ requestId: p.requestId, status: dup ? "conflict" : q.get("reply") || "ok", message: dup ? "Sudah ada clock in di tanggal itu." : q.get("reply") === "error" ? "Gagal menyimpan: akses ditolak." : `Clock in tersimpan: CLK-9001 · ${p.payload.clockInDate} ${p.payload.clockInTime}–${p.payload.clockOutTime}` });
         ctl.updateView(context());
       }, Number(q.get("delay") || 400));
       return;

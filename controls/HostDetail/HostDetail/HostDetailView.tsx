@@ -1,5 +1,6 @@
 import * as React from "react";
 import { ModuleContext, UseActionResult, configNumber, hasPermission } from "../../../shared/contract";
+import { ClockInModal, availableClockInDates } from "../../../shared/clockIn";
 import { Row, nameIndex } from "../../../shared/data";
 import { fmtDateShort, fmtDateTimeShort, fmtDayMonth, fmtNumber, fmtRupiah, fmtTime } from "../../../shared/format";
 import {
@@ -85,10 +86,13 @@ export function HostDetailView(props: HostDetailProps): React.ReactElement {
   // The tab is absent without the permission, so a DefaultTab pointing at it falls back.
   const tab = tabs.includes(tabRaw) ? tabRaw : "Summary";
   const [statusModal, setStatusModal] = React.useState(false);
+  const [clockInModal, setClockInModal] = React.useState(false);
+  const canClockIn = hasPermission(ctx, "HOST_CLOCKIN");
   const hostRef = React.useRef<HTMLDivElement>(null);
 
   React.useEffect(() => {
     if (action.lastResult?.action === "SET_HOST_STATUS" && action.lastResult.status === "ok") setStatusModal(false);
+    if (action.lastResult?.action === "ADD_CLOCK_IN" && action.lastResult.status === "ok") setClockInModal(false);
   }, [action.lastResult]);
 
   const back = (
@@ -122,7 +126,18 @@ export function HostDetailView(props: HostDetailProps): React.ReactElement {
     Reports: reports.filter((r) => r.state === "WAITING" || r.state === "REVISION").length,
   };
   // A successful reveal needs no banner; the value itself is the confirmation.
-  const bannerResult = action.lastResult && !(action.lastResult.action === "REVEAL_PII" && action.lastResult.status === "ok") ? action.lastResult : null;
+  const bannerResult =
+    action.lastResult && !(action.lastResult.action === "REVEAL_PII" && action.lastResult.status === "ok") && !(clockInModal && action.lastResult.action === "ADD_CLOCK_IN")
+      ? action.lastResult
+      : null;
+  const missedDays = canClockIn ? availableClockInDates(props.schedules, props.clockIns, h.hostId, now).length : 0;
+
+  const openClockIn = () => {
+    const scroller = hostRef.current?.closest(".pbs-root");
+    if (scroller) scroller.scrollTop = 0;
+    if (action.lastResult?.action === "ADD_CLOCK_IN") action.clearResult();
+    setClockInModal(true);
+  };
 
   const openStatus = () => {
     const scroller = hostRef.current?.closest(".pbs-root");
@@ -141,6 +156,12 @@ export function HostDetailView(props: HostDetailProps): React.ReactElement {
             <Button variant="ghost" size="sm" onClick={() => action.fire("RELOAD", { hostId: h.hostId })} disabled={props.loading}>
               <Icon name="refresh" size={14} /> Muat ulang
             </Button>
+            {canClockIn ? (
+              <Button variant="secondary" size="sm" onClick={openClockIn} disabled={!!action.pending} title={missedDays ? `${missedDays} jadwal belum ada clock in` : "Sudah clock in di semua jadwal"}>
+                <Icon name="clock" size={14} /> Clock in
+                {missedDays ? <span className="pbs-count">{missedDays}</span> : null}
+              </Button>
+            ) : null}
             {canEdit ? (
               <>
                 <Button variant="secondary" size="sm" onClick={() => action.fire("NAV", { target: "EDIT_HOST", hostId: h.hostId, id: h.id })}>
@@ -187,7 +208,7 @@ export function HostDetailView(props: HostDetailProps): React.ReactElement {
           <Pill tone={st.tone}>{st.label}</Pill>
         </div>
 
-        <ResultBanner result={bannerResult} onClose={action.clearResult} okText="Tersimpan." />
+        <ResultBanner result={bannerResult} onClose={action.clearResult} okText={bannerResult?.action === "ADD_CLOCK_IN" ? "Clock in tersimpan." : "Tersimpan."} />
 
         {h.sensitiveKeys.length > 0 ? (
           <InfoBanner tone="err" icon="lock">
@@ -226,6 +247,9 @@ export function HostDetailView(props: HostDetailProps): React.ReactElement {
         )}
       </div>
 
+      {clockInModal ? (
+        <ClockInModal ctx={ctx} hostId={h.hostId} hostCode={h.code} hostName={h.name} schedules={props.schedules} clockIns={props.clockIns} now={now} action={action} onClose={() => setClockInModal(false)} />
+      ) : null}
       {statusModal ? <StatusModal h={h} sessions={sessions} clockIns={props.clockIns} payLines={payLines} runs={runModels} now={now} action={action} onClose={() => setStatusModal(false)} /> : null}
     </div>
   );

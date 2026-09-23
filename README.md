@@ -16,7 +16,7 @@ Power Apps code components (PCF) untuk canvas app PBS Hub, dibuat dari design ha
 | `pbs_Ops.HostList` | Host — direktori, skor + band, peringatan tanpa data bank (HD-1) | `controls/HostList` |
 | `pbs_Ops.HostDetail` | Detail host — ringkasan skor/ledger, jadwal, report, payroll, data pribadi tersamar (HD-2) | `controls/HostDetail` |
 
-**Output:** `dist/PBSHubOpsPCF_1_3_0_0_managed.zip` — managed solution, dibangun dengan target MSBuild
+**Output:** `dist/PBSHubOpsPCF_1_4_0_0_managed.zip` — managed solution, dibangun dengan target MSBuild
 resmi Power Platform (`Microsoft.PowerApps.MSBuild.Solution`).
 
 Cara pasang dan formula Power Fx lengkap (properti, `OnChange`, Patch ke SharePoint):
@@ -54,7 +54,7 @@ Uji tampilan tanpa Power Apps: `npm run build`, lalu buka `harness/index.html` d
 Tambahkan `&hostile=1` untuk menyuntikkan CSS global yang agresif (meniru Power Apps player) — tampilan harus
 tetap utuh karena control dirender di Shadow DOM.
 `node harness/flows.js <dir>` menjalankan cek interaksi (approve → mengirim → hasil, konflik, revisi, bulk approve,
-filter, paging, preflight payroll, expand baris, kirim ulang slip, buka/sembunyikan data pribadi, nonaktifkan host).
+filter, paging, preflight payroll, expand baris, kirim ulang slip, buka/sembunyikan data pribadi, nonaktifkan host, clock in manual).
 
 ## Keputusan desain
 

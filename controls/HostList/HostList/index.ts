@@ -10,6 +10,8 @@ interface ShellProps {
   contextJson: string | null;
   hosts: Row[];
   thresholds: Row[];
+  schedules: Row[];
+  clockIns: Row[];
   hasMore: boolean;
   loading: boolean;
   referenceDate: string | null;
@@ -39,6 +41,8 @@ export class HostList implements ComponentFramework.StandardControl<IInputs, IOu
         contextJson: p.Context?.raw ?? null,
         hosts: this.cache.get("h", p.HostsJson?.raw),
         thresholds: this.cache.get("t", p.ThresholdsJson?.raw),
+        schedules: this.cache.get("s", p.SchedulesJson?.raw),
+        clockIns: this.cache.get("c", p.ClockInJson?.raw),
         hasMore: flag(p.HasMore),
         loading: flag(p.IsLoading),
         referenceDate: p.ReferenceDate?.raw ?? null,
