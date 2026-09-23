@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<manifest>
+  <control namespace="Ops" constructor="PayrollRuns" version="1.0.0" display-name-key="PBS Ops Payroll Runs" description-key="PBS Hub Ops Console P-1 and P-2: payroll run list with approval progress, and the Jalankan payroll preflight (explicit period, pass/warn/block checklist)." control-type="standard">
+    <external-service-usage enabled="false"></external-service-usage>
+
+    <property name="Context" display-name-key="Context" description-key="JSON {userEmail,userName,roles,permissions,config}. config: payrollLabelOffset (-1), payrollAssemblyMinutes (30), payrollPeriodOptions (6), payrollAnyPeriod (false), pageSize (50)." of-type="Multiple" usage="input" required="false" />
+    <property name="PayrollJson" display-name-key="PayrollJson" description-key="JSON rows of [Payroll - PBS Hub]: ID, Title, PayrollName, Periode, Status, Trigger, TotalPayroll, TotalHost, the Approval and Comment columns, Created, Modified." of-type="Multiple" usage="input" required="false" />
+    <property name="PayrollDataJson" display-name-key="PayrollDataJson" description-key="JSON rows of [Payroll Data] for the runs above, only payroll_id and TotalGaji. Used for the total and host count per run." of-type="Multiple" usage="input" required="false" />
+    <property name="PayslipJson" display-name-key="PayslipJson" description-key="Optional. JSON rows of a payslip log (payroll_id, Status). v1 has no such list: leave blank." of-type="Multiple" usage="input" required="false" />
+    <property name="HostsJson" display-name-key="HostsJson" description-key="JSON rows of [Host - PBS Hub]: Title, NamaHost, Status, HasRekening. Never send KTP or NoRekening." of-type="Multiple" usage="input" required="false" />
+    <property name="PreflightJson" display-name-key="PreflightJson" description-key="JSON {period: yyyy-mm, clockIns: [Clock In rows of that month], reports: [Report rows with LiveDate in that month]} loaded after PREFLIGHT_PERIOD." of-type="Multiple" usage="input" required="false" />
+    <property name="PreflightLoading" display-name-key="PreflightLoading" description-key="true while canvas loads PreflightJson: the checklist shows skeleton rows." of-type="TwoOptions" usage="input" required="false" />
+    <property name="HasMore" display-name-key="HasMore" description-key="true when canvas can load older runs: shows Muat lebih banyak and emits LOAD_MORE." of-type="TwoOptions" usage="input" required="false" />
+    <property name="IsLoading" display-name-key="IsLoading" description-key="true while canvas is loading: renders skeleton rows." of-type="TwoOptions" usage="input" required="false" />
+    <property name="ReferenceDate" display-name-key="ReferenceDate" description-key="Optional ISO date-time used as now (testing)." of-type="SingleLine.Text" usage="input" required="false" />
+    <property name="ActionResult" display-name-key="ActionResult" description-key="Canvas reply {requestId,status,message} to RUN_PAYROLL." of-type="SingleLine.Text" usage="input" required="false" />
+    <property name="ActionPayload" display-name-key="ActionPayload" description-key="JSON {action,requestId,payload}: OPEN_RUN, PREFLIGHT_PERIOD, RUN_PAYROLL, NAV, LOAD_MORE." of-type="SingleLine.Text" usage="output" required="false" />
+
+    <resources>
+      <code path="index.ts" order="1" />
+    </resources>
+  </control>
+</manifest>

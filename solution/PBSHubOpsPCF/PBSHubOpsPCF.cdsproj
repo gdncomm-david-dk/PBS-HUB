@@ -50,6 +50,8 @@
     <ProjectReference Include="../../controls/Dashboard/PbsOpsDashboard.pcfproj" />
     <ProjectReference Include="../../controls/ReportReview/PbsOpsReportReview.pcfproj" />
     <ProjectReference Include="../../controls/ReportDetail/PbsOpsReportDetail.pcfproj" />
+    <ProjectReference Include="../../controls/PayrollRuns/PbsOpsPayrollRuns.pcfproj" />
+    <ProjectReference Include="../../controls/PayrollRunDetail/PbsOpsPayrollRunDetail.pcfproj" />
   </ItemGroup>
 
   <Import Project="$(MSBuildToolsPath)\Microsoft.Common.targets" />

@@ -1,17 +1,19 @@
 # Integrasi canvas — PBS Hub Ops PCF
 
-Tiga code component di solusi `PBSHubOpsPCF` (managed):
+Lima code component di solusi `PBSHubOpsPCF` (managed):
 
 | Control | Layar desain | Fungsi |
 |---|---|---|
 | `pbs_Ops.Dashboard` | Ops Console 3a/3b (D-1) | Antrean yang menunggu tim hari ini. Read-only, hanya emit `NAV`. |
 | `pbs_Ops.ReportReview` | Ops Console 4a (R-1) | Daftar report + antrean rekonsiliasi, urut umur, kolom **Alasan**, bulk approve terbatas. |
 | `pbs_Ops.ReportDetail` | Ops Console 4b/4c/4d (R-2) | Detail report: klaim host vs bukti AI vs selisih, Setujui / Perlu revisi / Eskalasi. |
+| `pbs_Ops.PayrollRuns` | Payroll P-1 + P-2 | Daftar run payroll (status, total, 4 titik approval, slip) + modal **Jalankan payroll** dengan preflight. |
+| `pbs_Ops.PayrollRunDetail` | Payroll P-3 + P-4 + P-5 | Baris per host (expand ke Clock In), tracker 4 gate approval, status slip gaji. |
 
 Semua control hanya merender **isi modul** (judul, filter, tabel, kartu). Header dan sidebar tetap dari
 app (`BlibliUniversalSidebar`).
 
-## 1. Aturan kontrak (berlaku untuk ketiganya)
+## 1. Aturan kontrak (berlaku untuk semua control)
 
 - **Control tidak pernah menulis ke SharePoint.** Tombol mengirim `ActionPayload` (JSON teks):
   `{"action":"APPROVE","requestId":"rd-…","payload":{…}}`. Canvas menulis di `OnChange`, lalu membalas
@@ -43,7 +45,10 @@ Set(
                 confidenceThreshold: 0.85,
                 maxShiftHours: 12,          // sama dengan varMaxShiftHours
                 missingReportDays: 2,
-                pageSize: 50
+                pageSize: 50,
+                payrollLabelOffset: -1,     // Payroll.Periode = bulan run, data = bulan sebelumnya (P8)
+                payrollAssemblyMinutes: 30, // run baru < 30 menit dengan gate 1 terbuka = "Sedang disusun"
+                payrollAnyPeriod: false     // true hanya kalau flow sudah menerima periode sebagai input
             }
         },
         JSONFormat.Compact
@@ -59,6 +64,7 @@ Izin kalau `permissions` kosong (model legacy `Role - PBS Hub`, satu-satunya yan
 | `REPORT_ADJUDICATE` (Setujui, Perlu revisi, bulk approve) | ✓ | ✓ | – |
 | `RECONCILIATION_CONFIG` (tombol Konfigurasi toleransi) | ✓ | ✓ | – |
 | `PAYROLL_VIEW` (tombol Buka payroll) | ✓ | – | – |
+| `PAYROLL_RUN` (Jalankan payroll, Kirim ulang slip) | ✓ | – | – |
 
 Kalau nanti pindah ke `[FAS STUDIO] RolePermissions`, isi `permissions: Concat(colUserPermissions, Value, ",")`
 dan control hanya memakai daftar itu.
@@ -349,7 +355,209 @@ Tiga sifat yang harus dipertahankan:
    (defect v1 di `ScreenPayroll.pa.yaml:4437`).
 3. Cek status sebelum tulis menutup race R2 (flow PBS0005A / reviewer lain / host menulis kolom yang sama).
 
-## 7. Alasan (kolom *Alasan* di antrean)
+## 7. Payroll
+
+### Data mapping
+
+| Properti | List | Field |
+|---|---|---|
+| `PayrollJson` | `Payroll - PBS Hub` | `ID, Title, PayrollName, Periode, Status, Trigger, TotalPayroll, TotalHost, PBSApproval, HCApproval, FASApproval, FinanceApproval, PBSComment, HCComment, FASComment, FinanceComment, Created, Modified` |
+| `PayrollDataJson` (Runs) | `Payroll Data` | `payroll_id, TotalGaji` saja: untuk total dan jumlah host per run |
+| `PayrollDataJson` (Detail) | `Payroll Data` | `Title, payroll_id, Employee_Name, Employee_Email, Periode, JumlahHari, UangKehadiran, Mingguan, Tier1, Tier2, Tier3, PPh21, TotalGaji, NetTHP, Bank` + **dihitung di canvas**: `HostID` (dari Host.Email), `NorekLast4 = Right(Norek, 4)`, `HasRekening` |
+| `ClockInJson` (Detail) | `Clock In - PBS Hub` | bulan data run: `HostID, ClockInDate, CheckInTime, CheckOutTime, ClockOutTime, IsInsideGeofence, HKTugas, Insentif, Tier, Streak` |
+| `HostsJson` (Runs) | `Host - PBS Hub` | `Title, NamaHost, Status, HasRekening` |
+| `PreflightJson` (Runs) | Clock In + Report | objek `{period, clockIns, reports}` untuk bulan yang dipilih di modal |
+| `PayslipJson` | *tidak ada di v1* | opsional: log slip `{payroll_id, LineID/Employee_Email, Status, SentAt, Error}` |
+
+**Jangan kirim** `Employee_ID` (isinya KTP, P6), `Norek` lengkap, `Alamat`, atau `KTP` ke control.
+
+Cara control membaca data v1:
+
+| Fakta v1 | Yang dilakukan control |
+|---|---|
+| `Payroll.Periode` = bulan run, data = bulan sebelumnya (P8) | Periode data = label + `payrollLabelOffset` (−1). Label asli tetap tampil kecil di bawahnya. |
+| `TotalPayroll` / `TotalHost` tidak pernah ditulis (P9) | Total dan jumlah host dihitung dari `Payroll Data`. Kalau suatu saat diisi dan berbeda → banner merah "Total tidak rekonsil". |
+| `Payroll Data.Periode` literal `August-2026` (P2) | Dibandingkan dengan periode data run → banner "Label periode tidak cocok". |
+| `Status` satu kolom yang ditimpa tiap gate, dua gate paralel saling menimpa | Gate dibaca dari `Status` + kolom `HCApproval` / `PBSApproval` (Head of PBS) / `FASApproval`. `Approved by <nama>` tanpa kata HC/PBS/FAS = gate 1 (PBS internal); kolom `HCApproval` membedakannya dari P7. |
+| `PPh21 = 0` (P3) | Kartu KPI menyebut "PPh21 Rp0 di semua baris". |
+| Finance tidak pernah approve (P5) | Gate Finance "terkirim ke Finance" saat `Status = Done`. |
+| Run manual PBS0003M tidak menulis `Payroll Data` | Run tanpa baris → banner yang menyebut PBS0003M. |
+| Tidak ada log slip | Tab Slip gaji: "Status slip belum tercatat" sampai `PayslipJson` diisi. |
+
+Preflight (dihitung di control dari `PreflightJson` + `HostsJson` + daftar run):
+
+| Cek | Level |
+|---|---|
+| Periode data ≠ bulan lalu, selama `payrollAnyPeriod = false` (flow v1 tidak menerima periode) | ✗ memblokir |
+| Periode ini sudah punya run yang tidak ditolak (P11) | ✗ memblokir |
+| Masih ada run lain yang terbuka | ✗ memblokir |
+| Host aktif yang punya kehadiran tapi tanpa data rekening | ✗ memblokir |
+| Tidak ada host aktif / tidak ada kehadiran sama sekali | ✗ memblokir |
+| Host aktif tanpa kehadiran (flow tetap membuat baris Rp0) | ⚠ peringatan |
+| Host nonaktif punya kehadiran (tidak dibayar) | ⚠ peringatan |
+| Shift tanpa clock out · clock in di luar geofence (tetap dihitung, W2) | ⚠ peringatan |
+| Report bulan itu belum direview | ⚠ peringatan |
+| Pernah dijalankan lalu ditolak | ⚠ peringatan |
+
+Peringatan harus dicentang dulu sebelum tombol **Jalankan payroll** aktif. Tarif yang tampil adalah nilai
+yang paling sering muncul di `HKTugas` / `Insentif` per Tier / `Streak` bulan itu (v1 belum punya tabel tarif).
+
+### PayrollRuns
+
+**Screen.OnVisible**
+
+```powerfx
+Set(varPrTop, 24);
+Set(varPrLoading, true);
+Set(varPfJson, "");
+Concurrent(
+    ClearCollect(colPrRun, FirstN(Sort('Payroll - PBS Hub', ID, SortOrder.Descending), varPrTop)),
+    ClearCollect(colPrHost, ShowColumns('Host - PBS Hub', Title, NamaHost, Status, NoRekening))
+);
+// "in" tidak didelegasikan: aman selama Payroll Data < batas baris app (2000).
+ClearCollect(colPrLine, ShowColumns(Filter('Payroll Data', payroll_id in colPrRun.Title), payroll_id, TotalGaji));
+Set(varPrLoading, false);
+Clear(colPbsProcessed);
+```
+
+**Properti**
+
+```powerfx
+Context          = varPbsCtx
+IsLoading        = varPrLoading
+HasMore          = CountRows(colPrRun) >= varPrTop
+PreflightJson    = varPfJson
+PreflightLoading = varPfLoading
+ActionResult     = varPrResult
+PayrollJson      = JSON(ForAll(colPrRun, {ID: ID, Title: Title, PayrollName: PayrollName, Periode: Periode, Status: Status.Value, Trigger: Trigger.Value, TotalPayroll: TotalPayroll, TotalHost: TotalHost, PBSApproval: PBSApproval, HCApproval: HCApproval, FASApproval: FASApproval, FinanceApproval: FinanceApproval, PBSComment: PBSComment, HCComment: HCComment, FASComment: FASComment, FinanceComment: FinanceComment, Created: Created, Modified: Modified}), JSONFormat.Compact)
+PayrollDataJson  = JSON(ForAll(colPrLine, {payroll_id: payroll_id, TotalGaji: TotalGaji}), JSONFormat.Compact)
+HostsJson        = JSON(ForAll(colPrHost, {Title: Title, NamaHost: NamaHost, Status: Status.Value, HasRekening: !IsBlank(NoRekening)}), JSONFormat.Compact)
+PayslipJson      = ""
+```
+
+**OnChange**
+
+```powerfx
+If(!IsBlank(Self.ActionPayload),
+    With({req: ParseJSON(Self.ActionPayload)},
+        With({act: Text(req.action), rid: Text(req.requestId), p: req.payload},
+            If(!(rid in colPbsProcessed.Id),
+                Collect(colPbsProcessed, {Id: rid});
+                Switch(act,
+                    "OPEN_RUN",
+                        Set(varSelectedPayrollId, Value(p.payrollId));
+                        Navigate(ScreenPayrollDetail),
+                    "PREFLIGHT_PERIOD",
+                        Set(varPfLoading, true);
+                        With({start: Date(Value(p.year), Value(p.month), 1)},
+                            Set(varPfJson, JSON({
+                                period: Text(p.period),
+                                clockIns: ForAll(Filter('Clock In - PBS Hub', ClockInDate >= start, ClockInDate < DateAdd(start, 1, TimeUnit.Months)),
+                                    {HostID: HostID, ClockInDate: ClockInDate, CheckInTime: CheckInTime, CheckOutTime: CheckOutTime, ClockOutTime: ClockOutTime, IsInsideGeofence: IsInsideGeofence, HKTugas: HKTugas, Insentif: Insentif, Tier: Tier.Value, Streak: Streak}),
+                                reports: ForAll(Filter('Report - PBS Hub', LiveDate >= start, LiveDate < DateAdd(start, 1, TimeUnit.Months)),
+                                    {ID: ID, LiveDate: Text(LiveDate, "yyyy-mm-dd"), ApprovalStatus: ApprovalStatus.Value, ApprovalComment: ApprovalComment})
+                            }, JSONFormat.Compact))
+                        );
+                        Set(varPfLoading, false),
+                    "RUN_PAYROLL",
+                        IfError(
+                            // Cek ulang di server: layar bisa basi, dan flow v1 tidak punya guard periode ganda (P11).
+                            If(!IsBlank(LookUp('Payroll - PBS Hub', !(Status.Value = "Done" || StartsWith(Status.Value, "Rejected")))),
+                                Set(varPrResult, JSON({requestId: rid, status: "error", message: "Masih ada run payroll yang terbuka. Muat ulang daftar."}, JSONFormat.Compact)),
+                                // Ganti dengan koneksi flow payroll di app ini (lihat catatan PBS0003M di bawah).
+                                PBS0003MMonthlyPayrollApprovalManual.Run();
+                                ClearCollect(colPrRun, FirstN(Sort('Payroll - PBS Hub', ID, SortOrder.Descending), varPrTop));
+                                Set(varPrResult, JSON({requestId: rid, status: "ok", message: "Payroll " & Text(p.label) & " dijalankan. Run baru muncul setelah flow membuat item Payroll."}, JSONFormat.Compact))
+                            ),
+                            Set(varPrResult, JSON({requestId: rid, status: "error", message: FirstError.Message}, JSONFormat.Compact))
+                        ),
+                    "NAV",
+                        Switch(Text(p.target),
+                            "CLOCKIN", Navigate(ScreenClockIn),
+                            "HOSTS",   Navigate(ScreenHost),
+                            "REVIEW",  Navigate(ScreenReportReview)
+                        ),
+                    "LOAD_MORE",
+                        Set(varPrTop, varPrTop + 24);
+                        Set(varPrLoading, true);
+                        ClearCollect(colPrRun, FirstN(Sort('Payroll - PBS Hub', ID, SortOrder.Descending), varPrTop));
+                        ClearCollect(colPrLine, ShowColumns(Filter('Payroll Data', payroll_id in colPrRun.Title), payroll_id, TotalGaji));
+                        Set(varPrLoading, false)
+                )
+            )
+        )
+    )
+)
+```
+
+> ⚠️ **Flow yang dipanggil tombol.** Tombol app v1 memanggil `PBS0003M` (legacy), yang **tidak menulis
+> `Payroll Data`** dan membawa defect lain (DESIGN.md UC-6). Run dari tombol ini akan tampil di detail
+> dengan banner "Run manual … tidak menulis Payroll Data". Rekomendasi: buat salinan `PBS0003A` dengan
+> trigger Power Apps yang menerima `period` (`yyyy-mm`), lalu set `payrollAnyPeriod: true`.
+> Selama flow belum menerima periode, preflight hanya mengizinkan bulan lalu.
+
+### PayrollRunDetail
+
+**Screen.OnVisible**
+
+```powerfx
+Set(varPdLoading, true);
+Set(varPdRun, LookUp('Payroll - PBS Hub', ID = varSelectedPayrollId));
+// Periode "Sep 2026" = bulan run; data kehadiran = bulan sebelumnya (P8).
+Set(varPdStart, DateAdd(DateValue("1 " & varPdRun.Periode, "en-US"), -1, TimeUnit.Months));
+Concurrent(
+    ClearCollect(colPdLine, Filter('Payroll Data', payroll_id = varPdRun.Title)),
+    ClearCollect(colPdHost, ShowColumns('Host - PBS Hub', Title, Email)),
+    ClearCollect(colPdClockIn, Filter('Clock In - PBS Hub', ClockInDate >= varPdStart, ClockInDate < DateAdd(varPdStart, 1, TimeUnit.Months)))
+);
+Set(varPdLoading, false);
+Clear(colPbsProcessed);
+```
+
+**Properti**
+
+```powerfx
+Context         = varPbsCtx
+DefaultTab      = "Lines"
+IsLoading       = varPdLoading
+ActionResult    = varPdResult
+PayrollJson     = JSON(ForAll(Filter('Payroll - PBS Hub', ID = varSelectedPayrollId), {ID: ID, Title: Title, PayrollName: PayrollName, Periode: Periode, Status: Status.Value, Trigger: Trigger.Value, TotalPayroll: TotalPayroll, TotalHost: TotalHost, PBSApproval: PBSApproval, HCApproval: HCApproval, FASApproval: FASApproval, FinanceApproval: FinanceApproval, PBSComment: PBSComment, HCComment: HCComment, FASComment: FASComment, FinanceComment: FinanceComment, Created: Created, Modified: Modified}), JSONFormat.Compact)
+PayrollDataJson = JSON(ForAll(colPdLine, {Title: Title, payroll_id: payroll_id, HostID: LookUp(colPdHost, Lower(Email.Email) = Lower(Employee_Email)).Title, Employee_Name: Employee_Name, Employee_Email: Employee_Email, Periode: Periode, JumlahHari: JumlahHari, UangKehadiran: UangKehadiran, Mingguan: Mingguan, Tier1: Tier1, Tier2: Tier2, Tier3: Tier3, PPh21: PPh21, TotalGaji: TotalGaji, NetTHP: NetTHP, Bank: Bank, NorekLast4: Right(Norek, 4), HasRekening: !IsBlank(Norek) && !IsBlank(Bank)}), JSONFormat.Compact)
+ClockInJson     = JSON(ForAll(colPdClockIn, {HostID: HostID, ClockInDate: ClockInDate, CheckInTime: CheckInTime, CheckOutTime: CheckOutTime, ClockOutTime: ClockOutTime, IsInsideGeofence: IsInsideGeofence, HKTugas: HKTugas, Insentif: Insentif, Tier: Tier.Value, Streak: Streak}), JSONFormat.Compact)
+PayslipJson     = ""
+```
+
+**OnChange**
+
+```powerfx
+If(!IsBlank(Self.ActionPayload),
+    With({req: ParseJSON(Self.ActionPayload)},
+        With({act: Text(req.action), rid: Text(req.requestId), p: req.payload},
+            If(!(rid in colPbsProcessed.Id),
+                Collect(colPbsProcessed, {Id: rid});
+                Switch(act,
+                    "BACK", Back(),
+                    "RELOAD",
+                        Set(varPdLoading, true);
+                        Refresh('Payroll - PBS Hub');
+                        Set(varPdRun, LookUp('Payroll - PBS Hub', ID = varSelectedPayrollId));
+                        ClearCollect(colPdLine, Filter('Payroll Data', payroll_id = varPdRun.Title));
+                        Set(varPdLoading, false),
+                    "RESEND_PAYSLIPS",
+                        // Hanya relevan setelah ada log slip + flow kirim ulang. Tanpa itu, balas error yang jelas.
+                        Set(varPdResult, JSON({requestId: rid, status: "error", message: "Kirim ulang slip belum tersedia: v1 tidak punya flow kirim ulang."}, JSONFormat.Compact))
+                )
+            )
+        )
+    )
+)
+```
+
+Aksi: `BACK`, `RELOAD` (`{payrollId, title}`) tidak mengunci. `RESEND_PAYSLIPS`
+(`{payrollId, title, items: [{lineId, name, email, hostId}]}`) mengunci dan wajib dibalas; tombolnya
+hanya muncul untuk `PAYROLL_RUN` dan hanya aktif kalau ada slip Gagal/Bounce di `PayslipJson`.
+
+## 8. Alasan (kolom *Alasan* di antrean)
 
 Dihitung di control dari Report + Report Automation, urutan prioritas:
 
@@ -366,15 +574,16 @@ Dihitung di control dari Report + Report Automation, urutan prioritas:
 Bulk approve hanya bisa untuk **Confidence rendah** yang ketujuh metriknya cocok. Selama kolom `Confidence`
 belum ada di v1, bulk approve tidak akan muncul — itu disengaja.
 
-## 8. Pemasangan
+## 9. Pemasangan
 
 1. Power Platform admin center → environment → **Settings → Product → Features** → aktifkan
    *Allow publishing of canvas apps with code components*.
-2. make.powerapps.com → **Solutions → Import solution** → `PBSHubOpsPCF_1_0_0_0_managed.zip`.
+2. make.powerapps.com → **Solutions → Import solution** → `PBSHubOpsPCF_1_1_0_0_managed.zip`
+   (sudah pernah import 1.0.0.0? Import ini meng-upgrade solusi yang sama).
 3. Di canvas app: **Insert → Get more components → Code** → pilih `PBS Ops Dashboard`,
-   `PBS Ops Report Review`, `PBS Ops Report Detail`.
+   `PBS Ops Report Review`, `PBS Ops Report Detail`, `PBS Ops Payroll Runs`, `PBS Ops Payroll Run Detail`.
 4. Taruh tiap control di layar masing-masing (ukuran = area konten di samping sidebar), isi properti
-   sesuai bagian 4–6.
+   sesuai bagian 4–7.
 
 Update: naikkan `version` di ketiga `ControlManifest.Input.xml` **dan** `Version` di
 `solution/PBSHubOpsPCF/src/Other/Solution.xml`, lalu `npm run release`. Managed solution hanya bisa

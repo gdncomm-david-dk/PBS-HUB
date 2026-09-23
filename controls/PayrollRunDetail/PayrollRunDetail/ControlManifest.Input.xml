@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<manifest>
+  <control namespace="Ops" constructor="PayrollRunDetail" version="1.0.0" display-name-key="PBS Ops Payroll Run Detail" description-key="PBS Hub Ops Console P-3, P-4 and P-5: payroll lines per host with source attendance, the four-gate approval tracker, and payslip status." control-type="standard">
+    <external-service-usage enabled="false"></external-service-usage>
+
+    <property name="Context" display-name-key="Context" description-key="JSON {userEmail,userName,roles,permissions,config}. config: payrollLabelOffset (-1), payrollAssemblyMinutes (30), pageSize (50)." of-type="Multiple" usage="input" required="false" />
+    <property name="PayrollJson" display-name-key="PayrollJson" description-key="JSON of ONE [Payroll - PBS Hub] row (object or one-row array)." of-type="Multiple" usage="input" required="false" />
+    <property name="PayrollDataJson" display-name-key="PayrollDataJson" description-key="JSON rows of [Payroll Data] for this run, plus HostID and NorekLast4 computed in canvas. Never send Employee_ID (KTP) or the full Norek." of-type="Multiple" usage="input" required="false" />
+    <property name="ClockInJson" display-name-key="ClockInJson" description-key="JSON rows of [Clock In - PBS Hub] for the data month of this run. Used for the expanded row and the source check." of-type="Multiple" usage="input" required="false" />
+    <property name="PayslipJson" display-name-key="PayslipJson" description-key="Optional. JSON rows of a payslip log (payroll_id, LineID or Employee_Email, Status, SentAt, Error). v1 has no such list: leave blank." of-type="Multiple" usage="input" required="false" />
+    <property name="DefaultTab" display-name-key="DefaultTab" description-key="Tab shown first." of-type="Enum" usage="input" required="false" default-value="Lines">
+      <value name="Lines" display-name-key="Lines">Lines</value>
+      <value name="Approval" display-name-key="Approval">Approval</value>
+      <value name="Payslip" display-name-key="Payslip">Payslip</value>
+    </property>
+    <property name="IsLoading" display-name-key="IsLoading" description-key="true while canvas is loading: renders skeleton rows." of-type="TwoOptions" usage="input" required="false" />
+    <property name="ReferenceDate" display-name-key="ReferenceDate" description-key="Optional ISO date-time used as now (testing)." of-type="SingleLine.Text" usage="input" required="false" />
+    <property name="ActionResult" display-name-key="ActionResult" description-key="Canvas reply {requestId,status,message} to RESEND_PAYSLIPS." of-type="SingleLine.Text" usage="input" required="false" />
+    <property name="ActionPayload" display-name-key="ActionPayload" description-key="JSON {action,requestId,payload}: BACK, RELOAD, RESEND_PAYSLIPS." of-type="SingleLine.Text" usage="output" required="false" />
+
+    <resources>
+      <code path="index.ts" order="1" />
+    </resources>
+  </control>
+</manifest>

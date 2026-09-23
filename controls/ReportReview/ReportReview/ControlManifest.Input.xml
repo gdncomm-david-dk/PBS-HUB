@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8" ?>
 <manifest>
-  <control namespace="Ops" constructor="ReportReview" version="1.0.0" display-name-key="PBS Ops Report Review" description-key="PBS Hub Ops Console R-1: report list and reconciliation queue (Report vs Report Automation), ordered by age, with reason codes and restricted bulk approve." control-type="standard">
+  <control namespace="Ops" constructor="ReportReview" version="1.1.0" display-name-key="PBS Ops Report Review" description-key="PBS Hub Ops Console R-1: report list and reconciliation queue (Report vs Report Automation), ordered by age, with reason codes and restricted bulk approve." control-type="standard">
     <external-service-usage enabled="false"></external-service-usage>
 
     <property name="Context" display-name-key="Context" description-key="JSON {userEmail,userName,roles,permissions,config}. config: tolerancePct (5), confidenceThreshold (0.85), pageSize (50)." of-type="Multiple" usage="input" required="false" />

@@ -112,15 +112,72 @@
   clockIns.push({ ID: cid++, HostID: "HST-001", ClockInDate: d(14), CheckInTime: d(14, "06:55"), IsInsideGeofence: false });
   clockIns.push({ ID: cid++, HostID: "HST-007", ClockInDate: d(13), CheckInTime: d(13, "08:10"), IsInsideGeofence: true });
 
-  const payrolls = [
-    { ID: 117, Title: "PAY-117", Periode: "Jul 2026", Status: { Value: "Done" }, Created: "2026-08-01T12:00:00" },
-    { ID: 118, Title: "PAY-118", Periode: "Aug 2026", Status: { Value: "Done" }, Created: "2026-09-01T12:00:00" },
+  // ---- payroll (Payroll - PBS Hub, Payroll Data) -------------------------------------------------
+  // Periode is the RUN month (P8): "Sep 2026" holds August attendance.
+  const a = (day, time) => `2026-08-${String(day).padStart(2, "0")}${time ? "T" + time + ":00" : ""}`;
+  const clockInsAug = [];
+  const TIER_RATE = { 1: 75000, 2: 65000, 3: 55000 };
+  hosts.forEach((h, i) => {
+    if (i === 7 || i === 9) return; // no August attendance (and no bank details)
+    const days = i === 11 ? [3, 4, 5] : Array.from({ length: 31 }, (_, k) => k + 1).filter((day) => new Date(2026, 7, day).getDay() !== 0 && (day + i) % 6 !== 0);
+    days.forEach((day) => {
+      const tier = (i % 3) + 1;
+      const openShift = i === 3 && day === 20;
+      clockInsAug.push({
+        ID: cid++, HostID: h.Title, EmployeeName: h.NamaHost, ClockInDate: a(day), CheckInTime: a(day, "08:0" + (i % 10)), CheckOutTime: openShift ? "" : a(day, "17:1" + (i % 10)),
+        IsInsideGeofence: !(i === 5 && day === 12), HKTugas: 180000, Tier: `Tier ${tier}`, Insentif: day % 3 === 0 ? TIER_RATE[tier] : 0, Streak: new Date(2026, 7, day).getDay() === 6 && i < 6 ? 75000 : 0,
+      });
+    });
+  });
+  const clockInsAugBlocked = clockInsAug.concat([3, 4, 5].map((day) => ({ ID: cid++, HostID: "HST-008", ClockInDate: a(day), CheckInTime: a(day, "08:00"), CheckOutTime: a(day, "17:00"), IsInsideGeofence: true, HKTugas: 180000, Tier: "Tier 1", Insentif: 0, Streak: 0 })));
+
+  const BANKS = ["BCA", "Mandiri", "BNI", "BRI"];
+  const linesFor = (payrollId, periodeLiteral, rows, extra) =>
+    hosts.filter((h) => h.Status.Value === "Active").map((h, i) => {
+      const mine = rows.filter((c) => c.HostID === h.Title);
+      const sum = (f) => mine.reduce((t, c) => t + (c[f] || 0), 0);
+      const tierSum = (t) => mine.filter((c) => c.Tier === `Tier ${t}`).reduce((x, c) => x + (c.Insentif || 0), 0);
+      let total = sum("HKTugas") + sum("Insentif") + sum("Streak");
+      if (extra && extra.bump === h.Title) total += 180000; // counted one day twice
+      return {
+        ID: 5000 + Number(payrollId.slice(4)) * 20 + i, Title: `${payrollId}-${h.Title}`, payroll_id: payrollId, HostID: h.Title, Employee_Name: h.NamaHost,
+        Employee_Email: h.NamaHost.toLowerCase().replace(/[^a-z]+/g, ".") + "@example.com", Periode: periodeLiteral,
+        JumlahHari: mine.length, UangKehadiran: sum("HKTugas"), Mingguan: sum("Streak"), Tier1: tierSum(1), Tier2: tierSum(2), Tier3: tierSum(3),
+        PPh21: 0, TotalGaji: total, NetTHP: total, Bank: h.HasRekening ? BANKS[i % 4] : "", NorekLast4: h.HasRekening ? String(4821 + i * 137).slice(-4) : "",
+      };
+    });
+  // Earlier months: synthetic rows (no Clock In sent for them).
+  const synth = (month, seed) => hosts.slice(0, 11).flatMap((h, i) => Array.from({ length: 18 + ((i + seed) % 6) }, (_, k) => ({ HostID: h.Title, HKTugas: 180000, Tier: `Tier ${(i % 3) + 1}`, Insentif: k % 3 === 0 ? TIER_RATE[(i % 3) + 1] : 0, Streak: k % 6 === 0 && i < 6 ? 75000 : 0 }))).filter((c) => !(month === 6 && (c.HostID === "HST-008" || c.HostID === "HST-010")));
+  const run = (ID, Periode, Status, Created, extra) => Object.assign({ ID, Title: `PAY-${ID}`, PayrollName: `Pembayaran Mitra - Host (${Periode})`, Periode, Status: { Value: Status }, Trigger: { Value: "Automated" }, Created, Modified: Created }, extra || {});
+  const payrollRuns = {
+    open: run(118, "Sep 2026", "Approved by PBS", "2026-09-01T12:05:00", { HCApproval: "Approved by Asih Wulandari", PBSApproval: "Approved by George Hartono", PBSComment: "Oke, sesuai rekap kehadiran.", Modified: "2026-09-03T09:12:00" }),
+    done: run(118, "Sep 2026", "Done", "2026-09-01T12:05:00", { HCApproval: "Approved by Asih Wulandari", PBSApproval: "Approved by George Hartono", FASApproval: "Approved by Aliya Rahma", Modified: "2026-09-04T15:40:00" }),
+    assembling: run(119, "Sep 2026", "Waiting PBS Approval", "2026-09-14T11:31:00"),
+  };
+  const payrollHistory = [
+    run(117, "Aug 2026", "Done", "2026-08-01T12:04:00", { HCApproval: "Approved by Asih Wulandari", PBSApproval: "Approved by George Hartono", FASApproval: "Approved by Aliya Rahma", Modified: "2026-08-05T10:02:00" }),
+    run(116, "Jul 2026", "Done", "2026-07-03T09:30:00", { PayrollName: "[Manual Trigger] Pembayaran Mitra - Host (Jul 2026)", Trigger: { Value: "Automated" }, HCApproval: "Approved by Asih Wulandari", PBSApproval: "Approved by George Hartono", FASApproval: "Approved by Aliya Rahma", Modified: "2026-07-06T16:20:00" }),
+    run(115, "Jul 2026", "Rejected by FAS", "2026-07-01T12:03:00", { HCApproval: "Approved by Asih Wulandari", FASApproval: "Rejected by Aliya Rahma", FASComment: "Tier 2 bulan Juni belum sesuai rate card, mohon hitung ulang.", Modified: "2026-07-02T14:05:00" }),
+    run(114, "Jun 2026", "Done", "2026-06-01T12:02:00", { HCApproval: "Approved by Asih Wulandari", PBSApproval: "Approved by George Hartono", FASApproval: "Approved by Aliya Rahma", Modified: "2026-06-04T11:00:00" }),
   ];
+  const payrollLines = {
+    118: linesFor("PAY-118", "August-2026", clockInsAug, { bump: "HST-005" }),
+    117: linesFor("PAY-117", "August-2026", synth(6, 1)),
+    115: linesFor("PAY-115", "August-2026", synth(5, 2)),
+    114: linesFor("PAY-114", "August-2026", synth(4, 3)),
+  };
+  // Optional payslip log (v1 has none) — used with ?slips=1.
+  const payslips = payrollLines[117].map((l, i) => ({
+    payroll_id: "PAY-117", LineID: l.Title, Employee_Email: l.Employee_Email,
+    Status: i === 7 ? "Gagal" : i === 9 ? "Bounce" : "Terkirim", SentAt: `2026-08-05T10:${String(10 + i).padStart(2, "0")}:00`,
+    Error: i === 7 ? "Alamat email host kosong" : i === 9 ? "Mailbox tidak ditemukan (550)" : "",
+  }));
+  const payrolls = [payrollRuns.open, payrollHistory[0]];
 
   const context = {
     userEmail: "annisa@example.com", userName: "Annisa Hanifah", roles: "PBS_Team", permissions: "",
     config: { tolerancePct: 5, confidenceThreshold: 0.85, maxShiftHours: 12, missingReportDays: 2 },
   };
 
-  window.PBS_SAMPLE = { REF, brands, hosts, studios, schedules, reports, evidence, clockIns, payrolls, context };
+  window.PBS_SAMPLE = { REF, brands, hosts, studios, schedules, reports, evidence, clockIns, payrolls, context, clockInsAug, clockInsAugBlocked, payrollRuns, payrollHistory, payrollLines, payslips };
 })();

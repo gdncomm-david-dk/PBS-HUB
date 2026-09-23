@@ -102,18 +102,76 @@ font-family:"Blibli","Helvetica Neue",Arial,sans-serif;font-size:13px;line-heigh
 .pbs-kv{display:grid;grid-template-columns:140px 1fr;gap:10px 12px;font-size:13px}
 .pbs-kv dt{color:var(--tx2)}.pbs-kv dd{margin:0;font-weight:500}
 .pbs-strip{font-size:12px;color:var(--tx2);margin:10px 0 0;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.pbs-gdots{display:inline-flex;gap:5px;align-items:center}
+.pbs-gdot{width:10px;height:10px;border-radius:50%;background:#E8E8E8;flex:none}
+.pbs-gdot.done{background:var(--ok)}.pbs-gdot.active{background:var(--p);box-shadow:0 0 0 3px var(--p-tint)}
+.pbs-gdot.rejected{background:var(--bad)}.pbs-gdot.skipped{background:#fff;border:1.5px dashed #C8CDD1}
+.pbs-pulse{animation:pbs-pulse 1.2s ease-in-out infinite}
+@keyframes pbs-pulse{0%,100%{opacity:1}50%{opacity:.35}}
+.pbs-host{position:relative;min-height:100%}
+.pbs-overlay{position:absolute;inset:0;background:rgba(0,0,0,.36);display:flex;justify-content:center;align-items:flex-start;padding:40px 16px;z-index:20}
+.pbs-modal{width:640px;max-width:100%;background:#fff;border-radius:12px;display:flex;flex-direction:column}
+.pbs-modal-h{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:18px 22px;border-bottom:1px solid var(--bd)}
+.pbs-modal-h h2{margin:0;font-size:18px;font-weight:700}
+.pbs-modal-b{padding:18px 22px;display:grid;gap:16px}
+.pbs-modal-f{display:flex;justify-content:flex-end;gap:10px;padding:14px 22px;border-top:1px solid var(--bd);flex-wrap:wrap;align-items:center}
+.pbs-field select{height:40px;border:1px solid var(--bd);border-radius:8px;padding:0 12px;width:100%;background:#fff;font-size:13px;cursor:pointer}
+.pbs-field select:focus{border-color:var(--p);box-shadow:0 0 0 3px var(--p-tint);outline:none}
+.pbs-hint{font-size:12px;color:var(--tx2);margin:6px 0 0}
+.pbs-checks{list-style:none;margin:0;padding:0;display:grid;gap:4px}
+.pbs-checks li{display:flex;gap:10px;align-items:flex-start;padding:9px 10px;border-radius:8px;font-size:13px}
+.pbs-checks li.block{background:var(--bad-bg2)}.pbs-checks li.warn{background:var(--warn-bg2)}
+.pbs-checks li .grow{flex:1;min-width:0}
+.pbs-ci{width:20px;height:20px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;color:#fff;flex:none;margin-top:-1px}
+.pbs-ci.pass{background:var(--ok)}.pbs-ci.warn{background:var(--warn);color:#000}.pbs-ci.block{background:var(--bad)}
+.pbs-ack{display:flex;gap:10px;align-items:flex-start;font-size:13px;cursor:pointer}
+.pbs-kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px;margin:0 0 20px}
+.pbs-kpi{border:1px solid var(--bd);border-radius:8px;padding:14px 16px;background:#fff}
+.pbs-kpi .l{font-size:12px;color:var(--tx2)}.pbs-kpi .v{font-size:22px;font-weight:700;margin-top:4px;font-variant-numeric:tabular-nums;letter-spacing:-.01em}
+.pbs-kpi .n{font-size:12px;color:var(--tx2);margin-top:2px}
+.pbs-bar{height:8px;border-radius:4px;background:var(--sf);overflow:hidden;display:flex;min-width:120px;flex:1}
+.pbs-bar span{display:block;height:100%}
+.pbs-table.dense th,.pbs-table.dense td{padding-left:10px;padding-right:10px;white-space:nowrap}
+.pbs-table.dense td{font-size:12.5px}
+.pbs-table tfoot td{font-weight:700;border-top:1px solid var(--bd);background:var(--sf2);padding:12px 16px;font-size:13px}
+.pbs-table tbody tr.bad td{background:var(--bad-bg2)}
+.pbs-table tbody tr.open td{background:var(--p-tint2)}
+.pbs-table tbody tr.sub td{background:var(--sf2);padding:0 16px 14px}
+.pbs-table tbody tr.sub:hover td{background:var(--sf2)}
+.pbs-sub-t{width:auto;min-width:640px;border-collapse:collapse;font-size:12px;background:#fff;border:1px solid var(--bd);border-radius:8px}
+.pbs-sub-t th{font-weight:500;color:var(--tx2);text-align:left;padding:7px 10px;border-bottom:1px solid var(--bd);background:#fff;font-size:11.5px}
+.pbs-sub-t td{padding:7px 10px;border-top:1px solid var(--row)}
+.pbs-sub-t .r{text-align:right}
+.pbs-exp{border:0;background:none;cursor:pointer;padding:4px;border-radius:6px;display:inline-flex;color:var(--tx2)}
+.pbs-exp:hover{background:var(--sf)}.pbs-exp svg{transition:transform .15s}.pbs-exp.on svg{transform:rotate(180deg)}
+.pbs-tl{list-style:none;margin:0;padding:0;max-width:760px}
+.pbs-tl>li{position:relative;padding:0 0 24px 44px;min-height:28px}
+.pbs-tl>li::before{content:"";position:absolute;left:13px;top:30px;bottom:2px;width:2px;background:var(--bd)}
+.pbs-tl>li:last-child::before{display:none}
+.pbs-tl>li.done::before{background:var(--ok)}
+.pbs-tl-c{position:absolute;left:0;top:0;width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:#E8E8E8;color:#60686E;font-size:12px;font-weight:700}
+.pbs-tl-c.inl{position:static;flex:none}
+.pbs-tl-c.done{background:var(--ok);color:#fff}.pbs-tl-c.active{background:var(--p);color:#fff;box-shadow:0 0 0 4px var(--p-tint)}
+.pbs-tl-c.rejected{background:var(--bad);color:#fff}.pbs-tl-c.skipped{background:#fff;border:2px dashed #C8CDD1;color:#9AA1A6}
+.pbs-tl-t{font-size:14px;font-weight:600;line-height:28px;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.pbs-tl-m{font-size:12px;color:var(--tx2)}
+.pbs-tl .skipped-row{opacity:.55}
+.pbs-tl-par{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px;margin-top:4px}
+.pbs-tl-card{border:1px solid var(--bd);border-radius:8px;padding:12px 14px;display:flex;gap:12px;align-items:flex-start;background:#fff}
+.pbs-tl-card .pbs-tl-t{line-height:1.4}
+.pbs-quote{margin:8px 0 0;padding:8px 12px;border-left:3px solid var(--bd);background:var(--sf2);font-size:12.5px;border-radius:0 6px 6px 0}
 .pbs-sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
 `;
 
 let injected = false;
 export function injectStyles(): void {
   if (injected || typeof document === "undefined") return;
-  if (document.getElementById("pbs-ops-styles-v1")) {
+  if (document.getElementById("pbs-ops-styles-v2")) {
     injected = true;
     return;
   }
   const el = document.createElement("style");
-  el.id = "pbs-ops-styles-v1";
+  el.id = "pbs-ops-styles-v2";
   el.textContent = CSS;
   document.head.appendChild(el);
   injected = true;

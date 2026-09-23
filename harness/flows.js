@@ -116,5 +116,88 @@ const assert = (c, m) => { if (!c) { console.log("FAIL", m); process.exitCode = 
     await go(q);
     await shot(n);
   }
+  // ---- Payroll ----------------------------------------------------------------------------------
+  // An open run locks "Jalankan payroll".
+  await go("c=PayrollRuns");
+  assert(await p.getByRole("button", { name: "Jalankan payroll" }).isDisabled(), "Jalankan payroll disabled while PAY-118 is open");
+  assert(await p.getByText("Menunggu FAS").first().isVisible(), "parallel gate state shown on the list");
+
+  // Preflight: explicit period, loading, warnings need acknowledgement, then RUN_PAYROLL.
+  await go("c=PayrollRuns&pay=none&delay=600&pfdelay=500");
+  await p.getByRole("button", { name: "Jalankan payroll" }).click();
+  const runBtn = () => p.getByRole("dialog").getByRole("button", { name: "Jalankan payroll" });
+  assert(await runBtn().isDisabled(), "run disabled until a period is chosen");
+  await p.selectOption("#pbs-pf-period", "2026-08");
+  await p.waitForTimeout(150);
+  pl = await payloads();
+  assert(pl.some((x) => x.action === "PREFLIGHT_PERIOD" && x.payload.period === "2026-08"), "PREFLIGHT_PERIOD asks canvas for the chosen month");
+  assert(await p.getByRole("status", { name: "Memeriksa" }).isVisible(), "preflight shows skeleton while canvas loads");
+  await shot("f-pf-loading");
+  await p.waitForTimeout(600);
+  assert(await p.getByText(/host aktif tanpa kehadiran/).isVisible(), "warning: hosts without attendance");
+  assert(await p.getByText(/host nonaktif punya kehadiran/).isVisible(), "warning: inactive host with attendance");
+  assert((await p.locator(".pbs-checks li.block").count()) === 0, "no blocking item for a clean month");
+  assert(await runBtn().isDisabled(), "warnings require acknowledgement");
+  await shot("f-pf-warnings");
+  await p.locator(".pbs-ack input").check();
+  assert(!(await runBtn().isDisabled()), "run enabled after acknowledgement");
+  await runBtn().click();
+  await p.waitForTimeout(150);
+  assert(await p.getByText("Menjalankan…").isVisible(), "running state while waiting for canvas");
+  pl = await payloads();
+  const run = pl.find((x) => x.action === "RUN_PAYROLL");
+  assert(run && run.payload.period === "2026-08" && run.payload.acknowledgedWarnings.includes("NO_ATTENDANCE") && run.payload.estimateTotal > 0, "RUN_PAYROLL payload carries period and acknowledged warnings");
+  await p.waitForTimeout(800);
+  assert((await p.getByRole("dialog").count()) === 0 && (await p.getByText(/Payroll dijalankan/).isVisible()), "modal closes and success banner after ok");
+
+  // Error reply keeps the modal open with the reason.
+  await go("c=PayrollRuns&pay=none&reply=error&delay=200&pfdelay=100");
+  await p.getByRole("button", { name: "Jalankan payroll" }).click();
+  await p.selectOption("#pbs-pf-period", "2026-08");
+  await p.waitForTimeout(300);
+  await p.locator(".pbs-ack input").check();
+  await runBtn().click();
+  await p.waitForTimeout(500);
+  assert((await p.getByRole("dialog").count()) === 1 && (await p.getByText(/Payroll tidak berjalan/).isVisible()), "error keeps modal open with a reason");
+
+  // Blocked: the period already ran, and a paid host has no bank details; another month is blocked by the v1 flow.
+  await go("c=PayrollRuns&pay=done&pf=block&pfdelay=100");
+  await p.getByRole("button", { name: "Jalankan payroll" }).click();
+  await p.selectOption("#pbs-pf-period", "2026-08");
+  await p.waitForTimeout(300);
+  assert(await p.getByText(/Periode ini sudah dijalankan: PAY-118/).isVisible(), "duplicate period blocks (P11)");
+  assert(await p.getByText(/tanpa data rekening/).isVisible(), "host without bank blocks");
+  assert(await runBtn().isDisabled(), "run disabled while blocked");
+  await shot("f-pf-blocked");
+  await p.selectOption("#pbs-pf-period", "2026-07");
+  await p.waitForTimeout(300);
+  assert(await p.getByText(/selalu memproses bulan lalu/).isVisible(), "v1 flow period constraint blocks other months");
+
+  // Run detail: expand a line to its Clock In rows; the mismatching line says by how much.
+  await go("c=PayrollRunDetail&run=118");
+  assert(await p.getByText("2 host tanpa data rekening.").isVisible(), "no-bank banner on run detail");
+  await p.getByRole("button", { name: "Rincian kehadiran Vina Anggraini" }).click();
+  await p.waitForTimeout(100);
+  assert(await p.getByText(/Selisih Rp180\.000 dari bruto/).isVisible(), "expanded line reconciles against Clock In");
+  await shot("f-pd-expanded");
+  await p.getByRole("tab", { name: "Approval" }).click();
+  assert(await p.getByText("paralel: keduanya harus setuju").isVisible(), "parallel gates drawn");
+
+  // Payslip resend only for the failed ones.
+  await go("c=PayrollRunDetail&run=117&slips=1&tab=Payslip&delay=300");
+  await p.getByRole("button", { name: /Kirim ulang yang gagal/ }).click();
+  await p.waitForTimeout(100);
+  pl = await payloads();
+  const rs = pl.find((x) => x.action === "RESEND_PAYSLIPS");
+  assert(rs && rs.payload.items.length === 2 && rs.payload.payrollId === "117", "RESEND_PAYSLIPS carries only failed + bounced");
+  await go("c=PayrollRunDetail&run=117&tab=Payslip");
+  assert(await p.getByText("Status slip belum tercatat").isVisible(), "v1 without a payslip log says so");
+  await go("c=PayrollRunDetail&run=116");
+  assert(await p.getByText(/PBS0003M\) memang tidak menulis Payroll Data/).isVisible(), "manual run without lines explained");
+
+  for (const [n, q] of [["f-pr-loading", "c=PayrollRuns&s=loading"], ["f-pr-empty", "c=PayrollRuns&s=empty"], ["f-pr-assembling", "c=PayrollRuns&pay=assembling"], ["f-pd-loading", "c=PayrollRunDetail&s=loading"]]) {
+    await go(q);
+    await shot(n);
+  }
   await b.close();
 })();

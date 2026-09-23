@@ -18,6 +18,8 @@
 <script src="../controls/Dashboard/out/controls/Dashboard/bundle.js"></script>
 <script src="../controls/ReportReview/out/controls/ReportReview/bundle.js"></script>
 <script src="../controls/ReportDetail/out/controls/ReportDetail/bundle.js"></script>
+<script src="../controls/PayrollRuns/out/controls/PayrollRuns/bundle.js"></script>
+<script src="../controls/PayrollRunDetail/out/controls/PayrollRunDetail/bundle.js"></script>
 <script src="sample-data.js"></script>
 </head>
 <body>
@@ -25,6 +27,9 @@
   <a href="?c=Dashboard">Dashboard</a> <a href="?c=Dashboard&s=loading">loading</a> <a href="?c=Dashboard&s=empty">empty</a> |
   <a href="?c=ReportReview">ReportReview</a> <a href="?c=ReportReview&s=loading">loading</a> <a href="?c=ReportReview&s=empty">empty</a> |
   <a href="?c=ReportDetail&r=RPT-20862">Detail (luar toleransi)</a> <a href="?c=ReportDetail&r=RPT-20865">tanpa bukti</a> <a href="?c=ReportDetail&r=RPT-20870">sudah diputuskan</a> <a href="?c=ReportDetail&r=RPT-20861">bukti yatim</a>
+  |
+  <a href="?c=PayrollRuns">PayrollRuns</a> <a href="?c=PayrollRuns&pay=none">tanpa run terbuka</a> <a href="?c=PayrollRuns&pay=done&pf=block">terblokir</a> <a href="?c=PayrollRuns&pay=assembling">disusun</a> <a href="?c=PayrollRuns&s=loading">loading</a> <a href="?c=PayrollRuns&s=empty">empty</a> |
+  <a href="?c=PayrollRunDetail&run=118">Run 118</a> <a href="?c=PayrollRunDetail&run=118&tab=Approval">approval</a> <a href="?c=PayrollRunDetail&run=115&tab=Approval">ditolak</a> <a href="?c=PayrollRunDetail&run=117&slips=1&tab=Payslip">slip</a> <a href="?c=PayrollRunDetail&run=116">manual</a>
   <label><input type="checkbox" id="auto" checked> auto-reply ok</label>
 </div>
 <div id="stage"></div>
@@ -46,6 +51,24 @@
     const rep = S.reports.find((r) => r.Title === (q.get("r") || "RPT-20862"));
     Object.assign(params, { ReportJson: J(rep ? [rep] : []), EvidenceJson: J(S.evidence.filter((e) => rep && e.Title === rep.Title)), HostsJson: J(S.hosts), BrandsJson: J(S.brands) });
   }
+  // Payroll: ?pay=open (default) | none | done | assembling · ?pf=block · ?slips=1 · ?run=118
+  const pay = q.get("pay") || "open";
+  const runsAll = (pay === "none" ? [] : [S.payrollRuns[pay] || S.payrollRuns.open]).concat(S.payrollHistory);
+  const linesAll = Object.values(S.payrollLines).flat();
+  const augRows = q.get("pf") === "block" ? S.clockInsAugBlocked : S.clockInsAug;
+  if (c === "PayrollRuns") Object.assign(params, {
+    PayrollJson: J(empty ? [] : runsAll), PayrollDataJson: J(empty ? [] : linesAll.map((l) => ({ payroll_id: l.payroll_id, TotalGaji: l.TotalGaji }))),
+    PayslipJson: J(q.get("slips") ? S.payslips.map((x) => ({ payroll_id: x.payroll_id, Status: x.Status })) : []), HostsJson: J(S.hosts), PreflightJson: "", PreflightLoading: false,
+  });
+  if (c === "PayrollRunDetail") {
+    const id = Number(q.get("run") || 118);
+    const r = runsAll.find((x) => x.ID === id) || S.payrollRuns.open;
+    params.DefaultTab = q.get("tab") || "Lines";
+    Object.assign(params, {
+      PayrollJson: J(s === "loading" ? [] : [r]), PayrollDataJson: J(s === "loading" ? [] : S.payrollLines[r.ID] || []),
+      ClockInJson: J(r.ID >= 118 ? S.clockInsAug : []), PayslipJson: J(q.get("slips") ? S.payslips : []),
+    });
+  }
   const Ctor = window.__registry["Ops." + c];
   const log = (m) => { document.getElementById("log").textContent = m + "\n" + document.getElementById("log").textContent; };
   const context = () => ({
@@ -63,7 +86,19 @@
     window.__payloads.push(JSON.parse(out));
     log("ActionPayload " + out);
     const p = JSON.parse(out);
-    if (document.getElementById("auto").checked && !["NAV", "FILTER_CHANGED", "OPEN_REPORT", "BACK", "RELOAD", "OPEN_EVIDENCE", "LOAD_MORE"].includes(p.action)) {
+    if (p.action === "PREFLIGHT_PERIOD") {
+      // Canvas stand-in: load Clock In + Report for the chosen month, then hand them back.
+      params.PreflightLoading = true; ctl.updateView(context());
+      setTimeout(() => {
+        const [y, m] = p.payload.period.split("-").map(Number);
+        const inMonth = (v) => { const d = new Date(v); return d.getFullYear() === y && d.getMonth() === m - 1; };
+        const rows = (y === 2026 && m === 8 ? augRows : S.clockIns).filter((x) => inMonth(x.ClockInDate));
+        params.PreflightJson = J({ period: p.payload.period, clockIns: rows, reports: S.reports.filter((x) => inMonth(x.LiveDate)) });
+        params.PreflightLoading = false; ctl.updateView(context());
+      }, Number(q.get("pfdelay") || 500));
+      return;
+    }
+    if (document.getElementById("auto").checked && !["NAV", "FILTER_CHANGED", "OPEN_REPORT", "BACK", "RELOAD", "OPEN_EVIDENCE", "LOAD_MORE", "OPEN_RUN"].includes(p.action)) {
       setTimeout(() => {
         params.ActionResult = J({ requestId: p.requestId, status: q.get("reply") || "ok", message: "", decidedBy: "Bayu Prasetyo", decidedAt: "2026-09-14T11:37:00" });
         ctl.updateView(context());
