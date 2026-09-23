@@ -4,17 +4,17 @@
     <external-service-usage enabled="false"></external-service-usage>
 
     <property name="Context" display-name-key="Context" description-key="JSON {userEmail,userName,roles,permissions,config}. config: tolerancePct (5), confidenceThreshold (0.85)." of-type="Multiple" usage="input" required="false" />
-    <property name="ReportJson" display-name-key="ReportJson" description-key="JSON of ONE 'Report - PBS Hub' row (object or one-row array), including Approver, ApproverEmail, ApprovalComment, Attachment, Created, Modified." of-type="Multiple" usage="input" required="false" />
-    <property name="EvidenceJson" display-name-key="EvidenceJson" description-key="JSON rows of 'Report Automation - PBS Hub' for this report (Title = Report.Title, or numeric tail = Report.ID). Several rows allowed: newest wins." of-type="Multiple" usage="input" required="false" />
-    <property name="BrandsJson" display-name-key="BrandsJson" description-key="JSON rows of 'Brand - PBS Hub': Title, NamaBrand (optional, for the name)." of-type="Multiple" usage="input" required="false" />
-    <property name="HostsJson" display-name-key="HostsJson" description-key="JSON rows of 'Host - PBS Hub': Title, NamaHost (optional, for the name)." of-type="Multiple" usage="input" required="false" />
+    <property name="ReportJson" display-name-key="ReportJson" description-key="JSON of ONE [Report - PBS Hub] row (object or one-row array), including Approver, ApproverEmail, ApprovalComment, Attachment, Created, Modified." of-type="Multiple" usage="input" required="false" />
+    <property name="EvidenceJson" display-name-key="EvidenceJson" description-key="JSON rows of [Report Automation - PBS Hub] for this report (Title = Report.Title, or numeric tail = Report.ID). Several rows allowed: newest wins." of-type="Multiple" usage="input" required="false" />
+    <property name="BrandsJson" display-name-key="BrandsJson" description-key="JSON rows of [Brand - PBS Hub]: Title, NamaBrand (optional, for the name)." of-type="Multiple" usage="input" required="false" />
+    <property name="HostsJson" display-name-key="HostsJson" description-key="JSON rows of [Host - PBS Hub]: Title, NamaHost (optional, for the name)." of-type="Multiple" usage="input" required="false" />
     <property name="Mode" display-name-key="Mode" description-key="Admin renders the decision bar; ReadOnly never does." of-type="Enum" usage="input" required="false" default-value="Admin">
       <value name="Admin" display-name-key="Admin">Admin</value>
       <value name="ReadOnly" display-name-key="ReadOnly">ReadOnly</value>
     </property>
     <property name="IsLoading" display-name-key="IsLoading" description-key="true while canvas is loading the report: renders skeletons." of-type="TwoOptions" usage="input" required="false" />
-    <property name="ReferenceDate" display-name-key="ReferenceDate" description-key="Optional ISO date-time used as 'now' (testing)." of-type="SingleLine.Text" usage="input" required="false" />
-    <property name="ActionResult" display-name-key="ActionResult" description-key="Canvas reply {requestId,status:'ok'|'error'|'conflict',message,decidedBy,decidedAt}." of-type="SingleLine.Text" usage="input" required="false" />
+    <property name="ReferenceDate" display-name-key="ReferenceDate" description-key="Optional ISO date-time used as now (testing)." of-type="SingleLine.Text" usage="input" required="false" />
+    <property name="ActionResult" display-name-key="ActionResult" description-key="Canvas reply {requestId,status: ok|error|conflict,message,decidedBy,decidedAt}." of-type="SingleLine.Text" usage="input" required="false" />
     <property name="ActionPayload" display-name-key="ActionPayload" description-key="JSON {action,requestId,payload}: APPROVE, APPROVE_WITHOUT_EVIDENCE, REQUEST_REVISION, ESCALATE, REMIND_HOST, OPEN_EVIDENCE, RELOAD, BACK." of-type="SingleLine.Text" usage="output" required="false" />
 
     <resources>
