@@ -4,6 +4,7 @@ import { fromMeters, gridStep, isValidLat, isValidLon, LatLon, parseLatLonPair, 
 import { Banner, Button, Card, cx, Field, Icon, Toggle } from "./components";
 import { Env } from "./App";
 import { MIN_SAFE_RADIUS } from "./shared";
+import { LocationLink, locationKey } from "../core/data";
 
 // The map is schematic (no tiles): a to-scale grid around the centre, so 20 m and 100 m look different.
 // The SVG viewBox tracks the container's pixel size, so one SVG unit is one CSS pixel and the scale bar is true.
@@ -18,16 +19,147 @@ const numOrNull = (s: string): number | null => {
     return isFinite(n) ? n : null;
 };
 
-export function GeofenceEditor(props: { env: Env; studio: StudioRow; location: LocationRow | null }): React.ReactElement {
+const sameText = (a: string, b: string): boolean => a.trim().toLowerCase() === b.trim().toLowerCase();
+
+/**
+ * Geofence tab: which Studio Location the studio points to (Studio.LocationID lookup), and the editor for that
+ * location. One location serves many studios, so moving a studio and editing a shared geofence are separate acts.
+ */
+export function GeofenceTab(props: { env: Env; studio: StudioRow }): React.ReactElement {
+    const { env, studio } = props;
+    const { loc, link } = env.linkOf(studio);
+    const [mode, setMode] = React.useState<"current" | "new">(loc ? "current" : "new");
+    const [pick, setPick] = React.useState("");
+    const sharedWith = loc ? env.studiosAt(loc) : [];
+    const others = env.locations.filter((l) => l.key !== loc?.key).sort((a, b) => locationKey(a).localeCompare(locationKey(b)));
+    const moving = !!env.pending && env.pending.action === "SET_STUDIO_LOCATION";
+
+    const linkTo = (target: LocationRow): void =>
+        env.run("SET_STUDIO_LOCATION", {
+            studioId: studio.studioId,
+            studioItemId: studio.itemId,
+            locationId: locationKey(target),
+            locationItemId: target.itemId,
+            previousLocationId: loc ? locationKey(loc) : studio.locationRef || null,
+        });
+    const picked = others.find((l) => l.key === pick) ?? null;
+
+    return (
+        <div className="sd-stack">
+            {link === "broken" && (
+                <Banner tone="danger">
+                    LocationID “{studio.locationRef}” di studio ini tidak ada di Studio Location, jadi host tidak bisa clock in. Tautkan ke lokasi yang benar, atau buat lokasi baru dengan LocationID ini.
+                </Banner>
+            )}
+            {link === "legacy" && loc && (
+                <Banner
+                    tone="info"
+                    action={
+                        env.canEdit ? (
+                            <button type="button" className="sd-link" onClick={() => linkTo(loc)} disabled={!!env.pending}>
+                                Tautkan ke {locationKey(loc)}
+                            </button>
+                        ) : undefined
+                    }
+                >
+                    Studio ini belum punya LocationID. Lokasi “{loc.title}” dicocokkan dari StudioID atau nama studio. Tautkan supaya tidak tergantung nama.
+                </Banner>
+            )}
+            <Card className="sd-loccard" title="Lokasi clock in" aside={<span className="sd-muted">Studio.LocationID → Studio Location</span>}>
+                <div className="sd-loccard__row">
+                    <div className="sd-loccard__current">
+                        {loc ? (
+                            <>
+                                <div>
+                                    <span className="sd-mono sd-strong">{locationKey(loc)}</span>
+                                    {loc.title && loc.title !== locationKey(loc) && <span> · {loc.title}</span>}
+                                </div>
+                                <div className="sd-muted">
+                                    Dipakai {sharedWith.length} studio
+                                    {sharedWith.length > 0 && ":"}
+                                </div>
+                                <div className="sd-loccard__studios">
+                                    {sharedWith.map((x) => (
+                                        <button
+                                            key={x.key}
+                                            type="button"
+                                            className={cx("sd-studiochip", x.key === studio.key && "is-self")}
+                                            onClick={() => x.key !== studio.key && env.openStudio(x.studioId)}
+                                            disabled={x.key === studio.key}
+                                            title={x.namaStudio}
+                                        >
+                                            {x.studioId}
+                                        </button>
+                                    ))}
+                                </div>
+                            </>
+                        ) : (
+                            <div className="sd-muted">{link === "broken" ? `Tertaut ke “${studio.locationRef}” (tidak ditemukan)` : "Belum ditautkan ke lokasi"}</div>
+                        )}
+                    </div>
+                    {env.canEdit && (
+                        <div className="sd-loccard__actions">
+                            {others.length > 0 && (
+                                <>
+                                    <select className="sd-input sd-locselect" value={pick} onChange={(e) => setPick(e.target.value)} aria-label="Pilih lokasi lain">
+                                        <option value="">{loc ? "Pindah ke lokasi lain…" : "Pilih lokasi yang ada…"}</option>
+                                        {others.map((l) => (
+                                            <option key={l.key} value={l.key}>
+                                                {locationKey(l)}
+                                                {l.title && l.title !== locationKey(l) ? ` · ${l.title}` : ""} ({env.studiosAt(l).length} studio)
+                                            </option>
+                                        ))}
+                                    </select>
+                                    <Button variant="secondary" onClick={() => picked && linkTo(picked)} disabled={!picked || !!env.pending}>
+                                        {moving ? "Menautkan…" : "Tautkan"}
+                                    </Button>
+                                </>
+                            )}
+                            {loc && (
+                                <Button variant="ghost" icon={mode === "new" ? undefined : Icon.plus(14)} onClick={() => setMode(mode === "new" ? "current" : "new")} disabled={!!env.pending}>
+                                    {mode === "new" ? "Batal, kembali ke lokasi ini" : "Buat lokasi baru"}
+                                </Button>
+                            )}
+                        </div>
+                    )}
+                </div>
+            </Card>
+            <GeofenceEditor
+                key={mode}
+                env={env}
+                studio={studio}
+                location={mode === "current" ? loc : null}
+                link={link}
+                sharedWith={mode === "current" ? sharedWith : []}
+                suggestedId={link === "broken" ? studio.locationRef : ""}
+            />
+        </div>
+    );
+}
+
+export function GeofenceEditor(props: {
+    env: Env;
+    studio: StudioRow;
+    location: LocationRow | null;
+    link: LocationLink;
+    sharedWith: StudioRow[];
+    suggestedId: string;
+}): React.ReactElement {
     const { env, studio, location } = props;
+    const isNew = !location;
+    const otherStudios = props.sharedWith.filter((x) => x.key !== studio.key);
     const initial = {
-        title: location?.title || studio.namaStudio || studio.studioId,
+        title: location ? location.title : props.suggestedId,
         lat: location?.latitude !== null && location?.latitude !== undefined ? String(location.latitude) : "",
         lon: location?.longitude !== null && location?.longitude !== undefined ? String(location.longitude) : "",
         radius: location?.radiusMeter ? String(location.radiusMeter) : "100",
         isActive: location ? location.isActive : true,
     };
     const [title, setTitle] = React.useState(initial.title);
+    const [newId, setNewId] = React.useState(props.suggestedId);
+    const idTrim = newId.trim();
+    const idTaken = isNew && !!idTrim && env.locations.some((l) => sameText(l.locationId, idTrim) || (!l.locationId && sameText(l.title, idTrim)));
+    const idError = !isNew ? "" : !idTrim ? "LocationID wajib diisi." : idTaken ? "LocationID ini sudah dipakai lokasi lain. Tautkan ke lokasi itu dari panel di atas." : "";
     const [latS, setLatS] = React.useState(initial.lat);
     const [lonS, setLonS] = React.useState(initial.lon);
     const [radS, setRadS] = React.useState(initial.radius);
@@ -49,14 +181,16 @@ export function GeofenceEditor(props: { env: Env; studio: StudioRow; location: L
     }, [center?.lat, center?.lon]);
 
     const dirty =
+        isNew ||
         title !== initial.title || latS !== initial.lat || lonS !== initial.lon || radS !== initial.radius || isActive !== initial.isActive;
     const onlyToggle = !!location && isActive !== initial.isActive && latS === initial.lat && lonS === initial.lon && radS === initial.radius && title === initial.title;
     const saving = !!env.pending && (env.pending.action === "SET_GEOFENCE" || env.pending.action === "TOGGLE_GEOFENCE_ACTIVE");
-    const canSave = env.canEdit && dirty && hasCenter && radiusValid && !!title.trim() && !env.pending;
+    const canSave = env.canEdit && dirty && hasCenter && radiusValid && !!title.trim() && !idError && !env.pending;
     const readOnly = !env.canEdit;
 
     const reset = (): void => {
         setTitle(initial.title);
+        setNewId(props.suggestedId);
         setLatS(initial.lat);
         setLonS(initial.lon);
         setRadS(initial.radius);
@@ -66,19 +200,27 @@ export function GeofenceEditor(props: { env: Env; studio: StudioRow; location: L
 
     const save = (): void => {
         if (!canSave || !center || radius === null) return;
+        const affectedStudioIds = isNew ? [studio.studioId] : props.sharedWith.map((x) => x.studioId);
         if (onlyToggle && location) {
             env.run("TOGGLE_GEOFENCE_ACTIVE", {
                 studioId: studio.studioId,
-                locationId: location.title,
+                locationId: locationKey(location),
                 locationItemId: location.itemId,
                 isActive,
+                affectedStudioIds,
             });
             return;
         }
         env.run("SET_GEOFENCE", {
             studioId: studio.studioId,
-            locationId: location?.title ?? null,
+            studioItemId: studio.itemId,
+            isNew,
+            // A new location is created first, then Studio.LocationID is pointed at it. An existing one is
+            // linked too when the studio only matched it by name (legacy), so the link stops depending on names.
+            linkStudio: isNew || props.link !== "lookup",
+            locationId: isNew ? idTrim : locationKey(location as LocationRow),
             locationItemId: location?.itemId ?? null,
+            affectedStudioIds,
             title: title.trim(),
             latitude: round6(center.lat),
             longitude: round6(center.lon),
@@ -214,8 +356,15 @@ export function GeofenceEditor(props: { env: Env; studio: StudioRow; location: L
 
     return (
         <div className="sd-stack">
-            {!location && (
-                <Banner tone="danger">Studio ini belum punya geofence. Host tidak bisa clock in di sini.</Banner>
+            {isNew && props.link !== "broken" && props.link !== "none" ? (
+                <Banner tone="info">Lokasi baru akan dibuat di Studio Location, lalu studio {studio.studioId} ditautkan ke lokasi itu. Studio lain di lokasi lama tidak berubah.</Banner>
+            ) : isNew && props.link === "none" ? (
+                <Banner tone="danger">Studio ini belum ditautkan ke lokasi. Host tidak bisa clock in di sini. Pilih lokasi yang ada di atas, atau buat lokasi baru di bawah.</Banner>
+            ) : null}
+            {!isNew && otherStudios.length > 0 && (
+                <Banner tone={dirty ? "warning" : "info"}>
+                    Lokasi {locationKey(location as LocationRow)} dipakai {props.sharedWith.length} studio ({props.sharedWith.map((x) => x.studioId).join(", ")}). Perubahan koordinat, radius, dan status geofence berlaku untuk semua studio ini.
+                </Banner>
             )}
             {location && !initial.isActive && (
                 <Banner tone="warning">Geofence nonaktif. Host tidak bisa clock in di studio ini sampai geofence diaktifkan kembali.</Banner>
@@ -303,8 +452,29 @@ export function GeofenceEditor(props: { env: Env; studio: StudioRow; location: L
                     )}
                 </div>
 
-                <Card className="sd-geoform" title="Koordinat geofence">
-                    <Field label="Nama lokasi" hint={location ? "Nama yang tercatat di Clock In (CheckInOffice)." : "Dipakai sebagai Title di Studio Location dan tampil di catatan clock in."}>
+                <Card className="sd-geoform" title={isNew ? "Lokasi baru" : "Koordinat geofence"}>
+                    <Field
+                        label="LocationID"
+                        hint={
+                            idTaken
+                                ? idError
+                                : isNew
+                                  ? "Wajib dan unik. Kunci yang dirujuk kolom LocationID di list Studio. Contoh: LOC-CWG."
+                                  : location?.locationId
+                                    ? "Tidak bisa diubah karena dirujuk oleh studio."
+                                    : "Lokasi ini belum punya LocationID. Isi kolomnya di list Studio Location supaya bisa dipilih lewat lookup."
+                        }
+                        hintTone={idTaken ? "danger" : !isNew && !location?.locationId ? "warning" : undefined}
+                    >
+                        <input
+                            className={cx("sd-input sd-mono", idTaken && "is-danger")}
+                            placeholder={isNew ? "LOC-…" : "Belum diisi"}
+                            value={isNew ? newId : location?.locationId ?? ""}
+                            onChange={(e) => setNewId(e.target.value.toUpperCase())}
+                            disabled={readOnly || !isNew}
+                        />
+                    </Field>
+                    <Field label="Nama lokasi" hint={location ? "Nama yang tercatat di Clock In (CheckInOffice)." : "Dipakai sebagai Title di Studio Location dan tampil di catatan clock in. Contoh: Cawang."}>
                         <input className="sd-input" value={title} onChange={(e) => setTitle(e.target.value)} disabled={readOnly || !!location} />
                     </Field>
                     <Field label="Latitude" hint={latS && !isValidLat(lat) ? "Latitude harus antara -90 dan 90." : undefined} hintTone="danger">
@@ -344,7 +514,15 @@ export function GeofenceEditor(props: { env: Env; studio: StudioRow; location: L
                         onChange={setIsActive}
                         disabled={readOnly}
                         label="Geofence aktif"
-                        description={isActive ? "Host bisa clock in di studio ini" : "Host tidak bisa clock in di studio ini"}
+                        description={
+                            otherStudios.length > 0
+                                ? isActive
+                                    ? `Host bisa clock in di ${props.sharedWith.length} studio lokasi ini`
+                                    : `Host tidak bisa clock in di ${props.sharedWith.length} studio lokasi ini`
+                                : isActive
+                                  ? "Host bisa clock in di studio ini"
+                                  : "Host tidak bisa clock in di studio ini"
+                        }
                     />
                     {!readOnly && (
                         <div className="sd-geoform__foot">
@@ -352,7 +530,7 @@ export function GeofenceEditor(props: { env: Env; studio: StudioRow; location: L
                                 Batal
                             </Button>
                             <Button variant="primary" onClick={save} disabled={!canSave}>
-                                {saving ? "Menyimpan…" : "Simpan geofence"}
+                                {saving ? "Menyimpan…" : isNew ? "Buat lokasi & tautkan" : otherStudios.length > 0 ? `Simpan untuk ${props.sharedWith.length} studio` : "Simpan geofence"}
                             </Button>
                         </div>
                     )}

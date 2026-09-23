@@ -6,7 +6,8 @@ import { occupiesStudio } from "../core/data";
 import { Badge, Bar, Button, Card, cx, DailyChart, Icon, Pill } from "./components";
 import { Env } from "./App";
 import { GeoCell, geoState, scheduleStatus, statusLabel } from "./shared";
-import { GeofenceEditor } from "./GeofenceEditor";
+import { GeofenceTab } from "./GeofenceEditor";
+import { locationKey } from "../core/data";
 import { MonthSwitcher } from "./StudioList";
 import { GmvCard, GmvCell, MonthSchedule, ReportCell, UpcomingCard } from "./StudioGmv";
 import { formatIdrShort, sessionGmv, studioGmv } from "../core/gmv";
@@ -15,9 +16,10 @@ type Tab = "ringkasan" | "geofence" | "jadwal";
 
 export function StudioDetail(props: { env: Env; studio: StudioRow; onBack: () => void; onEdit: () => void }): React.ReactElement {
     const { env, studio } = props;
-    const loc = env.locationOf(studio);
-    const gs = geoState(loc);
-    const [tab, setTab] = React.useState<Tab>(gs === "missing" && env.canEdit ? "geofence" : "ringkasan");
+    const { loc, link } = env.linkOf(studio);
+    const gs = geoState(loc, link);
+    const shared = loc ? env.studiosAt(loc).length : 0;
+    const [tab, setTab] = React.useState<Tab>((gs === "missing" || gs === "broken") && env.canEdit ? "geofence" : "ringkasan");
     const [dayKey, setDayKey] = React.useState(env.todayKey);
     const month = studioMonth(env.idx, studio, env.monthKey, env.op);
     const gmv = studioGmv(env.idx, env.reports, studio, env.monthKey, env.todayKey, env.nowMin);
@@ -58,9 +60,24 @@ export function StudioDetail(props: { env: Env; studio: StudioRow; onBack: () =>
                     <b>{env.reports.size === 0 ? "—" : formatIdrShort(gmv.total)}</b>
                 </div>
                 <div className="sd-record__cell">
+                    <span>Lokasi</span>
+                    <b>
+                        {loc ? (
+                            <>
+                                {locationKey(loc)}
+                                {shared > 1 && <span className="sd-muted"> · dipakai {shared} studio</span>}
+                            </>
+                        ) : link === "broken" ? (
+                            <span className="sd-dangertext">{studio.locationRef} (tidak ditemukan)</span>
+                        ) : (
+                            "Belum ditautkan"
+                        )}
+                    </b>
+                </div>
+                <div className="sd-record__cell">
                     <span>Geofence</span>
                     <b>
-                        <GeoCell loc={loc} onFix={() => setTab("geofence")} />
+                        <GeoCell loc={loc} link={link} onFix={() => setTab("geofence")} />
                     </b>
                 </div>
                 <div className="sd-record__end">
@@ -90,7 +107,7 @@ export function StudioDetail(props: { env: Env; studio: StudioRow; onBack: () =>
             </div>
 
             {tab === "ringkasan" && <Ringkasan env={env} studio={studio} onOpenDay={(d) => { pickDay(d); setTab("jadwal"); }} onGeofence={() => setTab("geofence")} />}
-            {tab === "geofence" && <GeofenceEditor key={`${studio.key}-${loc?.key ?? "none"}`} env={env} studio={studio} location={loc} />}
+            {tab === "geofence" && <GeofenceTab key={`${studio.key}-${loc?.key ?? "none"}-${link}`} env={env} studio={studio} />}
             {tab === "jadwal" && <Jadwal env={env} studio={studio} dayKey={dayKey} setDayKey={pickDay} />}
         </>
     );
@@ -102,7 +119,8 @@ function Ringkasan(props: { env: Env; studio: StudioRow; onOpenDay: (d: string) 
     const today = studioDay(env.idx, studio, env.todayKey, env.op);
     const month = studioMonth(env.idx, studio, env.monthKey, env.op);
     const series = studioDailySeries(env.idx, studio, env.monthKey, env.op);
-    const loc = env.locationOf(studio);
+    const { loc, link } = env.linkOf(studio);
+    const sharedWith = loc ? env.studiosAt(loc) : [];
     const isLive = live.running.length > 0;
 
     return (
@@ -215,31 +233,42 @@ function Ringkasan(props: { env: Env; studio: StudioRow; onOpenDay: (d: string) 
                         <dd>{studio.namaStudio || "—"}</dd>
                         <dt>Kapasitas host</dt>
                         <dd>{studio.kapasitasHost > 0 ? `${studio.kapasitasHost} host bersamaan` : <span className="sd-warntext">Belum diisi — utilisasi memakai kapasitas {effectiveCapacity(studio)}</span>}</dd>
-                        <dt>Lokasi</dt>
+                        <dt>Alamat</dt>
                         <dd>{studio.lokasiStudio || "—"}</dd>
                         <dt>Status</dt>
                         <dd>{statusLabel(studio)}</dd>
                     </dl>
-                    <p className="sd-footnote">Lokasi adalah alamat teks. Titik clock in host diambil dari geofence, bukan dari alamat ini.</p>
+                    <p className="sd-footnote">Alamat hanya teks. Titik clock in host diambil dari lokasi (LocationID) yang ditautkan, bukan dari alamat ini.</p>
                 </Card>
                 <Card title="Geofence" aside={<button type="button" className="sd-link" onClick={props.onGeofence}>Buka</button>}>
                     {loc ? (
                         <dl className="sd-dl">
+                            <dt>LocationID</dt>
+                            <dd className="sd-mono">{loc.locationId || "—"}</dd>
                             <dt>Nama lokasi</dt>
                             <dd>{loc.title || "—"}</dd>
+                            <dt>Dipakai</dt>
+                            <dd>
+                                {sharedWith.length} studio
+                                {sharedWith.length > 1 && <span className="sd-muted"> · {sharedWith.map((x) => x.studioId).join(", ")}</span>}
+                            </dd>
                             <dt>Koordinat</dt>
                             <dd className="sd-mono">
                                 {loc.latitude ?? "—"}, {loc.longitude ?? "—"}
                             </dd>
                             <dt>Radius</dt>
                             <dd>
-                                <GeoCell loc={loc} onFix={props.onGeofence} />
+                                <GeoCell loc={loc} link={link} onFix={props.onGeofence} />
                             </dd>
                             <dt>Status</dt>
                             <dd>{loc.isActive ? "Aktif — host bisa clock in" : "Nonaktif — host tidak bisa clock in"}</dd>
                         </dl>
                     ) : (
-                        <div className="sd-emptyline sd-dangertext">Studio ini belum punya geofence. Host tidak bisa clock in di sini.</div>
+                        <div className="sd-emptyline sd-dangertext">
+                            {link === "broken"
+                                ? `LocationID “${studio.locationRef}” tidak ada di Studio Location. Host tidak bisa clock in di sini.`
+                                : "Studio ini belum ditautkan ke lokasi. Host tidak bisa clock in di sini."}
+                        </div>
                     )}
                 </Card>
             </div>

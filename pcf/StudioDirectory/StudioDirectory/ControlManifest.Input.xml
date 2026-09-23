@@ -15,12 +15,12 @@
     The control never writes. It emits ActionPayload; the canvas app performs the Patch and
     answers through ActionResult with the same requestId.
   -->
-  <control namespace="Ops" constructor="StudioDirectory" version="1.1.1" display-name-key="PBS Studio Directory" description-key="PBS Hub studio list, studio detail, geofence editor and studio utilization." control-type="standard">
+  <control namespace="Ops" constructor="StudioDirectory" version="1.2.0" display-name-key="PBS Studio Directory" description-key="PBS Hub studio list, studio detail, geofence editor and studio utilization." control-type="standard">
     <external-service-usage enabled="false">
     </external-service-usage>
 
-    <data-set name="studios" display-name-key="Studios (Studio - PBS Hub)" description-key="Bind to the Studio - PBS Hub list. Columns: Title, NamaStudio, KapasitasHost, LokasiStudio, Status." />
-    <data-set name="locations" display-name-key="Locations (Studio Location - PBS)" description-key="Bind to the Studio Location - PBS list. Columns: Title, Latitude, Longitude, RadiusMeter, IsActive." />
+    <data-set name="studios" display-name-key="Studios (Studio - PBS Hub)" description-key="Bind to the Studio - PBS Hub list. Columns: Title, NamaStudio, KapasitasHost, LokasiStudio, LocationID (lookup to Studio Location), Status." />
+    <data-set name="locations" display-name-key="Locations (Studio Location - PBS)" description-key="Bind to the Studio Location - PBS list. Columns: Title, LocationID, Latitude, Longitude, RadiusMeter, IsActive. One location can serve many studios." />
     <data-set name="schedules" display-name-key="Schedules (Schedule - PBS Hub)" description-key="Bind to the Schedule - PBS Hub list, filtered to the previous and the selected month. Columns: Title, Date, BrandID, StudioID, HostID, StartTime, EndTime, JamLive, Status, Platform, Account, Shift, CampaignName." />
     <data-set name="brands" display-name-key="Brands (Brand - PBS Hub)" description-key="Optional. Bind to the Brand - PBS Hub list to show brand names. Columns: Title, NamaBrand." />
     <data-set name="hosts" display-name-key="Hosts (Host - PBS Hub)" description-key="Optional. Bind to the Host - PBS Hub list to show host names. Columns: Title, NamaHost, HostName." />

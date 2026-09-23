@@ -19,20 +19,29 @@
     var hm = function (min) { return pad(Math.floor(min / 60)) + ":" + pad(min % 60); };
 
     // ------------------------------------------------------------------ mock lists (DESIGN.md columns)
-    var studios = [
-        { ID: 1, Title: "CWG-05", NamaStudio: "Studio Kemang B", KapasitasHost: 2, LokasiStudio: "Kemang, Jakarta Selatan", Status: { Value: "Active" } },
-        { ID: 2, Title: "CWG-03", NamaStudio: "Studio Kemang A", KapasitasHost: 2, LokasiStudio: "Kemang, Jakarta Selatan", Status: { Value: "Active" } },
-        { ID: 3, Title: "BSD-02", NamaStudio: "Studio BSD 2", KapasitasHost: 3, LokasiStudio: "BSD City, Tangerang Selatan", Status: { Value: "Active" } },
-        { ID: 4, Title: "CWG-07", NamaStudio: "Studio Tebet", KapasitasHost: 1, LokasiStudio: "Tebet, Jakarta Selatan", Status: { Value: "Active" } },
-        { ID: 5, Title: "CWG-01", NamaStudio: "Studio Lama Cawang", KapasitasHost: 2, LokasiStudio: "Cawang, Jakarta Timur", Status: { Value: "Inactive" } },
-        { ID: 6, Title: "CWG-06", NamaStudio: "Studio Pondok Indah", KapasitasHost: 2, LokasiStudio: "Pondok Indah, Jakarta Selatan", Status: { Value: "Active" } },
-    ];
+    // One Studio Location serves many studios: the Cawang building holds six. Studio.LocationID is a lookup
+    // ({ Id, Value }) to Studio Location; BSD-02 points at a LocationID that no row carries (broken link), and
+    // KMG-01 has no LocationID yet, so it only matches its location by name (legacy).
     var locations = [
-        { ID: 11, Title: "Studio Kemang B", Latitude: -6.263991, Longitude: 106.813294, RadiusMeter: 100, IsActive: true },
-        { ID: 12, Title: "Studio Kemang A", Latitude: -6.264512, Longitude: 106.812811, RadiusMeter: 120, IsActive: true },
-        { ID: 13, Title: "Studio Tebet", Latitude: -6.226291, Longitude: 106.853911, RadiusMeter: 20, IsActive: true },
-        { ID: 14, Title: "Studio Lama Cawang", Latitude: -6.243311, Longitude: 106.872201, RadiusMeter: 100, IsActive: false },
-        { ID: 15, Title: "Studio Pondok Indah", Latitude: -6.265801, Longitude: 106.784302, RadiusMeter: 100, IsActive: true },
+        { ID: 11, Title: "Cawang", LocationID: "LOC-CWG", Latitude: -6.243311, Longitude: 106.872201, RadiusMeter: 100, IsActive: true },
+        { ID: 12, Title: "Tebet", LocationID: "LOC-TBT", Latitude: -6.226291, Longitude: 106.853911, RadiusMeter: 20, IsActive: true },
+        { ID: 13, Title: "Pondok Indah", LocationID: "LOC-PIK", Latitude: -6.265801, Longitude: 106.784302, RadiusMeter: 100, IsActive: true },
+        { ID: 14, Title: "Studio Kemang", Latitude: -6.263991, Longitude: 106.813294, RadiusMeter: 120, IsActive: true },
+    ];
+    var lookup = function (locId) {
+        var l = locations.filter(function (x) { return x.LocationID === locId; })[0];
+        return locId ? { Id: l ? l.ID : 0, Value: locId } : null;
+    };
+    var studios = [
+        { ID: 1, Title: "CWG-05", NamaStudio: "Studio Cawang 5", KapasitasHost: 2, LokasiStudio: "Jl. Dewi Sartika, Cawang, Jakarta Timur", LocationID: lookup("LOC-CWG"), Status: { Value: "Active" } },
+        { ID: 2, Title: "CWG-03", NamaStudio: "Studio Cawang 3", KapasitasHost: 2, LokasiStudio: "Jl. Dewi Sartika, Cawang, Jakarta Timur", LocationID: lookup("LOC-CWG"), Status: { Value: "Active" } },
+        { ID: 3, Title: "BSD-02", NamaStudio: "Studio BSD 2", KapasitasHost: 3, LokasiStudio: "BSD City, Tangerang Selatan", LocationID: { Id: 0, Value: "LOC-BSD" }, Status: { Value: "Active" } },
+        { ID: 4, Title: "CWG-07", NamaStudio: "Studio Tebet", KapasitasHost: 1, LokasiStudio: "Tebet, Jakarta Selatan", LocationID: lookup("LOC-TBT"), Status: { Value: "Active" } },
+        { ID: 5, Title: "CWG-01", NamaStudio: "Studio Cawang 1", KapasitasHost: 2, LokasiStudio: "Jl. Dewi Sartika, Cawang, Jakarta Timur", LocationID: lookup("LOC-CWG"), Status: { Value: "Inactive" } },
+        { ID: 6, Title: "CWG-06", NamaStudio: "Studio Cawang 6", KapasitasHost: 2, LokasiStudio: "Jl. Dewi Sartika, Cawang, Jakarta Timur", LocationID: lookup("LOC-CWG"), Status: { Value: "Active" } },
+        { ID: 7, Title: "CWG-02", NamaStudio: "Studio Cawang 2", KapasitasHost: 2, LokasiStudio: "Jl. Dewi Sartika, Cawang, Jakarta Timur", LocationID: lookup("LOC-CWG"), Status: { Value: "Active" } },
+        { ID: 8, Title: "CWG-04", NamaStudio: "Studio Cawang 4", KapasitasHost: 1, LokasiStudio: "Jl. Dewi Sartika, Cawang, Jakarta Timur", LocationID: lookup("LOC-CWG"), Status: { Value: "Active" } },
+        { ID: 9, Title: "KMG-01", NamaStudio: "Studio Kemang", KapasitasHost: 2, LokasiStudio: "Kemang, Jakarta Selatan", LocationID: null, Status: { Value: "Active" } },
     ];
     var brands = [
         ["BR-01", "Contoh Aruna"], ["BR-02", "Contoh Kirana"], ["BR-03", "Contoh Lestari"], ["BR-04", "Contoh Nirmala"], ["BR-05", "Contoh Sekar"], ["BR-06", "Contoh Tirta"],
@@ -60,8 +69,8 @@
             CampaignName: "",
         });
     };
-    var busy = { "CWG-05": 0.55, "CWG-03": 0.85, "BSD-02": 0.45, "CWG-07": 0.2, "CWG-06": 0.5, "CWG-01": 0 };
-    var cap = { "CWG-05": 2, "CWG-03": 2, "BSD-02": 3, "CWG-07": 1, "CWG-06": 2, "CWG-01": 2 };
+    var busy = { "CWG-05": 0.55, "CWG-03": 0.85, "BSD-02": 0.45, "CWG-07": 0.2, "CWG-06": 0.5, "CWG-01": 0, "CWG-02": 0.4, "CWG-04": 0.3, "KMG-01": 0.35 };
+    var cap = { "CWG-05": 2, "CWG-03": 2, "BSD-02": 3, "CWG-07": 1, "CWG-06": 2, "CWG-01": 2, "CWG-02": 2, "CWG-04": 1, "KMG-01": 2 };
     for (var m = -1; m <= 0; m++) {
         var first = new Date(now.getFullYear(), now.getMonth() + m, 1);
         var days = new Date(first.getFullYear(), first.getMonth() + 1, 0).getDate();
@@ -192,18 +201,28 @@
         switch (req.action) {
             case "CREATE_STUDIO":
                 if (studios.some(function (s) { return s.Title === p.studioId; })) { setTimeout(function () { reply(req.requestId, "error", "StudioID " + p.studioId + " sudah ada."); }, 500); return; }
-                studios.push({ ID: 1000 + studios.length, Title: p.studioId, NamaStudio: p.namaStudio, KapasitasHost: p.kapasitasHost, LokasiStudio: p.lokasiStudio, Status: { Value: p.status } });
+                studios.push({ ID: 1000 + studios.length, Title: p.studioId, NamaStudio: p.namaStudio, KapasitasHost: p.kapasitasHost, LokasiStudio: p.lokasiStudio, LocationID: p.locationItemId ? { Id: p.locationItemId, Value: p.locationId } : null, Status: { Value: p.status } });
                 ok({ studioId: p.studioId });
                 return;
             case "EDIT_STUDIO":
-                studios.forEach(function (s) { if (s.Title === p.studioId) { s.NamaStudio = p.namaStudio; s.KapasitasHost = p.kapasitasHost; s.LokasiStudio = p.lokasiStudio; s.Status = { Value: p.status }; } });
+                studios.forEach(function (s) { if (s.Title === p.studioId) { s.NamaStudio = p.namaStudio; s.KapasitasHost = p.kapasitasHost; s.LokasiStudio = p.lokasiStudio; s.LocationID = p.locationItemId ? { Id: p.locationItemId, Value: p.locationId } : null; s.Status = { Value: p.status }; } });
                 ok({ studioId: p.studioId });
+                return;
+            case "SET_STUDIO_LOCATION":
+                studios.forEach(function (s) { if (s.Title === p.studioId) s.LocationID = { Id: p.locationItemId, Value: p.locationId }; });
+                ok({ studioId: p.studioId, locationId: p.locationId });
                 return;
             case "SET_GEOFENCE":
                 var loc = locations.filter(function (l) { return p.locationItemId && l.ID === p.locationItemId; })[0];
-                if (!loc) { loc = { ID: 2000 + locations.length, Title: p.title }; locations.push(loc); }
+                if (p.isNew) {
+                    if (locations.some(function (l) { return l.LocationID === p.locationId; })) { setTimeout(function () { reply(req.requestId, "error", "LocationID " + p.locationId + " sudah ada."); }, 500); return; }
+                    loc = { ID: 2000 + locations.length, Title: p.title, LocationID: p.locationId }; locations.push(loc);
+                }
                 loc.Latitude = p.latitude; loc.Longitude = p.longitude; loc.RadiusMeter = p.radiusMeter; loc.IsActive = p.isActive;
-                ok({ locationId: loc.Title });
+                if (p.linkStudio) {
+                    studios.forEach(function (s) { if (s.Title === p.studioId) s.LocationID = { Id: loc.ID, Value: loc.LocationID }; });
+                }
+                ok({ locationId: loc.LocationID, locationItemId: loc.ID });
                 return;
             case "TOGGLE_GEOFENCE_ACTIVE":
                 locations.forEach(function (l) { if (l.ID === p.locationItemId) l.IsActive = p.isActive; });

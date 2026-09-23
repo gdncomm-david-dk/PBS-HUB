@@ -1,4 +1,4 @@
-import { jsonRecords, locationForStudio, mapLocations, mapSchedules, mapStudios, occupiesStudio, parseContext, toNum } from "../StudioDirectory/core/data";
+import { jsonRecords, linkLocation, locationForStudio, readLookup, mapLocations, mapSchedules, mapStudios, occupiesStudio, parseContext, toNum } from "../StudioDirectory/core/data";
 import { parseDateKey, parseTimeToMinutes } from "../StudioDirectory/core/time";
 import {
     hourlySlots,
@@ -194,6 +194,48 @@ describe("geofence", () => {
         expect(locationForStudio(studios[1], locs)?.itemId).toBe(3);
         expect(locationForStudio(studios[1], locs)?.isActive).toBe(true); // missing IsActive defaults to active
         expect(locationForStudio(studios[2], locs)).toBeNull();
+    });
+
+    it("reads SharePoint lookups from canvas JSON, dataset EntityReference and text", () => {
+        expect(readLookup({ Id: 11, Value: "LOC-CWG" })).toEqual({ text: "LOC-CWG", id: 11 });
+        expect(readLookup({ id: { guid: "12" }, name: "LOC-TBT" })).toEqual({ text: "LOC-TBT", id: 12 });
+        expect(readLookup([{ Id: 13, Value: "LOC-PIK" }])).toEqual({ text: "LOC-PIK", id: 13 });
+        expect(readLookup("LOC-CWG")).toEqual({ text: "LOC-CWG", id: null });
+        expect(readLookup(null)).toEqual({ text: "", id: null });
+    });
+
+    it("links studios through the LocationID lookup; one location serves many studios", () => {
+        const locs = mapLocations(
+            jsonRecords(
+                JSON.stringify([
+                    { ID: 11, Title: "Cawang", LocationID: "LOC-CWG", Latitude: -6.24, Longitude: 106.87, RadiusMeter: 100, IsActive: true },
+                    { ID: 12, Title: "Tebet", LocationID: "LOC-TBT", Latitude: -6.22, Longitude: 106.85, RadiusMeter: 50 },
+                    { ID: 14, Title: "Studio Kemang", Latitude: -6.26, Longitude: 106.81, RadiusMeter: 100 },
+                ]),
+            ) ?? [],
+        );
+        const ss = mapStudios(
+            jsonRecords(
+                JSON.stringify([
+                    { ID: 1, Title: "CWG-01", NamaStudio: "Cawang 1", LocationID: { Id: 11, Value: "LOC-CWG" }, Status: "Active" },
+                    { ID: 2, Title: "CWG-02", NamaStudio: "Cawang 2", LocationID: { Id: 11, Value: "LOC-CWG" }, Status: "Active" },
+                    { ID: 3, Title: "CWG-07", NamaStudio: "Tebet", LocationID: "LOC-TBT", Status: "Active" }, // text only
+                    { ID: 4, Title: "TBT-09", NamaStudio: "Tebet 9", LocationIDId: 12, LocationID: "", Status: "Active" }, // ID column only
+                    { ID: 5, Title: "BSD-02", NamaStudio: "BSD", LocationID: { Id: 0, Value: "LOC-BSD" }, Status: "Active" },
+                    { ID: 6, Title: "KMG-01", NamaStudio: "Studio Kemang", Status: "Active" },
+                    { ID: 7, Title: "XXX-01", NamaStudio: "Tanpa lokasi", Status: "Active" },
+                ]),
+            ) ?? [],
+        );
+        const r = ss.map((s) => linkLocation(s, locs));
+        expect(r[0]).toMatchObject({ link: "lookup", loc: { itemId: 11 } });
+        expect(r[1].loc?.itemId).toBe(11);
+        expect(r[2]).toMatchObject({ link: "lookup", loc: { itemId: 12 } });
+        expect(r[3]).toMatchObject({ link: "lookup", loc: { itemId: 12 } });
+        expect(r[4]).toEqual({ loc: null, link: "broken" });
+        expect(r[5]).toMatchObject({ link: "legacy", loc: { itemId: 14 } });
+        expect(r[6]).toEqual({ loc: null, link: "none" });
+        expect(ss[4].locationRef).toBe("LOC-BSD");
     });
 
     it("round-trips metre offsets", () => {

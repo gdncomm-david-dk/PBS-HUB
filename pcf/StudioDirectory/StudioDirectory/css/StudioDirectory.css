@@ -401,3 +401,15 @@ button.sd-geo--danger:hover { text-decoration: underline; }
 .sd-table tr.is-selected td { background: #F3F9FF; }
 .sd-table tr.is-today td:first-child { box-shadow: inset 3px 0 0 var(--primary); }
 .sd-table th.sd-right { text-align: right; }
+
+/* Location link (Studio.LocationID → Studio Location) */
+.sd-locselect { width: auto; min-width: 200px; max-width: 280px; height: 36px; padding: 0 10px; }
+.sd-loccell { max-width: 220px; }
+.sd-loccell .sd-ellipsis { max-width: 220px; font-size: 12px; }
+.sd-loccard__row { display: flex; gap: 16px; align-items: flex-start; justify-content: space-between; flex-wrap: wrap; }
+.sd-loccard__current { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.sd-loccard__actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.sd-loccard__studios { display: flex; gap: 6px; flex-wrap: wrap; }
+.sd-studiochip { font: 500 12px/1 ui-monospace, "SF Mono", Menlo, Consolas, monospace; padding: 5px 8px; border: 1px solid var(--border); border-radius: 999px; background: #fff; color: var(--text-primary); cursor: pointer; }
+.sd-studiochip:hover:not(:disabled) { border-color: var(--primary); color: var(--primary); }
+.sd-studiochip.is-self { background: var(--surface); cursor: default; font-weight: 700; }

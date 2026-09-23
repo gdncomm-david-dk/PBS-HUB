@@ -6,7 +6,7 @@ lists described in `DESIGN.md` and **never writes**: it emits an `ActionPayload`
 
 ## 1. Import
 
-1. Power Apps → **Solutions → Import** → `releases/PBSStudioDirectory_managed_1.1.1.zip` (managed).
+1. Power Apps → **Solutions → Import** → `releases/PBSStudioDirectory_managed_1.2.0.zip` (managed).
 2. Canvas app → **Settings → Updates** → turn on **Power Apps component framework for canvas apps**.
 3. **Insert → Get more components → Code** → `PBS Studio Directory` (`pbs_Ops.StudioDirectory`).
 4. Give it the full screen next to `BlibliUniversalSidebar`. Minimum width 1040 px.
@@ -37,6 +37,13 @@ Set(varStudioResult, "");
 All `Filter` clauses above are delegable to SharePoint. The control pages through every result page itself.
 For each dataset, open **Fields → Edit** and add the columns listed in the property's description, so the
 dataset carries them.
+
+**Studio ↔ Studio Location.** `Studio - PBS Hub.LocationID` is a SharePoint lookup to `Studio Location - PBS`
+that shows the location's `LocationID` column. One location serves many studios (e.g. `LOC-CWG` holds every
+Cawang studio), so latitude, longitude, radius and IsActive are shared by all of them. Add `LocationID` to the
+`studios` and `locations` field lists. With the JSON fallback, keep the lookup as a record:
+`StudiosJson = JSON(ShowColumns('Studio - PBS Hub', ID, Title, NamaStudio, KapasitasHost, LokasiStudio, LocationID, Status), JSONFormat.IgnoreBinaryData)`
+emits `LocationID: { Id, Value }`, which the control reads directly.
 
 **JSON fallback.** If you prefer, leave a dataset empty and fill the matching `*Json` property instead, e.g.
 `SchedulesJson = JSON(ShowColumns(Filter('Schedule - PBS Hub', …), Title, Date, StudioID, BrandID, HostID, StartTime, EndTime, JamLive, Status, Platform, Account, Shift), JSONFormat.IgnoreBinaryData)`.
@@ -74,6 +81,8 @@ If(rid <> varLastStudioRid,
                     Patch('Studio - PBS Hub', Defaults('Studio - PBS Hub'), {
                         Title: Text(p.studioId), NamaStudio: Text(p.namaStudio),
                         KapasitasHost: Value(p.kapasitasHost), LokasiStudio: Text(p.lokasiStudio),
+                        LocationID: If(IsBlank(p.locationItemId), Blank(),
+                            { Id: Value(p.locationItemId), Value: Text(p.locationId) }),
                         Status: { Value: Text(p.status) } }),
                     Set(varOk, false); Set(varErr, FirstError.Message))),
 
@@ -81,19 +90,38 @@ If(rid <> varLastStudioRid,
             IfError(
                 Patch('Studio - PBS Hub', LookUp('Studio - PBS Hub', Title = Text(p.studioId)), {
                     NamaStudio: Text(p.namaStudio), KapasitasHost: Value(p.kapasitasHost),
-                    LokasiStudio: Text(p.lokasiStudio), Status: { Value: Text(p.status) } }),
+                    LokasiStudio: Text(p.lokasiStudio), Status: { Value: Text(p.status) },
+                    LocationID: If(IsBlank(p.locationItemId), Blank(),
+                        { Id: Value(p.locationItemId), Value: Text(p.locationId) }) }),
                 Set(varOk, false); Set(varErr, FirstError.Message)),
 
-        "SET_GEOFENCE",
+        // Point one studio at another existing location. Other studios at the old location are untouched.
+        "SET_STUDIO_LOCATION",
             IfError(
-                If(IsBlank(p.locationItemId),
-                    Patch('Studio Location - PBS', Defaults('Studio Location - PBS'), {
-                        Title: Text(p.title), Latitude: Value(p.latitude), Longitude: Value(p.longitude),
-                        RadiusMeter: Value(p.radiusMeter), IsActive: Boolean(p.isActive) }),
-                    Patch('Studio Location - PBS', LookUp('Studio Location - PBS', ID = Value(p.locationItemId)), {
-                        Latitude: Value(p.latitude), Longitude: Value(p.longitude),
-                        RadiusMeter: Value(p.radiusMeter), IsActive: Boolean(p.isActive) })),
+                Patch('Studio - PBS Hub', LookUp('Studio - PBS Hub', Title = Text(p.studioId)), {
+                    LocationID: { Id: Value(p.locationItemId), Value: Text(p.locationId) } }),
                 Set(varOk, false); Set(varErr, FirstError.Message)),
+
+        // p.isNew: create the location (LocationID must be unique), then link the studio to it.
+        // Otherwise: update the shared location; every studio in p.affectedStudioIds uses the new values.
+        // p.linkStudio on an existing location means the studio only matched it by name, so link it for good.
+        "SET_GEOFENCE",
+            If(Boolean(p.isNew) && !IsBlank(LookUp('Studio Location - PBS', LocationID = Text(p.locationId))),
+                Set(varOk, false); Set(varErr, "LocationID " & Text(p.locationId) & " sudah dipakai."),
+                IfError(
+                    With({ loc:
+                        If(Boolean(p.isNew),
+                            Patch('Studio Location - PBS', Defaults('Studio Location - PBS'), {
+                                Title: Text(p.title), LocationID: Text(p.locationId),
+                                Latitude: Value(p.latitude), Longitude: Value(p.longitude),
+                                RadiusMeter: Value(p.radiusMeter), IsActive: Boolean(p.isActive) }),
+                            Patch('Studio Location - PBS', LookUp('Studio Location - PBS', ID = Value(p.locationItemId)), {
+                                Latitude: Value(p.latitude), Longitude: Value(p.longitude),
+                                RadiusMeter: Value(p.radiusMeter), IsActive: Boolean(p.isActive) })) },
+                        If(Boolean(p.linkStudio),
+                            Patch('Studio - PBS Hub', LookUp('Studio - PBS Hub', Title = Text(p.studioId)), {
+                                LocationID: { Id: loc.ID, Value: Coalesce(loc.LocationID, Text(p.locationId)) } }))),
+                    Set(varOk, false); Set(varErr, FirstError.Message))),
 
         "TOGGLE_GEOFENCE_ACTIVE",
             IfError(
@@ -102,7 +130,7 @@ If(rid <> varLastStudioRid,
                 Set(varOk, false); Set(varErr, FirstError.Message))
         // NAV_STUDIO_DETAIL is informational; SelectedStudioId already carries the open studio.
     );
-    If(action in ["CREATE_STUDIO", "EDIT_STUDIO", "SET_GEOFENCE", "TOGGLE_GEOFENCE_ACTIVE"],
+    If(action in ["CREATE_STUDIO", "EDIT_STUDIO", "SET_STUDIO_LOCATION", "SET_GEOFENCE", "TOGGLE_GEOFENCE_ACTIVE"],
         Set(varStudioResult, JSON({
             requestId: rid,
             status: If(varOk, "ok", "error"),
@@ -121,6 +149,6 @@ The control stays locked until its own `requestId` comes back, and gives up afte
 | **Sedang digunakan** | Schedule | sessions whose Date is today and StartTime ≤ now < EndTime (overnight sessions from yesterday included). Shows brand (via BrandID → Brand.NamaBrand), host(s) (HostID → Host.NamaHost), time left and slots used vs capacity |
 | **Capacity per slot** | Schedule | distinct hosts per hour vs KapasitasHost; over-capacity slots are flagged (v1 never enforced capacity) |
 | **GMV** | Report.Penjualan | Report has no StudioID, so it is joined `Report.ScheduleID → Schedule.Title → Schedule.StudioID`; several reports per session (one per account) are summed. Split into *Terverifikasi* (`ApprovalStatus = Done`), *Menunggu review* and *Perlu revisi*. Ended sessions without a report are counted as "Belum ada report" |
-| **Geofence link** | Studio Location | v1 has no key between Studio and Studio Location. Match order: a `StudioID` column on the location → `Title = StudioID` → `Title = NamaStudio`. New geofences are created with `Title = NamaStudio` |
+| **Geofence link** | Studio.LocationID → Studio Location | The lookup item ID first, else the shown value against `Studio Location.LocationID` (then `Title`). One location serves many studios; the list, detail and Geofence tab show how many, and editing a shared geofence warns that it applies to all of them. A LocationID that no location carries is shown as *LocationID tidak ditemukan*. Studios without a LocationID fall back to the v1 name match (a `StudioID` column → `Title = StudioID` → `Title = NamaStudio`) and are offered a one-click *Tautkan* |
 
 These are display metrics. Nothing that money depends on is computed in the control.

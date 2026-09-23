@@ -1,7 +1,7 @@
 import * as React from "react";
 import { ActionName, ActionResult, LocationRow, ModuleContext, OperatingHours, ReportRow, ScheduleRow, StudioRow } from "../core/types";
 import { ReportIndex } from "../core/gmv";
-import { locationForStudio } from "../core/data";
+import { linkLocation, LocationLink } from "../core/data";
 import { LatLon } from "../core/geo";
 import { minutesOfDay, shiftMonth, toDateKey, toMonthKey } from "../core/time";
 import { ScheduleIndex } from "../core/utilization";
@@ -38,6 +38,10 @@ export interface Env {
     studios: StudioRow[];
     locations: LocationRow[];
     locationOf: (s: StudioRow) => LocationRow | null;
+    /** The studio's location and how it was matched (lookup, legacy name match, broken LocationID, none). */
+    linkOf: (s: StudioRow) => { loc: LocationRow | null; link: LocationLink };
+    /** Studios that share a location — one Studio Location row can serve many studios. */
+    studiosAt: (loc: LocationRow) => StudioRow[];
     idx: ScheduleIndex;
     reports: ReportIndex;
     op: OperatingHours;
@@ -62,6 +66,7 @@ const SUCCESS_TEXT: Partial<Record<ActionName, string>> = {
     EDIT_STUDIO: "Perubahan studio tersimpan.",
     SET_GEOFENCE: "Geofence tersimpan. Host memakai radius baru saat clock in berikutnya.",
     TOGGLE_GEOFENCE_ACTIVE: "Status geofence diperbarui.",
+    SET_STUDIO_LOCATION: "Lokasi studio diperbarui.",
 };
 
 function useNow(intervalMs: number): Date {
@@ -97,7 +102,22 @@ export function App(props: AppProps): React.ReactElement {
 
     const idx = React.useMemo(() => new ScheduleIndex(props.schedules), [props.schedules]);
     const reportIdx = React.useMemo(() => new ReportIndex(props.reports), [props.reports]);
-    const locationOf = React.useCallback((s: StudioRow) => locationForStudio(s, props.locations), [props.locations]);
+    const links = React.useMemo(() => {
+        const byStudio = new Map<string, { loc: LocationRow | null; link: LocationLink }>();
+        const byLocation = new Map<string, StudioRow[]>();
+        for (const s of props.studios) {
+            const l = linkLocation(s, props.locations);
+            byStudio.set(s.key, l);
+            if (l.loc) byLocation.set(l.loc.key, [...(byLocation.get(l.loc.key) ?? []), s]);
+        }
+        return { byStudio, byLocation };
+    }, [props.studios, props.locations]);
+    const linkOf = React.useCallback(
+        (s: StudioRow) => links.byStudio.get(s.key) ?? linkLocation(s, props.locations),
+        [links, props.locations],
+    );
+    const locationOf = React.useCallback((s: StudioRow) => linkOf(s).loc, [linkOf]);
+    const studiosAt = React.useCallback((loc: LocationRow) => links.byLocation.get(loc.key) ?? [], [links]);
 
     const run = React.useCallback(
         (action: ActionName, payload: Record<string, unknown>) => {
@@ -171,6 +191,8 @@ export function App(props: AppProps): React.ReactElement {
         studios: props.studios,
         locations: props.locations,
         locationOf,
+        linkOf,
+        studiosAt,
         idx,
         reports: reportIdx,
         op: props.op,
@@ -199,6 +221,8 @@ export function App(props: AppProps): React.ReactElement {
             kapasitasHost: v.kapasitasHost,
             lokasiStudio: v.lokasiStudio,
             status: v.status,
+            locationId: v.location ? v.location.locationId || v.location.title : null,
+            locationItemId: v.location?.itemId ?? null,
         });
         setForm({ ...form, error: undefined });
     };
@@ -227,6 +251,9 @@ export function App(props: AppProps): React.ReactElement {
                 <StudioForm
                     mode={form.mode}
                     studio={form.studio}
+                    locations={props.locations}
+                    current={form.studio ? locationOf(form.studio) : null}
+                    countAt={(l) => studiosAt(l).length}
                     existingIds={props.studios.map((s) => s.studioId)}
                     statusOptions={Array.from(new Set(["Active", "Inactive", ...props.studios.map((s) => s.status).filter(Boolean)]))}
                     saving={!!pending && (pending.action === "CREATE_STUDIO" || pending.action === "EDIT_STUDIO")}

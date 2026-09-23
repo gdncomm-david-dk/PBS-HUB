@@ -15,7 +15,8 @@ import {
 } from "../core/utilization";
 import { Badge, Bar, Button, Card, cx, DailyChart, Icon, SkeletonRows, utilTone } from "./components";
 import { Env } from "./App";
-import { GeoCell, geoState, MIN_SAFE_RADIUS, needsAction, StudioStatusBadge } from "./shared";
+import { GeoCell, geoIssueText, geoState, MIN_SAFE_RADIUS, needsAction, StudioStatusBadge } from "./shared";
+import { locationKey } from "../core/data";
 
 type Filter = "all" | "active" | "inactive" | "action";
 
@@ -79,9 +80,10 @@ export function LiveTile(props: { env: Env; studio: StudioRow; live: LiveInfo })
 
 export function StudioList(props: { env: Env; onCreate: () => void }): React.ReactElement {
     const { env } = props;
-    const { studios, idx, op, todayKey, nowMin, monthKey, locationOf } = env;
+    const { studios, idx, op, todayKey, nowMin, monthKey, linkOf } = env;
     const [query, setQuery] = React.useState("");
     const [filter, setFilter] = React.useState<Filter>("all");
+    const [locFilter, setLocFilter] = React.useState("");
 
     const active = studios.filter((s) => s.isActive);
     const today = overallDay(idx, studios, todayKey, op);
@@ -92,19 +94,42 @@ export function StudioList(props: { env: Env; onCreate: () => void }): React.Rea
     lives.sort((a, b) => Number(b.live.running.length > 0) - Number(a.live.running.length > 0) || a.studio.studioId.localeCompare(b.studio.studioId));
 
     const issues = active
-        .map((s) => ({ s, st: geoState(locationOf(s)), r: locationOf(s)?.radiusMeter }))
+        .map((s) => {
+            const l = linkOf(s);
+            return { s, st: geoState(l.loc, l.link), r: l.loc?.radiusMeter };
+        })
         .filter((x) => x.st !== "ok");
-    const missingGeo = studios.filter((s) => geoState(locationOf(s)) === "missing").length;
+    const missingGeo = studios.filter((s) => {
+        const st = geoState(linkOf(s).loc, linkOf(s).link);
+        return st === "missing" || st === "broken";
+    }).length;
+
+    // Locations actually used by the loaded studios, busiest first — one location often serves many studios.
+    const locGroups = new Map<string, { label: string; title: string; count: number }>();
+    let unlinked = 0;
+    for (const s of studios) {
+        const loc = linkOf(s).loc;
+        if (!loc) {
+            unlinked++;
+            continue;
+        }
+        const g = locGroups.get(loc.key) ?? { label: locationKey(loc), title: loc.title, count: 0 };
+        g.count++;
+        locGroups.set(loc.key, g);
+    }
+    const locOptions = Array.from(locGroups.entries()).sort((a, b) => b[1].count - a[1].count || a[1].label.localeCompare(b[1].label));
 
     const q = query.trim().toLowerCase();
     const rows = studios.filter((s) => {
         if (filter === "active" && !s.isActive) return false;
         if (filter === "inactive" && s.isActive) return false;
-        if (filter === "action" && !needsAction(s, locationOf(s))) return false;
+        const l = linkOf(s);
+        if (filter === "action" && !needsAction(s, l.loc, l.link)) return false;
+        if (locFilter === "__none" ? !!l.loc : locFilter && l.loc?.key !== locFilter) return false;
         if (!q) return true;
-        return [s.studioId, s.namaStudio, s.lokasiStudio].some((v) => v.toLowerCase().includes(q));
+        return [s.studioId, s.namaStudio, s.lokasiStudio, s.locationRef, l.loc?.title ?? "", l.loc?.locationId ?? ""].some((v) => v.toLowerCase().includes(q));
     });
-    const filtered = filter !== "all" || !!q;
+    const filtered = filter !== "all" || !!q || !!locFilter;
     const loadingFirst = env.loading.studios && studios.length === 0;
     const loadingMore = env.loading.studios && studios.length > 0;
     const scheduleLoading = env.loading.schedules;
@@ -194,13 +219,7 @@ export function StudioList(props: { env: Env; onCreate: () => void }): React.Rea
                                         {Icon.warn(13)}
                                         <span>
                                             {x.s.studioId}{" "}
-                                            {x.st === "missing"
-                                                ? "belum ada geofence"
-                                                : x.st === "small"
-                                                  ? `radius ${x.r} m`
-                                                  : x.st === "inactive"
-                                                    ? "geofence nonaktif"
-                                                    : "koordinat tidak valid"}
+                                            {geoIssueText(x.st, x.r)}
                                         </span>
                                     </button>
                                 </li>
@@ -266,6 +285,16 @@ export function StudioList(props: { env: Env; onCreate: () => void }): React.Rea
                     {Icon.search(14)}
                     <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Cari StudioID, nama, atau lokasi" aria-label="Cari studio" />
                 </div>
+                <select className="sd-input sd-locselect" value={locFilter} onChange={(e) => setLocFilter(e.target.value)} aria-label="Filter lokasi">
+                    <option value="">Semua lokasi</option>
+                    {locOptions.map(([k, g]) => (
+                        <option key={k} value={k}>
+                            {g.label}
+                            {g.title && g.title !== g.label ? ` · ${g.title}` : ""} ({g.count} studio)
+                        </option>
+                    ))}
+                    {unlinked > 0 && <option value="__none">Tanpa lokasi ({unlinked} studio)</option>}
+                </select>
                 <div className="sd-chips" role="tablist" aria-label="Filter studio">
                     {(
                         [
@@ -327,6 +356,7 @@ export function StudioList(props: { env: Env; onCreate: () => void }): React.Rea
                                             onClick={() => {
                                                 setQuery("");
                                                 setFilter("all");
+                                                setLocFilter("");
                                             }}
                                         >
                                             Hapus filter
@@ -336,7 +366,8 @@ export function StudioList(props: { env: Env; onCreate: () => void }): React.Rea
                             </tr>
                         ) : (
                             rows.map((s) => {
-                                const loc = locationOf(s);
+                                const { loc, link } = linkOf(s);
+                                const shared = loc ? env.studiosAt(loc).length : 0;
                                 const d = studioDay(idx, s, todayKey, op);
                                 const m = studioMonth(idx, s, monthKey, op);
                                 const live = liveInfo(idx, s, todayKey, nowMin);
@@ -345,8 +376,18 @@ export function StudioList(props: { env: Env; onCreate: () => void }): React.Rea
                                         <td className="sd-mono">{s.studioId}</td>
                                         <td className="sd-strong">{s.namaStudio || "—"}</td>
                                         <td>{s.kapasitasHost > 0 ? `${s.kapasitasHost} host` : <span className="sd-warntext" title="KapasitasHost kosong — utilisasi dihitung dengan kapasitas 1">— host</span>}</td>
-                                        <td className="sd-ellipsis" title={s.lokasiStudio}>
-                                            {s.lokasiStudio || "—"}
+                                        <td className="sd-loccell" title={s.lokasiStudio}>
+                                            {loc ? (
+                                                <>
+                                                    <span className="sd-strong">{locationKey(loc)}</span>
+                                                    {shared > 1 && <span className="sd-muted"> · {shared} studio</span>}
+                                                </>
+                                            ) : link === "broken" ? (
+                                                <span className="sd-dangertext sd-mono">{s.locationRef}</span>
+                                            ) : (
+                                                <span className="sd-muted">—</span>
+                                            )}
+                                            {s.lokasiStudio && <div className="sd-muted sd-ellipsis">{s.lokasiStudio}</div>}
                                         </td>
                                         <td>
                                             <span className={cx("sd-pct", `sd-pct--${utilTone(d.ratio)}`)}>{s.isActive ? pct(d.ratio) : "—"}</span>
@@ -375,7 +416,7 @@ export function StudioList(props: { env: Env; onCreate: () => void }): React.Rea
                                             <StudioStatusBadge studio={s} />
                                         </td>
                                         <td onClick={(e) => e.stopPropagation()}>
-                                            <GeoCell loc={loc} onFix={() => env.openStudio(s.studioId)} />
+                                            <GeoCell loc={loc} link={link} onFix={() => env.openStudio(s.studioId)} />
                                         </td>
                                         <td className="sd-right">
                                             <button type="button" className="sd-link" onClick={(e) => { e.stopPropagation(); env.openStudio(s.studioId); }}>

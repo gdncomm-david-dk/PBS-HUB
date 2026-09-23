@@ -1,5 +1,6 @@
 import * as React from "react";
-import { StudioRow } from "../core/types";
+import { LocationRow, StudioRow } from "../core/types";
+import { locationKey } from "../core/data";
 import { Banner, Button, Field, Modal } from "./components";
 
 export interface StudioFormValues {
@@ -8,11 +9,16 @@ export interface StudioFormValues {
     kapasitasHost: number;
     lokasiStudio: string;
     status: string;
+    /** Studio Location row the LocationID lookup points to; null leaves it empty. */
+    location: LocationRow | null;
 }
 
 export function StudioForm(props: {
     mode: "create" | "edit";
     studio?: StudioRow;
+    locations: LocationRow[];
+    current: LocationRow | null;
+    countAt: (l: LocationRow) => number;
     existingIds: string[];
     statusOptions: string[];
     saving: boolean;
@@ -26,6 +32,10 @@ export function StudioForm(props: {
     const [kap, setKap] = React.useState(s && s.kapasitasHost > 0 ? String(s.kapasitasHost) : "");
     const [lokasi, setLokasi] = React.useState(s?.lokasiStudio ?? "");
     const [status, setStatus] = React.useState(s?.status || props.statusOptions[0] || "Active");
+    const [locKey, setLocKey] = React.useState(props.current?.key ?? "");
+    const locOptions = [...props.locations].sort((a, b) => locationKey(a).localeCompare(locationKey(b)));
+    const othersAt = (l: LocationRow): number => props.countAt(l) - (props.current?.key === l.key ? 1 : 0);
+    const location = locOptions.find((l) => l.key === locKey) ?? null;
     const [touched, setTouched] = React.useState(false);
 
     const idTaken = props.mode === "create" && props.existingIds.some((x) => x.toLowerCase() === studioId.trim().toLowerCase());
@@ -40,7 +50,7 @@ export function StudioForm(props: {
     const submit = (): void => {
         setTouched(true);
         if (!valid || props.saving) return;
-        props.onSubmit({ studioId: studioId.trim(), namaStudio: nama.trim(), kapasitasHost: kapNum, lokasiStudio: lokasi.trim(), status });
+        props.onSubmit({ studioId: studioId.trim(), namaStudio: nama.trim(), kapasitasHost: kapNum, lokasiStudio: lokasi.trim(), status, location });
     };
 
     return (
@@ -79,7 +89,28 @@ export function StudioForm(props: {
                     </select>
                 </Field>
                 <div className="sd-formgrid__full">
-                    <Field label="Lokasi" hint="Alamat teks. Titik clock in diatur terpisah di tab Geofence.">
+                    <Field
+                        label="Lokasi (LocationID)"
+                        hint={
+                            location
+                                ? `${othersAt(location) > 0 ? `${othersAt(location)} studio lain juga memakai lokasi ini. ` : ""}Koordinat dan radius diatur di tab Geofence.`
+                                : "Belum ditautkan — host tidak bisa clock in. Pilih lokasi yang ada, atau buat lokasi baru di tab Geofence."
+                        }
+                        hintTone={location ? undefined : "warning"}
+                    >
+                        <select className="sd-input" value={locKey} onChange={(e) => setLocKey(e.target.value)}>
+                            <option value="">— Belum ditautkan —</option>
+                            {locOptions.map((l) => (
+                                <option key={l.key} value={l.key}>
+                                    {locationKey(l)}
+                                    {l.title && l.title !== locationKey(l) ? ` · ${l.title}` : ""} ({props.countAt(l)} studio)
+                                </option>
+                            ))}
+                        </select>
+                    </Field>
+                </div>
+                <div className="sd-formgrid__full">
+                    <Field label="Alamat" hint="Alamat teks (LokasiStudio). Titik clock in diambil dari lokasi di atas.">
                         <textarea className="sd-input" rows={2} value={lokasi} onChange={(e) => setLokasi(e.target.value)} />
                     </Field>
                 </div>

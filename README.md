@@ -2,7 +2,7 @@
 
 | Control | Screens | Managed solution | Canvas setup |
 |---|---|---|---|
-| `pbs_Ops.StudioDirectory` | Studio list, Studio detail | `releases/PBSStudioDirectory_managed_1.1.1.zip` | [`docs/studio-directory-canvas-setup.md`](docs/studio-directory-canvas-setup.md) |
+| `pbs_Ops.StudioDirectory` | Studio list, Studio detail | `releases/PBSStudioDirectory_managed_1.2.0.zip` | [`docs/studio-directory-canvas-setup.md`](docs/studio-directory-canvas-setup.md) |
 | `pbs_Ops.Schedule` | Schedule board, session detail, create/edit, bulk & AI upload | `releases/PBSSchedule_managed_1.0.0.zip` | [`docs/schedule-canvas-setup.md`](docs/schedule-canvas-setup.md) |
 
 ## `pbs_Ops.StudioDirectory` (Studio list + Studio detail)
@@ -12,15 +12,19 @@ built on the SharePoint data model in `DESIGN.md`.
 
 - **Studio list** — KPIs (utilization today / this month with delta, studios in use, studios needing action),
   "Sedang digunakan sekarang" tiles (which brand and which host is live in each studio right now), daily
-  utilization chart, searchable table with per-studio utilization, live usage, status and geofence state.
+  utilization chart, searchable table with per-studio utilization, live usage, status and geofence state,
+  the studio's location (LocationID, with how many studios share it) and a location filter.
 - **Studio detail** — header with utilization and GMV; tabs:
   - **Ringkasan**: who is using the studio now, utilization today/month, **GMV this month** (verified vs
     waiting review, per session, per live hour, per brand), upcoming schedule, studio and geofence details.
-  - **Geofence**: to-scale map editor (drag pin, drag radius), lat/long/radius fields, active toggle,
-    warnings for no geofence, radius < 25 m and inactive geofence.
+  - **Geofence**: the location the studio points to through the `Studio.LocationID` lookup and every
+    studio that shares it; move the studio to another location or create a new one (unique LocationID);
+    to-scale map editor (drag pin, drag radius), lat/long/radius fields, active toggle, warnings for no
+    location, a LocationID that does not exist, radius < 25 m, inactive geofence, and edits that apply to
+    all studios at a shared location.
   - **Jadwal**: daily utilization, per-hour capacity slots for a day, that day's sessions, and **every
     session of the month** with GMV and report status.
-- Create / edit studio modal.
+- Create / edit studio modal, including the Lokasi (LocationID) picker.
 
 ## `pbs_Ops.Schedule` (Schedule + session detail)
 

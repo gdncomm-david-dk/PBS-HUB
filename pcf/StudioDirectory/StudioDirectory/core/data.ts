@@ -160,6 +160,7 @@ const C = {
     longitude: ["Longitude", "Lon", "Lng"],
     radius: ["RadiusMeter", "Radius Meter", "Radius"],
     isActive: ["IsActive", "Is Active", "Active"],
+    locationId: ["LocationID", "Location ID", "LocationId"],
     date: ["Date", "LiveDate", "Tanggal"],
     brandId: ["BrandID", "Brand ID"],
     hostId: ["HostID", "Host ID"],
@@ -190,6 +191,23 @@ export function occupiesStudio(status: string): boolean {
     return !EXCLUDED_SCHEDULE_STATUS.test(status);
 }
 
+/**
+ * A SharePoint lookup arrives as { Id, Value } (canvas JSON), as an EntityReference { id: { guid }, name }
+ * (PCF dataset), or as plain text. Returns the shown value and the looked-up item ID when present.
+ */
+export function readLookup(v: unknown): { text: string; id: number | null } {
+    if (v === null || v === undefined || v === "") return { text: "", id: null };
+    if (Array.isArray(v)) return v.length ? readLookup(v[0]) : { text: "", id: null };
+    if (typeof v === "object" && !(v instanceof Date)) {
+        const o = v as Record<string, unknown>;
+        const rawId = o.Id ?? o.ID ?? o.LookupId ?? o.lookupId ?? (o.id && typeof o.id === "object" ? (o.id as Record<string, unknown>).guid : o.id);
+        const id = toNum(rawId);
+        const text = toText(o.Value ?? o.value ?? o.LookupValue ?? o.name ?? o.Name ?? o.DisplayName ?? "");
+        return { text, id: id !== null && Number.isInteger(id) && id > 0 ? id : null };
+    }
+    return { text: toText(v), id: null };
+}
+
 export function mapStudios(recs: RawRecord[]): StudioRow[] {
     const out: StudioRow[] = [];
     const seen = new Set<string>();
@@ -206,6 +224,11 @@ export function mapStudios(recs: RawRecord[]): StudioRow[] {
             namaStudio: toText(r.get(C.namaStudio)),
             kapasitasHost: Math.max(0, Math.round(toNum(r.get(C.kapasitas)) ?? 0)),
             lokasiStudio: toText(r.get(C.lokasi)),
+            ...(() => {
+                const lk = readLookup(r.get(C.locationId));
+                const extraId = toNum(r.get(["LocationIDId", "LocationID_Id", "LocationIdLookupId"]));
+                return { locationRef: lk.text, locationLookupId: lk.id ?? (extraId && extraId > 0 ? extraId : null) };
+            })(),
             status,
             isActive: isActiveStatus(status),
         });
@@ -218,6 +241,7 @@ export function mapLocations(recs: RawRecord[]): LocationRow[] {
         key: r.id,
         itemId: toNum(r.get(C.id)),
         title: toText(r.get(C.title)),
+        locationId: toText(r.get(C.locationId)),
         studioId: toText(r.get(C.studioId)),
         latitude: toNum(r.get(C.latitude)),
         longitude: toNum(r.get(C.longitude)),
@@ -312,22 +336,38 @@ export function mapReports(recs: RawRecord[]): ReportRow[] {
 
 const same = (a: string, b: string): boolean => !!a && !!b && a.trim().toLowerCase() === b.trim().toLowerCase();
 
+/** How a studio was matched to its location — shown in the UI so a wrong link is visible. */
+export type LocationLink = "lookup" | "legacy" | "broken" | "none";
+
 /**
- * Studio → Studio Location. The two lists are not joined by a key in v1 (v2 design spec §6A.3),
- * so the match is: an explicit StudioID column, else Title = StudioID, else Title = NamaStudio.
- * An active row wins over an inactive one.
+ * Studio → Studio Location through the Studio.LocationID lookup: the lookup item ID when the source carries it,
+ * else the shown value against Studio Location.LocationID (or Title). Studios without a LocationID fall back to
+ * the v1 heuristics (a StudioID column, Title = StudioID, Title = NamaStudio). An active row wins.
  */
-export function locationForStudio(studio: StudioRow, locations: LocationRow[]): LocationRow | null {
+export function linkLocation(studio: StudioRow, locations: LocationRow[]): { loc: LocationRow | null; link: LocationLink } {
+    const pick = (xs: LocationRow[]): LocationRow | null => (xs.length ? xs.find((l) => l.isActive) ?? xs[0] : null);
+    if (studio.locationLookupId !== null || studio.locationRef) {
+        const byId = studio.locationLookupId !== null ? locations.filter((l) => l.itemId === studio.locationLookupId) : [];
+        const byKey = studio.locationRef ? locations.filter((l) => same(l.locationId, studio.locationRef)) : [];
+        const byTitle = studio.locationRef ? locations.filter((l) => same(l.title, studio.locationRef)) : [];
+        const loc = pick(byId) ?? pick(byKey) ?? pick(byTitle);
+        return { loc, link: loc ? "lookup" : "broken" };
+    }
     const tiers = [
         locations.filter((l) => same(l.studioId, studio.studioId)),
         locations.filter((l) => same(l.title, studio.studioId)),
         locations.filter((l) => same(l.title, studio.namaStudio)),
     ];
-    for (const t of tiers) {
-        if (t.length) return t.find((l) => l.isActive) ?? t[0];
-    }
-    return null;
+    for (const t of tiers) if (t.length) return { loc: pick(t), link: "legacy" };
+    return { loc: null, link: "none" };
 }
+
+export function locationForStudio(studio: StudioRow, locations: LocationRow[]): LocationRow | null {
+    return linkLocation(studio, locations).loc;
+}
+
+/** Display key of a location: its LocationID, else its Title. */
+export const locationKey = (l: LocationRow): string => l.locationId || l.title;
 
 // ---------------------------------------------------------------------------------------------
 // Context
