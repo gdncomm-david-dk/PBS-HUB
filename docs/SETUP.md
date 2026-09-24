@@ -192,6 +192,11 @@ If(rid <> varLastStudioRid,
 )))
 ```
 
+**`; true` inside `IfError`.** `IfError(value, fallback)` needs both arguments to have the same type. `Patch`
+returns a record and `Set` returns a Boolean, so `IfError(Patch(...), Set(...))` fails with *"Invalid argument
+type (Boolean). Expecting a Record value instead."* Ending the value with `; true` makes both sides Boolean.
+The same applies to every `IfError` in C4.
+
 **`Studio.LocationID` column type.** The handler above writes it as **text**. If Patch reports
 *"The type of this argument 'LocationID' does not match the expected type 'Text'. Found type 'Record'"*, the
 column is text and an older record-style formula is still in place: replace every `LocationID: { Id: …, Value: … }`
@@ -538,6 +543,7 @@ file was uploaded.
 | Brand or host shows an ID, with a yellow banner | `brands` / `hosts` are not bound, or lack `ID`, `Title`, `BrandID`/`HostID` or the name column | See C2 *Names, not IDs* |
 | Saving a session fails on Status or Position | The choice column lacks `Finished`, or `Main Host` / `Co-Host` | Add the values in SharePoint (A2) |
 | Patch error *LocationID … expected type 'Text'. Found type 'Record'* | `Studio.LocationID` is a text column but the formula writes a lookup record | Write `LocationID: Text(p.locationId)` (B4) |
+| *Invalid argument type (Boolean). Expecting a Record value instead* in `OnChange` | An `IfError(Patch(...), Set(...))` without `; true` | End the first argument with `; true` (B4) |
 | Uploaded file is corrupt, or contains `data:` text | The tenant does not convert a data URI into bytes | Use the flow (C4a option B), or `uploadMode: "canvas"` (C4b) |
 | The control stays locked after an action | `ActionResult` is not set to the reply variable, or the reply's `requestId` differs | Check that `ActionResult` = `varStudioResult` / `varSchedResult`, and that the handler echoes `rid` |
 | Only the first bulk file creates schedules | The old button ran PBS0001A once | Use the `ForAll(colBulkFiles, …Run(Name))` in C4b |
