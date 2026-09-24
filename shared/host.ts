@@ -272,9 +272,10 @@ export const SESSION_STATUS: Record<SessionStatus, { label: string; tone: Tone }
 export function sessionStatus(row: Row): SessionStatus {
   const s = str(row, "Status").toLowerCase();
   if (s === "" || /plan|terjadwal|scheduled/.test(s)) return "PLANNED";
-  if (/cancel|batal/.test(s)) return "CANCELLED";
+  if (/cancel|batal|leave|cuti/.test(s)) return "CANCELLED";
   if (/waiting|menunggu/.test(s)) return "WAITING_REPORT";
-  if (/done|selesai|complete/.test(s)) return "DONE";
+  // v1 writes "Finished" when a session ends; "Done" is kept for older rows.
+  if (/finish|done|selesai|complete/.test(s)) return "DONE";
   return "OTHER";
 }
 

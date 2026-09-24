@@ -1,6 +1,6 @@
 # Integrasi canvas — PBS Hub Host PCF
 
-Solusi terpisah dari Ops Console: **`PBSHubHostPCF`** (managed, `dist/PBSHubHostPCF_1_0_0_0_managed.zip`).
+Solusi terpisah dari Ops Console: **`PBSHubHostPCF`** (managed, `dist/PBSHubHostPCF_1_0_1_0_managed.zip`).
 Publisher dan prefix sama (`PBSHub` / `pbs`), jadi kedua solusi bisa dipasang berdampingan di environment yang
 sama, tapi bisa di-upgrade sendiri-sendiri.
 
@@ -326,7 +326,7 @@ draft (terlalu besar); host memilihnya lagi saat submit. Draft dihapus setelah s
 
 ## 6. Pemasangan
 
-1. Import `dist/PBSHubHostPCF_1_0_0_0_managed.zip` (Solutions → Import). Bisa di environment yang sama dengan
+1. Import `dist/PBSHubHostPCF_1_0_1_0_managed.zip` (Solutions → Import). Bisa di environment yang sama dengan
    `PBSHubOpsPCF`.
 2. Di canvas app host: **Insert → Get more components → Code** → `PBS Host Dashboard`, `PBS Host My Reports`,
    `PBS Host My Report Detail`.

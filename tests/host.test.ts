@@ -1,6 +1,6 @@
 import { hasPermission, parseContext } from "../shared/contract";
 import { availableClockInDates, clockInStatuses } from "../shared/clockIn";
-import { bandOf, buildHost, buildLedger, buildSessions, checkLedger, deactivationImpact, maskedPii, parseBands, revealedFor, sensitiveKeysIn, toneFromText } from "../shared/host";
+import { bandOf, buildHost, buildLedger, buildSessions, checkLedger, deactivationImpact, maskedPii, parseBands, revealedFor, sensitiveKeysIn, sessionStatus, toneFromText } from "../shared/host";
 
 const NOW = new Date("2026-09-14T11:42:00");
 const bands = parseBands([
@@ -127,5 +127,15 @@ describe("manual clock-in", () => {
     expect(clockInStatuses({})).toEqual([{ label: "Hadir - Tugas", hk: 180000 }, { label: "Hadir - Retainer", hk: 30000 }]);
     expect(clockInStatuses({ clockInStatuses: ["Hadir - Tugas", "Izin"] })).toEqual([{ label: "Hadir - Tugas", hk: 180000 }, { label: "Izin", hk: 0 }]);
     expect(clockInStatuses({ clockInStatuses: [{ label: "Hadir - Tugas", hk: 200000 }] })[0]?.hk).toBe(200000);
+  });
+});
+
+describe("sessionStatus", () => {
+  it("treats Finished (v1 final status) and legacy Done as done", () => {
+    expect(sessionStatus({ Status: { Value: "Finished" } })).toBe("DONE");
+    expect(sessionStatus({ Status: "Done" })).toBe("DONE");
+    expect(sessionStatus({ Status: "Planned" })).toBe("PLANNED");
+    expect(sessionStatus({ Status: "Waiting Report" })).toBe("WAITING_REPORT");
+    expect(sessionStatus({ Status: "Leave" })).toBe("CANCELLED");
   });
 });

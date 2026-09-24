@@ -54,21 +54,21 @@
     sch(18, "10:30", "12:30", "BRD-004", "HST-004", "STD-01"),
     sch(18, "11:00", "13:00", "BRD-008", "HST-005", "STD-01"),
     // past sessions (some without reports)
-    sch(10, "10:00", "12:00", "BRD-001", "HST-003", "STD-01", "Done"),
-    sch(11, "13:00", "15:00", "BRD-005", "HST-004", "STD-04", "Done", "Lazada"),
-    sch(12, "19:00", "21:00", "BRD-008", "HST-002", "STD-01", "Done"),
-    sch(13, "10:00", "12:00", "BRD-002", "HST-001", "STD-02", "Done"),
-    sch(13, "13:00", "15:00", "BRD-006", "HST-005", "STD-05", "Done", "Shopee"),
-    sch(14, "07:00", "09:00", "BRD-007", "HST-001", "STD-02", "Done"),
-    sch(14, "07:00", "09:00", "BRD-003", "HST-002", "STD-04", "Done", "Shopee"),
-    sch(9, "10:00", "12:00", "BRD-004", "HST-006", "STD-04", "Done"),
-    sch(10, "15:00", "17:00", "BRD-002", "HST-007", "STD-05", "Done"),
-    sch(11, "15:00", "17:00", "BRD-001", "HST-008", "STD-03", "Done"),
-    sch(12, "09:00", "11:00", "BRD-006", "HST-009", "STD-04", "Done", "Shopee"),
+    sch(10, "10:00", "12:00", "BRD-001", "HST-003", "STD-01", "Finished"),
+    sch(11, "13:00", "15:00", "BRD-005", "HST-004", "STD-04", "Finished", "Lazada"),
+    sch(12, "19:00", "21:00", "BRD-008", "HST-002", "STD-01", "Finished"),
+    sch(13, "10:00", "12:00", "BRD-002", "HST-001", "STD-02", "Finished"),
+    sch(13, "13:00", "15:00", "BRD-006", "HST-005", "STD-05", "Finished", "Shopee"),
+    sch(14, "07:00", "09:00", "BRD-007", "HST-001", "STD-02", "Finished"),
+    sch(14, "07:00", "09:00", "BRD-003", "HST-002", "STD-04", "Finished", "Shopee"),
+    sch(9, "10:00", "12:00", "BRD-004", "HST-006", "STD-04", "Finished"),
+    sch(10, "15:00", "17:00", "BRD-002", "HST-007", "STD-05", "Finished"),
+    sch(11, "15:00", "17:00", "BRD-001", "HST-008", "STD-03", "Finished"),
+    sch(12, "09:00", "11:00", "BRD-006", "HST-009", "STD-04", "Finished", "Shopee"),
     sch(12, "13:00", "15:00", "BRD-003", "HST-010", "STD-05", "Cancelled", "Shopee"),
     // past sessions with no report at all -> "Report belum masuk"
-    sch(10, "19:00", "21:00", "BRD-005", "HST-006", "STD-04", "Done"),
-    sch(11, "19:00", "21:00", "BRD-007", "HST-007", "STD-05", "Done"),
+    sch(10, "19:00", "21:00", "BRD-005", "HST-006", "STD-04", "Finished"),
+    sch(11, "19:00", "21:00", "BRD-007", "HST-007", "STD-05", "Finished"),
     sch(12, "16:00", "18:00", "BRD-004", "HST-008", "STD-03", "Waiting Report"),
   ];
 
@@ -233,7 +233,7 @@
   const hostExtraClockIns = [8, 9].map((day) => ({ ID: 9900 + day, HostID: "HST-012", ClockInDate: d(day), CheckInTime: d(day, "08:04"), CheckOutTime: d(day, "17:02"), IsInsideGeofence: true, HKTugas: 180000, Insentif: 0, Streak: 0 }));
   const hostExtraSchedules = [
     { ID: 3290, Title: "SCD-3290", Date: d(18), StartTime: "19:00", EndTime: "21:00", BrandID: "BRD-006", HostID: "HST-012", StudioID: "STD-04", Status: { Value: "Planned" }, Platform: { Value: "Shopee" } },
-    { ID: 3291, Title: "SCD-3291", Date: d(4), StartTime: "10:00", EndTime: "12:00", BrandID: "BRD-002", HostID: "HST-012", StudioID: "STD-05", Status: { Value: "Done" }, Platform: { Value: "TikTok" } },
+    { ID: 3291, Title: "SCD-3291", Date: d(4), StartTime: "10:00", EndTime: "12:00", BrandID: "BRD-002", HostID: "HST-012", StudioID: "STD-05", Status: { Value: "Finished" }, Platform: { Value: "TikTok" } },
   ];
   // What canvas hands back after it logged a REVEAL_PII (dummy values).
   const piiValues = (h, i) => ({
@@ -247,15 +247,15 @@
   // Past: a revision with flagged metrics, one unsent (on time), one unsent (late), one without clock-in.
   const hs = (id, day, start, end, brand, studio, status, platform) => ({
     ID: id, Title: `SCD-${id}`, Date: d(day), StartTime: start, EndTime: end, BrandID: brand, HostID: "HST-001", StudioID: studio,
-    Status: { Value: status || "Done" }, Platform: { Value: platform || "TikTok" }, AccountID: `ACC-${brand.slice(-3)}`, JamLive: 2,
+    Status: { Value: status || "Finished" }, Platform: { Value: platform || "TikTok" }, AccountID: `ACC-${brand.slice(-3)}`, JamLive: 2,
   });
   const hostSchedules = [
-    hs(3301, 11, "13:00", "15:00", "BRD-003", "STD-03", "Done", "Shopee"),
+    hs(3301, 11, "13:00", "15:00", "BRD-003", "STD-03", "Finished", "Shopee"),
     hs(3302, 12, "19:00", "21:00", "BRD-005", "STD-04"),
     hs(3303, 9, "10:00", "12:00", "BRD-008", "STD-01"),
     hs(3304, 7, "13:00", "15:00", "BRD-002", "STD-02"),
     hs(3305, 8, "10:00", "12:00", "BRD-001", "STD-02"),
-    hs(3306, 5, "15:00", "17:00", "BRD-006", "STD-05", "Done", "Shopee"),
+    hs(3306, 5, "15:00", "17:00", "BRD-006", "STD-05", "Finished", "Shopee"),
     hs(3307, 3, "10:00", "12:00", "BRD-004", "STD-01", "Cancelled"),
   ];
   const abs = (n, scd, day, time) => ({ ID: 8800 + n, Title: `ABS-${8800 + n}`, HostID: "HST-001", ScheduleID: scd, AbsenceDate: d(day), CheckInTime: d(day, time), Created: d(day, time) });
