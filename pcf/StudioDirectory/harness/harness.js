@@ -66,7 +66,7 @@
             StartTime: hm(start), EndTime: hm(end), JamLive: (end - start) / 60,
             Status: { Value: status }, Platform: { Value: rnd() > 0.5 ? "TikTok" : "Shopee" },
             Account: brand.replace("BR", "ACC"), Shift: start < 780 ? "Pagi" : start < 1080 ? "Siang" : "Malam",
-            CampaignName: "",
+            CampaignName: "", Position: { Value: rnd() < 0.15 ? "Co-Host" : "Main Host" },
         });
     };
     var busy = { "CWG-05": 0.55, "CWG-03": 0.85, "BSD-02": 0.45, "CWG-07": 0.2, "CWG-06": 0.5, "CWG-01": 0, "CWG-02": 0.4, "CWG-04": 0.3, "KMG-01": 0.35 };
@@ -188,9 +188,10 @@
                 schedules: makeDataset(e ? [] : schedules, state.loading),
                 brands: makeDataset(brands),
                 hosts: makeDataset(hosts),
+                accounts: makeDataset(brands.map(function (b, i) { return { ID: 900 + i, Title: b.Title.replace("BR", "ACC"), AccountName: b.NamaBrand + " Official" }; })),
                 reports: makeDataset(e ? [] : reports, state.loading),
                 ReportsJson: { raw: "" },
-                StudiosJson: { raw: "" }, LocationsJson: { raw: "" }, SchedulesJson: { raw: "" }, BrandsJson: { raw: "" }, HostsJson: { raw: "" },
+                StudiosJson: { raw: "" }, LocationsJson: { raw: "" }, SchedulesJson: { raw: "" }, BrandsJson: { raw: "" }, HostsJson: { raw: "" }, AccountsJson: { raw: "" },
                 Context: { raw: JSON.stringify({ userEmail: "ops.user@example.com", userName: "Bayu Prasetyo", roles: "PBS_TEAM", permissions: "", config: { maxAccuracyMeters: 100 } }) },
                 Mode: { raw: state.mode },
                 ActionResult: { raw: state.actionResult },

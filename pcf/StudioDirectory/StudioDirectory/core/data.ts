@@ -76,47 +76,50 @@ function isBound(ds: DataSet | undefined): ds is DataSet {
     return !!ds && Array.isArray(ds.sortedRecordIds);
 }
 
+const CHOICE_TYPE = /optionset|twooptions|picklist|enum|choice/i;
+const NUMBER_TYPE = /whole|decimal|currency|fp|integer|number|money/i;
+
 export function datasetRecords(ds: DataSet | undefined): RawRecord[] {
     if (!isBound(ds)) return [];
     const colMap = new Map<string, string>();
+    const colType = new Map<string, string>();
     for (const c of ds.columns ?? []) {
+        colType.set(c.name, c.dataType ?? "");
         for (const label of [c.name, c.displayName, c.alias]) {
             if (label && !colMap.has(norm(label))) colMap.set(norm(label), c.name);
         }
     }
     return ds.sortedRecordIds.map((id) => {
         const rec = ds.records[id];
+        const read = (col: string): unknown => {
+            let v: unknown = null;
+            try {
+                v = rec.getValue(col);
+            } catch {
+                v = null;
+            }
+            let f: unknown = null;
+            try {
+                f = rec.getFormattedValue(col);
+            } catch {
+                f = null;
+            }
+            // A Choice column hands getValue its option number (0, 1, 4 …); the label is the formatted value.
+            if (CHOICE_TYPE.test(colType.get(col) ?? "") && typeof f === "string" && f !== "") return f;
+            if (typeof v === "number" && !NUMBER_TYPE.test(colType.get(col) ?? "") && typeof f === "string" && f !== "" && !/^[\d\s.,-]+$/.test(f)) return f;
+            return v === null || v === undefined || v === "" ? f : v;
+        };
         return {
             id,
             get(names: readonly string[]): unknown {
                 for (const n of names) {
-                    const col = colMap.get(norm(n)) ?? n;
-                    let v: unknown = null;
-                    try {
-                        v = rec.getValue(col);
-                    } catch {
-                        v = null;
-                    }
-                    if (v === null || v === undefined || v === "") {
-                        try {
-                            v = rec.getFormattedValue(col);
-                        } catch {
-                            v = null;
-                        }
-                    }
+                    const v = read(colMap.get(norm(n)) ?? n);
                     if (v !== null && v !== undefined && v !== "") return v;
                 }
                 return null;
             },
             values(): unknown[] {
-                return (ds.columns ?? []).map((c) => {
-                    try {
-                        const v = rec.getValue(c.name);
-                        return v === null || v === undefined || v === "" ? rec.getFormattedValue(c.name) : v;
-                    } catch {
-                        return null;
-                    }
-                });
+                return (ds.columns ?? []).map((c) => read(c.name));
             },
         };
     });
@@ -321,11 +324,13 @@ export function buildNameMap(recs: RawRecord[], nameCols: readonly string[]): Ma
 
 export const BRAND_NAME_COLS = C.namaBrand;
 export const HOST_NAME_COLS = C.namaHost;
+export const ACCOUNT_NAME_COLS = ["AccountName", "Account Name", "NamaAccount"] as const;
 
 export function mapSchedules(
     recs: RawRecord[],
     brandNames: Map<string, string>,
     hostNames: Map<string, string>,
+    accountNames: Map<string, string> = new Map(),
 ): ScheduleRow[] {
     const out: ScheduleRow[] = [];
     for (const r of recs) {
@@ -354,7 +359,10 @@ export function mapSchedules(
             hostId,
             hostName: hostNames.get(hostId.toLowerCase()) || projectedHost || hostId,
             platform: toText(r.get(C.platform)),
-            account: toText(r.get(C.account)),
+            accountId: toText(r.get(C.account)),
+            account: accountNames.get(toText(r.get(C.account)).toLowerCase()) || toText(r.get(["AccountName", "Account Name"])) || toText(r.get(C.account)),
+            position: toText(r.get(["Position"])),
+            coHost: /co.?host/i.test(toText(r.get(["Position"]))),
             shift: toText(r.get(C.shift)),
             campaignName: toText(r.get(C.campaign)),
             status: toText(r.get(C.status)),

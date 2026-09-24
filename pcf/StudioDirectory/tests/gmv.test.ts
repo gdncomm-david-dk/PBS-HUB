@@ -141,3 +141,19 @@ describe("live break as in the tenant: Schedule.LiveBreak = Yes (choice), Report
         expect(st(3)).toBe("verified");
     });
 });
+
+describe("Co-Host", () => {
+    it("needs no report when Position is Co-Host", () => {
+        const rows = mapSchedules(
+            rec([
+                { Title: "SCD-50", Date: "2026-09-10", StudioID: "CWG-05", StartTime: "12:00", EndTime: "13:00", Status: "Finished", Position: { Value: "Co-Host" }, LiveBreak: { Value: "No" } },
+                { Title: "SCD-51", Date: "2026-09-10", StudioID: "CWG-05", StartTime: "12:00", EndTime: "13:00", Status: "Finished", Position: { Value: "Main Host" } },
+            ]),
+            new Map(),
+            new Map(),
+        );
+        const none = new ReportIndex([]);
+        expect(sessionGmv(none, rows[0], "2026-09-20", 600).state).toBe("coHost");
+        expect(sessionGmv(none, rows[1], "2026-09-20", 600).state).toBe("missing");
+    });
+});

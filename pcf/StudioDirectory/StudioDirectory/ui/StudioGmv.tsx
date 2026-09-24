@@ -14,6 +14,7 @@ export const REPORT_BADGE: Record<ReportState, { label: string; tone: Tone }> = 
     missing: { label: "Belum ada report", tone: "danger" },
     notDue: { label: "—", tone: "neutral" },
     liveBreak: { label: "Live Break", tone: "neutral" },
+    coHost: { label: "Co-Host", tone: "neutral" },
 };
 
 export function ReportCell(props: { state: ReportState }): React.ReactElement {
@@ -53,7 +54,7 @@ export function GmvCard(props: { env: Env; studio: StudioRow }): React.ReactElem
                             <div className="sd-gmv__total">{formatIdr(g.total)}</div>
                             <div className="sd-kpi__foot">
                                 {g.reportedSessions} dari {g.sessions - g.liveBreaks} sesi sudah ada report
-                                {g.liveBreaks > 0 && ` · ${g.liveBreaks} live break`}
+                                {g.liveBreaks > 0 && ` · ${g.liveBreaks} tanpa report (live break / co-host)`}
                                 {delta !== null && (
                                     <span className={cx("sd-kpi__delta", delta >= 0 ? "is-up" : "is-down")}>
                                         {" "}· {delta >= 0 ? "▲" : "▼"} {Math.abs(delta)}% dari {monthName(prevKey)}
@@ -264,6 +265,7 @@ export function MonthSchedule(props: { env: Env; studio: StudioRow; selectedDay:
                             <th>Jam</th>
                             <th>Brand</th>
                             <th>Host</th>
+                            <th>ScheduleID</th>
                             <th>Platform · Account</th>
                             <th>Status</th>
                             <th className="sd-right">GMV</th>
@@ -274,14 +276,14 @@ export function MonthSchedule(props: { env: Env; studio: StudioRow; selectedDay:
                         {env.loading.schedules && all.length === 0 ? (
                             [0, 1, 2].map((i) => (
                                 <tr key={i} className="sd-skel-row">
-                                    <td colSpan={8}>
+                                    <td colSpan={9}>
                                         <span className="sd-skel" style={{ width: `${50 + i * 12}%` }} />
                                     </td>
                                 </tr>
                             ))
                         ) : visible.length === 0 ? (
                             <tr>
-                                <td colSpan={8}>
+                                <td colSpan={9}>
                                     <div className="sd-state sd-state--sm">
                                         <div className="sd-state__title">
                                             {all.length === 0 ? `Belum ada jadwal di studio ini pada ${formatMonth(env.monthKey)}` : "Tidak ada jadwal untuk filter ini"}
@@ -310,7 +312,11 @@ export function MonthSchedule(props: { env: Env; studio: StudioRow; selectedDay:
                                         </td>
                                         <td className="sd-mono sd-nowrap">{timeRange(s)}</td>
                                         <td className="sd-strong">{s.brandName || "—"}</td>
-                                        <td>{s.hostName || "—"}</td>
+                                        <td>
+                                            {s.hostName || "—"}
+                                            {s.coHost && <span className="sd-muted"> · Co-Host</span>}
+                                        </td>
+                                        <td className="sd-mono sd-muted sd-nowrap">{s.scheduleId || "—"}</td>
                                         <td>
                                             {s.platform || "—"}
                                             {s.account && <span className="sd-muted"> · {s.account}</span>}
@@ -319,7 +325,7 @@ export function MonthSchedule(props: { env: Env; studio: StudioRow; selectedDay:
                                             <Badge tone={st.tone}>{st.label}</Badge>
                                         </td>
                                         <td className="sd-right">
-                                            <GmvCell gmv={g.gmv} hasReport={g.reports.length > 0} />
+                                            <GmvCell gmv={g.gmv} hasReport={g.reports.length > 0 && g.state !== "liveBreak"} />
                                         </td>
                                         <td>
                                             <ReportCell state={g.state} />

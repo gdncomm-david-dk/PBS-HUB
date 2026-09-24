@@ -5,8 +5,8 @@ for the Studio screens and part C for the Schedule screen.
 
 | Control | Display name | Solution (managed) | Version | Screens |
 |---|---|---|---|---|
-| `pbs_Ops.StudioHub` | PBS Studio Hub | `releases/PBSStudioHub_managed_1.5.1.zip` (`PBSStudioHub`) | 1.5.1 | Studio list, Studio detail |
-| `pbs_Ops.Schedule` | PBS Schedule | `releases/PBSSchedule_managed_1.2.1.zip` (`PBSSchedule`) | 1.2.1 | Schedule board, session detail, create/edit, bulk & AI upload |
+| `pbs_Ops.StudioHub` | PBS Studio Hub | `releases/PBSStudioHub_managed_1.6.0.zip` (`PBSStudioHub`) | 1.6.0 | Studio list, Studio detail |
+| `pbs_Ops.Schedule` | PBS Schedule | `releases/PBSSchedule_managed_1.2.2.zip` (`PBSSchedule`) | 1.2.2 | Schedule board, session detail, create/edit, bulk & AI upload |
 
 Neither control writes to SharePoint. Each one emits an `ActionPayload` `{ action, requestId, payload }`; the
 canvas app does the `Patch` and replies through `ActionResult` with the same `requestId`. Until that reply
@@ -27,7 +27,7 @@ arrives the control stays locked. It gives up after 30 seconds for a save, or 3 
 **Check the version.** From 1.5.0 the Studio control is a new component, **PBS Studio Hub**
 (`pbs_Ops.StudioHub`, solution `PBSStudioHub`), so the app cannot keep running a cached older build. Delete the old
 *PBS Studio Master* / *PBS Studio Directory* control from the screen, insert *PBS Studio Hub* and set the same
-properties and `OnChange` on it. The header then shows `pbs_Ops.StudioHub 1.5.1`.
+properties and `OnChange` on it. The header then shows `pbs_Ops.StudioHub 1.6.0`.
 
 The old solutions `PBSStudioMaster`, `PBSHubStudio` and `PBSStudioDirectory` can be deleted once the app runs
 `pbs_Ops.StudioHub`.
@@ -41,6 +41,7 @@ The old solutions `PBSStudioMaster`, `PBSHubStudio` and `PBSStudioDirectory` can
 | `Schedule - PBS Hub` | `Status` | Choice that includes **`Finished`**. The full set is `Planned`, `Waiting Report`, `Finished`, `Cancelled`, `Leave` |
 | `Schedule - PBS Hub` | `Position` | Choice with exactly **`Main Host`** and **`Co-Host`** |
 | `Schedule - PBS Hub` | `LiveBreak` | Choice `Yes` / `No`. `Yes` marks a live break: the Studio page shows *Live Break* instead of *Belum ada report* |
+| `Schedule - PBS Hub` | `Position` (for reports) | `Co-Host` needs no report either (the main host files it): the Studio page shows *Co-Host* instead of *Belum ada report* |
 | `Report - PBS Hub` | `ApprovalStatus` | A live break's report row has `LiveBreak`. It counts as no report and adds no GMV |
 | `Brand - PBS Hub` / `Host - PBS Hub` | `NamaBrand` / `NamaHost` | Used to show names instead of IDs |
 
@@ -51,20 +52,24 @@ below, open **Fields → Edit** and add the columns named in the property's desc
 two datasets:
 
 - On the Studio control, add `LocationID` to both `studios` and `locations`. Without it no studio can be linked.
-- On the Studio control, add `LiveBreak` to `schedules` and `ApprovalStatus` to `reports`. Without them a live
-  break shows *Belum ada report*.
+- On the Studio control, add `LiveBreak` and `Position` to `schedules` and `ApprovalStatus` to `reports`. Without
+  them a live break or a Co-Host session shows *Belum ada report*.
 - On the Schedule control, add `ID`, `Title` and `BrandID` / `HostID` to `brands` and `hosts`. Without them
   the board cannot show names.
 
 Each dataset also has a `*Json` fallback (`StudiosJson`, `SchedulesJson`, `BrandsJson`, …). A non-empty
 `*Json` value wins over its dataset.
 
+**Choice columns.** Canvas hands a PCF dataset the option *number* of a Choice column (`Status` 4, `Platform` 1).
+From Studio Hub 1.6.0 and Schedule 1.2.2 the controls read the label (`Finished`, `Tiktok`, `Yes`) instead. On an
+older version the board shows `0`, `4`, `5` in the Status column and live breaks are missed.
+
 **Never bind the whole `Host - PBS Hub` list.** It holds `KTP` and `NoRekening`. Bind only the columns shown
 in the tables below.
 
 ---
 
-# B. PBS Studio Hub (`pbs_Ops.StudioHub` 1.5.1)
+# B. PBS Studio Hub (`pbs_Ops.StudioHub` 1.6.0)
 
 ## B1. Period variables
 
@@ -87,6 +92,7 @@ Set(varStudioResult, "");
 | `schedules` | `Schedule - PBS Hub` | `Filter('Schedule - PBS Hub', Date >= varPeriodStart && Date <= varPeriodEnd)` |
 | `reports` | `Report - PBS Hub` | `Filter('Report - PBS Hub', LiveDate >= varPeriodStart && LiveDate <= varPeriodEnd)` |
 | `brands` | `Brand - PBS Hub` | `ShowColumns('Brand - PBS Hub', Title, NamaBrand)` |
+| `accounts` | `Account - PBS Hub` | `ShowColumns('Account - PBS Hub', Title, AccountName)`. Shows the account name instead of `AC-017` |
 | `hosts` | `Host - PBS Hub` | `ShowColumns('Host - PBS Hub', Title, NamaHost)` — **never bind the whole list**: it holds `KTP` and `NoRekening` |
 
 All `Filter` clauses above are delegable to SharePoint. The control pages through every result page itself.
@@ -224,14 +230,14 @@ The control stays locked until its own `requestId` comes back, and gives up afte
 | **Utilization** | Schedule + Studio.KapasitasHost | scheduled host-hours ÷ (KapasitasHost × operating hours × days). Cancelled/Leave excluded; hours clipped to the operating window. Overall = active studios only. Daily and monthly, overall and per studio |
 | **Sedang digunakan** | Schedule | sessions whose Date is today and StartTime ≤ now < EndTime (overnight sessions from yesterday included). Shows brand (via BrandID → Brand.NamaBrand), host(s) (HostID → Host.NamaHost), time left and slots used vs capacity |
 | **Capacity per slot** | Schedule | distinct hosts per hour vs KapasitasHost; over-capacity slots are flagged (v1 never enforced capacity) |
-| **GMV** | Report.Penjualan | Report has no StudioID, so it is joined `Report.ScheduleID → Schedule.Title → Schedule.StudioID`; several reports per session (one per account) are summed. Split into *Terverifikasi* (`ApprovalStatus = Done`), *Menunggu review* and *Perlu revisi*. Ended sessions without a report are counted as "Belum ada report", except live breaks: a session whose `Schedule.LiveBreak` is `Yes`, or whose only report rows have `ApprovalStatus = LiveBreak`, shows **Live Break**, needs no report and adds no GMV. A LiveBreak row next to real reports is ignored |
+| **GMV** | Report.Penjualan | Report has no StudioID, so it is joined `Report.ScheduleID → Schedule.Title → Schedule.StudioID`; several reports per session (one per account) are summed. Split into *Terverifikasi* (`ApprovalStatus = Done`), *Menunggu review* and *Perlu revisi*. Ended sessions without a report are counted as "Belum ada report", except live breaks and Co-Host sessions: a session whose `Schedule.Position` is `Co-Host` shows **Co-Host**, and a session whose `Schedule.LiveBreak` is `Yes`, or whose only report rows have `ApprovalStatus = LiveBreak`, shows **Live Break**, needs no report and adds no GMV. A LiveBreak row next to real reports is ignored |
 | **Geofence link** | Studio.LocationID → Studio Location | The lookup item ID first (lookup column only), else the text value against `Studio Location.LocationID` (then `Title`). One location serves many studios; the list, detail and Geofence tab show how many, and editing a shared geofence warns that it applies to all of them. A LocationID that no location carries is shown as *LocationID tidak ditemukan*. Studios without a LocationID fall back to the v1 name match (a `StudioID` column → `Title = StudioID` → `Title = NamaStudio`) and are offered a one-click *Tautkan* |
 
 These are display metrics. Nothing that money depends on is computed in the control.
 
 ---
 
-# C. PBS Schedule (`pbs_Ops.Schedule` 1.2.1)
+# C. PBS Schedule (`pbs_Ops.Schedule` 1.2.2)
 
 The control renders the **Schedule board (S-1)** as a calendar (week × brand lanes, or studio lanes) or a list, grouped by brand and sorted by start time,, and the
 **session detail (S-2)** with the seven-step evidence chain. It also provides three ways to create schedules:
@@ -547,7 +553,7 @@ file was uploaded.
 
 | Symptom | Cause | Fix |
 |---|---|---|
-| Studio header does not show `pbs_Ops.StudioHub 1.5.1` | The screen still holds the old control, or the code component was not updated | Delete the control, insert **PBS Studio Hub**, then save and publish. After an import, accept **Update code components** |
+| Studio header does not show `pbs_Ops.StudioHub 1.6.0` | The screen still holds the old control, or the code component was not updated | Delete the control, insert **PBS Studio Hub**, then save and publish. After an import, accept **Update code components** |
 | *Mapping lokasi* banner: studios not linked | `LocationID` is missing from **Fields** on `studios` or `locations` | Open **Lihat kolom** in the banner to see which columns actually arrive. Add `LocationID` under **Fields → Edit** on both datasets, or use `StudiosJson` as in B2 |
 | *LocationID tidak ditemukan* on a studio | The studio's `LocationID` is not carried by any item in the `locations` dataset (typo, extra space, or the item is filtered out) | Bind the whole `Studio Location - PBS` list, or pick another location in the Geofence tab |
 | Brand or host shows an ID, with a yellow banner | `brands` / `hosts` are not bound, or lack `ID`, `Title`, `BrandID`/`HostID` or the name column | See C2 *Names, not IDs* |
@@ -556,6 +562,7 @@ file was uploaded.
 | *Invalid argument type (Boolean). Expecting a Record value instead* in `OnChange` | An `IfError(Patch(...), Set(...))` without `; true` | End the first argument with `; true` (B4) |
 | Studio › Jadwal shows *Belum ada report* for a live break | `Schedule.LiveBreak` does not reach `schedules`, or `Report.ApprovalStatus` does not reach `reports` | The Jadwal card shows a banner naming the missing column; open **Lihat kolom** and add it under **Fields → Edit** (or to `SchedulesJson` / `ReportsJson`) |
 | The Studio `OnChange` is red on its first line (`With({ req: ParseJSON(...) },`) | Power Apps reports every error in the formula there. Common causes: a variable (`varOk`, `varErr`, `varData`, `varPeriodStart`) already has another type in the app, or a column type differs (`Status` text instead of choice, `KapasitasHost` text instead of number) | Hover the red line for the message. Use the handler as in B4 (own variable names). For a text `Status` write `Status: Text(p.status)`; for a text `KapasitasHost` write `KapasitasHost: Text(p.kapasitasHost)` |
+| Status shows `0`, `4`, `5`; Platform shows `1`; a Finished live break shows *Menunggu review* | The control is older than Studio Hub 1.6.0 / Schedule 1.2.2 and reads Choice option numbers | Import the current zips and accept **Update code components** |
 | Uploaded file is corrupt, or contains `data:` text | The tenant does not convert a data URI into bytes | Use the flow (C4a option B), or `uploadMode: "canvas"` (C4b) |
 | The control stays locked after an action | `ActionResult` is not set to the reply variable, or the reply's `requestId` differs | Check that `ActionResult` = `varStudioResult` / `varSchedResult`, and that the handler echoes `rid` |
 | Only the first bulk file creates schedules | The old button ran PBS0001A once | Use the `ForAll(colBulkFiles, …Run(Name))` in C4b |

@@ -11,7 +11,7 @@ import { monthDateKeys } from "./time";
 import { ScheduleIndex } from "./utilization";
 
 /** liveBreak: the session is a live break (ApprovalStatus = LiveBreak), so no report is expected. */
-export type ReportState = "verified" | "pending" | "revision" | "missing" | "notDue" | "liveBreak";
+export type ReportState = "verified" | "pending" | "revision" | "missing" | "notDue" | "liveBreak" | "coHost";
 
 export class ReportIndex {
     private bySchedule = new Map<string, ReportRow[]>();
@@ -61,6 +61,7 @@ export function sessionGmv(reports: ReportIndex, s: ScheduleRow, todayKey: strin
     // Report rows with ApprovalStatus = LiveBreak are placeholders for a break, not a submitted report.
     const real = rs.filter((r) => !isLiveBreakText(r.approvalStatus));
     if (real.length === 0 && (s.liveBreak || rs.length > 0)) state = "liveBreak";
+    else if (real.length === 0 && s.coHost) state = "coHost";
     else if (real.length === 0) state = occupiesStudio(s.status) && sessionEnded(s, todayKey, nowMin) ? "missing" : "notDue";
     else {
         const states = real.map((r) => approvalState(r.approvalStatus));
@@ -84,7 +85,7 @@ export interface StudioGmv {
     sessions: number;        // sessions that occupy the studio in the month
     reportedSessions: number;
     missingReports: number;  // ended sessions with no report
-    liveBreaks: number;      // live-break sessions (no report expected)
+    liveBreaks: number;      // live-break and Co-Host sessions (no report expected)
     liveHours: number;       // hours of the sessions that have a report
     perSession: number | null;
     perHour: number | null;
@@ -110,7 +111,7 @@ export function studioGmv(
             res.sessions++;
             const g = sessionGmv(reports, s, todayKey, nowMin);
             if (g.state === "missing") res.missingReports++;
-            if (g.state === "liveBreak") {
+            if (g.state === "liveBreak" || g.state === "coHost") {
                 res.liveBreaks++;   // no report expected, and no sales to count
                 continue;
             }

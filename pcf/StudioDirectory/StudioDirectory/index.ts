@@ -5,6 +5,7 @@ import {
     BRAND_NAME_COLS,
     buildNameMap,
     HOST_NAME_COLS,
+    ACCOUNT_NAME_COLS,
     isLoading,
     mapLocations,
     mapReports,
@@ -78,7 +79,7 @@ export class StudioHub implements ComponentFramework.StandardControl<IInputs, IO
 
     private datasets(context: ComponentFramework.Context<IInputs>): DataSet[] {
         const p = context.parameters;
-        return [p.studios, p.locations, p.schedules, p.brands, p.hosts, p.reports].filter((d): d is DataSet => !!d);
+        return [p.studios, p.locations, p.schedules, p.brands, p.hosts, p.accounts, p.reports].filter((d): d is DataSet => !!d);
     }
 
     /** Pull every page so utilization is computed over the whole filtered period, not the first page. */
@@ -104,10 +105,12 @@ export class StudioHub implements ComponentFramework.StandardControl<IInputs, IO
         this.loadAllPages("schedules", p.schedules);
         this.loadAllPages("brands", p.brands);
         this.loadAllPages("hosts", p.hosts);
+        this.loadAllPages("accounts", p.accounts);
         this.loadAllPages("reports", p.reports);
 
         const brandNames = buildNameMap(pickSource(p.brands, p.BrandsJson?.raw), BRAND_NAME_COLS);
         const hostNames = buildNameMap(pickSource(p.hosts, p.HostsJson?.raw), HOST_NAME_COLS);
+        const accountNames = buildNameMap(pickSource(p.accounts, p.AccountsJson?.raw), ACCOUNT_NAME_COLS);
 
         const rawResult = p.ActionResult?.raw ?? "";
         if (rawResult !== this.lastActionResultRaw) {
@@ -125,7 +128,7 @@ export class StudioHub implements ComponentFramework.StandardControl<IInputs, IO
         const props: AppProps = {
             studios: mapStudios(pickSource(p.studios, p.StudiosJson?.raw)),
             locations: mapLocations(pickSource(p.locations, p.LocationsJson?.raw)),
-            schedules: mapSchedules(pickSource(p.schedules, p.SchedulesJson?.raw), brandNames, hostNames),
+            schedules: mapSchedules(pickSource(p.schedules, p.SchedulesJson?.raw), brandNames, hostNames, accountNames),
             reports: mapReports(pickSource(p.reports, p.ReportsJson?.raw)),
             sources: {
                 studios: sourceColumns(p.studios, p.StudiosJson?.raw),

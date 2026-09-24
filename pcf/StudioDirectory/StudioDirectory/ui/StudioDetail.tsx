@@ -416,7 +416,7 @@ function Jadwal(props: { env: Env; studio: StudioRow; dayKey: string; setDayKey:
                                                 <Badge tone={st.tone}>{st.label}</Badge>
                                             </td>
                                             <td className="sd-right">
-                                                <GmvCell gmv={g.gmv} hasReport={g.reports.length > 0} />
+                                                <GmvCell gmv={g.gmv} hasReport={g.reports.length > 0 && g.state !== "liveBreak"} />
                                             </td>
                                             <td>
                                                 <ReportCell state={g.state} />

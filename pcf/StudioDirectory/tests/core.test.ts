@@ -1,4 +1,4 @@
-import { jsonRecords, linkLocation, locationForStudio, readLookup, mapLocations, mapSchedules, mapStudios, occupiesStudio, parseContext, toNum } from "../StudioDirectory/core/data";
+import { datasetRecords, jsonRecords, linkLocation, locationForStudio, readLookup, mapLocations, mapSchedules, mapStudios, occupiesStudio, parseContext, toNum } from "../StudioDirectory/core/data";
 import { parseDateKey, parseTimeToMinutes } from "../StudioDirectory/core/time";
 import {
     hourlySlots,
@@ -250,5 +250,32 @@ describe("geofence", () => {
         expect(parseLatLonPair("-6.263991, 106.813294")).toEqual({ lat: -6.263991, lon: 106.813294 });
         expect(parseLatLonPair("https://maps.google.com/?q=-6.2,106.8")).toEqual({ lat: -6.2, lon: 106.8 });
         expect(parseLatLonPair("hello")).toBeNull();
+    });
+});
+
+describe("choice columns in a PCF dataset", () => {
+    it("reads the label, not the option number", () => {
+        const labels: Record<string, [unknown, string]> = {
+            Title: ["SCD-3292", "SCD-3292"],
+            Date: ["2026-09-14", "9/14/2026"],
+            StudioID: ["TBN-02", "TBN-02"],
+            Status: [4, "Finished"],
+            Platform: [1, "Tiktok"],
+            LiveBreak: [0, "Yes"],
+            Position: [0, "Main Host"],
+            JamLive: [5, "5"],
+        };
+        const types: Record<string, string> = { Status: "OptionSet", Platform: "OptionSet", LiveBreak: "Enum", Position: "OptionSet", JamLive: "Whole.None" };
+        const ds = {
+            sortedRecordIds: ["1"],
+            columns: Object.keys(labels).map((n) => ({ name: n, displayName: n, alias: n, dataType: types[n] ?? "SingleLine.Text" })),
+            records: { "1": { getValue: (c: string) => labels[c]?.[0] ?? null, getFormattedValue: (c: string) => labels[c]?.[1] ?? "" } },
+        } as unknown as Parameters<typeof datasetRecords>[0];
+        const [s] = mapSchedules(datasetRecords(ds), new Map(), new Map());
+        expect(s.status).toBe("Finished");
+        expect(s.platform).toBe("Tiktok");
+        expect(s.liveBreak).toBe(true);
+        expect(s.position).toBe("Main Host");
+        expect(s.jamLive).toBe(5);
     });
 });

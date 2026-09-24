@@ -36,7 +36,10 @@ export interface ScheduleRow {
     hostId: string;            // HostID
     hostName: string;          // resolved from Host - PBS Hub, or a projected column
     platform: string;          // Platform
-    account: string;           // Account
+    accountId: string;         // Account (the AccountID, e.g. AC-017)
+    account: string;           // Account name from Account - PBS Hub, else the AccountID
+    position: string;          // Position: Main Host / Co-Host
+    coHost: boolean;           // Co-Host: the main host files the report, so none is expected here
     shift: string;             // Shift
     campaignName: string;      // CampaignName
     status: string;            // Status (Choice)

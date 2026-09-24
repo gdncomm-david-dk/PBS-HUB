@@ -15,7 +15,7 @@
     The control never writes. It emits ActionPayload; the canvas app performs the Patch and
     answers through ActionResult with the same requestId.
   -->
-  <control namespace="Ops" constructor="StudioHub" version="1.5.1" display-name-key="PBS Studio Hub" description-key="PBS Hub Studio Master: studio list, studio detail, location and geofence, utilization, live usage, GMV." control-type="standard">
+  <control namespace="Ops" constructor="StudioHub" version="1.6.0" display-name-key="PBS Studio Hub" description-key="PBS Hub Studio Master: studio list, studio detail, location and geofence, utilization, live usage, GMV." control-type="standard">
     <external-service-usage enabled="false">
     </external-service-usage>
 
@@ -25,6 +25,8 @@
     <data-set name="brands" display-name-key="Brands (Brand - PBS Hub)" description-key="Optional. Bind to the Brand - PBS Hub list to show brand names. Columns: Title, NamaBrand." />
     <data-set name="hosts" display-name-key="Hosts (Host - PBS Hub)" description-key="Optional. Bind to the Host - PBS Hub list to show host names. Columns: Title, NamaHost, HostName." />
 
+    <data-set name="accounts" display-name-key="Accounts (Account - PBS Hub)" description-key="Optional. Bind to the Account - PBS Hub list to show account names instead of IDs. Columns: Title, AccountName." />
+
     <data-set name="reports" display-name-key="Reports (Report - PBS Hub)" description-key="Optional. Bind to the Report - PBS Hub list for the same period as schedules, to show GMV per studio. Columns: Title, ScheduleID, LiveDate, Penjualan, ApprovalStatus, Match, BrandID." />
 
     <property name="StudiosJson" display-name-key="StudiosJson" description-key="Optional JSON fallback for the studios dataset: JSON(ShowColumns(Studio - PBS Hub, ...))." of-type="Multiple" usage="input" required="false" />
@@ -32,6 +34,7 @@
     <property name="SchedulesJson" display-name-key="SchedulesJson" description-key="Optional JSON fallback for the schedules dataset." of-type="Multiple" usage="input" required="false" />
     <property name="BrandsJson" display-name-key="BrandsJson" description-key="Optional JSON fallback for the brands dataset." of-type="Multiple" usage="input" required="false" />
     <property name="HostsJson" display-name-key="HostsJson" description-key="Optional JSON fallback for the hosts dataset." of-type="Multiple" usage="input" required="false" />
+    <property name="AccountsJson" display-name-key="AccountsJson" description-key="Optional JSON fallback for the accounts dataset." of-type="Multiple" usage="input" required="false" />
     <property name="ReportsJson" display-name-key="ReportsJson" description-key="Optional JSON fallback for the reports dataset." of-type="Multiple" usage="input" required="false" />
 
     <property name="Context" display-name-key="Context" description-key="JSON: { userEmail, userName, roles, permissions, config: { maxAccuracyMeters } }. Never carries row data." of-type="Multiple" usage="input" required="false" />
