@@ -128,7 +128,7 @@ With({ req: ParseJSON(Self.ActionPayload) },
 With({ action: Text(req.action), rid: Text(req.requestId), p: req.payload },
 If(rid <> varLastStudioRid,
     Set(varLastStudioRid, rid);   // never process the same request twice
-    Set(varOk, true); Set(varErr, ""); Set(varData, "{}");
+    Set(varStudioOk, true); Set(varStudioErr, "");
     Switch(action,
         "SET_FILTER",
             Set(varPeriodStart, DateValue(Text(p.periodStart)));
@@ -136,14 +136,14 @@ If(rid <> varLastStudioRid,
 
         "CREATE_STUDIO",
             If(!IsBlank(LookUp('Studio - PBS Hub', Title = Text(p.studioId))),
-                Set(varOk, false); Set(varErr, "StudioID " & Text(p.studioId) & " sudah dipakai."),
+                Set(varStudioOk, false); Set(varStudioErr, "StudioID " & Text(p.studioId) & " sudah dipakai."),
                 IfError(
                     Patch('Studio - PBS Hub', Defaults('Studio - PBS Hub'), {
                         Title: Text(p.studioId), NamaStudio: Text(p.namaStudio),
                         KapasitasHost: Value(p.kapasitasHost), LokasiStudio: Text(p.lokasiStudio),
                         LocationID: Text(p.locationId),   // Text column; "" = no location
                         Status: { Value: Text(p.status) } }); true,
-                    Set(varOk, false); Set(varErr, FirstError.Message))),
+                    Set(varStudioOk, false); Set(varStudioErr, FirstError.Message))),
 
         "EDIT_STUDIO",
             IfError(
@@ -151,21 +151,21 @@ If(rid <> varLastStudioRid,
                     NamaStudio: Text(p.namaStudio), KapasitasHost: Value(p.kapasitasHost),
                     LokasiStudio: Text(p.lokasiStudio), Status: { Value: Text(p.status) },
                     LocationID: Text(p.locationId) }); true,
-                Set(varOk, false); Set(varErr, FirstError.Message)),
+                Set(varStudioOk, false); Set(varStudioErr, FirstError.Message)),
 
         // Point one studio at another existing location. Other studios at the old location are untouched.
         "SET_STUDIO_LOCATION",
             IfError(
                 Patch('Studio - PBS Hub', LookUp('Studio - PBS Hub', Title = Text(p.studioId)), {
                     LocationID: Text(p.locationId) }); true,
-                Set(varOk, false); Set(varErr, FirstError.Message)),
+                Set(varStudioOk, false); Set(varStudioErr, FirstError.Message)),
 
         // p.isNew: create the location (LocationID must be unique), then link the studio to it.
         // Otherwise: update the shared location; every studio in p.affectedStudioIds uses the new values.
         // p.linkStudio on an existing location means the studio only matched it by name, so link it for good.
         "SET_GEOFENCE",
             If(Boolean(p.isNew) && !IsBlank(LookUp('Studio Location - PBS', LocationID = Text(p.locationId))),
-                Set(varOk, false); Set(varErr, "LocationID " & Text(p.locationId) & " sudah dipakai."),
+                Set(varStudioOk, false); Set(varStudioErr, "LocationID " & Text(p.locationId) & " sudah dipakai."),
                 IfError(
                     With({ loc:
                         If(Boolean(p.isNew),
@@ -179,23 +179,28 @@ If(rid <> varLastStudioRid,
                         If(Boolean(p.linkStudio),
                             Patch('Studio - PBS Hub', LookUp('Studio - PBS Hub', Title = Text(p.studioId)), {
                                 LocationID: Coalesce(loc.LocationID, Text(p.locationId)) }))); true,
-                    Set(varOk, false); Set(varErr, FirstError.Message))),
+                    Set(varStudioOk, false); Set(varStudioErr, FirstError.Message))),
 
         "TOGGLE_GEOFENCE_ACTIVE",
             IfError(
                 Patch('Studio Location - PBS', LookUp('Studio Location - PBS', ID = Value(p.locationItemId)),
                     { IsActive: Boolean(p.isActive) }); true,
-                Set(varOk, false); Set(varErr, FirstError.Message))
+                Set(varStudioOk, false); Set(varStudioErr, FirstError.Message))
         // NAV_STUDIO_DETAIL is informational; SelectedStudioId already carries the open studio.
     );
     If(action in ["CREATE_STUDIO", "EDIT_STUDIO", "SET_STUDIO_LOCATION", "SET_GEOFENCE", "TOGGLE_GEOFENCE_ACTIVE"],
         Set(varStudioResult, JSON({
             requestId: rid,
-            status: If(varOk, "ok", "error"),
-            message: varErr,
+            status: If(varStudioOk, "ok", "error"),
+            message: varStudioErr,
             data: { studioId: Text(p.studioId) } }, JSONFormat.Compact)))
 )))
 ```
+
+**Variable names.** The handlers use their own names (`varStudioOk` / `varStudioErr`, and `varSchedOk` / `varSchedErr` / `varSchedMsg` in C4). A generic name such as `varOk`,
+`varErr` or `varData` that the app already uses with another type (a record, a number) makes Power Apps reject the
+whole formula and underline its first line, `With({ req: ParseJSON(Self.ActionPayload) },`. Hover that red line to
+read the real message; the usual ones are in section D.
 
 **`; true` inside `IfError`.** `IfError(value, fallback)` needs both arguments to have the same type. `Patch`
 returns a record and `Set` returns a Boolean, so `IfError(Patch(...), Set(...))` fails with *"Invalid argument
@@ -326,7 +331,7 @@ With({ req: ParseJSON(Self.ActionPayload) },
 With({ action: Text(req.action), rid: Text(req.requestId), p: req.payload },
 If(rid <> varLastSchedRid,
     Set(varLastSchedRid, rid);   // never process the same request twice
-    Set(varOk, true); Set(varErr, ""); Set(varMsg, ""); Set(varSchedId, "");
+    Set(varSchedOk, true); Set(varSchedErr, ""); Set(varSchedMsg, ""); Set(varSchedId, "");
     Switch(action,
         "SET_FILTER",
             Set(varSchedStart, DateValue(Text(p.periodStart)));
@@ -346,7 +351,7 @@ If(rid <> varLastSchedRid,
                     // Second step, as v1: Title is only known after the insert (race R5).
                     Patch('Schedule - PBS Hub', n, { Title: "SCD-" & n.ID });
                     Set(varSchedId, "SCD-" & n.ID)),
-                Set(varOk, false); Set(varErr, FirstError.Message)),
+                Set(varSchedOk, false); Set(varSchedErr, FirstError.Message)),
 
         "EDIT_SCHEDULE",
             IfError(
@@ -358,13 +363,13 @@ If(rid <> varLastSchedRid,
                     JamLive: Value(p.jamLive), TotalLiveTime: Value(p.jamLive),
                     Position: { Value: Text(p.position) }, Status: { Value: Text(p.status) } });
                 Set(varSchedId, Text(p.scheduleId)),
-                Set(varOk, false); Set(varErr, FirstError.Message)),
+                Set(varSchedOk, false); Set(varSchedErr, FirstError.Message)),
 
         "DELETE_SCHEDULE",
             If(!IsBlank(LookUp('Report - PBS Hub', ScheduleID = Text(p.scheduleId))),
-                Set(varOk, false); Set(varErr, "Report sudah ada untuk jadwal ini."),
+                Set(varSchedOk, false); Set(varSchedErr, "Report sudah ada untuk jadwal ini."),
                 IfError(Remove('Schedule - PBS Hub', LookUp('Schedule - PBS Hub', Title = Text(p.scheduleId))); true,
-                    Set(varOk, false); Set(varErr, FirstError.Message))),
+                    Set(varSchedOk, false); Set(varSchedErr, FirstError.Message))),
 
         "UPLOAD_SCHEDULE_FILE",
             IfError(
@@ -377,9 +382,9 @@ If(rid <> varLastSchedRid,
                 If(Text(p.kind) = "BULK",
                     // One run per file. v1 ran the flow for the FIRST file only.
                     'PBS0001A-CreateAutomatedSchedule[AIPowered]'.Run(Text(p.fileName));
-                    Set(varMsg, "Terunggah, PBS0001A berjalan"),
-                    Set(varMsg, "Terunggah, AI Schedule berjalan")),
-                Set(varOk, false); Set(varErr, FirstError.Message)),
+                    Set(varSchedMsg, "Terunggah, PBS0001A berjalan"),
+                    Set(varSchedMsg, "Terunggah, AI Schedule berjalan")),
+                Set(varSchedOk, false); Set(varSchedErr, FirstError.Message)),
 
         "REMIND_HOST",
             // Optional. Any channel you already use; e-mail shown.
@@ -388,13 +393,13 @@ If(rid <> varLastSchedRid,
                     LookUp('Host - PBS Hub', Title = Text(p.hostId)).Email.Email,
                     "Pengingat PBS Hub: " & Text(p.scheduleId),
                     Text(p.reason)); true,
-                Set(varOk, false); Set(varErr, FirstError.Message))
+                Set(varSchedOk, false); Set(varSchedErr, FirstError.Message))
         // NAV_SESSION_DETAIL is informational; SelectedScheduleId already carries the open session.
     );
     If(action in ["CREATE_SCHEDULE", "EDIT_SCHEDULE", "DELETE_SCHEDULE", "UPLOAD_SCHEDULE_FILE", "REMIND_HOST"],
         Set(varSchedResult, JSON({
-            requestId: rid, status: If(varOk, "ok", "error"),
-            message: If(varOk, varMsg, varErr), data: { scheduleId: varSchedId } }, JSONFormat.Compact)))
+            requestId: rid, status: If(varSchedOk, "ok", "error"),
+            message: If(varSchedOk, varSchedMsg, varSchedErr), data: { scheduleId: varSchedId } }, JSONFormat.Compact)))
 )))
 ```
 
@@ -550,6 +555,7 @@ file was uploaded.
 | Patch error *LocationID … expected type 'Text'. Found type 'Record'* | `Studio.LocationID` is a text column but the formula writes a lookup record | Write `LocationID: Text(p.locationId)` (B4) |
 | *Invalid argument type (Boolean). Expecting a Record value instead* in `OnChange` | An `IfError(Patch(...), Set(...))` without `; true` | End the first argument with `; true` (B4) |
 | Studio › Jadwal shows *Belum ada report* for a live break | `Schedule.LiveBreak` does not reach `schedules`, or `Report.ApprovalStatus` does not reach `reports` | The Jadwal card shows a banner naming the missing column; open **Lihat kolom** and add it under **Fields → Edit** (or to `SchedulesJson` / `ReportsJson`) |
+| The Studio `OnChange` is red on its first line (`With({ req: ParseJSON(...) },`) | Power Apps reports every error in the formula there. Common causes: a variable (`varOk`, `varErr`, `varData`, `varPeriodStart`) already has another type in the app, or a column type differs (`Status` text instead of choice, `KapasitasHost` text instead of number) | Hover the red line for the message. Use the handler as in B4 (own variable names). For a text `Status` write `Status: Text(p.status)`; for a text `KapasitasHost` write `KapasitasHost: Text(p.kapasitasHost)` |
 | Uploaded file is corrupt, or contains `data:` text | The tenant does not convert a data URI into bytes | Use the flow (C4a option B), or `uploadMode: "canvas"` (C4b) |
 | The control stays locked after an action | `ActionResult` is not set to the reply variable, or the reply's `requestId` differs | Check that `ActionResult` = `varStudioResult` / `varSchedResult`, and that the handler echoes `rid` |
 | Only the first bulk file creates schedules | The old button ran PBS0001A once | Use the `ForAll(colBulkFiles, …Run(Name))` in C4b |
