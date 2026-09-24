@@ -35,7 +35,7 @@ The old solutions `PBSStudioDirectory` and `PBSHubStudio` can be deleted once th
 
 | List | Column | Requirement |
 |---|---|---|
-| `Studio - PBS Hub` | `LocationID` | **Lookup** to `Studio Location - PBS`, showing its `LocationID` column |
+| `Studio - PBS Hub` | `LocationID` | **Single line of text** holding the location's `LocationID` (e.g. `LOC-CWG`). A lookup column also works; see B4 |
 | `Studio Location - PBS` | `LocationID` | Text, unique (e.g. `LOC-CWG`). One location can serve many studios |
 | `Schedule - PBS Hub` | `Status` | Choice that includes **`Finished`**. The full set is `Planned`, `Waiting Report`, `Finished`, `Cancelled`, `Leave` |
 | `Schedule - PBS Hub` | `Position` | Choice with exactly **`Main Host`** and **`Co-Host`** |
@@ -93,12 +93,12 @@ dataset carries them.
 The list page shows a *Mapping lokasi* banner with the link counts and, under *Lihat kolom*, the columns each
 dataset actually delivers.
 
-**Studio ↔ Studio Location.** `Studio - PBS Hub.LocationID` is a SharePoint lookup to `Studio Location - PBS`
-that shows the location's `LocationID` column. One location serves many studios (e.g. `LOC-CWG` holds every
+**Studio ↔ Studio Location.** `Studio - PBS Hub.LocationID` holds the `LocationID` of a
+`Studio Location - PBS` item, as text (a lookup column showing `LocationID` is read too). One location serves many studios (e.g. `LOC-CWG` holds every
 Cawang studio), so latitude, longitude, radius and IsActive are shared by all of them. Add `LocationID` to the
 `studios` and `locations` field lists. With the JSON fallback, keep the lookup as a record:
 `StudiosJson = JSON(ShowColumns('Studio - PBS Hub', ID, Title, NamaStudio, KapasitasHost, LokasiStudio, LocationID, Status), JSONFormat.IgnoreBinaryData)`
-emits `LocationID: { Id, Value }`, which the control reads directly.
+works for both column types: a text value is matched to `Studio Location.LocationID`, a lookup `{ Id, Value }` by its item ID.
 
 **JSON fallback.** If you prefer, leave a dataset empty and fill the matching `*Json` property instead, e.g.
 `SchedulesJson = JSON(ShowColumns(Filter('Schedule - PBS Hub', …), Title, Date, StudioID, BrandID, HostID, StartTime, EndTime, JamLive, Status, Platform, Account, Shift), JSONFormat.IgnoreBinaryData)`.
@@ -136,8 +136,7 @@ If(rid <> varLastStudioRid,
                     Patch('Studio - PBS Hub', Defaults('Studio - PBS Hub'), {
                         Title: Text(p.studioId), NamaStudio: Text(p.namaStudio),
                         KapasitasHost: Value(p.kapasitasHost), LokasiStudio: Text(p.lokasiStudio),
-                        LocationID: If(IsBlank(p.locationItemId), Blank(),
-                            { Id: Value(p.locationItemId), Value: Text(p.locationId) }),
+                        LocationID: Text(p.locationId),   // Text column; "" = no location
                         Status: { Value: Text(p.status) } }),
                     Set(varOk, false); Set(varErr, FirstError.Message))),
 
@@ -146,15 +145,14 @@ If(rid <> varLastStudioRid,
                 Patch('Studio - PBS Hub', LookUp('Studio - PBS Hub', Title = Text(p.studioId)), {
                     NamaStudio: Text(p.namaStudio), KapasitasHost: Value(p.kapasitasHost),
                     LokasiStudio: Text(p.lokasiStudio), Status: { Value: Text(p.status) },
-                    LocationID: If(IsBlank(p.locationItemId), Blank(),
-                        { Id: Value(p.locationItemId), Value: Text(p.locationId) }) }),
+                    LocationID: Text(p.locationId) }),
                 Set(varOk, false); Set(varErr, FirstError.Message)),
 
         // Point one studio at another existing location. Other studios at the old location are untouched.
         "SET_STUDIO_LOCATION",
             IfError(
                 Patch('Studio - PBS Hub', LookUp('Studio - PBS Hub', Title = Text(p.studioId)), {
-                    LocationID: { Id: Value(p.locationItemId), Value: Text(p.locationId) } }),
+                    LocationID: Text(p.locationId) }),
                 Set(varOk, false); Set(varErr, FirstError.Message)),
 
         // p.isNew: create the location (LocationID must be unique), then link the studio to it.
@@ -175,7 +173,7 @@ If(rid <> varLastStudioRid,
                                 RadiusMeter: Value(p.radiusMeter), IsActive: Boolean(p.isActive) })) },
                         If(Boolean(p.linkStudio),
                             Patch('Studio - PBS Hub', LookUp('Studio - PBS Hub', Title = Text(p.studioId)), {
-                                LocationID: { Id: loc.ID, Value: Coalesce(loc.LocationID, Text(p.locationId)) } }))),
+                                LocationID: Coalesce(loc.LocationID, Text(p.locationId)) }))),
                     Set(varOk, false); Set(varErr, FirstError.Message))),
 
         "TOGGLE_GEOFENCE_ACTIVE",
@@ -194,6 +192,14 @@ If(rid <> varLastStudioRid,
 )))
 ```
 
+**`Studio.LocationID` column type.** The handler above writes it as **text**. If Patch reports
+*"The type of this argument 'LocationID' does not match the expected type 'Text'. Found type 'Record'"*, the
+column is text and an older record-style formula is still in place: replace every `LocationID: { Id: …, Value: … }`
+with `LocationID: Text(p.locationId)`. Only if you convert the column to a **lookup** to `Studio Location - PBS`
+use the record form instead:
+`LocationID: If(IsBlank(p.locationItemId), Blank(), { Id: Value(p.locationItemId), Value: Text(p.locationId) })`
+(and `{ Id: loc.ID, Value: loc.LocationID }` in `SET_GEOFENCE`).
+
 The control stays locked until its own `requestId` comes back, and gives up after 30 seconds with a warning.
 
 ## B5. How the numbers are derived
@@ -204,7 +210,7 @@ The control stays locked until its own `requestId` comes back, and gives up afte
 | **Sedang digunakan** | Schedule | sessions whose Date is today and StartTime ≤ now < EndTime (overnight sessions from yesterday included). Shows brand (via BrandID → Brand.NamaBrand), host(s) (HostID → Host.NamaHost), time left and slots used vs capacity |
 | **Capacity per slot** | Schedule | distinct hosts per hour vs KapasitasHost; over-capacity slots are flagged (v1 never enforced capacity) |
 | **GMV** | Report.Penjualan | Report has no StudioID, so it is joined `Report.ScheduleID → Schedule.Title → Schedule.StudioID`; several reports per session (one per account) are summed. Split into *Terverifikasi* (`ApprovalStatus = Done`), *Menunggu review* and *Perlu revisi*. Ended sessions without a report are counted as "Belum ada report" |
-| **Geofence link** | Studio.LocationID → Studio Location | The lookup item ID first, else the shown value against `Studio Location.LocationID` (then `Title`). One location serves many studios; the list, detail and Geofence tab show how many, and editing a shared geofence warns that it applies to all of them. A LocationID that no location carries is shown as *LocationID tidak ditemukan*. Studios without a LocationID fall back to the v1 name match (a `StudioID` column → `Title = StudioID` → `Title = NamaStudio`) and are offered a one-click *Tautkan* |
+| **Geofence link** | Studio.LocationID → Studio Location | The lookup item ID first (lookup column only), else the text value against `Studio Location.LocationID` (then `Title`). One location serves many studios; the list, detail and Geofence tab show how many, and editing a shared geofence warns that it applies to all of them. A LocationID that no location carries is shown as *LocationID tidak ditemukan*. Studios without a LocationID fall back to the v1 name match (a `StudioID` column → `Title = StudioID` → `Title = NamaStudio`) and are offered a one-click *Tautkan* |
 
 These are display metrics. Nothing that money depends on is computed in the control.
 
@@ -528,9 +534,10 @@ file was uploaded.
 |---|---|---|
 | Studio header does not show `pbs_Ops.StudioMaster 1.4.0` | The screen still holds the old control, or the code component was not updated | Delete the control, insert **PBS Studio Master** again, then save and publish. After an import, accept **Update code components** |
 | *Mapping lokasi* banner: studios not linked | `LocationID` is missing from **Fields** on `studios` or `locations` | Open **Lihat kolom** in the banner to see which columns actually arrive. Add `LocationID` under **Fields → Edit** on both datasets, or use `StudiosJson` as in B2 |
-| *LocationID tidak ditemukan* on a studio | The studio's lookup points to a location item that is not in the `locations` dataset | Bind the whole `Studio Location - PBS` list, or pick another location in the Geofence tab |
+| *LocationID tidak ditemukan* on a studio | The studio's `LocationID` is not carried by any item in the `locations` dataset (typo, extra space, or the item is filtered out) | Bind the whole `Studio Location - PBS` list, or pick another location in the Geofence tab |
 | Brand or host shows an ID, with a yellow banner | `brands` / `hosts` are not bound, or lack `ID`, `Title`, `BrandID`/`HostID` or the name column | See C2 *Names, not IDs* |
 | Saving a session fails on Status or Position | The choice column lacks `Finished`, or `Main Host` / `Co-Host` | Add the values in SharePoint (A2) |
+| Patch error *LocationID … expected type 'Text'. Found type 'Record'* | `Studio.LocationID` is a text column but the formula writes a lookup record | Write `LocationID: Text(p.locationId)` (B4) |
 | Uploaded file is corrupt, or contains `data:` text | The tenant does not convert a data URI into bytes | Use the flow (C4a option B), or `uploadMode: "canvas"` (C4b) |
 | The control stays locked after an action | `ActionResult` is not set to the reply variable, or the reply's `requestId` differs | Check that `ActionResult` = `varStudioResult` / `varSchedResult`, and that the handler echoes `rid` |
 | Only the first bulk file creates schedules | The old button ran PBS0001A once | Use the `ForAll(colBulkFiles, …Run(Name))` in C4b |
