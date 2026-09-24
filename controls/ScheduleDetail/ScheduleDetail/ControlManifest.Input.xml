@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8" ?>
 <manifest>
-  <control namespace="Host" constructor="ScheduleDetail" version="1.0.0" display-name-key="PBS Host Schedule Detail" description-key="PBS Hub host app Detail sesi: one schedule with its next step (clock in, absen, kirim report, perbaiki), the four session steps, schedule facts, the report summary and other sessions that day." control-type="standard">
+  <control namespace="Host" constructor="ScheduleDetail" version="1.1.0" display-name-key="PBS Host Schedule Detail" description-key="PBS Hub host app Detail sesi: one schedule with its next step, absen, the report form (metrics + screenshot) or the revision form in place, the four session steps, schedule facts and other sessions that day." control-type="standard">
     <external-service-usage enabled="false"></external-service-usage>
 
     <property name="Context" display-name-key="Context" description-key="JSON {userEmail,userName,roles,permissions,config}. config: absenLeadMin (30), reportDeadlineDays (2), requireAbsen (true)." of-type="Multiple" usage="input" required="false" />
@@ -10,12 +10,15 @@
     <property name="ClockInJson" display-name-key="ClockInJson" description-key="JSON rows of [Clock In - PBS Hub] of this host on the session day: ID, ClockInDate, CheckInTime, CheckOutTime, ClockInTime, CheckInOffice, IsInsideGeofence." of-type="Multiple" usage="input" required="false" />
     <property name="AbsenceJson" display-name-key="AbsenceJson" description-key="JSON rows of [Host Absence - PBS Hub] for these sessions: Title, ScheduleID, CheckInTime, Created." of-type="Multiple" usage="input" required="false" />
     <property name="ReportsJson" display-name-key="ReportsJson" description-key="JSON rows of [Report - PBS Hub] for these sessions: ID, Title, ScheduleID, LiveDate, Penjualan, Pesanan, CTR, CTOR, ApprovalStatus, ApprovalComment, Approver, Created." of-type="Multiple" usage="input" required="false" />
+    <property name="EvidenceJson" display-name-key="EvidenceJson" description-key="JSON rows of [Report Automation - PBS Hub] for these reports (Title = report Title): the AI reading shown on the revision form." of-type="Multiple" usage="input" required="false" />
+    <property name="HistoryJson" display-name-key="HistoryJson" description-key="Optional JSON rows of the host's last reports on the same platform: metrics only, for the far-from-average warnings on the form." of-type="Multiple" usage="input" required="false" />
     <property name="BrandsJson" display-name-key="BrandsJson" description-key="JSON rows Title, NamaBrand." of-type="Multiple" usage="input" required="false" />
     <property name="StudiosJson" display-name-key="StudiosJson" description-key="JSON rows Title, NamaStudio." of-type="Multiple" usage="input" required="false" />
     <property name="IsLoading" display-name-key="IsLoading" description-key="true while canvas is loading: renders a skeleton." of-type="TwoOptions" usage="input" required="false" />
     <property name="ReferenceDate" display-name-key="ReferenceDate" description-key="Optional ISO date-time used as now (testing)." of-type="SingleLine.Text" usage="input" required="false" />
-    <property name="ActionResult" display-name-key="ActionResult" description-key="Canvas reply {requestId,status,message} for ABSEN." of-type="SingleLine.Text" usage="input" required="false" />
-    <property name="ActionPayload" display-name-key="ActionPayload" description-key="JSON {action,requestId,payload}: ABSEN, CLOCK_IN, NEW_REPORT, OPEN_REPORT, OPEN_SCHEDULE, BACK." of-type="SingleLine.Text" usage="output" required="false" />
+    <property name="ActionResult" display-name-key="ActionResult" description-key="Canvas reply {requestId,status,message} for ABSEN, SUBMIT_REPORT, RESUBMIT_REPORT and DISPUTE_REVIEW." of-type="SingleLine.Text" usage="input" required="false" />
+    <property name="ActionPayload" display-name-key="ActionPayload" description-key="JSON {action,requestId,payload}: ABSEN, SUBMIT_REPORT, RESUBMIT_REPORT, DISPUTE_REVIEW, CLOCK_IN, OPEN_REPORT, OPEN_EVIDENCE, OPEN_SCHEDULE, BACK." of-type="SingleLine.Text" usage="output" required="false" />
+    <property name="UploadData" display-name-key="UploadData" description-key="Base64 JPEG of the screenshot, set together with SUBMIT_REPORT / RESUBMIT_REPORT (empty otherwise). Pass it to the upload flow." of-type="Multiple" usage="output" required="false" />
 
     <resources>
       <code path="index.ts" order="1" />

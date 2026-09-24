@@ -14,20 +14,35 @@ interface ShellProps {
   clockIns: Row[];
   absences: Row[];
   reports: Row[];
+  evidence: Row[];
+  history: Row[];
   brands: Row[];
   studios: Row[];
   loading: boolean;
   referenceDate: string | null;
   minute: number;
   actionResult: string | null;
-  emit: (json: string) => void;
+  emitWithUpload: (json: string, data: string) => void;
 }
 
 function Shell(p: ShellProps): React.ReactElement {
   const ctx = React.useMemo(() => parseContext(p.contextJson), [p.contextJson]);
-  const action = useAction(p.emit, p.actionResult, "hsd");
+  // The screenshot rides on UploadData with exactly the one emit that needs it, then clears.
+  const upload = React.useRef("");
+  const { emitWithUpload } = p;
+  const emit = React.useCallback(
+    (json: string) => {
+      emitWithUpload(json, upload.current);
+      upload.current = "";
+    },
+    [emitWithUpload],
+  );
+  const setUpload = React.useCallback((data: string) => {
+    upload.current = data;
+  }, []);
+  const action = useAction(emit, p.actionResult, "hsd");
   const now = React.useMemo(() => referenceNow(p.referenceDate), [p.referenceDate, p.minute]);
-  return React.createElement(ScheduleDetailView, { ...p, ctx, now, action });
+  return React.createElement(ScheduleDetailView, { ...p, ctx, now, action, setUpload });
 }
 
 export class ScheduleDetail implements ComponentFramework.StandardControl<IInputs, IOutputs> {
@@ -54,13 +69,15 @@ export class ScheduleDetail implements ComponentFramework.StandardControl<IInput
         clockIns: this.cache.get("c", p.ClockInJson?.raw),
         absences: this.cache.get("a", p.AbsenceJson?.raw),
         reports: this.cache.get("r", p.ReportsJson?.raw),
+        evidence: this.cache.get("e", p.EvidenceJson?.raw),
+        history: this.cache.get("hi", p.HistoryJson?.raw),
         brands: this.cache.get("b", p.BrandsJson?.raw),
         studios: this.cache.get("st", p.StudiosJson?.raw),
         loading: flag(p.IsLoading),
         referenceDate: p.ReferenceDate?.raw ?? null,
         minute: Math.floor(Date.now() / 60000),
         actionResult: p.ActionResult?.raw ?? null,
-        emit: this.host.emit,
+        emitWithUpload: this.host.emitWithUpload,
       }),
       context.mode.allocatedWidth,
       context.mode.allocatedHeight,
@@ -68,7 +85,7 @@ export class ScheduleDetail implements ComponentFramework.StandardControl<IInput
   }
 
   public getOutputs(): IOutputs {
-    return { ActionPayload: this.host.output };
+    return { ActionPayload: this.host.output, UploadData: this.host.uploadData };
   }
 
   public destroy(): void {

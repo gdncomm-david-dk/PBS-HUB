@@ -5,6 +5,7 @@ import { fmtDayMonth, fmtLongDate, fmtRupiah, fmtNumber, fmtPercentValue, fmtTim
 import { HOST_REPORT_STATE, HostSession, buildHostSessions, flaggedFromComment, hostOptions, reviewerNote } from "../../../shared/hostApp";
 import { SCHEDULE_STATE, SessionStep, StepState, clockInOf, durationMin, fmtHours, isLive, positionOf, scheduleState, sessionSteps } from "../../../shared/hostSchedule";
 import { ALL_METRICS, readMetric } from "../../../shared/reconcile";
+import { Revision, SubmitReport } from "../../../shared/hostReport";
 import { Badge, Button, EmptyState, Icon, IconName, InfoBanner, ResultBanner, Skeleton, Spinner } from "../../../shared/ui";
 
 export interface ScheduleDetailProps {
@@ -15,12 +16,20 @@ export interface ScheduleDetailProps {
   clockIns: Row[];
   absences: Row[];
   reports: Row[];
+  /** Report Automation rows of these reports (revision compares against them). */
+  evidence: Row[];
+  /** The host's earlier reports on the same platform (sanity warnings on the form). */
+  history: Row[];
   brands: Row[];
   studios: Row[];
   loading: boolean;
   now: Date;
   action: UseActionResult;
+  /** Screenshot for the next SUBMIT_REPORT / RESUBMIT_REPORT, sent on UploadData. */
+  setUpload: (data: string) => void;
 }
+
+const WRITES = ["SUBMIT_REPORT", "RESUBMIT_REPORT", "DISPUTE_REVIEW"];
 
 const scheduleRef = (s: HostSession): Record<string, unknown> => ({ scheduleId: s.title, scheduleItemId: s.id, liveDate: s.dayKey });
 const reportRef = (r: Row): Record<string, unknown> => ({ reportId: rowId(r), title: str(r, "Title"), scheduleId: str(r, "ScheduleID") });
@@ -65,6 +74,13 @@ export function ScheduleDetailView(props: ScheduleDetailProps): React.ReactEleme
   const want = props.scheduleId.trim().toLowerCase();
   const s = want ? sessions.find((x) => x.title.toLowerCase() === want || x.id === props.scheduleId.trim()) : sessions[0];
   const back = () => action.fire("BACK", {});
+  const formRef = React.useRef<HTMLElement>(null);
+  const toForm = () => {
+    const el = formRef.current;
+    if (!el) return;
+    el.scrollIntoView({ behavior: "smooth", block: "start" });
+    el.querySelector<HTMLElement>("input:not([disabled]), button:not([disabled])")?.focus({ preventScroll: true });
+  };
 
   if (props.loading && !s) return <Loading onBack={back} />;
   if (!s) {
@@ -85,6 +101,28 @@ export function ScheduleDetailView(props: ScheduleDetailProps): React.ReactEleme
   const busy = action.pending?.action === "ABSEN";
   const position = positionOf(s.row);
   const status = str(s.row, "Status");
+  // Absen and the report both happen here: the form opens once the host clocked in on the session day.
+  const showForm = !s.report && s.clockedIn && s.phase !== "UPCOMING" && st !== "CANCELLED";
+  const showRevision = st === "REVISION" && !!s.report;
+  const res = action.lastResult;
+  const formProps = {
+    ctx,
+    host: props.host,
+    report: s.report ? [s.report] : [],
+    schedule: [s.row],
+    evidence: s.report ? props.evidence.filter((e) => str(e, "Title").toLowerCase() === str(s.report, "Title").toLowerCase()) : [],
+    clockIns: props.clockIns,
+    absences: props.absences,
+    history: props.history,
+    brands: props.brands,
+    studios: props.studios,
+    loading: props.loading,
+    now,
+    action,
+    setUpload: props.setUpload,
+    session: s,
+    embedded: true,
+  };
 
   return (
     <div className="hc-col">
@@ -101,10 +139,20 @@ export function ScheduleDetailView(props: ScheduleDetailProps): React.ReactEleme
         <Badge tone={SCHEDULE_STATE[st].tone}>{SCHEDULE_STATE[st].label}</Badge>
       </div>
 
-      <ResultBanner result={action.lastResult} okText={action.lastResult?.action === "ABSEN" ? "Absen tercatat. Sekarang kamu bisa kirim report sesi ini." : undefined} onClose={action.clearResult} />
+      <ResultBanner result={res && WRITES.includes(res.action) && res.status !== "ok" ? null : res} okText={action.lastResult?.action === "ABSEN" ? "Absen tercatat. Sekarang kamu bisa kirim report sesi ini." : undefined} onClose={action.clearResult} />
 
       <div className="hc-stack">
-        <NextStep s={s} now={now} busy={busy} pending={!!action.pending} onAbsen={() => action.dispatch("ABSEN", absenPayload(s, host))} action={action} absenLeadMin={opts.absenLeadMin} today={today} />
+        <NextStep s={s} now={now} busy={busy} pending={!!action.pending} onAbsen={() => action.dispatch("ABSEN", absenPayload(s, host))} action={action} absenLeadMin={opts.absenLeadMin} today={today} onForm={showForm || showRevision ? toForm : null} />
+
+        {showForm || showRevision ? (
+          <section ref={formRef} className="hc-form" id="hc-report" aria-label="Report sesi ini">
+            <div className="pbs-sec" style={{ marginTop: 4 }}>
+              <span className="pbs-sec-l">{showRevision ? "Revisi report" : "Report sesi ini"}</span>
+              <span className="pbs-sec-r">{showRevision ? str(s.report, "Title") : s.absence || !opts.requireAbsen ? "isi angka + screenshot" : "absen dulu, angka bisa diisi sekarang"}</span>
+            </div>
+            {showRevision && s.report ? <Revision key={s.title} {...formProps} report={s.report} /> : <SubmitReport key={s.title} {...formProps} />}
+          </section>
+        ) : null}
 
         <div className="hc-card">
           <div className="pbs-sec-l" style={{ marginBottom: 4 }}>
@@ -134,7 +182,7 @@ export function ScheduleDetailView(props: ScheduleDetailProps): React.ReactEleme
           </dl>
         </div>
 
-        {s.report ? <ReportCard report={s.report} onOpen={() => s.report && action.fire("OPEN_REPORT", reportRef(s.report))} revision={st === "REVISION"} /> : null}
+        {s.report && !showRevision ? <ReportCard report={s.report} onOpen={() => s.report && action.fire("OPEN_REPORT", reportRef(s.report))} revision={st === "REVISION"} /> : null}
 
         {sameDay.length ? (
           <div className="hc-card">
@@ -199,7 +247,18 @@ function Step(props: { n: number; step: SessionStep }): React.ReactElement {
 }
 
 /** The one thing to do now, with its button. */
-function NextStep(props: { s: HostSession; now: Date; busy: boolean; pending: boolean; onAbsen: () => void; action: UseActionResult; absenLeadMin: number; today: boolean }): React.ReactElement | null {
+function NextStep(props: {
+  s: HostSession;
+  now: Date;
+  busy: boolean;
+  pending: boolean;
+  onAbsen: () => void;
+  action: UseActionResult;
+  absenLeadMin: number;
+  today: boolean;
+  /** Scrolls to the report form on this screen; null when there is none. */
+  onForm: (() => void) | null;
+}): React.ReactElement | null {
   const { s, now, action } = props;
   const st = scheduleState(s, now);
   let tone = "";
@@ -242,7 +301,7 @@ function NextStep(props: { s: HostSession; now: Date; busy: boolean; pending: bo
         tone = "now";
         icon = "checkSquare";
         title = isLive(s, now) ? "Sesi sedang live — absen sekarang" : "Absen sekarang";
-        text = "Absen menandai kamu hadir di sesi ini. Setelah itu report bisa dikirim.";
+        text = "Absen menandai kamu hadir di sesi ini. Setelah itu report di bawah bisa dikirim.";
         btn = (
           <Button size="sm" onClick={props.onAbsen} disabled={props.pending}>
             {props.busy ? <Spinner small /> : null} Absen
@@ -265,9 +324,10 @@ function NextStep(props: { s: HostSession; now: Date; busy: boolean; pending: bo
       icon = "file";
       title = st === "LATE" ? "Report terlambat" : "Kirim report sesi ini";
       text = st === "LATE" ? `Batasnya ${dayText(s.due)}. Kirim sekarang dan jelaskan di catatan.` : `Kirim sebelum ${dayText(s.due)}.`;
+      text += " Isi angka dan screenshot di bawah.";
       btn = (
-        <Button size="sm" onClick={() => action.fire("NEW_REPORT", scheduleRef(s))}>
-          Kirim report
+        <Button size="sm" onClick={() => (props.onForm ? props.onForm() : action.fire("NEW_REPORT", scheduleRef(s)))}>
+          Isi report
         </Button>
       );
       break;
@@ -277,8 +337,8 @@ function NextStep(props: { s: HostSession; now: Date; busy: boolean; pending: bo
       title = "Report perlu revisi";
       text = "Reviewer mengembalikan report ini. Perbaiki angka yang ditandai atau kirim sanggahan.";
       btn = (
-        <Button size="sm" onClick={() => s.report && action.fire("OPEN_REPORT", reportRef(s.report))}>
-          Perbaiki report
+        <Button size="sm" onClick={() => (props.onForm ? props.onForm() : s.report && action.fire("OPEN_REPORT", reportRef(s.report)))}>
+          Lihat revisi
         </Button>
       );
       break;

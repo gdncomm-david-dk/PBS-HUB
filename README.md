@@ -29,14 +29,14 @@ Power Apps code components (PCF) untuk canvas app PBS Hub, dibuat dari design ha
 | Control | Layar | Folder |
 |---|---|---|
 | `pbs_Host.MySchedule` | Jadwal saya — tabel sesi sebulan, KPI, strip *Hari ini* (clock in / absen / kirim report), filter platform + status + cari | `controls/MySchedule` |
-| `pbs_Host.ScheduleDetail` | Detail sesi — langkah berikutnya, 4 langkah sesi (clock in → absen → report → review), detail jadwal, ringkasan report, sesi lain hari itu | `controls/ScheduleDetail` |
+| `pbs_Host.ScheduleDetail` | Detail sesi — langkah berikutnya, absen + kirim report (metrik + screenshot) / revisi di tempat, 4 langkah sesi, detail jadwal, sesi lain hari itu | `controls/ScheduleDetail` |
 
 **Output:** tiga managed solution, dibangun dengan target MSBuild resmi Power Platform
 (`Microsoft.PowerApps.MSBuild.Solution`):
 
 - `dist/PBSHubOpsPCF_1_5_2_0_managed.zip` — Ops Console (7 control `pbs_Ops.*`)
 - `dist/PBSHubHostPCF_1_0_3_0_managed.zip` — Host app (3 control `pbs_Host.*`)
-- `dist/PBSHubHostSchedulePCF_1_0_0_0_managed.zip` — Host schedule (2 control `pbs_Host.*`)
+- `dist/PBSHubHostSchedulePCF_1_1_0_0_managed.zip` — Host schedule (2 control `pbs_Host.*`)
 
 Cara pasang dan formula Power Fx lengkap (properti, `OnChange`, Patch ke SharePoint):
 [`docs/CANVAS-INTEGRATION.md`](docs/CANVAS-INTEGRATION.md) (Ops) dan

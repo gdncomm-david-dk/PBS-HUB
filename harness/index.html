@@ -131,7 +131,12 @@
       const id = q.get("sch") || "SCD-3201";
       const sch = all.schedules.find((x) => x.Title === id);
       const day = all.schedules.filter((x) => sch && x.Date === sch.Date);
-      Object.assign(params, base, { ScheduleId: id, SchedulesJson: J(s === "loading" ? [] : day), ReportsJson: J(s === "loading" ? [] : all.reports.filter((r) => day.some((x) => x.Title === r.ScheduleID))) });
+      const dayReps = all.reports.filter((r) => day.some((x) => x.Title === r.ScheduleID));
+      Object.assign(params, base, {
+        ScheduleId: id, SchedulesJson: J(s === "loading" ? [] : day), ReportsJson: J(s === "loading" ? [] : dayReps),
+        EvidenceJson: J(all.evidence.filter((e) => dayReps.some((r) => r.Title === e.Title))),
+        HistoryJson: J(all.reports.filter((x) => sch && x.Platform && x.Platform.Value === (sch.Platform || {}).Value && x.ScheduleID !== id)),
+      });
     }
     if (c === "MyReportDetail") {
       const rep = all.reports.find((x) => x.Title === q.get("r"));
@@ -229,14 +234,19 @@
         }
         if (!fail && p.action === "SUBMIT_REPORT") {
           const row = Object.assign({ ID: 20950, Title: "RPT-20950", ScheduleID: p.payload.scheduleId, HostID: p.payload.hostId, BrandID: p.payload.brandId, Platform: { Value: p.payload.platform }, LiveDate: p.payload.liveDate, ApprovalStatus: { Value: "Waiting Approval" }, Created: S.REF, Modified: S.REF, Attachment: "RPT-20950_" + p.payload.file.name.split("_").slice(1).join("_") }, p.payload.metrics);
-          params.ReportJson = J([row]);
+          if (c === "ScheduleDetail") params.ReportsJson = J(JSON.parse(params.ReportsJson || "[]").concat([row]));
+          else params.ReportJson = J([row]);
           message = "Report RPT-20950 terkirim.";
         }
         if (!fail && (p.action === "RESUBMIT_REPORT" || p.action === "DISPUTE_REVIEW")) {
-          const row = Object.assign({}, JSON.parse(params.ReportJson)[0]);
+          const key = c === "ScheduleDetail" ? "ReportsJson" : "ReportJson";
+          const rows = JSON.parse(params[key]);
+          const at = Math.max(0, rows.findIndex((x) => String(x.ID) === String(p.payload.reportId)));
+          const row = Object.assign({}, rows[at]);
           if (p.action === "RESUBMIT_REPORT") Object.assign(row, p.payload.metrics, { ApprovalStatus: { Value: "Waiting Approval" }, Modified: S.REF });
           else row.ApprovalComment = (row.ApprovalComment || "") + "\n[Sanggahan host] " + p.payload.reason;
-          params.ReportJson = J([row]);
+          rows[at] = row;
+          params[key] = J(rows);
           message = p.action === "RESUBMIT_REPORT" ? "Revisi terkirim, menunggu review ulang." : "Sanggahan terkirim ke reviewer.";
         }
         params.ActionResult = J({ requestId: p.requestId, status: fail ? "error" : "ok", message: fail ? "Gagal menyimpan: koneksi terputus." : message });
