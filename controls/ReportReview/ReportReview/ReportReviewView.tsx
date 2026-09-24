@@ -5,7 +5,7 @@ import { fmtAge, fmtDayMonth, fmtNumber, fmtSignedPct } from "../../../shared/fo
 import { REASONS, REVIEW_STATES, ReasonCode, ReviewState, reasonDetail } from "../../../shared/reconcile";
 import { DECISION_ACTIONS, DECISION_DONE_TEXT, DecisionPanel, EvidenceRail, MetricsTable, ReportHeader } from "../../../shared/reportUi";
 import { ReportItem, buildReportItems, itemRef } from "../../../shared/reportItems";
-import { Badge, Button, EmptyState, EndOfData, FilterDate, FilterSelect, Icon, InfoBanner, ModuleHeader, Pill, ResultBanner, SkeletonRows, Spinner } from "../../../shared/ui";
+import { Badge, Button, EmptyState, EndOfData, FilterDate, FilterSelect, Icon, InfoBanner, ModuleHeader, Overlay, Pill, ResultBanner, SkeletonRows, Spinner } from "../../../shared/ui";
 import { fmtAgo as fmtAgoText } from "../../../shared/format";
 
 export type Tab = "Waiting" | "Revision" | "Done" | "All";
@@ -78,8 +78,6 @@ export function ReportReviewView(props: ReportReviewProps): React.ReactElement {
   const hostRef = React.useRef<HTMLDivElement>(null);
   const reviewing = reviewId ? items.find((i) => (i.id || i.title) === reviewId) ?? null : null;
   const openReview = (it: ReportItem) => {
-    const scroller = hostRef.current?.closest(".pbs-root");
-    if (scroller) scroller.scrollTop = 0;
     action.clearResult();
     setReviewId(it.id || it.title);
   };
@@ -353,8 +351,7 @@ function ReviewModal(props: {
   const reason = REASONS[item.rec.reason];
   const st = REVIEW_STATES[item.state];
   return (
-    <div className="pbs-overlay" role="presentation" onKeyDown={(e) => e.key === "Escape" && !pending && props.onClose()}>
-      <div className="pbs-modal wide" role="dialog" aria-modal="true" aria-labelledby="pbs-rv-title">
+    <Overlay onClose={props.onClose} busy={pending} labelledBy="pbs-rv-title" wide>
         <div className="pbs-modal-h">
           <h2 id="pbs-rv-title">Review {item.title}</h2>
           <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
@@ -383,8 +380,7 @@ function ReviewModal(props: {
             <EvidenceRail compact item={item} ctx={props.ctx} onOpen={(url) => action.fire("OPEN_EVIDENCE", { url, reportId: item.id, title: item.title })} />
           </div>
         </div>
-      </div>
-    </div>
+    </Overlay>
   );
 }
 

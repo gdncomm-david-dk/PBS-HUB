@@ -55,7 +55,7 @@ Set(
                 scoreMin: First('[FAS STUDIO] ScoreConfig').MinimumScore,
                 scoreMax: First('[FAS STUDIO] ScoreConfig').MaximumScore,
                 piiRevealSeconds: 30,       // data pribadi yang dibuka hilang otomatis
-                tierRates: {tier1: 75000, tier2: 65000, tier3: 55000},   // CONTOH — isi rate card insentif tier yang berlaku (tab Kehadiran)
+                tierRates: {tier1: 75000, tier2: 65000, tier3: 55000},   // insentif per tier (default sama); tanpa tier = 0
                 weeklyBonus: 75000          // CONTOH — nominal Streak / weekly
             }
         },
@@ -923,8 +923,8 @@ yang belum ada clock in-nya.
 **Tab Kehadiran (edit clock in, tier, weekly).** Satu baris per hari dari `Clock In - PBS Hub`: jam masuk/keluar,
 durasi, status (HKTugas), Tier + Insentif, Weekly (`Streak`) dan total — semuanya kolom di baris Clock In itu,
 yang dijumlahkan flow payroll per host per bulan. Tombol **Edit** membuka form: jam clock in/out (clock out lebih
-awal dari clock in = hari berikutnya), status kehadiran, tier (nominal insentif terisi dari rate card, boleh
-diubah), weekly (centang + nominal) dan **alasan wajib**. Form menampilkan ringkasan perubahan dan total hari itu
+awal dari clock in = hari berikutnya), status kehadiran, tier (insentif **mengikuti tier**, tidak diketik: Tier 1 = Rp75.000,
+Tier 2 = Rp65.000, Tier 3 = Rp55.000, tanpa tier = Rp0), weekly (centang + nominal) dan **alasan wajib**. Form menampilkan ringkasan perubahan dan total hari itu
 sebelum → sesudah.
 
 `ADJUST_CLOCK_IN` **mengunci**. Payload: `{clockInId, title, hostId, hostName, clockInDate, clockInTime,
@@ -932,8 +932,10 @@ clockOutTime ("HH:mm"), checkInAt, checkOutAt ("yyyy-mm-ddThh:mm:ss", lokal), ma
 tier ("Tier 1".."Tier 3" | ""), insentif, streak, totalBefore, totalAfter, reason, changes: [{field, from, to}],
 expectedModified, payrollRun: {id, title, phase} | null}`.
 
-- Rate card: `config.tierRates: {tier1, tier2, tier3}` dan `config.weeklyBonus` di Context. Tanpa itu control
-  memakai nominal yang paling sering muncul di data host ini (bisa kosong kalau host belum pernah dapat tier itu).
+- Rate card tier: default 75.000 / 65.000 / 55.000 / 0. Kalau nanti berubah, isi `config.tierRates: {tier1, tier2, tier3}`
+  di Context. Weekly memakai `config.weeklyBonus`, tanpa itu nominal weekly yang paling sering di data.
+- Baris yang `Insentif`-nya tidak sama dengan rate tier-nya ditandai **Insentif ≠ tier** di tabel; membuka Edit
+  langsung menampilkan koreksinya di ringkasan perubahan.
 - Kalau bulan kehadiran itu sudah dipakai run payroll, form menampilkan peringatan: run masih approval →
   perubahan ikut kalau run disusun ulang; run sudah **Done** → slip tidak berubah, selisih dikoreksi manual.
 - Audit: tambahkan kolom opsional `AdjustedBy` (Text), `AdjustedAt` (DateTime), `AdjustReason` (Note) di
@@ -966,7 +968,7 @@ belum ada di v1, bulk approve tidak akan muncul — itu disengaja.
 
 1. Power Platform admin center → environment → **Settings → Product → Features** → aktifkan
    *Allow publishing of canvas apps with code components*.
-2. make.powerapps.com → **Solutions → Import solution** → `PBSHubOpsPCF_1_5_1_0_managed.zip`
+2. make.powerapps.com → **Solutions → Import solution** → `PBSHubOpsPCF_1_5_2_0_managed.zip`
    (sudah pernah import versi lama? Import ini meng-**upgrade** solusi yang sama — pilih *Upgrade*, bukan
    *Stage for upgrade* yang belum di-*Apply*).
 3. Di canvas app: **Insert → Get more components → Code** → pilih `PBS Ops Dashboard`,
@@ -979,8 +981,8 @@ belum ada di v1, bulk approve tidak akan muncul — itu disengaja.
 disisipkan. Setelah upgrade solusi: buka app di Studio → akan muncul banner *"Updated code components
 detected"* → **Update**. Kalau banner tidak muncul: tutup Studio, hard refresh browser (Ctrl+Shift+R), buka
 lagi. Lalu **Save + Publish** app. Pastikan juga di Solutions → PBS Hub Ops PCF → History bahwa versi
-1.5.1.0 benar-benar terpasang. Versi control di solusi ini: Dashboard / ReportReview / ReportDetail
-1.3.0, PayrollRuns / PayrollRunDetail 1.2.0, HostList 1.2.1, HostDetail 1.3.1.
+1.5.2.0 benar-benar terpasang. Versi control di solusi ini: Dashboard / ReportReview / ReportDetail
+1.3.0, PayrollRuns / PayrollRunDetail 1.2.0, HostList 1.2.2, HostDetail 1.3.2.
 
 **Tampilan rusak di app (tabel tidak full, tombol tanpa border, checkbox hilang)?** Itu CSS global Power
 Apps player yang menimpa style control. Sejak 1.3.0 setiap control dirender di dalam Shadow DOM sehingga

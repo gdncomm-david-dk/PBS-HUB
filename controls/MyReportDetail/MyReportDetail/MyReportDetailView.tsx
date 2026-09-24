@@ -22,7 +22,7 @@ import {
 import { PreparedImage, fmtBytes, prepareImage } from "../../../shared/hostImage";
 import { ALL_METRICS, COMPARED_METRICS, MetricComparison, MetricDef, compareMetric, reviewState, sameValue } from "../../../shared/reconcile";
 import { evidenceUrl, fmtMetric } from "../../../shared/reportUi";
-import { Badge, Button, Icon, InfoBanner, ResultBanner, Skeleton, Spinner } from "../../../shared/ui";
+import { Badge, Button, Icon, InfoBanner, Overlay, ResultBanner, Skeleton, Spinner } from "../../../shared/ui";
 
 export interface MyReportDetailProps {
   ctx: ModuleContext;
@@ -745,8 +745,7 @@ function DisputeModal(props: { report: Row; action: UseActionResult; onClose: ()
   }, [action.lastResult]);
   const ok = reason.trim().length >= 10;
   return (
-    <div className="pbs-overlay" role="presentation" onKeyDown={(e) => e.key === "Escape" && !pending && props.onClose()}>
-      <div className="pbs-modal" role="dialog" aria-modal="true" aria-labelledby="hc-dp-title">
+    <Overlay onClose={props.onClose} busy={pending} labelledBy="hc-dp-title">
         <div className="pbs-modal-h">
           <h2 id="hc-dp-title">Kirim sanggahan</h2>
           <button type="button" className="pbs-x" onClick={props.onClose} disabled={pending} aria-label="Tutup">
@@ -788,8 +787,7 @@ function DisputeModal(props: { report: Row; action: UseActionResult; onClose: ()
             )}
           </Button>
         </div>
-      </div>
-    </div>
+    </Overlay>
   );
 }
 

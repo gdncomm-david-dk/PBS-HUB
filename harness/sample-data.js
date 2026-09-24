@@ -139,7 +139,7 @@
       const openShift = i === 3 && day === 20;
       clockInsAug.push({
         ID: cid++, HostID: h.Title, EmployeeName: h.NamaHost, ClockInDate: a(day), CheckInTime: a(day, "08:0" + (i % 10)), CheckOutTime: openShift ? "" : a(day, "17:1" + (i % 10)),
-        IsInsideGeofence: !(i === 5 && day === 12), HKTugas: 180000, Tier: `Tier ${tier}`, Insentif: day % 3 === 0 ? TIER_RATE[tier] : 0, Streak: new Date(2026, 7, day).getDay() === 6 && i < 6 ? 75000 : 0,
+        IsInsideGeofence: !(i === 5 && day === 12), HKTugas: 180000, Tier: day % 3 === 0 ? `Tier ${tier}` : "", Insentif: day % 3 === 0 ? TIER_RATE[tier] : 0, Streak: new Date(2026, 7, day).getDay() === 6 && i < 6 ? 75000 : 0,
       });
     });
   });

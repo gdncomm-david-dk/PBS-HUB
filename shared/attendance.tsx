@@ -4,7 +4,7 @@ import { Row, date, localDayKey, num, parseClock, rowId, startOfDay, str } from 
 import { fmtClock, fmtLongDate, fmtNumber, fmtRupiah, fmtTime } from "./format";
 import { clockInStatuses } from "./clockIn";
 import { Period, RunModel, clockInDay, fmtPeriod, inPeriod, periodKey, periodOf, samePeriod, tierOf } from "./payroll";
-import { Badge, Button, EmptyState, EndOfData, Icon, InfoBanner, SkeletonRows, Spinner } from "./ui";
+import { Badge, Button, EmptyState, EndOfData, Icon, InfoBanner, Overlay, SkeletonRows, Spinner } from "./ui";
 
 /**
  * Attendance adjustments on one Clock In row. HKTugas (uang kehadiran), Tier + Insentif and Streak
@@ -13,11 +13,16 @@ import { Badge, Button, EmptyState, EndOfData, Icon, InfoBanner, SkeletonRows, S
  */
 
 export interface TierRates {
-  1: number | null;
-  2: number | null;
-  3: number | null;
+  1: number;
+  2: number;
+  3: number;
   weekly: number | null;
 }
+
+/** Insentif per tier (rate card): the tier decides the amount, no tier = 0. */
+export const DEFAULT_TIER_RATES = { 1: 75000, 2: 65000, 3: 55000 } as const;
+
+export const insentifFor = (rates: TierRates, tier: 1 | 2 | 3 | null): number => (tier ? rates[tier] : 0);
 
 const mode = (xs: number[]): number | null => {
   const counts = new Map<number, number>();
@@ -28,15 +33,14 @@ const mode = (xs: number[]): number | null => {
   return best;
 };
 
-/** config.tierRates {tier1, tier2, tier3} and config.weeklyBonus win; otherwise the most common amount in the data. */
+/** Tier 1/2/3 = 75.000/65.000/55.000 unless config.tierRates says otherwise; weekly from config.weeklyBonus or the data. */
 export function tierRates(config: Record<string, unknown>, clockIns: Row[]): TierRates {
   const cfg = (config.tierRates && typeof config.tierRates === "object" ? config.tierRates : {}) as Row;
-  const fromData = (t: 1 | 2 | 3) => mode(clockIns.filter((c) => tierOf(c) === t).map((c) => num(c, "Insentif") ?? 0));
   const weeklyCfg = typeof config.weeklyBonus === "number" ? config.weeklyBonus : null;
   return {
-    1: num(cfg, "tier1", "Tier 1", "1") ?? fromData(1),
-    2: num(cfg, "tier2", "Tier 2", "2") ?? fromData(2),
-    3: num(cfg, "tier3", "Tier 3", "3") ?? fromData(3),
+    1: num(cfg, "tier1", "Tier 1", "1") ?? DEFAULT_TIER_RATES[1],
+    2: num(cfg, "tier2", "Tier 2", "2") ?? DEFAULT_TIER_RATES[2],
+    3: num(cfg, "tier3", "Tier 3", "3") ?? DEFAULT_TIER_RATES[3],
     weekly: weeklyCfg ?? mode(clockIns.map((c) => num(c, "Streak") ?? 0)),
   };
 }
@@ -259,6 +263,11 @@ export function AttendanceTab(props: {
                             Manual
                           </Badge>
                         ) : null}{" "}
+                        {d.insentif !== insentifFor(rates, d.tier) ? (
+                          <Badge tone="danger" small title={`Tier ${d.tier ?? "-"} seharusnya ${fmtRupiah(insentifFor(rates, d.tier))}`}>
+                            Insentif ≠ tier
+                          </Badge>
+                        ) : null}{" "}
                         {d.outsideGeofence ? (
                           <Badge tone="warning" small>
                             Luar geofence
@@ -354,7 +363,6 @@ export function AdjustClockInModal(props: {
   const [tout, setTout] = React.useState(hhmm(d.outAt));
   const [status, setStatus] = React.useState(d.status || "");
   const [tier, setTier] = React.useState<string>(d.tier ? String(d.tier) : "");
-  const [insentif, setInsentif] = React.useState(d.insentif ? String(d.insentif) : "");
   const [weekly, setWeekly] = React.useState(d.streak > 0);
   const [weeklyAmt, setWeeklyAmt] = React.useState(String(d.streak > 0 ? d.streak : (rates.weekly ?? "")));
   const [reason, setReason] = React.useState("");
@@ -367,17 +375,10 @@ export function AdjustClockInModal(props: {
   const minutes = a !== null && b !== null ? (overnight ? b + 1440 - a : b - a) : null;
   const st = statuses.find((s) => s.label === status);
   const tierN = tier ? (Number(tier) as 1 | 2 | 3) : null;
-  const ins = tierN ? parseRupiah(insentif) : 0;
+  const ins = insentifFor(rates, tierN);
   const wk = weekly ? parseRupiah(weeklyAmt) : 0;
 
-  const pickTier = (t: string) => {
-    setTier(t);
-    const n = t ? (Number(t) as 1 | 2 | 3) : null;
-    // A new tier takes the rate card; the same tier keeps what the row had.
-    if (!n) setInsentif("");
-    else if (n === d.tier && d.insentif) setInsentif(String(d.insentif));
-    else setInsentif(rates[n] !== null ? String(rates[n]) : "");
-  };
+
 
   const changes: Change[] = [];
   const push = (field: string, label: string, from: string, to: string) => from !== to && changes.push({ field, label, from: from || "—", to: to || "—" });
@@ -385,7 +386,7 @@ export function AdjustClockInModal(props: {
   push("CheckOutTime", "Clock out", hhmm(d.outAt), b !== null ? fmtClock(b) + (overnight ? " (+1 hari)" : "") : "");
   if (st) push("HKTugas", "Status / HK", `${d.status || "—"} · ${fmtRupiah(d.hk)}`, `${st.label} · ${fmtRupiah(st.hk)}`);
   push("Tier", "Tier", tierLabel(d.tier), tierLabel(tierN));
-  if (ins !== null) push("Insentif", "Insentif", fmtRupiah(d.insentif), fmtRupiah(ins));
+  push("Insentif", "Insentif", fmtRupiah(d.insentif), fmtRupiah(ins));
   if (wk !== null) push("Streak", "Weekly", fmtRupiah(d.streak), fmtRupiah(wk));
   const before = d.total;
   const after = (st?.hk ?? 0) + (ins ?? 0) + (wk ?? 0);
@@ -394,7 +395,6 @@ export function AdjustClockInModal(props: {
   if (a === null) problems.push("Isi jam clock in");
   if (d.outAt && b === null) problems.push("Jam clock out tidak boleh dikosongkan");
   if (!st) problems.push("Pilih status");
-  if (tierN && ins === null) problems.push("Isi nominal insentif tier");
   if (weekly && wk === null) problems.push("Isi nominal weekly");
   if (reason.trim().length < 5) problems.push("Tulis alasan penyesuaian");
   if (changes.length === 0) problems.push("Belum ada yang diubah");
@@ -416,7 +416,7 @@ export function AdjustClockInModal(props: {
       status: st.label,
       hkTugas: st.hk,
       tier: tierN ? `Tier ${tierN}` : "",
-      insentif: ins ?? 0,
+      insentif: ins,
       streak: wk ?? 0,
       totalBefore: before,
       totalAfter: after,
@@ -428,8 +428,7 @@ export function AdjustClockInModal(props: {
   };
 
   return (
-    <div className="pbs-overlay" role="presentation" onKeyDown={(e) => e.key === "Escape" && !pending && props.onClose()}>
-      <div className="pbs-modal" role="dialog" aria-modal="true" aria-labelledby="pbs-adj-title">
+    <Overlay onClose={props.onClose} busy={pending} labelledBy="pbs-adj-title">
         <div className="pbs-modal-h">
           <h2 id="pbs-adj-title">
             Edit kehadiran · {props.hostCode} · {fmtLongDate(d.day)}
@@ -476,22 +475,23 @@ export function AdjustClockInModal(props: {
               <label className="pbs-label" htmlFor="pbs-adj-tier">
                 Tier hari ini
               </label>
-              <select id="pbs-adj-tier" value={tier} onChange={(e) => pickTier(e.target.value)} disabled={pending}>
+              <select id="pbs-adj-tier" value={tier} onChange={(e) => setTier(e.target.value)} disabled={pending}>
                 <option value="">Tanpa tier</option>
                 {([1, 2, 3] as const).map((t) => (
                   <option key={t} value={String(t)}>
-                    Tier {t}
-                    {rates[t] !== null ? ` · ${fmtRupiah(rates[t])}` : ""}
+                    Tier {t} · {fmtRupiah(rates[t])}
                   </option>
                 ))}
               </select>
             </div>
             <div className="pbs-field">
               <label className="pbs-label" htmlFor="pbs-adj-ins">
-                Insentif (Rp)
+                Insentif
               </label>
-              <input id="pbs-adj-ins" type="text" inputMode="numeric" value={insentif ? fmtNumber(parseRupiah(insentif)) : ""} onChange={(e) => setInsentif(e.target.value)} disabled={pending || !tierN} placeholder={tierN ? "0" : "pilih tier dulu"} />
-              {tierN && rates[tierN] === null ? <div className="pbs-hint">Rate Tier {tierN} belum diketahui (config.tierRates) — isi nominalnya manual.</div> : null}
+              <input id="pbs-adj-ins" type="text" value={fmtRupiah(ins)} readOnly disabled aria-describedby="pbs-adj-ins-h" />
+              <div className="pbs-hint" id="pbs-adj-ins-h">
+                Otomatis dari tier: T1 {fmtRupiah(rates[1])} · T2 {fmtRupiah(rates[2])} · T3 {fmtRupiah(rates[3])} · tanpa tier Rp0
+              </div>
             </div>
           </div>
           <div className="pbs-two">
@@ -548,8 +548,7 @@ export function AdjustClockInModal(props: {
             )}
           </Button>
         </div>
-      </div>
-    </div>
+    </Overlay>
   );
 }
 

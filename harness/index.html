@@ -53,7 +53,7 @@
 <script>
 (function () {
   const q = new URLSearchParams(location.search);
-  const c = q.get("c") || "Dashboard", s = q.get("s") || "", W = Number(q.get("w") || 1060), H = Number(q.get("h") || 1400);
+  const c = q.get("c") || "Dashboard", s = q.get("s") || "", W = Number(q.get("w") || 1060), H = Number(q.get("ht") || 1400);
   const S = window.PBS_SAMPLE;
   const J = (x) => JSON.stringify(x);
   const params = { Context: J(S.context), ReferenceDate: S.REF, ActionResult: "", IsLoading: s === "loading", HasMore: false, Mode: q.get("mode") || "Admin", DefaultTab: q.get("tab") || "Waiting" };

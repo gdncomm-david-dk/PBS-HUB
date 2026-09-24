@@ -33,7 +33,7 @@ import {
 } from "../../../shared/host";
 import { buildRuns, fmtPeriod } from "../../../shared/payroll";
 import { REVIEW_STATES } from "../../../shared/reconcile";
-import { Badge, Button, EmptyState, EndOfData, Icon, InfoBanner, Pill, ResultBanner, SectionHeader, Skeleton, SkeletonRows, Spinner, TONE_DOT } from "../../../shared/ui";
+import { Badge, Button, EmptyState, EndOfData, Icon, InfoBanner, Overlay, Pill, ResultBanner, SectionHeader, Skeleton, SkeletonRows, Spinner, TONE_DOT } from "../../../shared/ui";
 
 export type HostTab = "Summary" | "Schedule" | "Attendance" | "Reports" | "Payroll" | "Personal";
 
@@ -134,15 +134,11 @@ export function HostDetailView(props: HostDetailProps): React.ReactElement {
   const missedDays = canClockIn ? availableClockInDates(props.schedules, props.clockIns, h.hostId, now).length : 0;
 
   const openClockIn = () => {
-    const scroller = hostRef.current?.closest(".pbs-root");
-    if (scroller) scroller.scrollTop = 0;
     if (action.lastResult?.action === "ADD_CLOCK_IN") action.clearResult();
     setClockInModal(true);
   };
 
   const openStatus = () => {
-    const scroller = hostRef.current?.closest(".pbs-root");
-    if (scroller) scroller.scrollTop = 0;
     setStatusModal(true);
   };
 
@@ -878,8 +874,7 @@ function StatusModal(props: {
     });
   };
   return (
-    <div className="pbs-overlay" role="presentation" onKeyDown={(e) => e.key === "Escape" && !pending && props.onClose()}>
-      <div className="pbs-modal" role="dialog" aria-modal="true" aria-labelledby="pbs-hs-title">
+    <Overlay onClose={props.onClose} busy={pending} labelledBy="pbs-hs-title">
         <div className="pbs-modal-h">
           <h2 id="pbs-hs-title">{deactivate ? `Nonaktifkan ${h.code}?` : `Aktifkan kembali ${h.code}?`}</h2>
           <button type="button" className="pbs-x" onClick={props.onClose} disabled={pending} aria-label="Tutup">
@@ -938,7 +933,6 @@ function StatusModal(props: {
             )}
           </Button>
         </div>
-      </div>
-    </div>
+    </Overlay>
   );
 }

@@ -21,7 +21,7 @@ export const CSS = `
 .pbs-root{--p:#0072FF;--p-dk:#0050BD;--p-dkr:#002E7A;--p-tint:#E1F1FF;--p-tint2:#F4F9FF;--info-bg:#E8F4FF;--info-bd:#B3D9FF;
 --ok:#02C82B;--ok-tx:#0A7A24;--ok-bg:#E9FAEE;--warn:#FFCD00;--warn-tx:#7A5B00;--warn-ic:#8A6A00;--warn-bg:#FFF4D6;--warn-bg2:#FFF9E0;--warn-bd:#FFE0B3;
 --bad:#FF4646;--bad-tx:#C0292A;--bad-bg:#FFE8E8;--bad-bg2:#FFF9F9;--bad-bd:#FFC9C9;--tx:#000;--tx2:#60686E;--dis:#9AA1A6;--bd:#E8E8E8;--row:#F5F5F5;--sf:#F5F5F5;--sf2:#FAFAF9;
-color-scheme:light;box-sizing:border-box;width:100%;height:100%;overflow:auto;background:#fff;color:var(--tx);
+color-scheme:light;box-sizing:border-box;position:relative;width:100%;height:100%;overflow:auto;background:#fff;color:var(--tx);
 font-family:"Blibli","Helvetica Neue",Arial,sans-serif;font-size:13px;line-height:1.45;-webkit-font-smoothing:antialiased;text-align:left}
 .pbs-root *,.pbs-root *::before,.pbs-root *::after{box-sizing:border-box}
 :where(.pbs-root) :where(button,input,select,textarea){font-family:inherit;color:inherit}
@@ -118,8 +118,9 @@ font-family:"Blibli","Helvetica Neue",Arial,sans-serif;font-size:13px;line-heigh
 .pbs-pulse{animation:pbs-pulse 1.2s ease-in-out infinite}
 @keyframes pbs-pulse{0%,100%{opacity:1}50%{opacity:.35}}
 .pbs-host{position:relative;min-height:100%}
-.pbs-overlay{position:absolute;inset:0;background:rgba(0,0,0,.36);display:flex;justify-content:center;align-items:flex-start;padding:40px 16px;z-index:20}
-.pbs-modal{width:640px;max-width:100%;background:#fff;border-radius:12px;display:flex;flex-direction:column}
+.pbs-overlay{position:absolute;left:0;right:0;top:0;bottom:0;background:rgba(0,0,0,.36);display:flex;justify-content:center;align-items:center;padding:24px 16px;z-index:20}
+.pbs-modal{width:640px;max-width:100%;max-height:100%;background:#fff;border-radius:12px;display:flex;flex-direction:column;box-shadow:0 12px 40px rgba(0,0,0,.18)}
+.pbs-modal-b{overflow:auto;min-height:0}
 .pbs-modal-h{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:18px 22px;border-bottom:1px solid var(--bd)}
 .pbs-modal-h h2{margin:0;font-size:18px;font-weight:700}
 .pbs-modal-b{padding:18px 22px;display:grid;gap:16px}

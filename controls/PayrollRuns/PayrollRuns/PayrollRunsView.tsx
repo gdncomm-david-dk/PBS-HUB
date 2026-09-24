@@ -17,7 +17,7 @@ import {
   samePeriod,
 } from "../../../shared/payroll";
 import { GateDots } from "../../../shared/payrollUi";
-import { Badge, Button, EmptyState, EndOfData, FilterSelect, Icon, InfoBanner, ModuleHeader, ResultBanner, Skeleton, SkeletonRows, Spinner } from "../../../shared/ui";
+import { Badge, Button, EmptyState, EndOfData, FilterSelect, Icon, InfoBanner, ModuleHeader, Overlay, ResultBanner, Skeleton, SkeletonRows, Spinner } from "../../../shared/ui";
 
 export interface PayrollRunsProps {
   ctx: ModuleContext;
@@ -93,8 +93,6 @@ export function PayrollRunsView(props: PayrollRunsProps): React.ReactElement {
   }, [res]);
 
   const openModal = () => {
-    const scroller = hostRef.current?.closest(".pbs-root");
-    if (scroller) scroller.scrollTop = 0;
     setModal(true);
   };
 
@@ -358,8 +356,7 @@ function PreflightModal(props: PayrollRunsProps & { models: RunModel[]; onClose:
     : [];
 
   return (
-    <div className="pbs-overlay" role="presentation" onKeyDown={(e) => e.key === "Escape" && !pending && props.onClose()}>
-      <div className="pbs-modal" role="dialog" aria-modal="true" aria-labelledby="pbs-pf-title">
+    <Overlay onClose={props.onClose} busy={pending} labelledBy="pbs-pf-title">
         <div className="pbs-modal-h">
           <h2 id="pbs-pf-title">Jalankan payroll</h2>
           <button type="button" className="pbs-x" onClick={props.onClose} disabled={pending} aria-label="Tutup">
@@ -466,8 +463,7 @@ function PreflightModal(props: PayrollRunsProps & { models: RunModel[]; onClose:
             )}
           </Button>
         </div>
-      </div>
-    </div>
+    </Overlay>
   );
 }
 

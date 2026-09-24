@@ -1,4 +1,4 @@
-import { buildAttendance, payrollLock, tierRates } from "../shared/attendance";
+import { buildAttendance, insentifFor, payrollLock, tierRates } from "../shared/attendance";
 import { RunModel } from "../shared/payroll";
 
 const rows = [
@@ -22,9 +22,11 @@ describe("buildAttendance", () => {
 });
 
 describe("tierRates", () => {
-  it("prefers config, falls back to the most common amount in the data", () => {
-    expect(tierRates({}, rows)).toEqual({ 1: 75000, 2: 65000, 3: null, weekly: 75000 });
-    expect(tierRates({ tierRates: { tier3: 55000 }, weeklyBonus: 50000 }, rows)).toEqual({ 1: 75000, 2: 65000, 3: 55000, weekly: 50000 });
+  it("uses the fixed rate card (T1 75.000, T2 65.000, T3 55.000, none 0) unless config overrides it", () => {
+    const r = tierRates({}, rows);
+    expect(r).toEqual({ 1: 75000, 2: 65000, 3: 55000, weekly: 75000 });
+    expect([insentifFor(r, 1), insentifFor(r, 2), insentifFor(r, 3), insentifFor(r, null)]).toEqual([75000, 65000, 55000, 0]);
+    expect(tierRates({ tierRates: { tier3: 50000 }, weeklyBonus: 50000 }, rows)).toEqual({ 1: 75000, 2: 65000, 3: 50000, weekly: 50000 });
   });
 });
 

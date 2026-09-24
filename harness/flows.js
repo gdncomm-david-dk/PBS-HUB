@@ -341,9 +341,13 @@ const assert = (c, m) => { if (!c) { console.log("FAIL", m); process.exitCode = 
   const saveAdj = adj.getByRole("button", { name: "Simpan perubahan" });
   assert(await saveAdj.isDisabled(), "save disabled until something changes");
   await p.fill("#pbs-adj-out", "21:00");
-  assert((await p.inputValue("#pbs-adj-tier")) === "1" && (await p.inputValue("#pbs-adj-ins")) === "75.000", "current tier + insentif prefilled");
+  assert((await p.inputValue("#pbs-adj-tier")) === "1" && (await p.inputValue("#pbs-adj-ins")) === "Rp75.000", "current tier + insentif prefilled");
+  assert(await p.locator("#pbs-adj-ins").isDisabled(), "insentif is not typed, it follows the tier");
   await p.selectOption("#pbs-adj-tier", "2");
-  assert((await p.inputValue("#pbs-adj-ins")) === "65.000", "new tier takes the rate from the data");
+  assert((await p.inputValue("#pbs-adj-ins")) === "Rp65.000", "Tier 2 = Rp65.000");
+  await p.selectOption("#pbs-adj-tier", "");
+  assert((await p.inputValue("#pbs-adj-ins")) === "Rp0", "no tier = Rp0");
+  await p.selectOption("#pbs-adj-tier", "2");
   await adj.getByRole("checkbox", { name: "Dapat bonus weekly" }).check();
   assert(await saveAdj.isDisabled(), "reason still required");
   await p.fill("#pbs-adj-reason", "Lupa clock out, live sampai 21:00; tier 2 sesuai rekap.");
@@ -363,6 +367,23 @@ const assert = (c, m) => { if (!c) { console.log("FAIL", m); process.exitCode = 
   await p.fill("#pbs-adj-in", "10:00");
   await p.fill("#pbs-adj-out", "02:00");
   assert(await p.getByText(/lewat tengah malam/).isVisible(), "clock out before clock in means the next day");
+
+  // Popups open where the user is looking, not at the top of the content.
+  const inView = async () => p.getByRole("dialog").evaluate((el) => { const r = el.getBoundingClientRect(); return r.top >= -1 && r.bottom <= window.innerHeight + 1 && r.height > 100; });
+  await go("c=HostDetail&h=HST-001&tab=Attendance");
+  await p.selectOption("select[aria-label='Bulan kehadiran']", "2026-08");
+  await p.locator("tr", { hasText: "Sabtu, 1 Agustus" }).getByRole("button", { name: "Edit", exact: true }).click();
+  await p.waitForTimeout(150);
+  assert(await inView(), "edit popup for a row far down is inside the visible area");
+  await shot("f-adjust-lowrow");
+  await p.keyboard.press("Escape");
+  await go("c=HostDetail&h=HST-001&tab=Attendance&ht=700");
+  await p.selectOption("select[aria-label='Bulan kehadiran']", "2026-08");
+  await p.locator("tr", { hasText: "Sabtu, 1 Agustus" }).getByRole("button", { name: "Edit", exact: true }).click();
+  await p.waitForTimeout(150);
+  assert(await inView(), "same when the control scrolls inside a short screen");
+  await p.keyboard.press("Escape");
+  assert((await p.getByRole("dialog").count()) === 0, "Escape closes the popup");
   await go("c=HostDetail&h=HST-001&role=HOST");
   assert((await p.getByRole("tab", { name: "Kehadiran" }).count()) === 0, "no Kehadiran tab without HOST_CLOCKIN / PAYROLL_VIEW");
 

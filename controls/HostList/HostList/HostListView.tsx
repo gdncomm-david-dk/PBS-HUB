@@ -110,8 +110,6 @@ export function HostListView(props: HostListProps): React.ReactElement {
   }, [action.lastResult]);
   const hostRef = React.useRef<HTMLDivElement>(null);
   const openClockIn = (h: HostModel) => {
-    const scroller = hostRef.current?.closest(".pbs-root");
-    if (scroller) scroller.scrollTop = 0;
     if (action.lastResult?.action === "ADD_CLOCK_IN") action.clearResult();
     setClockInFor(h);
   };

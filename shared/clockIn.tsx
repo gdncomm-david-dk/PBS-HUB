@@ -12,7 +12,7 @@ import {
 import { fmtClock, fmtLongDate, fmtRupiah } from "./format";
 import { clockInDay } from "./payroll";
 import { sessionStatus } from "./host";
-import { Button, Icon, InfoBanner, Spinner } from "./ui";
+import { Button, Icon, InfoBanner, Overlay, Spinner } from "./ui";
 
 /** Manual clock-in for a host who forgot to clock in on a scheduled day (without it they cannot report). */
 
@@ -188,17 +188,7 @@ export function ClockInModal(props: {
   };
 
   return (
-    <div
-      className="pbs-overlay"
-      role="presentation"
-      onKeyDown={(e) => e.key === "Escape" && !pending && props.onClose()}
-    >
-      <div
-        className="pbs-modal"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="pbs-ci-title"
-      >
+    <Overlay onClose={props.onClose} busy={pending} labelledBy="pbs-ci-title">
         <div className="pbs-modal-h">
           <h2 id="pbs-ci-title">Clock in manual · {props.hostCode}</h2>
           <button
@@ -367,7 +357,6 @@ export function ClockInModal(props: {
             </div>
           </>
         )}
-      </div>
-    </div>
+    </Overlay>
   );
 }

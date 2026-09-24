@@ -225,3 +225,62 @@ export function FilterDate(props: { label: string; value: string; onChange: (v: 
 export function Spinner(props: { small?: boolean }): React.ReactElement {
   return <span className={`pbs-spin${props.small ? " sm" : ""}`} role="progressbar" aria-label="Memuat" />;
 }
+
+/**
+ * Backdrop + centred dialog placed over the part of the control the user is looking at. The control
+ * scrolls inside `.pbs-root` (or the canvas screen scrolls the whole control), so an overlay pinned to
+ * the top of the content opened far above a row clicked lower down. This measures the visible band on
+ * open and on scroll/resize, and locks the root's own scroll while open.
+ */
+export function Overlay(props: { onClose: () => void; busy?: boolean; labelledBy: string; children: React.ReactNode; wide?: boolean }): React.ReactElement {
+  const ref = React.useRef<HTMLDivElement>(null);
+  const [box, setBox] = React.useState<{ top: number; height: number } | null>(null);
+  React.useLayoutEffect(() => {
+    const el = ref.current;
+    const root = el?.closest(".pbs-root") as HTMLElement | null;
+    const anchor = el?.offsetParent as HTMLElement | null;
+    if (!el || !root || !anchor) return;
+    const place = () => {
+      const r = root.getBoundingClientRect();
+      const a = anchor.getBoundingClientRect();
+      const vh = window.innerHeight || document.documentElement.clientHeight || r.height;
+      // Visible part of the root in the window (the canvas screen may scroll the control itself).
+      const visTop = Math.max(r.top, 0);
+      const visBottom = Math.min(r.bottom, vh);
+      const height = Math.max(240, visBottom - visTop);
+      setBox({ top: visTop - a.top + (anchor === root ? root.scrollTop : 0), height });
+    };
+    const prev = root.style.overflow;
+    place();
+    root.style.overflow = "hidden";
+    window.addEventListener("resize", place);
+    window.addEventListener("scroll", place, true);
+    return () => {
+      root.style.overflow = prev;
+      window.removeEventListener("resize", place);
+      window.removeEventListener("scroll", place, true);
+    };
+  }, []);
+  const close = React.useRef(props.onClose);
+  close.current = props.busy ? () => undefined : props.onClose;
+  React.useEffect(() => {
+    // Focus the dialog (not a field: a time input would swallow Escape) and close on Escape anywhere.
+    ref.current?.querySelector<HTMLElement>("[role=dialog]")?.focus({ preventScroll: true });
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && close.current();
+    document.addEventListener("keydown", onKey, true);
+    return () => document.removeEventListener("keydown", onKey, true);
+  }, []);
+  return (
+    <div
+      ref={ref}
+      className="pbs-overlay"
+      role="presentation"
+      style={box ? { top: box.top, height: box.height, bottom: "auto" } : { visibility: "hidden" }}
+      onMouseDown={(e) => e.target === e.currentTarget && !props.busy && props.onClose()}
+    >
+      <div className={`pbs-modal${props.wide ? " wide" : ""}`} role="dialog" aria-modal="true" aria-labelledby={props.labelledBy} tabIndex={-1} style={{ outline: "none" }}>
+        {props.children}
+      </div>
+    </div>
+  );
+}
