@@ -1,4 +1,4 @@
-/* Local preview harness for pbs_Ops.StudioMaster.
+/* Local preview harness for pbs_Ops.StudioHub.
  * Loads the real bundle.js, feeds it mock datasets shaped like the SharePoint lists in DESIGN.md,
  * and plays the canvas role: it applies ActionPayload to the mock data and answers via ActionResult.
  * Open harness/index.html after `npm run build`. Not shipped in the solution.
@@ -111,6 +111,10 @@
         if (st === "Cancelled" || st === "Leave") return;
         var endMin = Number(sc.EndTime.slice(0, 2)) * 60 + Number(sc.EndTime.slice(3));
         var ended = sc.Date < todayKey || (sc.Date === todayKey && endMin <= nowMin);
+        if (ended && rnd() < 0.08) {
+            sc.ApprovalStatus = { Value: "LiveBreak" }; // live break: no report expected
+            return;
+        }
         if (!ended || rnd() < 0.07) return;
         var r = rnd();
         reports.push({
@@ -123,6 +127,9 @@
     });
 
     // ------------------------------------------------------------------ dataset mock
+    // ?noapprovalcol=1 leaves ApprovalStatus out of the schedules dataset, as when it is not added under Fields.
+    if (params.get("noapprovalcol") === "1") schedules.forEach(function (sc) { delete sc.ApprovalStatus; });
+
     // Canvas hands a PCF dataset lookups as an EntityReference; choices as their value.
     var flat = function (v) {
         if (v && typeof v === "object" && "Id" in v) return { id: { guid: String(v.Id) }, name: v.Value, etn: "lookup" };

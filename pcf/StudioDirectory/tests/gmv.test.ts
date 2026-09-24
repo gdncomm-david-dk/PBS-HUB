@@ -90,3 +90,18 @@ describe("live break", () => {
         expect(g.liveBreaks).toBe(1);
     });
 });
+
+describe("live break in any column", () => {
+    it("reads LiveBreak from an unexpected column name and ignores LiveBreak = No", () => {
+        const rows = mapSchedules(
+            rec([
+                { Title: "SCD-30", Date: "2026-09-10", StudioID: "CWG-05", StartTime: "12:00", EndTime: "13:00", Status: "Finished", Approval_x0020_Status0: { Value: "LiveBreak" } },
+                { Title: "SCD-31", Date: "2026-09-10", StudioID: "CWG-05", StartTime: "13:00", EndTime: "14:00", Status: "Finished", LiveBreak: { Value: "No" } },
+                { Title: "SCD-32", Date: "2026-09-10", StudioID: "CWG-05", StartTime: "14:00", EndTime: "15:00", Status: "Live Break" },
+            ]),
+            new Map(),
+            new Map(),
+        );
+        expect(rows.map((r) => r.liveBreak)).toEqual([true, false, true]);
+    });
+});

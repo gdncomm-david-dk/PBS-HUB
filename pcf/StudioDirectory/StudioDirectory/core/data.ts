@@ -10,6 +10,8 @@ type DataSet = ComponentFramework.PropertyTypes.DataSet;
 export interface RawRecord {
     id: string;
     get(names: readonly string[]): unknown;
+    /** Every value the record carries, whatever its column name. */
+    values?(): unknown[];
 }
 
 // SharePoint encodes spaces and symbols in internal names (Location_x0020_ID); decode before comparing.
@@ -106,6 +108,16 @@ export function datasetRecords(ds: DataSet | undefined): RawRecord[] {
                 }
                 return null;
             },
+            values(): unknown[] {
+                return (ds.columns ?? []).map((c) => {
+                    try {
+                        const v = rec.getValue(c.name);
+                        return v === null || v === undefined || v === "" ? rec.getFormattedValue(c.name) : v;
+                    } catch {
+                        return null;
+                    }
+                });
+            },
         };
     });
 }
@@ -136,6 +148,7 @@ export function jsonRecords(raw: string | null | undefined): RawRecord[] | null 
                     }
                     return null;
                 },
+                values: (): unknown[] => Object.values(o),
             };
         });
 }
@@ -214,6 +227,22 @@ const LIVE_BREAK = /live\s*-?_?break/i;
 
 /** A live-break value: "LiveBreak", "Live Break", "live_break". */
 export const isLiveBreakText = (v: string): boolean => LIVE_BREAK.test(v);
+
+const LIVE_BREAK_VALUE = /^\s*live\s*-?_?break\s*$/i;
+
+/**
+ * A schedule is a live break when ApprovalStatus / Status says so, when a LiveBreak column is Yes, or when any
+ * of its columns holds exactly "LiveBreak" (the column may carry another name in the tenant).
+ */
+export function isLiveBreakRecord(r: RawRecord): boolean {
+    if (isLiveBreakText(toText(r.get(["ApprovalStatus", "Approval Status", "Status"])))) return true;
+    if (/^(yes|ya|true|1)$/i.test(toText(r.get(["LiveBreak", "Live Break"])))) return true;
+    return (r.values?.() ?? []).some((v) => LIVE_BREAK_VALUE.test(toText(v)));
+}
+
+/** True when the schedules source carries a column the live-break check can read. */
+export const hasLiveBreakColumn = (columns: string[]): boolean =>
+    columns.some((c) => ["approvalstatus", "livebreak"].includes(norm(c)));
 
 const EXCLUDED_SCHEDULE_STATUS = /(cancel|batal|leave|cuti)/i;
 
@@ -331,10 +360,7 @@ export function mapSchedules(
             campaignName: toText(r.get(C.campaign)),
             status: toText(r.get(C.status)),
             approvalStatus: toText(r.get(["ApprovalStatus", "Approval Status"])),
-            liveBreak:
-                isLiveBreakText(toText(r.get(["ApprovalStatus", "Approval Status"]))) ||
-                isLiveBreakText(toText(r.get(C.status))) ||
-                /^(yes|ya|true|1)$/i.test(toText(r.get(["LiveBreak", "Live Break"]))),
+            liveBreak: isLiveBreakRecord(r),
             startMin,
             endMin,
             jamLive,

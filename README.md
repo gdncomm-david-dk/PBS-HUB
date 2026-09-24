@@ -2,10 +2,10 @@
 
 | Control | Screens | Managed solution | Canvas setup |
 |---|---|---|---|
-| `pbs_Ops.StudioMaster` | Studio list, Studio detail | `releases/PBSStudioMaster_managed_1.4.1.zip` | [`docs/SETUP.md` § B](docs/SETUP.md) |
+| `pbs_Ops.StudioHub` | Studio list, Studio detail | `releases/PBSStudioHub_managed_1.5.0.zip` | [`docs/SETUP.md` § B](docs/SETUP.md) |
 | `pbs_Ops.Schedule` | Schedule board, session detail, create/edit, bulk & AI upload | `releases/PBSSchedule_managed_1.2.1.zip` | [`docs/SETUP.md` § C](docs/SETUP.md) |
 
-## `pbs_Ops.StudioMaster` (Studio list + Studio detail)
+## `pbs_Ops.StudioHub` (Studio list + Studio detail)
 
 Power Apps code component for the **Studio** and **Studio detail** screens of the PBS Hub Ops Console,
 built on the SharePoint data model in `DESIGN.md`.
@@ -53,7 +53,7 @@ pcf/StudioDirectory/            PCF project (pac pcf init, standard control, Rea
   tests/                        Jest unit tests for core/
   harness/                      local preview with mock data (not shipped)
 pcf/Schedule/                   PCF project for pbs_Ops.Schedule (same layout)
-solution/PBSStudioMaster/       Dataverse solution project (pac solution init), builds the managed zip
+solution/PBSStudioHub/          Dataverse solution project (pac solution init), builds the managed zip
 solution/PBSSchedule/           same, for pbs_Ops.Schedule
 releases/                       built managed solution
 ```
@@ -63,7 +63,7 @@ releases/                       built managed solution
 ```bash
 cd pcf/StudioDirectory && npm install && npm test && npm run build
 # preview: open pcf/StudioDirectory/harness/index.html (after npm run build)
-cd ../../solution/PBSStudioMaster && dotnet build -c Release   # → bin/Release/PBSStudioMaster.zip (managed)
+cd ../../solution/PBSStudioHub && dotnet build -c Release   # → bin/Release/PBSStudioHub.zip (managed)
 # Schedule: same steps in pcf/Schedule and solution/PBSSchedule
 ```
 

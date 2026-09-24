@@ -45,7 +45,7 @@ function parseActionResult(raw: string | null | undefined): ActionResult | null 
     }
 }
 
-export class StudioMaster implements ComponentFramework.StandardControl<IInputs, IOutputs> {
+export class StudioHub implements ComponentFramework.StandardControl<IInputs, IOutputs> {
     private root: Root;
     private context: ComponentFramework.Context<IInputs>;
     private notifyOutputChanged: () => void;
@@ -130,6 +130,7 @@ export class StudioMaster implements ComponentFramework.StandardControl<IInputs,
             sources: {
                 studios: sourceColumns(p.studios, p.StudiosJson?.raw),
                 locations: sourceColumns(p.locations, p.LocationsJson?.raw),
+                schedules: sourceColumns(p.schedules, p.SchedulesJson?.raw),
             },
             loading: {
                 studios: pagingMore("studios", p.studios, p.StudiosJson?.raw),

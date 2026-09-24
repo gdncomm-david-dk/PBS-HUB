@@ -2,15 +2,15 @@
 <ImportExportXml version="9.1.0.643" SolutionPackageVersion="9.1" languagecode="1033" generatedBy="CrmLive" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
   <SolutionManifest>
     <!-- Unique Name of Cds Solution-->
-    <UniqueName>PBSStudioMaster</UniqueName>
+    <UniqueName>PBSStudioHub</UniqueName>
     <LocalizedNames>
       <!-- Localized Solution Name in language code -->
-      <LocalizedName description="PBS Hub - Studio Master" languagecode="1033" />
+      <LocalizedName description="PBS Hub - Studio Hub" languagecode="1033" />
     </LocalizedNames>
     <Descriptions>
-      <Description description="PCF pbs_Ops.StudioMaster: studio list, studio detail, geofence editor, utilization, live usage, GMV and schedules." languagecode="1033" />
+      <Description description="PCF pbs_Ops.StudioHub: studio list, studio detail, geofence editor, utilization, live usage, GMV and schedules." languagecode="1033" />
     </Descriptions>
-    <Version>1.4.1.0</Version>
+    <Version>1.5.0.0</Version>
     <!-- Solution Package Type: Unmanaged(0)/Managed(1)/Both(2)-->
     <Managed>2</Managed>
     <Publisher>

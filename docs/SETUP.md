@@ -5,7 +5,7 @@ for the Studio screens and part C for the Schedule screen.
 
 | Control | Display name | Solution (managed) | Version | Screens |
 |---|---|---|---|---|
-| `pbs_Ops.StudioMaster` | PBS Studio Master | `releases/PBSStudioMaster_managed_1.4.1.zip` (`PBSStudioMaster`) | 1.4.1 | Studio list, Studio detail |
+| `pbs_Ops.StudioHub` | PBS Studio Hub | `releases/PBSStudioHub_managed_1.5.0.zip` (`PBSStudioHub`) | 1.5.0 | Studio list, Studio detail |
 | `pbs_Ops.Schedule` | PBS Schedule | `releases/PBSSchedule_managed_1.2.1.zip` (`PBSSchedule`) | 1.2.1 | Schedule board, session detail, create/edit, bulk & AI upload |
 
 Neither control writes to SharePoint. Each one emits an `ActionPayload` `{ action, requestId, payload }`; the
@@ -20,16 +20,17 @@ arrives the control stays locked. It gives up after 30 seconds for a save, or 3 
 
 1. Power Apps → **Solutions → Import**. Import both zips from `releases/` as managed solutions.
 2. Canvas app → **Settings → Updates** → turn on **Power Apps component framework for canvas apps**.
-3. **Insert → Get more components → Code** → add **PBS Studio Master** and **PBS Schedule**.
+3. **Insert → Get more components → Code** → add **PBS Studio Hub** and **PBS Schedule**.
 4. Give each control the full screen next to `BlibliUniversalSidebar`. The minimum width is 1040 px.
 5. When you later import a newer version, accept **Update code components** in the editor, then save and publish.
 
-**Check the version.** The Studio header shows `pbs_Ops.StudioMaster 1.4.1`. If it does not, the app is still
-running an old control. Delete the old *PBS Studio Directory* control from the screen and insert
-*PBS Studio Master* again.
+**Check the version.** From 1.5.0 the Studio control is a new component, **PBS Studio Hub**
+(`pbs_Ops.StudioHub`, solution `PBSStudioHub`), so the app cannot keep running a cached older build. Delete the old
+*PBS Studio Master* / *PBS Studio Directory* control from the screen, insert *PBS Studio Hub* and set the same
+properties and `OnChange` on it. The header then shows `pbs_Ops.StudioHub 1.5.0`.
 
-The old solutions `PBSStudioDirectory` and `PBSHubStudio` can be deleted once the app runs
-`pbs_Ops.StudioMaster`.
+The old solutions `PBSStudioMaster`, `PBSHubStudio` and `PBSStudioDirectory` can be deleted once the app runs
+`pbs_Ops.StudioHub`.
 
 ## A2. SharePoint columns the controls expect
 
@@ -49,6 +50,7 @@ below, open **Fields → Edit** and add the columns named in the property's desc
 two datasets:
 
 - On the Studio control, add `LocationID` to both `studios` and `locations`. Without it no studio can be linked.
+- On the Studio control, add `ApprovalStatus` to `schedules`. Without it a live break shows *Belum ada report*.
 - On the Schedule control, add `ID`, `Title` and `BrandID` / `HostID` to `brands` and `hosts`. Without them
   the board cannot show names.
 
@@ -60,7 +62,7 @@ in the tables below.
 
 ---
 
-# B. PBS Studio Master (`pbs_Ops.StudioMaster` 1.4.1)
+# B. PBS Studio Hub (`pbs_Ops.StudioHub` 1.5.0)
 
 ## B1. Period variables
 
@@ -538,13 +540,14 @@ file was uploaded.
 
 | Symptom | Cause | Fix |
 |---|---|---|
-| Studio header does not show `pbs_Ops.StudioMaster 1.4.1` | The screen still holds the old control, or the code component was not updated | Delete the control, insert **PBS Studio Master** again, then save and publish. After an import, accept **Update code components** |
+| Studio header does not show `pbs_Ops.StudioHub 1.5.0` | The screen still holds the old control, or the code component was not updated | Delete the control, insert **PBS Studio Hub**, then save and publish. After an import, accept **Update code components** |
 | *Mapping lokasi* banner: studios not linked | `LocationID` is missing from **Fields** on `studios` or `locations` | Open **Lihat kolom** in the banner to see which columns actually arrive. Add `LocationID` under **Fields → Edit** on both datasets, or use `StudiosJson` as in B2 |
 | *LocationID tidak ditemukan* on a studio | The studio's `LocationID` is not carried by any item in the `locations` dataset (typo, extra space, or the item is filtered out) | Bind the whole `Studio Location - PBS` list, or pick another location in the Geofence tab |
 | Brand or host shows an ID, with a yellow banner | `brands` / `hosts` are not bound, or lack `ID`, `Title`, `BrandID`/`HostID` or the name column | See C2 *Names, not IDs* |
 | Saving a session fails on Status or Position | The choice column lacks `Finished`, or `Main Host` / `Co-Host` | Add the values in SharePoint (A2) |
 | Patch error *LocationID … expected type 'Text'. Found type 'Record'* | `Studio.LocationID` is a text column but the formula writes a lookup record | Write `LocationID: Text(p.locationId)` (B4) |
 | *Invalid argument type (Boolean). Expecting a Record value instead* in `OnChange` | An `IfError(Patch(...), Set(...))` without `; true` | End the first argument with `; true` (B4) |
+| Studio › Jadwal shows *Belum ada report* for a live break | `ApprovalStatus` does not reach the `schedules` dataset | The Jadwal card shows a banner; open **Lihat kolom** and add `ApprovalStatus` under **Fields → Edit** on `schedules` (or to `SchedulesJson`). The control also reads a value of exactly `LiveBreak` in any column it receives |
 | Uploaded file is corrupt, or contains `data:` text | The tenant does not convert a data URI into bytes | Use the flow (C4a option B), or `uploadMode: "canvas"` (C4b) |
 | The control stays locked after an action | `ActionResult` is not set to the reply variable, or the reply's `requestId` differs | Check that `ActionResult` = `varStudioResult` / `varSchedResult`, and that the handler echoes `rid` |
 | Only the first bulk file creates schedules | The old button ran PBS0001A once | Use the `ForAll(colBulkFiles, …Run(Name))` in C4b |

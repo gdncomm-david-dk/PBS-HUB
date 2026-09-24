@@ -1,9 +1,9 @@
 import * as React from "react";
 import { ScheduleRow, StudioRow } from "../core/types";
 import { formatIdr, formatIdrShort, ReportState, sessionGmv, studioGmv } from "../core/gmv";
-import { occupiesStudio } from "../core/data";
+import { hasLiveBreakColumn, occupiesStudio } from "../core/data";
 import { formatDateShort, formatMinutes, formatMonth, HARI, dateKeyToDate, monthDateKeys, monthName, shiftMonth } from "../core/time";
-import { Badge, Card, cx, Tone } from "./components";
+import { Badge, Banner, Card, cx, Tone } from "./components";
 import { Env } from "./App";
 import { scheduleStatus } from "./shared";
 
@@ -152,6 +152,35 @@ export function UpcomingCard(props: { env: Env; studio: StudioRow; onOpenDay: (d
     );
 }
 
+/** Why a live break can still read "Belum ada report": the column that says LiveBreak never reaches the control. */
+function LiveBreakHint(props: { env: Env }): React.ReactElement {
+    const src = props.env.sources.schedules;
+    const [open, setOpen] = React.useState(false);
+    const where = src.from === "json" ? "di formula SchedulesJson (ShowColumns)" : "di properti schedules → Edit fields";
+    return (
+        <Banner
+            tone="info"
+            action={
+                <button type="button" className="sd-link" onClick={() => setOpen((o) => !o)}>
+                    {open ? "Tutup detail" : "Lihat kolom"}
+                </button>
+            }
+        >
+            <div>
+                Sesi <b>Live Break</b> tidak perlu report, tetapi kolom <b>ApprovalStatus</b> belum terbaca di dataset <b>schedules</b>, jadi
+                live break masih terhitung "Belum ada report". Tambahkan kolom itu {where}.
+            </div>
+            {open && (
+                <div className="sd-diag">
+                    <div>
+                        <b>schedules</b> ({src.from}): {src.columns.join(", ") || "—"}
+                    </div>
+                </div>
+            )}
+        </Banner>
+    );
+}
+
 type MonthFilter = "all" | "upcoming" | "done" | "missing" | "cancelled";
 const PAGE = 25;
 
@@ -202,6 +231,7 @@ export function MonthSchedule(props: { env: Env; studio: StudioRow; selectedDay:
                 </span>
             }
         >
+            {counts.missing > 0 && !hasLiveBreakColumn(env.sources.schedules.columns) && <LiveBreakHint env={env} />}
             <div className="sd-chips sd-chips--left">
                 {chips.map(([k, label]) => (
                     <button key={k} type="button" className={cx("sd-chip", filter === k && "is-on")} onClick={() => setFilter(k)} aria-pressed={filter === k}>
