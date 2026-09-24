@@ -41,7 +41,7 @@
   <a href="?c=PayrollRunDetail&run=118">Run 118</a> <a href="?c=PayrollRunDetail&run=118&tab=Approval">approval</a> <a href="?c=PayrollRunDetail&run=115&tab=Approval">ditolak</a> <a href="?c=PayrollRunDetail&run=117&slips=1&tab=Payslip">slip</a> <a href="?c=PayrollRunDetail&run=116">manual</a>
   |
   <a href="?c=HostList">HostList</a> <a href="?c=HostList&s=loading">loading</a> <a href="?c=HostList&s=empty">empty</a> |
-  <a href="?c=HostDetail&h=HST-001">Host 001</a> <a href="?c=HostDetail&h=HST-003">drift</a> <a href="?c=HostDetail&h=HST-012">nonaktif</a> <a href="?c=HostDetail&h=HST-008&tab=Personal">data pribadi</a> <a href="?c=HostDetail&h=HST-001&role=FAS_Team">tanpa izin PII</a>
+  <a href="?c=HostDetail&h=HST-001">Host 001</a> <a href="?c=HostDetail&h=HST-003">drift</a> <a href="?c=HostDetail&h=HST-012">nonaktif</a> <a href="?c=HostDetail&h=HST-008&tab=Personal">data pribadi</a> <a href="?c=HostDetail&h=HST-001&role=FAS_Team">tanpa izin PII</a> <a href="?c=HostDetail&h=HST-001&tab=Attendance">kehadiran</a> <a href="?c=HostDetail&h=HST-004&tab=Attendance">kehadiran (shift terbuka)</a>
   <br>Host app:
   <a href="?c=HostDashboard&w=1060">HostDashboard</a> <a href="?c=HostDashboard&shift=none">belum clock in</a> <a href="?c=HostDashboard&shift=out">sudah clock out</a> <a href="?c=HostDashboard&ref=2026-09-14T22:30:00">malam</a> <a href="?c=HostDashboard&s=loading">loading</a> <a href="?c=HostDashboard&w=390">mobile</a> |
   <a href="?c=MyReports">MyReports</a> <a href="?c=MyReports&f=Revision">revisi</a> <a href="?c=MyReports&period=2026-07">bulan kosong</a> <a href="?c=MyReports&s=loading">loading</a> <a href="?c=MyReports&w=390">mobile</a> |
@@ -177,6 +177,24 @@
           params.ClockInJson = J(rows);
         }
         params.ActionResult = J({ requestId: p.requestId, status: dup ? "conflict" : q.get("reply") || "ok", message: dup ? "Sudah ada clock in di tanggal itu." : q.get("reply") === "error" ? "Gagal menyimpan: akses ditolak." : `Clock in tersimpan: CLK-9001 · ${p.payload.clockInDate} ${p.payload.clockInTime}–${p.payload.clockOutTime}` });
+        ctl.updateView(context());
+      }, Number(q.get("delay") || 400));
+      return;
+    }
+    if (p.action === "ADJUST_CLOCK_IN" && document.getElementById("auto").checked) {
+      // Canvas stand-in: patch the one Clock In row (times, HKTugas, Tier, Insentif, Streak + audit).
+      setTimeout(() => {
+        const fail = q.get("reply") === "error";
+        if (!fail) {
+          const rows = JSON.parse(params.ClockInJson || "[]").map((x) => String(x.ID) !== String(p.payload.clockInId) ? x : Object.assign({}, x, {
+            CheckInTime: p.payload.manualRow ? x.CheckInTime : p.payload.checkInAt, CheckOutTime: p.payload.manualRow ? x.CheckOutTime : p.payload.checkOutAt,
+            ClockInTime: p.payload.manualRow ? p.payload.clockInTime : x.ClockInTime, ClockOutTime: p.payload.manualRow ? p.payload.clockOutTime : x.ClockOutTime,
+            HKTugas: p.payload.hkTugas, Tier: p.payload.tier, Insentif: p.payload.insentif, Streak: p.payload.streak,
+            AdjustedBy: "Annisa Hanifah", AdjustedAt: S.REF, AdjustReason: p.payload.reason,
+          }));
+          params.ClockInJson = J(rows);
+        }
+        params.ActionResult = J({ requestId: p.requestId, status: fail ? "error" : "ok", message: fail ? "Gagal menyimpan: akses ditolak." : `Kehadiran ${p.payload.clockInDate} disesuaikan (${p.payload.changes.length} perubahan).` });
         ctl.updateView(context());
       }, Number(q.get("delay") || 400));
       return;

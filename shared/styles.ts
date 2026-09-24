@@ -126,6 +126,12 @@ font-family:"Blibli","Helvetica Neue",Arial,sans-serif;font-size:13px;line-heigh
 .pbs-modal-f{display:flex;justify-content:flex-end;gap:10px;padding:14px 22px;border-top:1px solid var(--bd);flex-wrap:wrap;align-items:center}
 .pbs-field select{height:40px;border:1px solid var(--bd);border-radius:8px;padding:0 12px;width:100%;background:#fff;font-size:13px;cursor:pointer}
 .pbs-field select:focus{border-color:var(--p);box-shadow:0 0 0 3px var(--p-tint);outline:none}
+.pbs-field input[type=time],.pbs-field input[type=text],.pbs-field input[inputmode]{height:40px;border:1px solid var(--bd);border-radius:8px;padding:0 12px;width:100%;background:#fff;font-size:13px;font-variant-numeric:tabular-nums;outline:none}
+.pbs-field input:focus{border-color:var(--p);box-shadow:0 0 0 3px var(--p-tint)}
+.pbs-field input:disabled{background:var(--sf);color:var(--tx2)}
+.pbs-inline{display:flex;gap:8px;align-items:center;font-size:13px;cursor:pointer}
+.pbs-diff{list-style:none;margin:0;padding:10px 12px;border:1px solid var(--bd);border-radius:8px;background:var(--sf);display:grid;gap:4px;font-size:12.5px}
+.pbs-diff b{font-weight:600}
 .pbs-hint{font-size:12px;color:var(--tx2);margin:6px 0 0}
 .pbs-checks{list-style:none;margin:0;padding:0;display:grid;gap:4px}
 .pbs-checks li{display:flex;gap:10px;align-items:flex-start;padding:9px 10px;border-radius:8px;font-size:13px}

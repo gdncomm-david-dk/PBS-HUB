@@ -54,7 +54,9 @@ Set(
                 scoreInitial: First('[FAS STUDIO] ScoreConfig').InitialScore,   // dipakai kalau kolom Host kosong
                 scoreMin: First('[FAS STUDIO] ScoreConfig').MinimumScore,
                 scoreMax: First('[FAS STUDIO] ScoreConfig').MaximumScore,
-                piiRevealSeconds: 30        // data pribadi yang dibuka hilang otomatis
+                piiRevealSeconds: 30,       // data pribadi yang dibuka hilang otomatis
+                tierRates: {tier1: 75000, tier2: 65000, tier3: 55000},   // CONTOH — isi rate card insentif tier yang berlaku (tab Kehadiran)
+                weeklyBonus: 75000          // CONTOH — nominal Streak / weekly
             }
         },
         JSONFormat.Compact
@@ -73,7 +75,7 @@ Izin kalau `permissions` kosong (model legacy `Role - PBS Hub`, satu-satunya yan
 | `PAYROLL_RUN` (Jalankan payroll, Kirim ulang slip) | ✓ | – | – |
 | `HOST_EDIT` (Tambah host, Edit, Nonaktifkan) | ✓ | ✓ | – |
 | `HOST_PII_VIEW` (tab Data pribadi: KTP, rekening, alamat, telepon) | ✓ | – | – |
-| `HOST_CLOCKIN` (Clock in manual untuk host yang lupa clock in) | ✓ | ✓ | – |
+| `HOST_CLOCKIN` (Clock in manual; edit jam, status, tier dan weekly di tab Kehadiran) | ✓ | ✓ | – |
 
 Kalau nanti pindah ke `[FAS STUDIO] RolePermissions`, isi `permissions: Concat(colUserPermissions, Value, ",")`
 dan control hanya memakai daftar itu.
@@ -784,14 +786,15 @@ Set(varHdReveal, "")
 
 ```powerfx
 Context         = varPbsCtx
-DefaultTab      = "Summary"          // Summary | Schedule | Reports | Payroll | Personal
+DefaultTab      = "Summary"          // Summary | Schedule | Attendance | Reports | Payroll | Personal
 IsLoading       = varHdLoading
 ActionResult    = varHdResult
 RevealedJson    = varHdReveal
 HostJson        = JSON(ForAll(Table(varHdHost), {ID: ID, Title: Title, HostCode: HostCode, NamaHost: NamaHost, Status: Status.Value, Package: Package.Value, Email: Email.Email, JoinDate: JoinDate, RegistrationDate: RegistrationDate, RegisteredBy: RegisteredBy, InitialScore: InitialScore, CurrentScore: CurrentScore, MinimumScore: MinimumScore, MaximumScore: MaximumScore, Modified: Modified, Bank: Bank, HasRekening: !IsBlank(NoRekening) && !IsBlank(Bank), NorekLast4: Right(NoRekening, 4), KtpLast4: Right(KTP, 4), PhoneLast4: Right(PhoneNumber, 4), HasAlamat: !IsBlank(Alamat), HasNamaRekening: !IsBlank(NamaRekening), HasPersonalEmail: !IsBlank(PersonalEmail)}), JSONFormat.Compact)
 SchedulesJson   = JSON(ForAll(colHdSched, {ID: ID, Title: Title, Date: Date, StartTime: StartTime, EndTime: EndTime, BrandID: BrandID, StudioID: StudioID, HostID: HostID, Platform: Platform.Value, Status: Status.Value}), JSONFormat.Compact)
 ReportsJson     = JSON(ForAll(colHdReport, {ID: ID, Title: Title, LiveDate: LiveDate, BrandID: BrandID, HostID: HostID, Platform: Platform.Value, Penjualan: Penjualan, ApprovalStatus: ApprovalStatus.Value, ApprovalComment: ApprovalComment, Modified: Modified}), JSONFormat.Compact)
-ClockInJson     = JSON(ForAll(colHdClockIn, {HostID: HostID, ClockInDate: ClockInDate, CheckInTime: CheckInTime, CheckOutTime: CheckOutTime, HKTugas: HKTugas, Insentif: Insentif, Streak: Streak}), JSONFormat.Compact)
+ClockInJson     = JSON(ForAll(colHdClockIn, {ID: ID, Title: Title, HostID: HostID, ClockInDate: Text(ClockInDate, "yyyy-mm-dd"), CheckInTime: CheckInTime, CheckOutTime: CheckOutTime, ClockInTime: ClockInTime, ClockOutTime: ClockOutTime, IsInsideGeofence: IsInsideGeofence, StatusKehadiran: Status.Value, HKTugas: HKTugas, Tier: Tier.Value, Insentif: Insentif, Streak: Streak, AdjustedBy: AdjustedBy, AdjustedAt: AdjustedAt, AdjustReason: AdjustReason, Modified: Modified}), JSONFormat.Compact)
+// Tier: pakai Tier.Value kalau kolomnya Choice, Tier kalau Text. AdjustedBy/At/Reason opsional (lihat Kehadiran di bawah).
 PayrollDataJson = JSON(ForAll(colHdLine, {Title: Title, payroll_id: payroll_id, HostID: varSelectedHostId, Periode: Periode, JumlahHari: JumlahHari, TotalGaji: TotalGaji, PPh21: PPh21, NetTHP: NetTHP, Bank: Bank, NorekLast4: Right(Norek, 4), HasRekening: !IsBlank(Norek) && !IsBlank(Bank)}), JSONFormat.Compact)
 PayrollJson     = JSON(ForAll(colHdRun, {ID: ID, Title: Title, PayrollName: PayrollName, Periode: Periode, Status: Status.Value, PBSApproval: PBSApproval, HCApproval: HCApproval, FASApproval: FASApproval, Created: Created, Modified: Modified}), JSONFormat.Compact)
 ScoreTxJson     = JSON(ForAll(colHdTx, {ID: ID, TransactionID: TransactionID, RuleID: RuleID, TransactionType: TransactionType.Value, Point: Point, ScoreBefore: ScoreBefore, ScoreAfter: ScoreAfter, Reason: Reason, Notes: Notes, Status: Status.Value, CreatedDate: CreatedDate, CreatedBy: CreatedBy.DisplayName}), JSONFormat.Compact)
@@ -843,6 +846,35 @@ If(!IsBlank(Self.ActionPayload),
                                 )
                             )
                         ),
+                    "ADJUST_CLOCK_IN",
+                        With({cur: LookUp('Clock In - PBS Hub', ID = Value(p.clockInId))},
+                            If(IsBlank(cur) || (!IsBlank(Text(p.expectedModified)) && Text(cur.Modified, DateTimeFormat.UTC) <> Text(DateTimeValue(Text(p.expectedModified)), DateTimeFormat.UTC)),
+                                Set(varHdResult, JSON({requestId: rid, status: "conflict", message: "Baris clock in ini sudah diubah orang lain. Muat ulang lalu coba lagi."}, JSONFormat.Compact)),
+                                IfError(
+                                    Patch('Clock In - PBS Hub', cur,
+                                        // Baris GeoAttendance memakai CheckInTime/CheckOutTime (DateTime); baris manual memakai ClockInTime/ClockOutTime (teks).
+                                        If(Boolean(p.manualRow),
+                                            {ClockInTime: Text(p.clockInTime), ClockOutTime: Text(p.clockOutTime)},
+                                            {CheckInTime: DateTimeValue(Text(p.checkInAt)),
+                                             CheckOutTime: If(IsBlank(Text(p.checkOutAt)), Blank(), DateTimeValue(Text(p.checkOutAt)))}),
+                                        {
+                                            Status: {Value: Text(p.status)},
+                                            HKTugas: Value(p.hkTugas),
+                                            Tier: If(IsBlank(Text(p.tier)), Blank(), {Value: Text(p.tier)}),   // kolom Text: Text(p.tier)
+                                            Insentif: Value(p.insentif),
+                                            Streak: Value(p.streak),
+                                            AdjustedBy: User().FullName,           // kolom opsional untuk audit
+                                            AdjustedAt: Now(),
+                                            AdjustReason: Text(p.reason)
+                                        }
+                                    );
+                                    ClearCollect(colHdClockIn, Filter('Clock In - PBS Hub', HostID = varSelectedHostId, ClockInDate >= varHdFrom));
+                                    Set(varHdResult, JSON({requestId: rid, status: "ok",
+                                        message: "Kehadiran " & Text(DateValue(Text(p.clockInDate)), "dd mmm yyyy") & " disesuaikan · total Rp " & Text(Value(p.totalBefore), "#,##0") & " → Rp " & Text(Value(p.totalAfter), "#,##0")}, JSONFormat.Compact)),
+                                    Set(varHdResult, JSON({requestId: rid, status: "error", message: "Gagal menyimpan: " & FirstError.Message}, JSONFormat.Compact))
+                                )
+                            )
+                        ),
                     "REVEAL_PII",
                         With({f: Text(p.field)},
                             If(userRole.Value <> "PBS_Team",
@@ -886,8 +918,30 @@ Aksi yang **mengunci** dan wajib dibalas: `REVEAL_PII` (`{hostId, id, field}`; `
 `ADD_CLOCK_IN` sama dengan di HostList (lihat di atas); tombol *Clock in* di header menampilkan jumlah jadwal
 yang belum ada clock in-nya.
 
+**Tab Kehadiran (edit clock in, tier, weekly).** Satu baris per hari dari `Clock In - PBS Hub`: jam masuk/keluar,
+durasi, status (HKTugas), Tier + Insentif, Weekly (`Streak`) dan total — semuanya kolom di baris Clock In itu,
+yang dijumlahkan flow payroll per host per bulan. Tombol **Edit** membuka form: jam clock in/out (clock out lebih
+awal dari clock in = hari berikutnya), status kehadiran, tier (nominal insentif terisi dari rate card, boleh
+diubah), weekly (centang + nominal) dan **alasan wajib**. Form menampilkan ringkasan perubahan dan total hari itu
+sebelum → sesudah.
+
+`ADJUST_CLOCK_IN` **mengunci**. Payload: `{clockInId, title, hostId, hostName, clockInDate, clockInTime,
+clockOutTime ("HH:mm"), checkInAt, checkOutAt ("yyyy-mm-ddThh:mm:ss", lokal), manualRow, status, hkTugas,
+tier ("Tier 1".."Tier 3" | ""), insentif, streak, totalBefore, totalAfter, reason, changes: [{field, from, to}],
+expectedModified, payrollRun: {id, title, phase} | null}`.
+
+- Rate card: `config.tierRates: {tier1, tier2, tier3}` dan `config.weeklyBonus` di Context. Tanpa itu control
+  memakai nominal yang paling sering muncul di data host ini (bisa kosong kalau host belum pernah dapat tier itu).
+- Kalau bulan kehadiran itu sudah dipakai run payroll, form menampilkan peringatan: run masih approval →
+  perubahan ikut kalau run disusun ulang; run sudah **Done** → slip tidak berubah, selisih dikoreksi manual.
+- Audit: tambahkan kolom opsional `AdjustedBy` (Text), `AdjustedAt` (DateTime), `AdjustReason` (Note) di
+  `Clock In - PBS Hub`. Baris yang terisi ditandai *Disesuaikan* di tab. Tanpa kolom itu, hapus tiga field
+  tersebut dari Patch dan simpan `p.changes` + `p.reason` ke list log.
+- `varHdFrom` di OnVisible menentukan bulan yang bisa dipilih (default bulan lalu + bulan ini).
+
 Tab *Payroll* hanya untuk `PAYROLL_VIEW`, tab *Data pribadi* hanya untuk `HOST_PII_VIEW`, tombol *Edit* /
-*Nonaktifkan* hanya untuk `HOST_EDIT`, tombol *Clock in* hanya untuk `HOST_CLOCKIN`.
+*Nonaktifkan* hanya untuk `HOST_EDIT`, tombol *Clock in* dan *Edit* di tab Kehadiran hanya untuk `HOST_CLOCKIN`. Tab Kehadiran tampil untuk `HOST_CLOCKIN`
+atau `PAYROLL_VIEW`.
 
 ## 9. Alasan (kolom *Alasan* di antrean)
 
@@ -910,7 +964,7 @@ belum ada di v1, bulk approve tidak akan muncul — itu disengaja.
 
 1. Power Platform admin center → environment → **Settings → Product → Features** → aktifkan
    *Allow publishing of canvas apps with code components*.
-2. make.powerapps.com → **Solutions → Import solution** → `PBSHubOpsPCF_1_4_0_0_managed.zip`
+2. make.powerapps.com → **Solutions → Import solution** → `PBSHubOpsPCF_1_5_0_0_managed.zip`
    (sudah pernah import versi lama? Import ini meng-**upgrade** solusi yang sama — pilih *Upgrade*, bukan
    *Stage for upgrade* yang belum di-*Apply*).
 3. Di canvas app: **Insert → Get more components → Code** → pilih `PBS Ops Dashboard`,
@@ -923,8 +977,8 @@ belum ada di v1, bulk approve tidak akan muncul — itu disengaja.
 disisipkan. Setelah upgrade solusi: buka app di Studio → akan muncul banner *"Updated code components
 detected"* → **Update**. Kalau banner tidak muncul: tutup Studio, hard refresh browser (Ctrl+Shift+R), buka
 lagi. Lalu **Save + Publish** app. Pastikan juga di Solutions → PBS Hub Ops PCF → History bahwa versi
-1.4.0.0 benar-benar terpasang. Versi control di solusi ini: Dashboard / ReportReview / ReportDetail
-1.3.0, PayrollRuns / PayrollRunDetail 1.2.0, HostList / HostDetail 1.2.0.
+1.5.0.0 benar-benar terpasang. Versi control di solusi ini: Dashboard / ReportReview / ReportDetail
+1.3.0, PayrollRuns / PayrollRunDetail 1.2.0, HostList 1.2.0, HostDetail 1.3.0.
 
 **Tampilan rusak di app (tabel tidak full, tombol tanpa border, checkbox hilang)?** Itu CSS global Power
 Apps player yang menimpa style control. Sejak 1.3.0 setiap control dirender di dalam Shadow DOM sehingga

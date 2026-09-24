@@ -190,7 +190,7 @@
 
   const context = {
     userEmail: "annisa@example.com", userName: "Annisa Hanifah", roles: "PBS_Team", permissions: "",
-    config: { tolerancePct: 5, confidenceThreshold: 0.85, maxShiftHours: 12, missingReportDays: 2 },
+    config: { tolerancePct: 5, confidenceThreshold: 0.85, maxShiftHours: 12, missingReportDays: 2, tierRates: { tier1: 75000, tier2: 65000, tier3: 55000 }, weeklyBonus: 75000 },
   };
 
   // ---- host detail & credit score ([FAS STUDIO] HostScoreThreshold / HostScoreTransactions) ------

@@ -1,6 +1,7 @@
 import * as React from "react";
 import { ModuleContext, UseActionResult, configNumber, hasPermission } from "../../../shared/contract";
 import { ClockInModal, availableClockInDates } from "../../../shared/clockIn";
+import { AttendanceTab } from "../../../shared/attendance";
 import { Row, nameIndex } from "../../../shared/data";
 import { fmtDateShort, fmtDateTimeShort, fmtDayMonth, fmtNumber, fmtRupiah, fmtTime } from "../../../shared/format";
 import {
@@ -34,7 +35,7 @@ import { buildRuns, fmtPeriod } from "../../../shared/payroll";
 import { REVIEW_STATES } from "../../../shared/reconcile";
 import { Badge, Button, EmptyState, EndOfData, Icon, InfoBanner, Pill, ResultBanner, SectionHeader, Skeleton, SkeletonRows, Spinner, TONE_DOT } from "../../../shared/ui";
 
-export type HostTab = "Summary" | "Schedule" | "Reports" | "Payroll" | "Personal";
+export type HostTab = "Summary" | "Schedule" | "Attendance" | "Reports" | "Payroll" | "Personal";
 
 export interface HostDetailProps {
   ctx: ModuleContext;
@@ -55,7 +56,7 @@ export interface HostDetailProps {
   action: UseActionResult;
 }
 
-const TAB_LABEL: Record<HostTab, string> = { Summary: "Ringkasan", Schedule: "Jadwal", Reports: "Report", Payroll: "Payroll", Personal: "Data pribadi" };
+const TAB_LABEL: Record<HostTab, string> = { Summary: "Ringkasan", Schedule: "Jadwal", Attendance: "Kehadiran", Reports: "Report", Payroll: "Payroll", Personal: "Data pribadi" };
 const BAND_TEXT: Record<string, string> = { success: "pbs-t-ok", danger: "pbs-t-bad", warning: "pbs-t-warn", info: "pbs-t-info", neutral: "" };
 
 const money = (n: number | null) => (n === null ? <span className="pbs-muted">—</span> : fmtRupiah(n));
@@ -80,14 +81,14 @@ export function HostDetailView(props: HostDetailProps): React.ReactElement {
   const canPii = hasPermission(ctx, "HOST_PII_VIEW");
   const canPay = hasPermission(ctx, "PAYROLL_VIEW");
   const canEdit = hasPermission(ctx, "HOST_EDIT");
-  const tabs: HostTab[] = ["Summary", "Schedule", "Reports", ...(canPay ? (["Payroll"] as HostTab[]) : []), ...(canPii ? (["Personal"] as HostTab[]) : [])];
+  const canClockIn = hasPermission(ctx, "HOST_CLOCKIN");
+  const tabs: HostTab[] = ["Summary", "Schedule", ...(canClockIn || canPay ? (["Attendance"] as HostTab[]) : []), "Reports", ...(canPay ? (["Payroll"] as HostTab[]) : []), ...(canPii ? (["Personal"] as HostTab[]) : [])];
   const [tabRaw, setTab] = React.useState<HostTab>(props.defaultTab);
   React.useEffect(() => setTab(props.defaultTab), [props.defaultTab]);
   // The tab is absent without the permission, so a DefaultTab pointing at it falls back.
   const tab = tabs.includes(tabRaw) ? tabRaw : "Summary";
   const [statusModal, setStatusModal] = React.useState(false);
   const [clockInModal, setClockInModal] = React.useState(false);
-  const canClockIn = hasPermission(ctx, "HOST_CLOCKIN");
   const hostRef = React.useRef<HTMLDivElement>(null);
 
   React.useEffect(() => {
@@ -127,7 +128,7 @@ export function HostDetailView(props: HostDetailProps): React.ReactElement {
   };
   // A successful reveal needs no banner; the value itself is the confirmation.
   const bannerResult =
-    action.lastResult && !(action.lastResult.action === "REVEAL_PII" && action.lastResult.status === "ok") && !(clockInModal && action.lastResult.action === "ADD_CLOCK_IN")
+    action.lastResult && !(action.lastResult.action === "REVEAL_PII" && action.lastResult.status === "ok") && !(clockInModal && action.lastResult.action === "ADD_CLOCK_IN") && !(action.lastResult.action === "ADJUST_CLOCK_IN" && action.lastResult.status !== "ok")
       ? action.lastResult
       : null;
   const missedDays = canClockIn ? availableClockInDates(props.schedules, props.clockIns, h.hostId, now).length : 0;
@@ -208,7 +209,7 @@ export function HostDetailView(props: HostDetailProps): React.ReactElement {
           <Pill tone={st.tone}>{st.label}</Pill>
         </div>
 
-        <ResultBanner result={bannerResult} onClose={action.clearResult} okText={bannerResult?.action === "ADD_CLOCK_IN" ? "Clock in tersimpan." : "Tersimpan."} />
+        <ResultBanner result={bannerResult} onClose={action.clearResult} okText={bannerResult?.action === "ADD_CLOCK_IN" ? "Clock in tersimpan." : bannerResult?.action === "ADJUST_CLOCK_IN" ? "Kehadiran disesuaikan." : "Tersimpan."} />
 
         {h.sensitiveKeys.length > 0 ? (
           <InfoBanner tone="err" icon="lock">
@@ -238,6 +239,8 @@ export function HostDetailView(props: HostDetailProps): React.ReactElement {
           <SummaryTab h={h} bands={bands} ledger={ledger} check={check} sessions={sessions} reports={reports} clockIns={props.clockIns} canPay={canPay} loading={props.loading} now={now} action={action} />
         ) : tab === "Schedule" ? (
           <ScheduleTab sessions={sessions} loading={props.loading} haveClockIns={props.clockIns.length > 0} onOpen={(s) => action.fire("OPEN_SCHEDULE", { scheduleId: s.id, title: s.title })} />
+        ) : tab === "Attendance" ? (
+          <AttendanceTab ctx={ctx} hostId={h.hostId} hostCode={h.code} hostName={h.name} clockIns={props.clockIns} runs={runModels} canEdit={canClockIn} loading={props.loading} now={now} action={action} />
         ) : tab === "Reports" ? (
           <ReportsTab reports={reports} loading={props.loading} onOpen={(r) => action.fire("OPEN_REPORT", { reportId: r.id, title: r.title })} />
         ) : tab === "Payroll" ? (

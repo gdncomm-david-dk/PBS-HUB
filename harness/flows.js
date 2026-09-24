@@ -330,6 +330,43 @@ const assert = (c, m) => { if (!c) { console.log("FAIL", m); process.exitCode = 
   await p.waitForTimeout(600);
   assert(await p.getByRole("dialog").getByText("Gagal menyimpan: akses ditolak.").isVisible(), "error stays inside the popup");
 
+  // ---- Host detail: attendance adjustments (Clock In row: times, HK, Tier, Weekly) -------------
+  await go("c=HostDetail&h=HST-001&tab=Attendance&delay=300");
+  await p.selectOption("select[aria-label='Bulan kehadiran']", "2026-08");
+  await p.waitForTimeout(150);
+  assert(await p.getByText(/sudah memakai kehadiran Agustus 2026/).isVisible(), "payroll run using August is named before editing");
+  const augRow = p.locator("tr", { hasText: "Senin, 3 Agustus" });
+  await augRow.getByRole("button", { name: "Edit", exact: true }).click();
+  const adj = p.getByRole("dialog");
+  const saveAdj = adj.getByRole("button", { name: "Simpan perubahan" });
+  assert(await saveAdj.isDisabled(), "save disabled until something changes");
+  await p.fill("#pbs-adj-out", "21:00");
+  assert((await p.inputValue("#pbs-adj-tier")) === "1" && (await p.inputValue("#pbs-adj-ins")) === "75.000", "current tier + insentif prefilled");
+  await p.selectOption("#pbs-adj-tier", "2");
+  assert((await p.inputValue("#pbs-adj-ins")) === "65.000", "new tier takes the rate from the data");
+  await adj.getByRole("checkbox", { name: "Dapat bonus weekly" }).check();
+  assert(await saveAdj.isDisabled(), "reason still required");
+  await p.fill("#pbs-adj-reason", "Lupa clock out, live sampai 21:00; tier 2 sesuai rekap.");
+  assert(await adj.getByText(/Total hari ini/).isVisible(), "change summary with the day total");
+  await shot("f-adjust");
+  await saveAdj.click();
+  pl = await payloads();
+  const aj = pl.find((x) => x.action === "ADJUST_CLOCK_IN");
+  assert(aj && aj.payload.clockInDate === "2026-08-03" && aj.payload.clockOutTime === "21:00" && aj.payload.checkOutAt === "2026-08-03T21:00:00" && aj.payload.tier === "Tier 2" && aj.payload.insentif === 65000 && aj.payload.streak === 75000 && aj.payload.hkTugas === 180000, "ADJUST_CLOCK_IN payload");
+  assert(aj && aj.payload.changes.map((c) => c.field).join() === "CheckOutTime,Tier,Insentif,Streak" && aj.payload.payrollRun && aj.payload.payrollRun.id === "118", "changes list + affected payroll run");
+  await p.waitForTimeout(500);
+  assert((await p.getByRole("dialog").count()) === 0, "modal closes after ok");
+  assert(await p.getByText(/Kehadiran 2026-08-03 disesuaikan/).isVisible(), "canvas message shown");
+  assert(await p.locator("tr", { hasText: "Senin, 3 Agustus" }).getByText("Disesuaikan").isVisible(), "row marked as adjusted");
+  await go("c=HostDetail&h=HST-001&tab=Attendance");
+  await p.locator("tr", { hasText: "Senin, 14 September" }).getByRole("button", { name: "Edit", exact: true }).click();
+  await p.fill("#pbs-adj-in", "10:00");
+  await p.fill("#pbs-adj-out", "02:00");
+  assert(await p.getByText(/lewat tengah malam/).isVisible(), "clock out before clock in means the next day");
+  await go("c=HostDetail&h=HST-001&role=HOST");
+  assert((await p.getByRole("tab", { name: "Kehadiran" }).count()) === 0, "no Kehadiran tab without HOST_CLOCKIN / PAYROLL_VIEW");
+
+
   // ---- Host app: dashboard ---------------------------------------------------------------------
   await go("c=HostDashboard");
   assert(await p.getByText("Selamat siang, Dinda").isVisible(), "host dashboard greets the host");

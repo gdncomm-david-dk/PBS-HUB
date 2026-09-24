@@ -14,7 +14,7 @@ Power Apps code components (PCF) untuk canvas app PBS Hub, dibuat dari design ha
 | `pbs_Ops.PayrollRuns` | Payroll — daftar run + preflight Jalankan payroll (P-1, P-2) | `controls/PayrollRuns` |
 | `pbs_Ops.PayrollRunDetail` | Detail run — baris per host, tracker approval, status slip (P-3–P-5) | `controls/PayrollRunDetail` |
 | `pbs_Ops.HostList` | Host — direktori, skor + band, peringatan tanpa data bank (HD-1) | `controls/HostList` |
-| `pbs_Ops.HostDetail` | Detail host — ringkasan skor/ledger, jadwal, report, payroll, data pribadi tersamar (HD-2) | `controls/HostDetail` |
+| `pbs_Ops.HostDetail` | Detail host — ringkasan skor/ledger, jadwal, kehadiran (edit jam, tier, weekly), report, payroll, data pribadi tersamar (HD-2) | `controls/HostDetail` |
 
 **Host app** (solusi terpisah `PBSHubHostPCF`, dari desain *PBS Host App*):
 
@@ -27,7 +27,7 @@ Power Apps code components (PCF) untuk canvas app PBS Hub, dibuat dari design ha
 **Output:** dua managed solution, dibangun dengan target MSBuild resmi Power Platform
 (`Microsoft.PowerApps.MSBuild.Solution`):
 
-- `dist/PBSHubOpsPCF_1_4_0_0_managed.zip` — Ops Console (7 control `pbs_Ops.*`)
+- `dist/PBSHubOpsPCF_1_5_0_0_managed.zip` — Ops Console (7 control `pbs_Ops.*`)
 - `dist/PBSHubHostPCF_1_0_0_0_managed.zip` — Host app (3 control `pbs_Host.*`)
 
 Cara pasang dan formula Power Fx lengkap (properti, `OnChange`, Patch ke SharePoint):

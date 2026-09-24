@@ -33,7 +33,7 @@ function Shell(p: ShellProps): React.ReactElement {
   return React.createElement(HostDetailView, { ...p, ctx, now, action });
 }
 
-const TABS: HostTab[] = ["Summary", "Schedule", "Reports", "Payroll", "Personal"];
+const TABS: HostTab[] = ["Summary", "Schedule", "Attendance", "Reports", "Payroll", "Personal"];
 const tabOf = (raw: string | null | undefined): HostTab => (TABS.includes(raw as HostTab) ? (raw as HostTab) : "Summary");
 
 export class HostDetail implements ComponentFramework.StandardControl<IInputs, IOutputs> {
