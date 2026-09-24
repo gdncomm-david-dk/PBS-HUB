@@ -13,6 +13,7 @@ export const REPORT_BADGE: Record<ReportState, { label: string; tone: Tone }> = 
     revision: { label: "Perlu revisi", tone: "danger" },
     missing: { label: "Belum ada report", tone: "danger" },
     notDue: { label: "—", tone: "neutral" },
+    liveBreak: { label: "Live Break", tone: "neutral" },
 };
 
 export function ReportCell(props: { state: ReportState }): React.ReactElement {
@@ -51,7 +52,8 @@ export function GmvCard(props: { env: Env; studio: StudioRow }): React.ReactElem
                         <div>
                             <div className="sd-gmv__total">{formatIdr(g.total)}</div>
                             <div className="sd-kpi__foot">
-                                {g.reportedSessions} dari {g.sessions} sesi sudah ada report
+                                {g.reportedSessions} dari {g.sessions - g.liveBreaks} sesi sudah ada report
+                                {g.liveBreaks > 0 && ` · ${g.liveBreaks} live break`}
                                 {delta !== null && (
                                     <span className={cx("sd-kpi__delta", delta >= 0 ? "is-up" : "is-down")}>
                                         {" "}· {delta >= 0 ? "▲" : "▼"} {Math.abs(delta)}% dari {monthName(prevKey)}

@@ -5,7 +5,7 @@ for the Studio screens and part C for the Schedule screen.
 
 | Control | Display name | Solution (managed) | Version | Screens |
 |---|---|---|---|---|
-| `pbs_Ops.StudioMaster` | PBS Studio Master | `releases/PBSStudioMaster_managed_1.4.0.zip` (`PBSStudioMaster`) | 1.4.0 | Studio list, Studio detail |
+| `pbs_Ops.StudioMaster` | PBS Studio Master | `releases/PBSStudioMaster_managed_1.4.1.zip` (`PBSStudioMaster`) | 1.4.1 | Studio list, Studio detail |
 | `pbs_Ops.Schedule` | PBS Schedule | `releases/PBSSchedule_managed_1.2.1.zip` (`PBSSchedule`) | 1.2.1 | Schedule board, session detail, create/edit, bulk & AI upload |
 
 Neither control writes to SharePoint. Each one emits an `ActionPayload` `{ action, requestId, payload }`; the
@@ -24,7 +24,7 @@ arrives the control stays locked. It gives up after 30 seconds for a save, or 3 
 4. Give each control the full screen next to `BlibliUniversalSidebar`. The minimum width is 1040 px.
 5. When you later import a newer version, accept **Update code components** in the editor, then save and publish.
 
-**Check the version.** The Studio header shows `pbs_Ops.StudioMaster 1.4.0`. If it does not, the app is still
+**Check the version.** The Studio header shows `pbs_Ops.StudioMaster 1.4.1`. If it does not, the app is still
 running an old control. Delete the old *PBS Studio Directory* control from the screen and insert
 *PBS Studio Master* again.
 
@@ -39,6 +39,7 @@ The old solutions `PBSStudioDirectory` and `PBSHubStudio` can be deleted once th
 | `Studio Location - PBS` | `LocationID` | Text, unique (e.g. `LOC-CWG`). One location can serve many studios |
 | `Schedule - PBS Hub` | `Status` | Choice that includes **`Finished`**. The full set is `Planned`, `Waiting Report`, `Finished`, `Cancelled`, `Leave` |
 | `Schedule - PBS Hub` | `Position` | Choice with exactly **`Main Host`** and **`Co-Host`** |
+| `Schedule - PBS Hub` | `ApprovalStatus` (optional) | `LiveBreak` marks a live break: the Studio page shows *Live Break* instead of *Belum ada report*. Add it to the `schedules` Fields |
 | `Brand - PBS Hub` / `Host - PBS Hub` | `NamaBrand` / `NamaHost` | Used to show names instead of IDs |
 
 ## A3. Fields decide which columns arrive
@@ -59,7 +60,7 @@ in the tables below.
 
 ---
 
-# B. PBS Studio Master (`pbs_Ops.StudioMaster` 1.4.0)
+# B. PBS Studio Master (`pbs_Ops.StudioMaster` 1.4.1)
 
 ## B1. Period variables
 
@@ -214,7 +215,7 @@ The control stays locked until its own `requestId` comes back, and gives up afte
 | **Utilization** | Schedule + Studio.KapasitasHost | scheduled host-hours ÷ (KapasitasHost × operating hours × days). Cancelled/Leave excluded; hours clipped to the operating window. Overall = active studios only. Daily and monthly, overall and per studio |
 | **Sedang digunakan** | Schedule | sessions whose Date is today and StartTime ≤ now < EndTime (overnight sessions from yesterday included). Shows brand (via BrandID → Brand.NamaBrand), host(s) (HostID → Host.NamaHost), time left and slots used vs capacity |
 | **Capacity per slot** | Schedule | distinct hosts per hour vs KapasitasHost; over-capacity slots are flagged (v1 never enforced capacity) |
-| **GMV** | Report.Penjualan | Report has no StudioID, so it is joined `Report.ScheduleID → Schedule.Title → Schedule.StudioID`; several reports per session (one per account) are summed. Split into *Terverifikasi* (`ApprovalStatus = Done`), *Menunggu review* and *Perlu revisi*. Ended sessions without a report are counted as "Belum ada report" |
+| **GMV** | Report.Penjualan | Report has no StudioID, so it is joined `Report.ScheduleID → Schedule.Title → Schedule.StudioID`; several reports per session (one per account) are summed. Split into *Terverifikasi* (`ApprovalStatus = Done`), *Menunggu review* and *Perlu revisi*. Ended sessions without a report are counted as "Belum ada report", except live breaks: a session whose `ApprovalStatus` (on the schedule or its report) is `LiveBreak`, or whose `LiveBreak` column is Yes, shows **Live Break**, needs no report and adds no GMV |
 | **Geofence link** | Studio.LocationID → Studio Location | The lookup item ID first (lookup column only), else the text value against `Studio Location.LocationID` (then `Title`). One location serves many studios; the list, detail and Geofence tab show how many, and editing a shared geofence warns that it applies to all of them. A LocationID that no location carries is shown as *LocationID tidak ditemukan*. Studios without a LocationID fall back to the v1 name match (a `StudioID` column → `Title = StudioID` → `Title = NamaStudio`) and are offered a one-click *Tautkan* |
 
 These are display metrics. Nothing that money depends on is computed in the control.
@@ -537,7 +538,7 @@ file was uploaded.
 
 | Symptom | Cause | Fix |
 |---|---|---|
-| Studio header does not show `pbs_Ops.StudioMaster 1.4.0` | The screen still holds the old control, or the code component was not updated | Delete the control, insert **PBS Studio Master** again, then save and publish. After an import, accept **Update code components** |
+| Studio header does not show `pbs_Ops.StudioMaster 1.4.1` | The screen still holds the old control, or the code component was not updated | Delete the control, insert **PBS Studio Master** again, then save and publish. After an import, accept **Update code components** |
 | *Mapping lokasi* banner: studios not linked | `LocationID` is missing from **Fields** on `studios` or `locations` | Open **Lihat kolom** in the banner to see which columns actually arrive. Add `LocationID` under **Fields → Edit** on both datasets, or use `StudiosJson` as in B2 |
 | *LocationID tidak ditemukan* on a studio | The studio's `LocationID` is not carried by any item in the `locations` dataset (typo, extra space, or the item is filtered out) | Bind the whole `Studio Location - PBS` list, or pick another location in the Geofence tab |
 | Brand or host shows an ID, with a yellow banner | `brands` / `hosts` are not bound, or lack `ID`, `Title`, `BrandID`/`HostID` or the name column | See C2 *Names, not IDs* |

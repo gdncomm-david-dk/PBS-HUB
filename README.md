@@ -2,7 +2,7 @@
 
 | Control | Screens | Managed solution | Canvas setup |
 |---|---|---|---|
-| `pbs_Ops.StudioMaster` | Studio list, Studio detail | `releases/PBSStudioMaster_managed_1.4.0.zip` | [`docs/SETUP.md` § B](docs/SETUP.md) |
+| `pbs_Ops.StudioMaster` | Studio list, Studio detail | `releases/PBSStudioMaster_managed_1.4.1.zip` | [`docs/SETUP.md` § B](docs/SETUP.md) |
 | `pbs_Ops.Schedule` | Schedule board, session detail, create/edit, bulk & AI upload | `releases/PBSSchedule_managed_1.2.1.zip` | [`docs/SETUP.md` § C](docs/SETUP.md) |
 
 ## `pbs_Ops.StudioMaster` (Studio list + Studio detail)

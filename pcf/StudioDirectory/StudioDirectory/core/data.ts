@@ -210,6 +210,11 @@ export function isActiveStatus(status: string): boolean {
     return !INACTIVE_STATUS.test(status);
 }
 
+const LIVE_BREAK = /live\s*-?_?break/i;
+
+/** A live-break value: "LiveBreak", "Live Break", "live_break". */
+export const isLiveBreakText = (v: string): boolean => LIVE_BREAK.test(v);
+
 const EXCLUDED_SCHEDULE_STATUS = /(cancel|batal|leave|cuti)/i;
 
 /** Cancelled and Leave sessions do not occupy the studio. */
@@ -325,6 +330,11 @@ export function mapSchedules(
             shift: toText(r.get(C.shift)),
             campaignName: toText(r.get(C.campaign)),
             status: toText(r.get(C.status)),
+            approvalStatus: toText(r.get(["ApprovalStatus", "Approval Status"])),
+            liveBreak:
+                isLiveBreakText(toText(r.get(["ApprovalStatus", "Approval Status"]))) ||
+                isLiveBreakText(toText(r.get(C.status))) ||
+                /^(yes|ya|true|1)$/i.test(toText(r.get(["LiveBreak", "Live Break"]))),
             startMin,
             endMin,
             jamLive,

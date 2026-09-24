@@ -6,11 +6,12 @@
 // presents unreviewed numbers as verified. Display only — nothing that money depends on is computed here.
 
 import { ReportRow, ScheduleRow, StudioRow } from "./types";
-import { occupiesStudio } from "./data";
+import { isLiveBreakText, occupiesStudio } from "./data";
 import { monthDateKeys } from "./time";
 import { ScheduleIndex } from "./utilization";
 
-export type ReportState = "verified" | "pending" | "revision" | "missing" | "notDue";
+/** liveBreak: the session is a live break (ApprovalStatus = LiveBreak), so no report is expected. */
+export type ReportState = "verified" | "pending" | "revision" | "missing" | "notDue" | "liveBreak";
 
 export class ReportIndex {
     private bySchedule = new Map<string, ReportRow[]>();
@@ -57,7 +58,8 @@ export function sessionGmv(reports: ReportIndex, s: ScheduleRow, todayKey: strin
     const rs = reports.forSchedule(s.scheduleId);
     const gmv = rs.reduce((t, r) => t + r.penjualan, 0);
     let state: ReportState;
-    if (rs.length === 0) state = occupiesStudio(s.status) && sessionEnded(s, todayKey, nowMin) ? "missing" : "notDue";
+    if (s.liveBreak || (rs.length > 0 && rs.every((r) => isLiveBreakText(r.approvalStatus)))) state = "liveBreak";
+    else if (rs.length === 0) state = occupiesStudio(s.status) && sessionEnded(s, todayKey, nowMin) ? "missing" : "notDue";
     else {
         const states = rs.map((r) => approvalState(r.approvalStatus));
         state = states.includes("revision") ? "revision" : states.every((x) => x === "verified") ? "verified" : "pending";
@@ -80,6 +82,7 @@ export interface StudioGmv {
     sessions: number;        // sessions that occupy the studio in the month
     reportedSessions: number;
     missingReports: number;  // ended sessions with no report
+    liveBreaks: number;      // live-break sessions (no report expected)
     liveHours: number;       // hours of the sessions that have a report
     perSession: number | null;
     perHour: number | null;
@@ -96,7 +99,7 @@ export function studioGmv(
 ): StudioGmv {
     const res: StudioGmv = {
         total: 0, verified: 0, pending: 0, revision: 0, sessions: 0, reportedSessions: 0,
-        missingReports: 0, liveHours: 0, perSession: null, perHour: null, byBrand: [],
+        missingReports: 0, liveBreaks: 0, liveHours: 0, perSession: null, perHour: null, byBrand: [],
     };
     const brands = new Map<string, BrandGmv>();
     for (const d of monthDateKeys(monthKey)) {
@@ -105,6 +108,10 @@ export function studioGmv(
             res.sessions++;
             const g = sessionGmv(reports, s, todayKey, nowMin);
             if (g.state === "missing") res.missingReports++;
+            if (g.state === "liveBreak") {
+                res.liveBreaks++;   // no report expected, and no sales to count
+                continue;
+            }
             if (g.reports.length === 0) continue;
             res.reportedSessions++;
             res.liveHours += s.startMin !== null && s.endMin !== null ? (s.endMin - s.startMin) / 60 : s.jamLive;

@@ -67,3 +67,26 @@ describe("studio GMV", () => {
         expect(formatIdrShort(820000)).toBe("Rp 820 rb");
     });
 });
+
+describe("live break", () => {
+    const lb = mapSchedules(
+        rec([
+            { Title: "SCD-20", Date: "2026-09-10", StudioID: "CWG-05", BrandID: "BR-01", HostID: "H1", StartTime: "12:00", EndTime: "13:00", Status: "Finished", ApprovalStatus: { Value: "LiveBreak" } },
+            { Title: "SCD-21", Date: "2026-09-10", StudioID: "CWG-05", BrandID: "BR-01", HostID: "H1", StartTime: "13:00", EndTime: "14:00", Status: "Finished" },
+        ]),
+        new Map(),
+        new Map(),
+    );
+    const none = new ReportIndex([]);
+
+    it("shows Live Break instead of a missing report", () => {
+        expect(sessionGmv(none, lb[0], "2026-09-20", 600).state).toBe("liveBreak");
+        expect(sessionGmv(none, lb[1], "2026-09-20", 600).state).toBe("missing");
+    });
+
+    it("does not count live breaks as missing reports", () => {
+        const g = studioGmv(new ScheduleIndex(lb), none, studio, "2026-09", "2026-09-20", 600);
+        expect(g.missingReports).toBe(1);
+        expect(g.liveBreaks).toBe(1);
+    });
+});

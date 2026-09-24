@@ -40,6 +40,8 @@ export interface ScheduleRow {
     shift: string;             // Shift
     campaignName: string;      // CampaignName
     status: string;            // Status (Choice)
+    approvalStatus: string;    // ApprovalStatus on the schedule, when the list has one (e.g. LiveBreak)
+    liveBreak: boolean;        // Live break session: no report is expected
     startMin: number | null;   // StartTime (text) → minutes after midnight
     endMin: number | null;     // EndTime (text) → minutes after midnight, > startMin (overnight adds 1440)
     jamLive: number;           // JamLive — planned hours, fallback when times are unparseable

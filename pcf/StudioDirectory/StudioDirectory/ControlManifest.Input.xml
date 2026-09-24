@@ -15,7 +15,7 @@
     The control never writes. It emits ActionPayload; the canvas app performs the Patch and
     answers through ActionResult with the same requestId.
   -->
-  <control namespace="Ops" constructor="StudioMaster" version="1.4.0" display-name-key="PBS Studio Master" description-key="PBS Hub Studio Master: studio list, studio detail, location and geofence, utilization, live usage, GMV." control-type="standard">
+  <control namespace="Ops" constructor="StudioMaster" version="1.4.1" display-name-key="PBS Studio Master" description-key="PBS Hub Studio Master: studio list, studio detail, location and geofence, utilization, live usage, GMV." control-type="standard">
     <external-service-usage enabled="false">
     </external-service-usage>
 
