@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<manifest>
+  <control namespace="Host" constructor="MyReports" version="1.0.0" display-name-key="PBS Host My Reports" description-key="PBS Hub host app H-4 Report saya: the host reports for one month with status chips (Belum dikirim, Perlu revisi, Menunggu review, Selesai, Otomatis disetujui)." control-type="standard">
+    <external-service-usage enabled="false"></external-service-usage>
+
+    <property name="Context" display-name-key="Context" description-key="JSON {userEmail,userName,roles,permissions,config}. config: pageSize (20), absenLeadMin, reportDeadlineDays, requireAbsen." of-type="Multiple" usage="input" required="false" />
+    <property name="Period" display-name-key="Period" description-key="Month shown, yyyy-mm. Empty means the current month. The month picker sends PERIOD_CHANGED; canvas reloads the rows and sets this." of-type="SingleLine.Text" usage="input" required="false" />
+    <property name="DefaultFilter" display-name-key="DefaultFilter" description-key="All, Unsent, Revision, Waiting, Done or Auto." of-type="SingleLine.Text" usage="input" required="false" />
+    <property name="ReportsJson" display-name-key="ReportsJson" description-key="JSON rows of [Report - PBS Hub] for this host and month: ID, Title, ScheduleID, LiveDate, BrandID, Platform, Account, Penjualan, ApprovalStatus, ApprovalComment, Created, Modified." of-type="Multiple" usage="input" required="false" />
+    <property name="SchedulesJson" display-name-key="SchedulesJson" description-key="JSON rows of [Schedule - PBS Hub] for this host and month: Title, Date, StartTime, EndTime, BrandID, Platform, Account, Status. Used for Belum dikirim." of-type="Multiple" usage="input" required="false" />
+    <property name="ClockInJson" display-name-key="ClockInJson" description-key="JSON rows of [Clock In - PBS Hub] for this host and month: ClockInDate." of-type="Multiple" usage="input" required="false" />
+    <property name="AbsenceJson" display-name-key="AbsenceJson" description-key="JSON rows of [Host Absence - PBS Hub] for this host and month: ScheduleID." of-type="Multiple" usage="input" required="false" />
+    <property name="BrandsJson" display-name-key="BrandsJson" description-key="JSON rows Title, NamaBrand." of-type="Multiple" usage="input" required="false" />
+    <property name="HasMore" display-name-key="HasMore" description-key="true when the server has more reports for the month than were sent: shows Muat lebih banyak (LOAD_MORE)." of-type="TwoOptions" usage="input" required="false" />
+    <property name="IsLoading" display-name-key="IsLoading" description-key="true while canvas is loading: renders skeleton rows." of-type="TwoOptions" usage="input" required="false" />
+    <property name="ReferenceDate" display-name-key="ReferenceDate" description-key="Optional ISO date-time used as now (testing)." of-type="SingleLine.Text" usage="input" required="false" />
+    <property name="ActionResult" display-name-key="ActionResult" description-key="Canvas reply {requestId,status,message}. The list has no locking action; only shown as a banner." of-type="SingleLine.Text" usage="input" required="false" />
+    <property name="ActionPayload" display-name-key="ActionPayload" description-key="JSON {action,requestId,payload}: OPEN_REPORT, NEW_REPORT, PERIOD_CHANGED, FILTER_CHANGED, LOAD_MORE." of-type="SingleLine.Text" usage="output" required="false" />
+
+    <resources>
+      <code path="index.ts" order="1" />
+    </resources>
+  </control>
+</manifest>

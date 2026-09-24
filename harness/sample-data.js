@@ -241,5 +241,43 @@
     Alamat: `Jl. Kemang Raya No. ${10 + i}, Jakarta Selatan`, PhoneNumber: `+62 812 ${String(3000 + i * 13).slice(-4)} ${h.PhoneLast4}`, PersonalEmail: h.NamaHost.split(" ")[0].toLowerCase() + ".personal@example.com",
   });
 
-  window.PBS_SAMPLE = { REF, thresholds, scoreTx, hostExtraClockIns, hostExtraSchedules, piiValues, brands, hosts, studios, schedules, reports, evidence, clockIns, payrolls, context, clockInsAug, clockInsAugBlocked, payrollRuns, payrollHistory, payrollLines, payslips };
+
+  // ---- host app (pbs_Host.*): Dinda Maharani (HST-001) sees only her own rows -------------------
+  // Today (14 Sep): 07:00 session reported, 10:00 session live now (no absen yet), 16:00 upcoming.
+  // Past: a revision with flagged metrics, one unsent (on time), one unsent (late), one without clock-in.
+  const hs = (id, day, start, end, brand, studio, status, platform) => ({
+    ID: id, Title: `SCD-${id}`, Date: d(day), StartTime: start, EndTime: end, BrandID: brand, HostID: "HST-001", StudioID: studio,
+    Status: { Value: status || "Done" }, Platform: { Value: platform || "TikTok" }, AccountID: `ACC-${brand.slice(-3)}`, JamLive: 2,
+  });
+  const hostSchedules = [
+    hs(3301, 11, "13:00", "15:00", "BRD-003", "STD-03", "Done", "Shopee"),
+    hs(3302, 12, "19:00", "21:00", "BRD-005", "STD-04"),
+    hs(3303, 9, "10:00", "12:00", "BRD-008", "STD-01"),
+    hs(3304, 7, "13:00", "15:00", "BRD-002", "STD-02"),
+    hs(3305, 8, "10:00", "12:00", "BRD-001", "STD-02"),
+    hs(3306, 5, "15:00", "17:00", "BRD-006", "STD-05", "Done", "Shopee"),
+    hs(3307, 3, "10:00", "12:00", "BRD-004", "STD-01", "Cancelled"),
+  ];
+  const abs = (n, scd, day, time) => ({ ID: 8800 + n, Title: `ABS-${8800 + n}`, HostID: "HST-001", ScheduleID: scd, AbsenceDate: d(day), CheckInTime: d(day, time), Created: d(day, time) });
+  const hostAbsences = [abs(1, "SCD-3215", 14, "06:40"), abs(2, "SCD-3213", 13, "09:40"), abs(3, "SCD-3301", 11, "12:45"), abs(4, "SCD-3302", 12, "18:40"), abs(5, "SCD-3303", 9, "09:40"), abs(6, "SCD-3305", 8, "09:35"), abs(7, "SCD-3306", 5, "14:40")];
+  const hr = (id, scd, day, status, metrics, created, extra) => Object.assign({
+    ID: id, Title: `RPT-${id}`, ScheduleID: scd, HostID: "HST-001", BrandID: hostSchedules.find((x) => x.Title === scd).BrandID,
+    AccountID: `ACC-${hostSchedules.find((x) => x.Title === scd).BrandID.slice(-3)}`, Platform: hostSchedules.find((x) => x.Title === scd).Platform, LiveDate: d(day),
+    ApprovalStatus: { Value: status }, Match: { Value: "" }, Created: created, Modified: created, Attachment: "",
+  }, metrics, extra || {});
+  const hostReports = [
+    hr(20901, "SCD-3301", 11, "Need Revision", M(7350000, 188, 240, 171, 4.4, 12.8, 1980), d(11, "15:30"), {
+      Approver: { DisplayName: "Bayu Prasetyo", Email: "bayu@example.com" }, ApproverEmail: "bayu@example.com", Modified: d(12, "10:05"),
+      ApprovalComment: "Angka penjualan dan CTOR beda dengan screenshot. Tolong cek lagi di seller center.\nMetrik yang perlu dibetulkan: Penjualan, CTOR",
+    }),
+    hr(20902, "SCD-3305", 8, "Done", M(5200000, 140, 162, 120, 3.8, 9.1, 1320), d(8, "12:40"), { ApprovalComment: "Oke, sesuai.", ApproverEmail: "bayu@example.com", Approver: { DisplayName: "Bayu Prasetyo" }, Match: { Value: "Unmatch" }, Modified: d(9, "09:00") }),
+    hr(20903, "SCD-3306", 5, "Done", M(3100000, 81, 95, 70, 2.9, 7.2, 820), d(5, "17:20"), { ApprovalComment: "Automated Match by AI", Match: { Value: "Match" }, Modified: d(5, "17:30") }),
+  ];
+  const hostEvidence = [
+    { ID: 990, Title: "RPT-20901", HostID: "HST-001", ScheduleID: "SCD-3301", Platform: { Value: "Shopee" }, Status: { Value: "Unmatch" }, Created: d(11, "15:34"), Confidence: 0.93,
+      Attachment: "https://gdncomm.sharepoint.com/sites/StudioTeamBlibli/PBS%20Power%20Apps/Report%20Automation/RPT-20901_Shopee_ACC-003.jpg", ...M(6980000, 188, 240, 171, 4.4, 11.6, 1980) },
+    { ID: 991, Title: "RPT-20902", HostID: "HST-001", ScheduleID: "SCD-3305", Platform: { Value: "TikTok" }, Status: { Value: "Unmatch" }, Created: d(8, "12:44"), ...M(5200000, 140, 162, 120, 3.8, 9.3, 1320) },
+  ];
+  const hostApp = { hostId: "HST-001", schedules: hostSchedules, absences: hostAbsences, reports: hostReports, evidence: hostEvidence };
+  window.PBS_SAMPLE = { REF, hostApp, thresholds, scoreTx, hostExtraClockIns, hostExtraSchedules, piiValues, brands, hosts, studios, schedules, reports, evidence, clockIns, payrolls, context, clockInsAug, clockInsAugBlocked, payrollRuns, payrollHistory, payrollLines, payslips };
 })();

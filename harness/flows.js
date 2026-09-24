@@ -330,5 +330,104 @@ const assert = (c, m) => { if (!c) { console.log("FAIL", m); process.exitCode = 
   await p.waitForTimeout(600);
   assert(await p.getByRole("dialog").getByText("Gagal menyimpan: akses ditolak.").isVisible(), "error stays inside the popup");
 
+  // ---- Host app: dashboard ---------------------------------------------------------------------
+  await go("c=HostDashboard");
+  assert(await p.getByText("Selamat siang, Dinda").isVisible(), "host dashboard greets the host");
+  assert(await p.getByText("Shift berjalan 4j 47m").isVisible(), "open shift shows elapsed time");
+  assert(await p.getByText("Report Scarlett Whitening perlu revisi").isVisible(), "revision is the first to-do");
+  assert(await p.getByText("Report WINGS belum dikirim").isVisible() && (await p.getByText(/Sudah lewat batas waktu/).isVisible()), "late unsent report flagged");
+  await p.getByRole("button", { name: "Absen", exact: true }).click();
+  await p.waitForTimeout(700);
+  pl = await payloads();
+  const ab = pl.find((x) => x.action === "ABSEN");
+  assert(ab && ab.payload.scheduleId === "SCD-3201" && ab.payload.hostId === "HST-001" && ab.payload.liveDate === "2026-09-14", "ABSEN payload for the live session");
+  assert((await p.getByRole("button", { name: "Absen", exact: true }).count()) === 0, "absen button gone once canvas returns the row");
+  await p.getByRole("button", { name: "Clock out" }).click();
+  pl = await payloads();
+  assert(pl.some((x) => x.action === "CLOCK_OUT"), "CLOCK_OUT hands off to the clock-in screen");
+  await go("c=HostDashboard&shift=none");
+  assert(await p.getByText("Clock in dulu").isVisible(), "session asks for clock-in first when not clocked in");
+  await p.getByRole("button", { name: "Clock in" }).click();
+  assert((await payloads()).some((x) => x.action === "CLOCK_IN"), "CLOCK_IN fired");
+
+  // ---- Host app: my reports --------------------------------------------------------------------
+  await go("c=MyReports");
+  assert((await p.locator(".hc-row:not(.head)").count()) === 7, "7 rows in September (5 reports + 2 unsent)");
+  await p.getByRole("tab", { name: /Perlu revisi/ }).click();
+  assert((await p.locator(".hc-row:not(.head)").count()) === 1, "revision filter");
+  await p.getByRole("button", { name: "Perbaiki" }).click();
+  pl = await payloads();
+  assert(pl.some((x) => x.action === "OPEN_REPORT" && x.payload.title === "RPT-20901"), "OPEN_REPORT from the list");
+  await p.getByRole("tab", { name: /Semua/ }).click();
+  await p.getByRole("button", { name: "Kirim" }).first().click();
+  pl = await payloads();
+  assert(pl.some((x) => x.action === "NEW_REPORT" && x.payload.scheduleId === "SCD-3302"), "NEW_REPORT for an unsent session");
+  await p.selectOption("select[aria-label=Bulan]", "2026-07");
+  await p.waitForTimeout(200);
+  assert(await p.getByText("Belum ada report di Juli 2026").isVisible(), "empty month after PERIOD_CHANGED");
+
+  // ---- Host app: submit report with screenshot --------------------------------------------------
+  const png = await p.screenshot({ clip: { x: 0, y: 0, width: 600, height: 900 } });
+  await go("c=MyReportDetail&sch=SCD-3302");
+  const submit = p.getByRole("button", { name: "Submit report" });
+  assert(await submit.isDisabled(), "submit disabled on an empty form");
+  const vals = { Penjualan: "4.250.000", Pesanan: "120", ProdukTerjual: "150", JumlahPembeli: "101", CTR: "3,6", CTOR: "8,9", PeakViewer: "1300" };
+  for (const [k, v] of Object.entries(vals)) await p.fill(`#hc-m-${k}`, v);
+  assert(await submit.isDisabled(), "still disabled without a screenshot");
+  await p.setInputFiles("input[type=file]", { name: "Screenshot 2026-09-12.png", mimeType: "image/png", buffer: png });
+  await p.waitForTimeout(600);
+  assert(await p.getByText("SCD-3302_TikTok_ACC-005.jpg").isVisible() || (await p.getByText(/RPT-\{ID\}_TikTok_ACC-005\.jpg|_TikTok_ACC-005\.jpg/).count()) > 0, "file name generated from platform + account");
+  await shot("f-host-submit");
+  await p.waitForTimeout(300); // let the page settle after the element screenshot scrolled it
+  assert(await submit.isEnabled(), "submit enabled with metrics + screenshot");
+  await submit.click();
+  await p.waitForTimeout(800);
+  pl = await payloads();
+  const sb = pl.find((x) => x.action === "SUBMIT_REPORT");
+  assert(sb && sb.payload.scheduleId === "SCD-3302" && sb.payload.metrics.Penjualan === 4250000 && sb.payload.metrics.CTR === 3.6 && sb.payload.metrics["Durasi(Min)"] === null && sb.payload.file.ext === "jpg", "SUBMIT_REPORT payload uses SharePoint column names");
+  assert(await p.getByText(/UploadData \d+ KB base64 JPEG/).isVisible(), "screenshot sent on UploadData, not in ActionPayload");
+  assert(JSON.stringify(sb).length < 4000, "ActionPayload stays small");
+  assert((await p.getByText(/terkirim/).first().isVisible()) && (await p.getByText("Menunggu review").first().isVisible()), "after submit the screen shows the sent report, waiting for review");
+
+  // Draft survives a reload (device only).
+  await go("c=MyReportDetail&sch=SCD-3303");
+  await p.fill("#hc-m-Penjualan", "999.000");
+  await p.getByRole("button", { name: "Simpan draft" }).click();
+  await go("c=MyReportDetail&sch=SCD-3303");
+  assert(await p.getByText(/draft/i).first().isVisible(), "draft restore offered after reload");
+
+  // Blockers.
+  await go("c=MyReportDetail&sch=SCD-3304");
+  assert(await p.getByText("Sesi ini tidak punya catatan clock in").isVisible(), "no clock-in blocks the report");
+  await go("c=MyReportDetail&sch=SCD-3201");
+  await p.getByRole("button", { name: "Absen sekarang" }).click();
+  await p.waitForTimeout(700);
+  assert(await p.getByText("Absen tercatat untuk SCD-3201.").isVisible(), "absen from the report screen");
+
+  // ---- Host app: revision + dispute -------------------------------------------------------------
+  await go("c=MyReportDetail&r=RPT-20901");
+  assert(await p.getByText("Ada 2 angka yang perlu kamu cek").isVisible(), "revision headline counts flagged metrics");
+  await p.getByRole("button", { name: "Perbaiki report" }).click();
+  const kirim = p.getByRole("button", { name: "Kirim revisi" });
+  assert(await kirim.isDisabled(), "resubmit disabled until something changes");
+  await p.fill("#hc-m-Penjualan", "6.980.000");
+  await p.fill("#hc-m-CTOR", "11,6");
+  await kirim.click();
+  await p.waitForTimeout(700);
+  pl = await payloads();
+  const rsb = pl.find((x) => x.action === "RESUBMIT_REPORT");
+  assert(rsb && rsb.payload.reportId === "20901" && rsb.payload.metrics.Penjualan === 6980000 && rsb.payload.changed.join() === "Penjualan,CTOR" && rsb.payload.file === null, "RESUBMIT_REPORT payload");
+  await go("c=MyReportDetail&r=RPT-20901");
+  await p.getByRole("button", { name: "Saya rasa angka saya benar" }).click();
+  const dsend = p.getByRole("dialog").getByRole("button", { name: /Kirim sanggahan/ });
+  assert(await dsend.isDisabled(), "dispute needs a reason");
+  await p.fill("#hc-dp-reason", "Angka penjualan di seller center memang 7,35 juta setelah refresh.");
+  await dsend.click();
+  await p.waitForTimeout(700);
+  pl = await payloads();
+  assert(pl.some((x) => x.action === "DISPUTE_REVIEW" && x.payload.reason.startsWith("Angka penjualan")), "DISPUTE_REVIEW payload");
+  await go("c=MyReportDetail&r=RPT-20902");
+  assert((await p.getByRole("button", { name: "Perbaiki report" }).count()) === 0, "done report is read-only");
+
   await b.close();
 })();

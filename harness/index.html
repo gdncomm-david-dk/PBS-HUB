@@ -2,7 +2,7 @@
 <html lang="id">
 <head>
 <meta charset="utf-8">
-<title>PBS Ops PCF harness</title>
+<title>PBS Hub PCF harness</title>
 <style>
   body{margin:0;background:#EDEDEA;font:12px ui-monospace,Menlo,monospace}
   #bar{display:flex;gap:8px;align-items:center;padding:8px 12px;background:#1a1a1a;color:#fff;flex-wrap:wrap}
@@ -22,6 +22,9 @@
 <script src="../controls/PayrollRunDetail/out/controls/PayrollRunDetail/bundle.js"></script>
 <script src="../controls/HostList/out/controls/HostList/bundle.js"></script>
 <script src="../controls/HostDetail/out/controls/HostDetail/bundle.js"></script>
+<script src="../controls/HostDashboard/out/controls/HostDashboard/bundle.js"></script>
+<script src="../controls/MyReports/out/controls/MyReports/bundle.js"></script>
+<script src="../controls/MyReportDetail/out/controls/MyReportDetail/bundle.js"></script>
 <script src="sample-data.js"></script>
 <script>
   // ?hostile=1 mimics the player's global CSS that broke the controls before they moved into Shadow DOM.
@@ -39,6 +42,10 @@
   |
   <a href="?c=HostList">HostList</a> <a href="?c=HostList&s=loading">loading</a> <a href="?c=HostList&s=empty">empty</a> |
   <a href="?c=HostDetail&h=HST-001">Host 001</a> <a href="?c=HostDetail&h=HST-003">drift</a> <a href="?c=HostDetail&h=HST-012">nonaktif</a> <a href="?c=HostDetail&h=HST-008&tab=Personal">data pribadi</a> <a href="?c=HostDetail&h=HST-001&role=FAS_Team">tanpa izin PII</a>
+  <br>Host app:
+  <a href="?c=HostDashboard&w=1060">HostDashboard</a> <a href="?c=HostDashboard&shift=none">belum clock in</a> <a href="?c=HostDashboard&shift=out">sudah clock out</a> <a href="?c=HostDashboard&ref=2026-09-14T22:30:00">malam</a> <a href="?c=HostDashboard&s=loading">loading</a> <a href="?c=HostDashboard&w=390">mobile</a> |
+  <a href="?c=MyReports">MyReports</a> <a href="?c=MyReports&f=Revision">revisi</a> <a href="?c=MyReports&period=2026-07">bulan kosong</a> <a href="?c=MyReports&s=loading">loading</a> <a href="?c=MyReports&w=390">mobile</a> |
+  <a href="?c=MyReportDetail&sch=SCD-3302">submit</a> <a href="?c=MyReportDetail&sch=SCD-3201">belum absen</a> <a href="?c=MyReportDetail&sch=SCD-3304">tanpa clock in</a> <a href="?c=MyReportDetail&sch=SCD-3203">belum mulai</a> <a href="?c=MyReportDetail&r=RPT-20901">revisi</a> <a href="?c=MyReportDetail&r=RPT-20863">menunggu</a> <a href="?c=MyReportDetail&r=RPT-20902">selesai</a> <a href="?c=MyReportDetail&r=RPT-20903">otomatis</a> <a href="?c=MyReportDetail&r=RPT-20901&w=390">revisi mobile</a>
   <label><input type="checkbox" id="auto" checked> auto-reply ok</label>
 </div>
 <div id="stage"></div>
@@ -93,7 +100,35 @@
       ScoreTxJson: J(S.scoreTx[hostId] || []), ThresholdsJson: J(S.thresholds), BrandsJson: J(S.brands), StudiosJson: J(S.studios), RevealedJson: "",
     });
   }
-  const Ctor = window.__registry["Ops." + c];
+  // Host app: the signed-in host (HST-001) sees only her rows. ?shift=none|out · ?ref=<ISO now> · ?sch=SCD-… · ?r=RPT-… · ?period=yyyy-mm · ?f=<filter>
+  const isHostApp = ["HostDashboard", "MyReports", "MyReportDetail"].includes(c);
+  if (isHostApp) {
+    const HA = S.hostApp, me = HA.hostId;
+    const own = (rows) => rows.filter((x) => x.HostID === me);
+    let clk = own(S.clockIns);
+    if (q.get("shift") === "none") clk = clk.filter((x) => !String(x.ClockInDate).startsWith("2026-09-14"));
+    if (q.get("shift") === "out") clk = clk.map((x) => (String(x.ClockInDate).startsWith("2026-09-14") ? Object.assign({}, x, { CheckOutTime: "2026-09-14T11:05:00" }) : x));
+    const hostRow = S.hosts.find((x) => x.Title === me);
+    const all = { schedules: own(S.schedules).concat(HA.schedules), reports: own(S.reports).concat(HA.reports), evidence: own(S.evidence).concat(HA.evidence) };
+    params.Context = J(Object.assign({}, S.context, { userEmail: hostRow.Email.Email, userName: hostRow.NamaHost, roles: "Host", config: Object.assign({}, S.context.config, q.get("noabsen") ? { requireAbsen: false } : {}) }));
+    if (q.get("ref")) params.ReferenceDate = q.get("ref");
+    const base = { HostJson: J(s === "loading" ? [] : [hostRow]), ClockInJson: J(s === "loading" ? [] : clk), AbsenceJson: J(s === "loading" ? [] : HA.absences), BrandsJson: J(S.brands), StudiosJson: J(S.studios) };
+    if (c === "HostDashboard") Object.assign(params, base, { SchedulesJson: J(s === "loading" ? [] : all.schedules), ReportsJson: J(s === "loading" ? [] : all.reports), ScoreTxJson: J(S.scoreTx[me] || []), ThresholdsJson: J(S.thresholds) });
+    if (c === "MyReports") {
+      const empty2 = s === "loading" || s === "empty";
+      Object.assign(params, base, { Period: q.get("period") || "", DefaultFilter: q.get("f") || "", SchedulesJson: J(empty2 ? [] : all.schedules), ReportsJson: J(empty2 ? [] : all.reports) });
+    }
+    if (c === "MyReportDetail") {
+      const rep = all.reports.find((x) => x.Title === q.get("r"));
+      const schId = rep ? rep.ScheduleID : q.get("sch") || "SCD-3302";
+      const sch = all.schedules.find((x) => x.Title === schId);
+      Object.assign(params, base, {
+        ReportJson: J(rep ? [rep] : []), ScheduleJson: J(sch ? [sch] : []), EvidenceJson: J(rep ? all.evidence.filter((e) => e.Title === rep.Title) : []),
+        HistoryJson: J(all.reports.filter((x) => x !== rep && x.Platform && sch && x.Platform.Value === (sch.Platform || {}).Value)),
+      });
+    }
+  }
+  const Ctor = window.__registry[(isHostApp ? "Host." : "Ops.") + c];
   const log = (m) => { document.getElementById("log").textContent = m + "\n" + document.getElementById("log").textContent; };
   const context = () => ({
     parameters: Object.fromEntries(Object.entries(params).map(([k, v]) => [k, { raw: v }])),
@@ -146,8 +181,39 @@
       }, Number(q.get("delay") || 400));
       return;
     }
+    if (["ABSEN", "SUBMIT_REPORT", "RESUBMIT_REPORT", "DISPUTE_REVIEW"].includes(p.action) && document.getElementById("auto").checked) {
+      // Canvas stand-in for the host app writes.
+      const up = ctl.getOutputs().UploadData;
+      if (up) log(`UploadData ${Math.round((up.length * 3) / 4 / 1024)} KB base64 JPEG`);
+      setTimeout(() => {
+        const fail = q.get("reply") === "error";
+        let message = "";
+        if (!fail && p.action === "ABSEN") {
+          const rows = JSON.parse(params.AbsenceJson || "[]");
+          rows.push({ ID: 8899, Title: "ABS-8899", HostID: p.payload.hostId, ScheduleID: p.payload.scheduleId, AbsenceDate: p.payload.liveDate, CheckInTime: S.REF, Created: S.REF });
+          params.AbsenceJson = J(rows);
+          message = `Absen tercatat untuk ${p.payload.scheduleId}.`;
+        }
+        if (!fail && p.action === "SUBMIT_REPORT") {
+          const row = Object.assign({ ID: 20950, Title: "RPT-20950", ScheduleID: p.payload.scheduleId, HostID: p.payload.hostId, BrandID: p.payload.brandId, Platform: { Value: p.payload.platform }, LiveDate: p.payload.liveDate, ApprovalStatus: { Value: "Waiting Approval" }, Created: S.REF, Modified: S.REF, Attachment: "RPT-20950_" + p.payload.file.name.split("_").slice(1).join("_") }, p.payload.metrics);
+          params.ReportJson = J([row]);
+          message = "Report RPT-20950 terkirim.";
+        }
+        if (!fail && (p.action === "RESUBMIT_REPORT" || p.action === "DISPUTE_REVIEW")) {
+          const row = Object.assign({}, JSON.parse(params.ReportJson)[0]);
+          if (p.action === "RESUBMIT_REPORT") Object.assign(row, p.payload.metrics, { ApprovalStatus: { Value: "Waiting Approval" }, Modified: S.REF });
+          else row.ApprovalComment = (row.ApprovalComment || "") + "\n[Sanggahan host] " + p.payload.reason;
+          params.ReportJson = J([row]);
+          message = p.action === "RESUBMIT_REPORT" ? "Revisi terkirim, menunggu review ulang." : "Sanggahan terkirim ke reviewer.";
+        }
+        params.ActionResult = J({ requestId: p.requestId, status: fail ? "error" : "ok", message: fail ? "Gagal menyimpan: koneksi terputus." : message });
+        ctl.updateView(context());
+      }, Number(q.get("delay") || 500));
+      return;
+    }
+    if (p.action === "PERIOD_CHANGED") { params.Period = p.payload.period; ctl.updateView(context()); return; }
     if (p.action === "HIDE_PII") { params.RevealedJson = ""; ctl.updateView(context()); return; }
-    if (document.getElementById("auto").checked && !["NAV", "FILTER_CHANGED", "OPEN_REPORT", "BACK", "RELOAD", "OPEN_EVIDENCE", "LOAD_MORE", "OPEN_RUN", "OPEN_HOST", "ADD_HOST", "OPEN_SCHEDULE"].includes(p.action)) {
+    if (document.getElementById("auto").checked && !["NAV", "FILTER_CHANGED", "OPEN_REPORT", "BACK", "RELOAD", "OPEN_EVIDENCE", "LOAD_MORE", "OPEN_RUN", "OPEN_HOST", "ADD_HOST", "OPEN_SCHEDULE", "CLOCK_IN", "CLOCK_OUT", "NEW_REPORT"].includes(p.action)) {
       setTimeout(() => {
         params.ActionResult = J({ requestId: p.requestId, status: q.get("reply") || "ok", message: "", decidedBy: "Bayu Prasetyo", decidedAt: "2026-09-14T11:37:00" });
         ctl.updateView(context());

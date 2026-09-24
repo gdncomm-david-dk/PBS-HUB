@@ -14,7 +14,11 @@ export class ReactHost {
   private root: Root | null = null;
   private container: HTMLDivElement | null = null;
   private payload = "";
+  private upload = "";
   private notify: (() => void) | null = null;
+
+  /** `rootClass` "hc" switches on the host-app layout (container queries on the control width). */
+  constructor(private readonly rootClass = "") {}
 
   init(container: HTMLDivElement, notifyOutputChanged: () => void, trackResize: (v: boolean) => void): void {
     injectFonts();
@@ -44,13 +48,22 @@ export class ReactHost {
     this.notify?.();
   };
 
+  /**
+   * A file travels on its own `Multiple` output (UploadData) next to the ActionPayload that names it,
+   * so the action JSON stays small. Both change in the same notifyOutputChanged.
+   */
+  readonly emitWithUpload = (json: string, data: string): void => {
+    this.upload = data;
+    this.emit(json);
+  };
+
   render(element: React.ReactElement, width: number, height: number): void {
     if (!this.root) return;
     const style: React.CSSProperties = {};
     if (width > 0) style.width = width;
     if (height > 0) style.height = height;
     this.root.render(
-      <div className="pbs-root" style={style}>
+      <div className={this.rootClass ? `pbs-root ${this.rootClass}` : "pbs-root"} style={style}>
         <ErrorBoundary>{element}</ErrorBoundary>
       </div>,
     );
@@ -58,6 +71,10 @@ export class ReactHost {
 
   get output(): string {
     return this.payload;
+  }
+
+  get uploadData(): string {
+    return this.upload;
   }
 
   destroy(): void {

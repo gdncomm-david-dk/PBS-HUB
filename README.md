@@ -1,4 +1,4 @@
-# PBS Hub — Ops Console PCF (Dashboard, Report, Report Detail, Payroll, Host)
+# PBS Hub PCF — Ops Console + Host app
 
 Power Apps code components (PCF) untuk canvas app PBS Hub, dibuat dari design handoff
 *PBS Ops Console* (artboard 3a/3b, 4a, 4b–4d, Payroll P-1–P-5, Host HD-1/HD-2) dengan data mapping mengikuti `DESIGN.md`
@@ -16,11 +16,23 @@ Power Apps code components (PCF) untuk canvas app PBS Hub, dibuat dari design ha
 | `pbs_Ops.HostList` | Host — direktori, skor + band, peringatan tanpa data bank (HD-1) | `controls/HostList` |
 | `pbs_Ops.HostDetail` | Detail host — ringkasan skor/ledger, jadwal, report, payroll, data pribadi tersamar (HD-2) | `controls/HostDetail` |
 
-**Output:** `dist/PBSHubOpsPCF_1_4_0_0_managed.zip` — managed solution, dibangun dengan target MSBuild
-resmi Power Platform (`Microsoft.PowerApps.MSBuild.Solution`).
+**Host app** (solusi terpisah `PBSHubHostPCF`, dari desain *PBS Host App*):
+
+| Control | Layar | Folder |
+|---|---|---|
+| `pbs_Host.HostDashboard` | Hari ini — shift clock in/out, to-do, jadwal hari ini, skor | `controls/HostDashboard` |
+| `pbs_Host.MyReports` | Report saya — report sebulan + sesi belum dikirim, filter status | `controls/MyReports` |
+| `pbs_Host.MyReportDetail` | Kirim report (metrik + screenshot), revisi / sanggahan, detail | `controls/MyReportDetail` |
+
+**Output:** dua managed solution, dibangun dengan target MSBuild resmi Power Platform
+(`Microsoft.PowerApps.MSBuild.Solution`):
+
+- `dist/PBSHubOpsPCF_1_4_0_0_managed.zip` — Ops Console (7 control `pbs_Ops.*`)
+- `dist/PBSHubHostPCF_1_0_0_0_managed.zip` — Host app (3 control `pbs_Host.*`)
 
 Cara pasang dan formula Power Fx lengkap (properti, `OnChange`, Patch ke SharePoint):
-[`docs/CANVAS-INTEGRATION.md`](docs/CANVAS-INTEGRATION.md).
+[`docs/CANVAS-INTEGRATION.md`](docs/CANVAS-INTEGRATION.md) (Ops) dan
+[`docs/HOST-CANVAS-INTEGRATION.md`](docs/HOST-CANVAS-INTEGRATION.md) (Host app).
 
 ## Struktur
 
@@ -31,10 +43,12 @@ shared/            logika + UI bersama (dipakai semua control)
   dashboard.ts     agregasi kartu dashboard
   payroll.ts       periode (P8), gate approval dari Status + kolom audit, preflight, baris per host
   host.ts          band skor, cek ledger vs CurrentScore, periode terdampak saat nonaktif, masking data pribadi
+  hostApp.ts       app host: fase sesi (clock in → absen → report), shift, streak, revisi, input metrik
+  hostImage.ts     kompres screenshot ke JPEG (canvas) untuk output UploadData
   contract.ts      Context, ActionPayload/ActionResult, useAction (requestId lock)
   ui.tsx styles.ts token Blu Basic internal-app, badge, tombol pill, 4 state tabel
 controls/<Name>/   project PCF (ControlManifest.Input.xml, index.ts, *View.tsx, .pcfproj)
-solution/          project solusi Dataverse (cdsproj, SolutionPackageType = Managed)
+solution/          PBSHubOpsPCF + PBSHubHostPCF (cdsproj, SolutionPackageType = Managed)
 harness/           halaman uji lokal + data contoh v1 + skrip Playwright
 tests/             unit test Jest untuk logika data
 ```
@@ -44,17 +58,18 @@ tests/             unit test Jest untuk logika data
 ```bash
 npm install
 npm test                 # unit test logika (Jest)
-npm run build            # build 7 control (pcf-scripts, production)
+npm run build            # build 10 control (pcf-scripts, production)
 npm run typecheck
-npm run solution         # managed zip → dist/  (butuh .NET SDK 8+)
+npm run solution         # kedua managed zip → dist/  (butuh .NET SDK 8+)
 ```
 
 Uji tampilan tanpa Power Apps: `npm run build`, lalu buka `harness/index.html` di browser
-(`?c=Dashboard`, `?c=ReportReview`, `?c=ReportDetail&r=RPT-20862`, `?c=PayrollRuns&pay=none`, `?c=PayrollRunDetail&run=118`, `?c=HostList`, `?c=HostDetail&h=HST-012`).
+(`?c=Dashboard`, `?c=ReportReview`, `?c=ReportDetail&r=RPT-20862`, `?c=PayrollRuns&pay=none`, `?c=PayrollRunDetail&run=118`, `?c=HostList`, `?c=HostDetail&h=HST-012`,
+`?c=HostDashboard`, `?c=MyReports`, `?c=MyReportDetail&r=RPT-20901`, `?c=MyReportDetail&sch=SCD-3302`; `&w=390` untuk lebar HP).
 Tambahkan `&hostile=1` untuk menyuntikkan CSS global yang agresif (meniru Power Apps player) — tampilan harus
 tetap utuh karena control dirender di Shadow DOM.
 `node harness/flows.js <dir>` menjalankan cek interaksi (approve → mengirim → hasil, konflik, revisi, bulk approve,
-filter, paging, preflight payroll, expand baris, kirim ulang slip, buka/sembunyikan data pribadi, nonaktifkan host, clock in manual).
+filter, paging, preflight payroll, expand baris, kirim ulang slip, buka/sembunyikan data pribadi, nonaktifkan host, clock in manual, absen, submit report + screenshot, draft, revisi, sanggahan).
 
 ## Keputusan desain
 
