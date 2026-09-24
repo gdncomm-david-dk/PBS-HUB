@@ -83,7 +83,7 @@
                     [480, 660, 840, 1020].forEach(function (start) {
                         if (rnd() < busy[st] * (m === -1 ? 0.9 : 1)) {
                             var len = [120, 150, 180][Math.floor(rnd() * 3)];
-                            var status = key < todayKey ? (rnd() < 0.06 ? "Cancelled" : "Done") : "Planned";
+                            var status = key < todayKey ? (rnd() < 0.06 ? "Cancelled" : "Finished") : "Planned";
                             add(key, st, brands[Math.floor(rnd() * brands.length)].Title, hosts[Math.floor(rnd() * hosts.length)].Title, start, Math.min(start + len, 1320), status);
                         }
                     });
@@ -99,10 +99,10 @@
     add(todayKey, "BSD-02", "BR-03", "HST-004", clamp(nowMin - 80), clamp(nowMin + 70), "Planned");
     add(todayKey, "CWG-06", "BR-05", "HST-006", 480, clamp(nowMin - 60), "Waiting Report");
     add(todayKey, "CWG-06", "BR-04", "HST-007", clamp(nowMin + 90), clamp(nowMin + 240), "Planned");
-    add(todayKey, "CWG-07", "BR-06", "HST-008", 480, 600, "Done");
-    add(todayKey, "CWG-05", "BR-04", "HST-005", 480, 660, "Done");
-    add(todayKey, "CWG-05", "BR-06", "HST-007", 480, 660, "Done");
-    add(todayKey, "CWG-05", "BR-06", "HST-008", 540, 630, "Done"); // over capacity (3 hosts on a 2-host studio)
+    add(todayKey, "CWG-07", "BR-06", "HST-008", 480, 600, "Finished");
+    add(todayKey, "CWG-05", "BR-04", "HST-005", 480, 660, "Finished");
+    add(todayKey, "CWG-05", "BR-06", "HST-007", 480, 660, "Finished");
+    add(todayKey, "CWG-05", "BR-06", "HST-008", 540, 630, "Finished"); // over capacity (3 hosts on a 2-host studio)
 
     // Reports (Report - PBS Hub): one per ended session, most verified, some waiting, a few missing.
     var reports = [];

@@ -74,7 +74,7 @@
             for (var k = 0; k < n; k++) {
                 var start = 8 * 60 + ((s * 2 + k * 5 + d + 30) % 4) * 120;
                 var h = "HST-00" + (1 + ((s * 3 + k * 2 + d + 40) % 8));
-                var status = d < 0 ? ((s + k + d) % 7 === 0 ? "Waiting Report" : "Done") : "Planned";
+                var status = d < 0 ? ((s + k + d) % 7 === 0 ? "Waiting Report" : "Finished") : "Planned";
                 if ((s + k + d + 30) % 17 === 0) status = "Cancelled";
                 add(date, st[s], br[(s + k + d + 30) % 5], h, start, start + 180, status);
             }
@@ -86,14 +86,14 @@
     add(todayKey, "BSD-02", "BR-03", "HST-004", clamp(nowMin - 80), clamp(nowMin + 70));
     add(todayKey, "BSD-02", "BR-03", "HST-001", clamp(nowMin + 10), clamp(nowMin + 130)); // Dinda double-booked with live1
     add(todayKey, "CWG-06", "BR-05", "HST-006", 480, clamp(nowMin - 60), "Waiting Report");
-    add(todayKey, "CWG-07", "BR-04", "HST-008", 480, 600, "Done");
+    add(todayKey, "CWG-07", "BR-04", "HST-008", 480, 600, "Finished");
     add(todayKey, "CWG-07", "BR-04", "HST-003", 540, 660, "Planned"); // CWG-07 holds 1 host: over capacity
     add(todayKey, "CWG-06", "BR-01", "HST-007", clamp(nowMin + 90), clamp(nowMin + 240));
 
     // ------------------------------------------------------------------ evidence
     var reports = [], absences = [], clockins = [], evidence = [];
     schedules.forEach(function (r, i) {
-        var past = r.Date < todayKey || (r.Date === todayKey && r.Status.Value === "Done");
+        var past = r.Date < todayKey || (r.Date === todayKey && r.Status.Value === "Finished");
         if (!past || r.Status.Value === "Cancelled") return;
         var inTime = r.StartTime;
         clockins.push({ ID: 900 + i, Title: "CI-" + r.ID, HostID: r.HostID, ClockInDate: r.Date, ClockInTime: inTime, ClockOutTime: r.EndTime, IsInsideGeofence: i % 23 !== 0, CheckInOffice: r.StudioID, Status: { Value: "Clock Out" } });

@@ -85,6 +85,10 @@ JSON({
 }, JSONFormat.Compact)
 ```
 
+**Status.** A session ends as **`Finished`** (not `Done`). The edit form offers Planned, Waiting Report,
+Finished, Cancelled and Leave, plus any other value already in the list; an old `Done` row is still shown as
+*Selesai*. The `Schedule.Status` choice column must have a `Finished` value.
+
 The single-schedule form no longer asks for Shift, Sesi, Live break or Campaign name; the handlers below do
 not write those columns, so existing values stay as they are on edit. **Position** is a choice of
 `Main Host` / `Co-Host` — the `Schedule.Position` choice column must carry exactly these two values.

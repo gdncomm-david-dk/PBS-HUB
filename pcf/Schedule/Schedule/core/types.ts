@@ -62,7 +62,7 @@ export interface ScheduleRow {
     liveBreak: string;         // LiveBreak (Choice)
     campaignName: string;      // CampaignName
     totalAccount: number | null;
-    status: string;            // Status: Planned, Done, Cancelled, Leave, Finished, Waiting Report
+    status: string;            // Status: Planned, Waiting Report, Finished (final), Cancelled, Leave. Legacy "Done" is read as Finished
     startMin: number | null;   // StartTime (text) → minutes after midnight
     endMin: number | null;     // EndTime (text) → minutes, > startMin (overnight adds 1440)
     jamLive: number;           // JamLive — planned hours
