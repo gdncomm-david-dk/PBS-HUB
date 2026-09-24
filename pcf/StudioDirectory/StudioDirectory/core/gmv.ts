@@ -58,10 +58,12 @@ export function sessionGmv(reports: ReportIndex, s: ScheduleRow, todayKey: strin
     const rs = reports.forSchedule(s.scheduleId);
     const gmv = rs.reduce((t, r) => t + r.penjualan, 0);
     let state: ReportState;
-    if (s.liveBreak || (rs.length > 0 && rs.every((r) => isLiveBreakText(r.approvalStatus)))) state = "liveBreak";
-    else if (rs.length === 0) state = occupiesStudio(s.status) && sessionEnded(s, todayKey, nowMin) ? "missing" : "notDue";
+    // Report rows with ApprovalStatus = LiveBreak are placeholders for a break, not a submitted report.
+    const real = rs.filter((r) => !isLiveBreakText(r.approvalStatus));
+    if (real.length === 0 && (s.liveBreak || rs.length > 0)) state = "liveBreak";
+    else if (real.length === 0) state = occupiesStudio(s.status) && sessionEnded(s, todayKey, nowMin) ? "missing" : "notDue";
     else {
-        const states = rs.map((r) => approvalState(r.approvalStatus));
+        const states = real.map((r) => approvalState(r.approvalStatus));
         state = states.includes("revision") ? "revision" : states.every((x) => x === "verified") ? "verified" : "pending";
     }
     return { gmv, reports: rs, state };

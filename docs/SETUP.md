@@ -5,7 +5,7 @@ for the Studio screens and part C for the Schedule screen.
 
 | Control | Display name | Solution (managed) | Version | Screens |
 |---|---|---|---|---|
-| `pbs_Ops.StudioHub` | PBS Studio Hub | `releases/PBSStudioHub_managed_1.5.0.zip` (`PBSStudioHub`) | 1.5.0 | Studio list, Studio detail |
+| `pbs_Ops.StudioHub` | PBS Studio Hub | `releases/PBSStudioHub_managed_1.5.1.zip` (`PBSStudioHub`) | 1.5.1 | Studio list, Studio detail |
 | `pbs_Ops.Schedule` | PBS Schedule | `releases/PBSSchedule_managed_1.2.1.zip` (`PBSSchedule`) | 1.2.1 | Schedule board, session detail, create/edit, bulk & AI upload |
 
 Neither control writes to SharePoint. Each one emits an `ActionPayload` `{ action, requestId, payload }`; the
@@ -27,7 +27,7 @@ arrives the control stays locked. It gives up after 30 seconds for a save, or 3 
 **Check the version.** From 1.5.0 the Studio control is a new component, **PBS Studio Hub**
 (`pbs_Ops.StudioHub`, solution `PBSStudioHub`), so the app cannot keep running a cached older build. Delete the old
 *PBS Studio Master* / *PBS Studio Directory* control from the screen, insert *PBS Studio Hub* and set the same
-properties and `OnChange` on it. The header then shows `pbs_Ops.StudioHub 1.5.0`.
+properties and `OnChange` on it. The header then shows `pbs_Ops.StudioHub 1.5.1`.
 
 The old solutions `PBSStudioMaster`, `PBSHubStudio` and `PBSStudioDirectory` can be deleted once the app runs
 `pbs_Ops.StudioHub`.
@@ -40,7 +40,8 @@ The old solutions `PBSStudioMaster`, `PBSHubStudio` and `PBSStudioDirectory` can
 | `Studio Location - PBS` | `LocationID` | Text, unique (e.g. `LOC-CWG`). One location can serve many studios |
 | `Schedule - PBS Hub` | `Status` | Choice that includes **`Finished`**. The full set is `Planned`, `Waiting Report`, `Finished`, `Cancelled`, `Leave` |
 | `Schedule - PBS Hub` | `Position` | Choice with exactly **`Main Host`** and **`Co-Host`** |
-| `Schedule - PBS Hub` | `ApprovalStatus` (optional) | `LiveBreak` marks a live break: the Studio page shows *Live Break* instead of *Belum ada report*. Add it to the `schedules` Fields |
+| `Schedule - PBS Hub` | `LiveBreak` | Choice `Yes` / `No`. `Yes` marks a live break: the Studio page shows *Live Break* instead of *Belum ada report* |
+| `Report - PBS Hub` | `ApprovalStatus` | A live break's report row has `LiveBreak`. It counts as no report and adds no GMV |
 | `Brand - PBS Hub` / `Host - PBS Hub` | `NamaBrand` / `NamaHost` | Used to show names instead of IDs |
 
 ## A3. Fields decide which columns arrive
@@ -50,7 +51,8 @@ below, open **Fields → Edit** and add the columns named in the property's desc
 two datasets:
 
 - On the Studio control, add `LocationID` to both `studios` and `locations`. Without it no studio can be linked.
-- On the Studio control, add `ApprovalStatus` to `schedules`. Without it a live break shows *Belum ada report*.
+- On the Studio control, add `LiveBreak` to `schedules` and `ApprovalStatus` to `reports`. Without them a live
+  break shows *Belum ada report*.
 - On the Schedule control, add `ID`, `Title` and `BrandID` / `HostID` to `brands` and `hosts`. Without them
   the board cannot show names.
 
@@ -62,7 +64,7 @@ in the tables below.
 
 ---
 
-# B. PBS Studio Hub (`pbs_Ops.StudioHub` 1.5.0)
+# B. PBS Studio Hub (`pbs_Ops.StudioHub` 1.5.1)
 
 ## B1. Period variables
 
@@ -217,7 +219,7 @@ The control stays locked until its own `requestId` comes back, and gives up afte
 | **Utilization** | Schedule + Studio.KapasitasHost | scheduled host-hours ÷ (KapasitasHost × operating hours × days). Cancelled/Leave excluded; hours clipped to the operating window. Overall = active studios only. Daily and monthly, overall and per studio |
 | **Sedang digunakan** | Schedule | sessions whose Date is today and StartTime ≤ now < EndTime (overnight sessions from yesterday included). Shows brand (via BrandID → Brand.NamaBrand), host(s) (HostID → Host.NamaHost), time left and slots used vs capacity |
 | **Capacity per slot** | Schedule | distinct hosts per hour vs KapasitasHost; over-capacity slots are flagged (v1 never enforced capacity) |
-| **GMV** | Report.Penjualan | Report has no StudioID, so it is joined `Report.ScheduleID → Schedule.Title → Schedule.StudioID`; several reports per session (one per account) are summed. Split into *Terverifikasi* (`ApprovalStatus = Done`), *Menunggu review* and *Perlu revisi*. Ended sessions without a report are counted as "Belum ada report", except live breaks: a session whose `ApprovalStatus` (on the schedule or its report) is `LiveBreak`, or whose `LiveBreak` column is Yes, shows **Live Break**, needs no report and adds no GMV |
+| **GMV** | Report.Penjualan | Report has no StudioID, so it is joined `Report.ScheduleID → Schedule.Title → Schedule.StudioID`; several reports per session (one per account) are summed. Split into *Terverifikasi* (`ApprovalStatus = Done`), *Menunggu review* and *Perlu revisi*. Ended sessions without a report are counted as "Belum ada report", except live breaks: a session whose `Schedule.LiveBreak` is `Yes`, or whose only report rows have `ApprovalStatus = LiveBreak`, shows **Live Break**, needs no report and adds no GMV. A LiveBreak row next to real reports is ignored |
 | **Geofence link** | Studio.LocationID → Studio Location | The lookup item ID first (lookup column only), else the text value against `Studio Location.LocationID` (then `Title`). One location serves many studios; the list, detail and Geofence tab show how many, and editing a shared geofence warns that it applies to all of them. A LocationID that no location carries is shown as *LocationID tidak ditemukan*. Studios without a LocationID fall back to the v1 name match (a `StudioID` column → `Title = StudioID` → `Title = NamaStudio`) and are offered a one-click *Tautkan* |
 
 These are display metrics. Nothing that money depends on is computed in the control.
@@ -540,14 +542,14 @@ file was uploaded.
 
 | Symptom | Cause | Fix |
 |---|---|---|
-| Studio header does not show `pbs_Ops.StudioHub 1.5.0` | The screen still holds the old control, or the code component was not updated | Delete the control, insert **PBS Studio Hub**, then save and publish. After an import, accept **Update code components** |
+| Studio header does not show `pbs_Ops.StudioHub 1.5.1` | The screen still holds the old control, or the code component was not updated | Delete the control, insert **PBS Studio Hub**, then save and publish. After an import, accept **Update code components** |
 | *Mapping lokasi* banner: studios not linked | `LocationID` is missing from **Fields** on `studios` or `locations` | Open **Lihat kolom** in the banner to see which columns actually arrive. Add `LocationID` under **Fields → Edit** on both datasets, or use `StudiosJson` as in B2 |
 | *LocationID tidak ditemukan* on a studio | The studio's `LocationID` is not carried by any item in the `locations` dataset (typo, extra space, or the item is filtered out) | Bind the whole `Studio Location - PBS` list, or pick another location in the Geofence tab |
 | Brand or host shows an ID, with a yellow banner | `brands` / `hosts` are not bound, or lack `ID`, `Title`, `BrandID`/`HostID` or the name column | See C2 *Names, not IDs* |
 | Saving a session fails on Status or Position | The choice column lacks `Finished`, or `Main Host` / `Co-Host` | Add the values in SharePoint (A2) |
 | Patch error *LocationID … expected type 'Text'. Found type 'Record'* | `Studio.LocationID` is a text column but the formula writes a lookup record | Write `LocationID: Text(p.locationId)` (B4) |
 | *Invalid argument type (Boolean). Expecting a Record value instead* in `OnChange` | An `IfError(Patch(...), Set(...))` without `; true` | End the first argument with `; true` (B4) |
-| Studio › Jadwal shows *Belum ada report* for a live break | `ApprovalStatus` does not reach the `schedules` dataset | The Jadwal card shows a banner; open **Lihat kolom** and add `ApprovalStatus` under **Fields → Edit** on `schedules` (or to `SchedulesJson`). The control also reads a value of exactly `LiveBreak` in any column it receives |
+| Studio › Jadwal shows *Belum ada report* for a live break | `Schedule.LiveBreak` does not reach `schedules`, or `Report.ApprovalStatus` does not reach `reports` | The Jadwal card shows a banner naming the missing column; open **Lihat kolom** and add it under **Fields → Edit** (or to `SchedulesJson` / `ReportsJson`) |
 | Uploaded file is corrupt, or contains `data:` text | The tenant does not convert a data URI into bytes | Use the flow (C4a option B), or `uploadMode: "canvas"` (C4b) |
 | The control stays locked after an action | `ActionResult` is not set to the reply variable, or the reply's `requestId` differs | Check that `ActionResult` = `varStudioResult` / `varSchedResult`, and that the handler echoes `rid` |
 | Only the first bulk file creates schedules | The old button ran PBS0001A once | Use the `ForAll(colBulkFiles, …Run(Name))` in C4b |

@@ -1,7 +1,7 @@
 import * as React from "react";
 import { ScheduleRow, StudioRow } from "../core/types";
 import { formatIdr, formatIdrShort, ReportState, sessionGmv, studioGmv } from "../core/gmv";
-import { hasLiveBreakColumn, occupiesStudio } from "../core/data";
+import { hasColumn, occupiesStudio } from "../core/data";
 import { formatDateShort, formatMinutes, formatMonth, HARI, dateKeyToDate, monthDateKeys, monthName, shiftMonth } from "../core/time";
 import { Badge, Banner, Card, cx, Tone } from "./components";
 import { Env } from "./App";
@@ -153,10 +153,15 @@ export function UpcomingCard(props: { env: Env; studio: StudioRow; onOpenDay: (d
 }
 
 /** Why a live break can still read "Belum ada report": the column that says LiveBreak never reaches the control. */
-function LiveBreakHint(props: { env: Env }): React.ReactElement {
+function LiveBreakHint(props: { env: Env; schedHasLb: boolean; reportsHaveStatus: boolean }): React.ReactElement {
     const src = props.env.sources.schedules;
+    const rep = props.env.sources.reports;
     const [open, setOpen] = React.useState(false);
-    const where = src.from === "json" ? "di formula SchedulesJson (ShowColumns)" : "di properti schedules → Edit fields";
+    const where = (x: typeof src, prop: string, json: string): string =>
+        x.from === "json" ? `di formula ${json} (ShowColumns)` : `di properti ${prop} → Edit fields`;
+    const missing: React.ReactNode[] = [];
+    if (!props.schedHasLb) missing.push(<span key="s">kolom <b>LiveBreak</b> di dataset <b>schedules</b> ({where(src, "schedules", "SchedulesJson")})</span>);
+    if (!props.reportsHaveStatus) missing.push(<span key="r">kolom <b>ApprovalStatus</b> di dataset <b>reports</b> ({where(rep, "reports", "ReportsJson")})</span>);
     return (
         <Banner
             tone="info"
@@ -167,13 +172,23 @@ function LiveBreakHint(props: { env: Env }): React.ReactElement {
             }
         >
             <div>
-                Sesi <b>Live Break</b> tidak perlu report, tetapi kolom <b>ApprovalStatus</b> belum terbaca di dataset <b>schedules</b>, jadi
-                live break masih terhitung "Belum ada report". Tambahkan kolom itu {where}.
+                Sesi <b>Live Break</b> tidak perlu report, tetapi control belum bisa membacanya, jadi live break masih terhitung
+                "Belum ada report". Tambahkan{" "}
+                {missing.map((m, i) => (
+                    <React.Fragment key={i}>
+                        {i > 0 && " dan "}
+                        {m}
+                    </React.Fragment>
+                ))}
+                .
             </div>
             {open && (
                 <div className="sd-diag">
                     <div>
                         <b>schedules</b> ({src.from}): {src.columns.join(", ") || "—"}
+                    </div>
+                    <div>
+                        <b>reports</b> ({rep.from}): {rep.columns.join(", ") || "—"}
                     </div>
                 </div>
             )}
@@ -210,6 +225,8 @@ export function MonthSchedule(props: { env: Env; studio: StudioRow; selectedDay:
         missing: all.filter((s) => sessionGmv(env.reports, s, env.todayKey, env.nowMin).state === "missing").length,
         cancelled: all.filter((s) => !occupiesStudio(s.status)).length,
     };
+    const schedHasLb = hasColumn(env.sources.schedules.columns, ["LiveBreak", "Live Break", "IsLiveBreak"]);
+    const reportsHaveStatus = env.sources.reports.from === "none" || hasColumn(env.sources.reports.columns, ["ApprovalStatus", "Approval Status"]);
     const totalGmv = rows.reduce((t, r) => t + r.g.gmv, 0);
     const brandCount = new Set(all.filter((s) => occupiesStudio(s.status)).map((s) => s.brandId || s.brandName)).size;
     const hostCount = new Set(all.filter((s) => occupiesStudio(s.status)).map((s) => s.hostId || s.hostName)).size;
@@ -231,7 +248,7 @@ export function MonthSchedule(props: { env: Env; studio: StudioRow; selectedDay:
                 </span>
             }
         >
-            {counts.missing > 0 && !hasLiveBreakColumn(env.sources.schedules.columns) && <LiveBreakHint env={env} />}
+            {counts.missing > 0 && (!schedHasLb || !reportsHaveStatus) && <LiveBreakHint env={env} schedHasLb={schedHasLb} reportsHaveStatus={reportsHaveStatus} />}
             <div className="sd-chips sd-chips--left">
                 {chips.map(([k, label]) => (
                     <button key={k} type="button" className={cx("sd-chip", filter === k && "is-on")} onClick={() => setFilter(k)} aria-pressed={filter === k}>

@@ -231,18 +231,17 @@ export const isLiveBreakText = (v: string): boolean => LIVE_BREAK.test(v);
 const LIVE_BREAK_VALUE = /^\s*live\s*-?_?break\s*$/i;
 
 /**
- * A schedule is a live break when ApprovalStatus / Status says so, when a LiveBreak column is Yes, or when any
- * of its columns holds exactly "LiveBreak" (the column may carry another name in the tenant).
+ * A schedule is a live break when its LiveBreak choice is Yes, when ApprovalStatus / Status says so, or
+ * when any of its columns holds exactly "LiveBreak". Its report, if any, carries ApprovalStatus = LiveBreak.
  */
 export function isLiveBreakRecord(r: RawRecord): boolean {
     if (isLiveBreakText(toText(r.get(["ApprovalStatus", "Approval Status", "Status"])))) return true;
-    if (/^(yes|ya|true|1)$/i.test(toText(r.get(["LiveBreak", "Live Break"])))) return true;
+    if (toBool(r.get(["LiveBreak", "Live Break", "IsLiveBreak"]), false)) return true;
     return (r.values?.() ?? []).some((v) => LIVE_BREAK_VALUE.test(toText(v)));
 }
 
-/** True when the schedules source carries a column the live-break check can read. */
-export const hasLiveBreakColumn = (columns: string[]): boolean =>
-    columns.some((c) => ["approvalstatus", "livebreak"].includes(norm(c)));
+/** True when the source carries a column named like one of the given names. */
+export const hasColumn = (columns: string[], names: string[]): boolean => columns.some((c) => names.some((n) => norm(n) === norm(c)));
 
 const EXCLUDED_SCHEDULE_STATUS = /(cancel|batal|leave|cuti)/i;
 

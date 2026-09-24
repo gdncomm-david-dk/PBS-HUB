@@ -105,3 +105,39 @@ describe("live break in any column", () => {
         expect(rows.map((r) => r.liveBreak)).toEqual([true, false, true]);
     });
 });
+
+describe("live break as in the tenant: Schedule.LiveBreak = Yes (choice), Report.ApprovalStatus = LiveBreak", () => {
+    const rows = mapSchedules(
+        rec([
+            { Title: "SCD-40", Date: "2026-09-10", StudioID: "CWG-05", StartTime: "12:00", EndTime: "13:00", Status: "Finished", LiveBreak: { Value: "Yes" } },
+            { Title: "SCD-41", Date: "2026-09-10", StudioID: "CWG-05", StartTime: "13:00", EndTime: "14:00", Status: "Finished", LiveBreak: { Value: "No" } },
+            { Title: "SCD-42", Date: "2026-09-10", StudioID: "CWG-05", StartTime: "14:00", EndTime: "15:00", Status: "Finished" },
+            { Title: "SCD-43", Date: "2026-09-10", StudioID: "CWG-05", StartTime: "15:00", EndTime: "16:00", Status: "Finished" },
+        ]),
+        new Map(),
+        new Map(),
+    );
+    const reps = new ReportIndex(
+        mapReports(
+            rec([
+                { Title: "R40", ScheduleID: "SCD-40", Penjualan: 0, ApprovalStatus: { Value: "LiveBreak" } },
+                { Title: "R42", ScheduleID: "SCD-42", Penjualan: 0, ApprovalStatus: { Value: "LiveBreak" } },
+                { Title: "R43a", ScheduleID: "SCD-43", Penjualan: 0, ApprovalStatus: { Value: "LiveBreak" } },
+                { Title: "R43b", ScheduleID: "SCD-43", Penjualan: 3000000, ApprovalStatus: { Value: "Done" } },
+            ]),
+        ),
+    );
+    const st = (i: number) => sessionGmv(reps, rows[i], "2026-09-20", 600).state;
+
+    it("reads the LiveBreak choice (Yes / No)", () => {
+        expect(rows.map((r) => r.liveBreak)).toEqual([true, false, false, false]);
+    });
+    it("shows Live Break from the schedule flag or from a LiveBreak report", () => {
+        expect(st(0)).toBe("liveBreak");
+        expect(st(1)).toBe("missing");
+        expect(st(2)).toBe("liveBreak");
+    });
+    it("judges a session on its real reports when a LiveBreak row sits next to them", () => {
+        expect(st(3)).toBe("verified");
+    });
+});

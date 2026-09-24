@@ -131,6 +131,7 @@ export class StudioHub implements ComponentFramework.StandardControl<IInputs, IO
                 studios: sourceColumns(p.studios, p.StudiosJson?.raw),
                 locations: sourceColumns(p.locations, p.LocationsJson?.raw),
                 schedules: sourceColumns(p.schedules, p.SchedulesJson?.raw),
+                reports: sourceColumns(p.reports, p.ReportsJson?.raw),
             },
             loading: {
                 studios: pagingMore("studios", p.studios, p.StudiosJson?.raw),

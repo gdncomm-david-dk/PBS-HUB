@@ -112,7 +112,8 @@
         var endMin = Number(sc.EndTime.slice(0, 2)) * 60 + Number(sc.EndTime.slice(3));
         var ended = sc.Date < todayKey || (sc.Date === todayKey && endMin <= nowMin);
         if (ended && rnd() < 0.08) {
-            sc.ApprovalStatus = { Value: "LiveBreak" }; // live break: no report expected
+            sc.LiveBreak = { Value: "Yes" }; // live break (choice): the schedule is flagged and its report row says LiveBreak
+            if (rnd() < 0.5) reports.push({ ID: 5000 + reports.length, Title: "RPT-" + (5000 + reports.length), ScheduleID: sc.Title, LiveDate: sc.Date, BrandID: sc.BrandID, HostID: sc.HostID, Penjualan: 0, ApprovalStatus: { Value: "LiveBreak" } });
             return;
         }
         if (!ended || rnd() < 0.07) return;
@@ -127,8 +128,11 @@
     });
 
     // ------------------------------------------------------------------ dataset mock
-    // ?noapprovalcol=1 leaves ApprovalStatus out of the schedules dataset, as when it is not added under Fields.
-    if (params.get("noapprovalcol") === "1") schedules.forEach(function (sc) { delete sc.ApprovalStatus; });
+    // ?nolivebreakcol=1 leaves LiveBreak out of schedules and ApprovalStatus out of reports, as when not added under Fields.
+    if (params.get("nolivebreakcol") === "1") {
+        schedules.forEach(function (sc) { delete sc.LiveBreak; });
+        reports.forEach(function (r) { delete r.ApprovalStatus; });
+    }
 
     // Canvas hands a PCF dataset lookups as an EntityReference; choices as their value.
     var flat = function (v) {

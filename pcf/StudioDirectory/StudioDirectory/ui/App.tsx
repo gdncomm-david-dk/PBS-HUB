@@ -16,7 +16,7 @@ export interface AppProps {
     schedules: ScheduleRow[];
     reports: ReportRow[];
     /** Which columns the studios / locations sources carry — used to explain a missing LocationID link. */
-    sources: { studios: SourceInfo; locations: SourceInfo; schedules: SourceInfo };
+    sources: { studios: SourceInfo; locations: SourceInfo; schedules: SourceInfo; reports: SourceInfo };
     loading: { studios: boolean; locations: boolean; schedules: boolean; reports: boolean };
     ctx: ModuleContext;
     mode: "Admin" | "ReadOnly";
@@ -70,7 +70,7 @@ export interface Env {
 const REQUEST_TIMEOUT_MS = 30000;
 
 /** Shown on the page so the app maker can see which build the canvas app is running. Keep in step with the manifest. */
-export const CONTROL_VERSION = "pbs_Ops.StudioHub 1.5.0";
+export const CONTROL_VERSION = "pbs_Ops.StudioHub 1.5.1";
 
 const SUCCESS_TEXT: Partial<Record<ActionName, string>> = {
     CREATE_STUDIO: "Studio berhasil ditambahkan.",
