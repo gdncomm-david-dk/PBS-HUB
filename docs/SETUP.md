@@ -137,7 +137,7 @@ If(rid <> varLastStudioRid,
                         Title: Text(p.studioId), NamaStudio: Text(p.namaStudio),
                         KapasitasHost: Value(p.kapasitasHost), LokasiStudio: Text(p.lokasiStudio),
                         LocationID: Text(p.locationId),   // Text column; "" = no location
-                        Status: { Value: Text(p.status) } }),
+                        Status: { Value: Text(p.status) } }); true,
                     Set(varOk, false); Set(varErr, FirstError.Message))),
 
         "EDIT_STUDIO",
@@ -145,14 +145,14 @@ If(rid <> varLastStudioRid,
                 Patch('Studio - PBS Hub', LookUp('Studio - PBS Hub', Title = Text(p.studioId)), {
                     NamaStudio: Text(p.namaStudio), KapasitasHost: Value(p.kapasitasHost),
                     LokasiStudio: Text(p.lokasiStudio), Status: { Value: Text(p.status) },
-                    LocationID: Text(p.locationId) }),
+                    LocationID: Text(p.locationId) }); true,
                 Set(varOk, false); Set(varErr, FirstError.Message)),
 
         // Point one studio at another existing location. Other studios at the old location are untouched.
         "SET_STUDIO_LOCATION",
             IfError(
                 Patch('Studio - PBS Hub', LookUp('Studio - PBS Hub', Title = Text(p.studioId)), {
-                    LocationID: Text(p.locationId) }),
+                    LocationID: Text(p.locationId) }); true,
                 Set(varOk, false); Set(varErr, FirstError.Message)),
 
         // p.isNew: create the location (LocationID must be unique), then link the studio to it.
@@ -173,13 +173,13 @@ If(rid <> varLastStudioRid,
                                 RadiusMeter: Value(p.radiusMeter), IsActive: Boolean(p.isActive) })) },
                         If(Boolean(p.linkStudio),
                             Patch('Studio - PBS Hub', LookUp('Studio - PBS Hub', Title = Text(p.studioId)), {
-                                LocationID: Coalesce(loc.LocationID, Text(p.locationId)) }))),
+                                LocationID: Coalesce(loc.LocationID, Text(p.locationId)) }))); true,
                     Set(varOk, false); Set(varErr, FirstError.Message))),
 
         "TOGGLE_GEOFENCE_ACTIVE",
             IfError(
                 Patch('Studio Location - PBS', LookUp('Studio Location - PBS', ID = Value(p.locationItemId)),
-                    { IsActive: Boolean(p.isActive) }),
+                    { IsActive: Boolean(p.isActive) }); true,
                 Set(varOk, false); Set(varErr, FirstError.Message))
         // NAV_STUDIO_DETAIL is informational; SelectedStudioId already carries the open studio.
     );
@@ -353,7 +353,7 @@ If(rid <> varLastSchedRid,
         "DELETE_SCHEDULE",
             If(!IsBlank(LookUp('Report - PBS Hub', ScheduleID = Text(p.scheduleId))),
                 Set(varOk, false); Set(varErr, "Report sudah ada untuk jadwal ini."),
-                IfError(Remove('Schedule - PBS Hub', LookUp('Schedule - PBS Hub', Title = Text(p.scheduleId))),
+                IfError(Remove('Schedule - PBS Hub', LookUp('Schedule - PBS Hub', Title = Text(p.scheduleId))); true,
                     Set(varOk, false); Set(varErr, FirstError.Message))),
 
         "UPLOAD_SCHEDULE_FILE",
@@ -377,7 +377,7 @@ If(rid <> varLastSchedRid,
                 Office365Outlook.SendEmailV2(
                     LookUp('Host - PBS Hub', Title = Text(p.hostId)).Email.Email,
                     "Pengingat PBS Hub: " & Text(p.scheduleId),
-                    Text(p.reason)),
+                    Text(p.reason)); true,
                 Set(varOk, false); Set(varErr, FirstError.Message))
         // NAV_SESSION_DETAIL is informational; SelectedScheduleId already carries the open session.
     );
