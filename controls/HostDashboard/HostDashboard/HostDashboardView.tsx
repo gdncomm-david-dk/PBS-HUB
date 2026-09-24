@@ -196,7 +196,7 @@ export function HostDashboardView(props: HostDashboardProps): React.ReactElement
         <div className="pbs-sec" style={{ marginTop: 12, marginBottom: 0 }}>
           <span className="pbs-sec-l">Jadwal hari ini</span>
           <button type="button" className="pbs-link" onClick={() => action.fire("NAV", { target: "SCHEDULE" })}>
-            Jadwal minggu ini
+            Jadwal saya
           </button>
         </div>
 
@@ -358,7 +358,10 @@ function SessionCard(props: { s: HostSession; now: Date; shift: Shift; pending: 
       </div>
       <div style={{ minWidth: 0 }}>
         <div className="hc-sess-t">
-          {s.brand} {s.platform ? <span className="hc-plat">{s.platform}</span> : null}
+          <button type="button" className="hc-today-n" onClick={() => action.fire("OPEN_SCHEDULE", sessionRef(s))} title="Buka detail sesi">
+            {s.brand}
+          </button>{" "}
+          {s.platform ? <span className="hc-plat">{s.platform}</span> : null}
         </div>
         <div className="hc-sess-m">
           {[s.studio !== "—" ? s.studio : "", s.account ? `Akun ${s.account}` : "", s.title].filter(Boolean).join(" · ")}

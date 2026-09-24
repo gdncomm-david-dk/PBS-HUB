@@ -487,5 +487,63 @@ const assert = (c, m) => { if (!c) { console.log("FAIL", m); process.exitCode = 
   await go("c=MyReportDetail&r=RPT-20902");
   assert((await p.getByRole("button", { name: "Perbaiki report" }).count()) === 0, "done report is read-only");
 
+  // ---- Host app: my schedule --------------------------------------------------------------------
+  await go("c=MySchedule");
+  const schRows = () => p.locator(".hc-row.sch:not(.head)").count();
+  assert((await schRows()) === 16, "16 sessions in September, cancelled included");
+  assert(await p.getByText("Planned").first().isVisible() && (await p.getByText("Finished").first().isVisible()), "Planned / Finished status words");
+  await p.selectOption("select[aria-label=Status]", "ACTION");
+  assert((await schRows()) === 5, "Perlu tindakan filter");
+  await p.selectOption("select[aria-label=Status]", "");
+  await p.fill("input[aria-label='Cari jadwal']", "wings");
+  assert((await schRows()) === 3, "search by brand");
+  await p.fill("input[aria-label='Cari jadwal']", "SCD-3302");
+  await p.getByRole("button", { name: "SCD-3302" }).click();
+  pl = await payloads();
+  assert(pl.some((x) => x.action === "OPEN_SCHEDULE" && x.payload.scheduleId === "SCD-3302" && x.payload.liveDate === "2026-09-12"), "OPEN_SCHEDULE from the table");
+  await p.getByRole("button", { name: "Reset" }).click();
+  assert((await schRows()) === 16, "reset clears the filters");
+  await p.getByRole("button", { name: "Absen", exact: true }).click();
+  await p.waitForTimeout(700);
+  pl = await payloads();
+  assert(pl.some((x) => x.action === "ABSEN" && x.payload.scheduleId === "SCD-3201" && x.payload.hostId === "HST-001"), "ABSEN from the today strip");
+  assert(await p.getByRole("button", { name: "Kirim report" }).isVisible(), "today strip moves on to Kirim report after absen");
+  await p.selectOption("select[aria-label=Bulan]", "2026-07");
+  await p.waitForTimeout(200);
+  assert(await p.getByText("Belum ada jadwal di Juli 2026").isVisible(), "empty month after PERIOD_CHANGED");
+  await go("c=MySchedule&w=390");
+  const over = await p.evaluate(() => { const st = document.getElementById("stage"); return st.scrollWidth - st.clientWidth; });
+  assert(over <= 0, "mobile table has no horizontal scroll");
+  await go("c=HostDashboard");
+  await p.getByRole("button", { name: "Hanasui" }).first().click();
+  pl = await payloads();
+  assert(pl.some((x) => x.action === "OPEN_SCHEDULE" && x.payload.scheduleId === "SCD-3201"), "dashboard session opens the schedule detail");
+
+  // ---- Host app: schedule detail ----------------------------------------------------------------
+  await go("c=ScheduleDetail&sch=SCD-3201");
+  assert(await p.getByText("Sesi sedang live — absen sekarang").isVisible(), "live session asks for absen");
+  await p.getByRole("button", { name: "Absen", exact: true }).click();
+  await p.waitForTimeout(700);
+  assert(await p.getByText("Absen tercatat untuk SCD-3201.").isVisible() && (await p.getByText("Kirim report sesi ini").isVisible()), "after absen the next step is the report");
+  await p.getByRole("button", { name: "Kirim report" }).click();
+  pl = await payloads();
+  assert(pl.some((x) => x.action === "NEW_REPORT" && x.payload.scheduleId === "SCD-3201"), "NEW_REPORT from the detail");
+  await p.getByRole("button", { name: /16:00–18:00/ }).click();
+  await p.waitForTimeout(200);
+  assert(await p.getByRole("heading", { name: /Somethinc/ }).isVisible(), "other session of the day opens in place");
+  await p.getByRole("button", { name: "Jadwal saya" }).click();
+  assert((await payloads()).some((x) => x.action === "BACK"), "BACK to the list");
+  await go("c=ScheduleDetail&sch=SCD-3301");
+  await p.getByRole("button", { name: "Perbaiki report" }).first().click();
+  assert((await payloads()).some((x) => x.action === "OPEN_REPORT" && x.payload.title === "RPT-20901"), "revision opens the report");
+  await go("c=ScheduleDetail&sch=SCD-3304");
+  assert(await p.getByText("Tidak ada clock in di hari ini", { exact: true }).isVisible(), "missing clock-in explained");
+  await go("c=ScheduleDetail&sch=SCD-3307");
+  assert(await p.getByText(/Sesi ini dibatalkan/).isVisible(), "cancelled session");
+  await go("c=ScheduleDetail&sch=SCD-9999");
+  assert(await p.getByText("Jadwal tidak ditemukan").isVisible(), "unknown schedule");
+  await go("c=ScheduleDetail&sch=SCD-3309");
+  assert(await p.getByText("Co Host").isVisible() && (await p.getByText(/Mulai .* lagi/).isVisible()), "planned session shows position and countdown");
+
   await b.close();
 })();

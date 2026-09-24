@@ -24,6 +24,8 @@
 <script src="../controls/HostDetail/out/controls/HostDetail/bundle.js"></script>
 <script src="../controls/HostDashboard/out/controls/HostDashboard/bundle.js"></script>
 <script src="../controls/MyReports/out/controls/MyReports/bundle.js"></script>
+<script src="../controls/MySchedule/out/controls/MySchedule/bundle.js"></script>
+<script src="../controls/ScheduleDetail/out/controls/ScheduleDetail/bundle.js"></script>
 <script src="../controls/MyReportDetail/out/controls/MyReportDetail/bundle.js"></script>
 <script src="sample-data.js"></script>
 <script>
@@ -44,6 +46,8 @@
   <a href="?c=HostDetail&h=HST-001">Host 001</a> <a href="?c=HostDetail&h=HST-003">drift</a> <a href="?c=HostDetail&h=HST-012">nonaktif</a> <a href="?c=HostDetail&h=HST-008&tab=Personal">data pribadi</a> <a href="?c=HostDetail&h=HST-001&role=FAS_Team">tanpa izin PII</a> <a href="?c=HostDetail&h=HST-001&tab=Attendance">kehadiran</a> <a href="?c=HostDetail&h=HST-004&tab=Attendance">kehadiran (shift terbuka)</a>
   <br>Host app:
   <a href="?c=HostDashboard&w=1060">HostDashboard</a> <a href="?c=HostDashboard&shift=none">belum clock in</a> <a href="?c=HostDashboard&shift=out">sudah clock out</a> <a href="?c=HostDashboard&ref=2026-09-14T22:30:00">malam</a> <a href="?c=HostDashboard&s=loading">loading</a> <a href="?c=HostDashboard&w=390">mobile</a> |
+  <a href="?c=MySchedule">MySchedule</a> <a href="?c=MySchedule&f=ACTION">perlu tindakan</a> <a href="?c=MySchedule&period=2026-07">bulan kosong</a> <a href="?c=MySchedule&s=loading">loading</a> <a href="?c=MySchedule&w=760">tablet</a> <a href="?c=MySchedule&w=390">mobile</a> |
+  <a href="?c=ScheduleDetail&sch=SCD-3201">ScheduleDetail live</a> <a href="?c=ScheduleDetail&sch=SCD-3301">revisi</a> <a href="?c=ScheduleDetail&sch=SCD-3302">belum report</a> <a href="?c=ScheduleDetail&sch=SCD-3304">tanpa clock in</a> <a href="?c=ScheduleDetail&sch=SCD-3305">finished</a> <a href="?c=ScheduleDetail&sch=SCD-3309">planned</a> <a href="?c=ScheduleDetail&sch=SCD-3307">batal</a> <a href="?c=ScheduleDetail&sch=SCD-9999">tidak ada</a> <a href="?c=ScheduleDetail&sch=SCD-3201&w=390">mobile</a> |
   <a href="?c=MyReports">MyReports</a> <a href="?c=MyReports&f=Revision">revisi</a> <a href="?c=MyReports&period=2026-07">bulan kosong</a> <a href="?c=MyReports&s=loading">loading</a> <a href="?c=MyReports&w=390">mobile</a> |
   <a href="?c=MyReportDetail&sch=SCD-3302">submit</a> <a href="?c=MyReportDetail&sch=SCD-3201">belum absen</a> <a href="?c=MyReportDetail&sch=SCD-3304">tanpa clock in</a> <a href="?c=MyReportDetail&sch=SCD-3203">belum mulai</a> <a href="?c=MyReportDetail&r=RPT-20901">revisi</a> <a href="?c=MyReportDetail&r=RPT-20863">menunggu</a> <a href="?c=MyReportDetail&r=RPT-20902">selesai</a> <a href="?c=MyReportDetail&r=RPT-20903">otomatis</a> <a href="?c=MyReportDetail&r=RPT-20901&w=390">revisi mobile</a>
   <label><input type="checkbox" id="auto" checked> auto-reply ok</label>
@@ -101,7 +105,7 @@
     });
   }
   // Host app: the signed-in host (HST-001) sees only her rows. ?shift=none|out · ?ref=<ISO now> · ?sch=SCD-… · ?r=RPT-… · ?period=yyyy-mm · ?f=<filter>
-  const isHostApp = ["HostDashboard", "MyReports", "MyReportDetail"].includes(c);
+  const isHostApp = ["HostDashboard", "MyReports", "MyReportDetail", "MySchedule", "ScheduleDetail"].includes(c);
   if (isHostApp) {
     const HA = S.hostApp, me = HA.hostId;
     const own = (rows) => rows.filter((x) => x.HostID === me);
@@ -117,6 +121,17 @@
     if (c === "MyReports") {
       const empty2 = s === "loading" || s === "empty";
       Object.assign(params, base, { Period: q.get("period") || "", DefaultFilter: q.get("f") || "", SchedulesJson: J(empty2 ? [] : all.schedules), ReportsJson: J(empty2 ? [] : all.reports) });
+    }
+    if (c === "MySchedule") {
+      const empty3 = s === "loading" || s === "empty";
+      Object.assign(params, base, { Period: q.get("period") || "", DefaultFilter: q.get("f") || "", SchedulesJson: J(empty3 ? [] : all.schedules), ReportsJson: J(empty3 ? [] : all.reports) });
+    }
+    if (c === "ScheduleDetail") {
+      // Canvas sends the session day: the session itself plus the other sessions of that day.
+      const id = q.get("sch") || "SCD-3201";
+      const sch = all.schedules.find((x) => x.Title === id);
+      const day = all.schedules.filter((x) => sch && x.Date === sch.Date);
+      Object.assign(params, base, { ScheduleId: id, SchedulesJson: J(s === "loading" ? [] : day), ReportsJson: J(s === "loading" ? [] : all.reports.filter((r) => day.some((x) => x.Title === r.ScheduleID))) });
     }
     if (c === "MyReportDetail") {
       const rep = all.reports.find((x) => x.Title === q.get("r"));
@@ -229,6 +244,7 @@
       }, Number(q.get("delay") || 500));
       return;
     }
+    if (p.action === "OPEN_SCHEDULE" && c === "ScheduleDetail") { params.ScheduleId = p.payload.scheduleId; ctl.updateView(context()); return; }
     if (p.action === "PERIOD_CHANGED") { params.Period = p.payload.period; ctl.updateView(context()); return; }
     if (p.action === "HIDE_PII") { params.RevealedJson = ""; ctl.updateView(context()); return; }
     if (document.getElementById("auto").checked && !["NAV", "FILTER_CHANGED", "OPEN_REPORT", "BACK", "RELOAD", "OPEN_EVIDENCE", "LOAD_MORE", "OPEN_RUN", "OPEN_HOST", "ADD_HOST", "OPEN_SCHEDULE", "CLOCK_IN", "CLOCK_OUT", "NEW_REPORT"].includes(p.action)) {

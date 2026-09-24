@@ -257,7 +257,11 @@
     hs(3305, 8, "10:00", "12:00", "BRD-001", "STD-02"),
     hs(3306, 5, "15:00", "17:00", "BRD-006", "STD-05", "Finished", "Shopee"),
     hs(3307, 3, "10:00", "12:00", "BRD-004", "STD-01", "Cancelled"),
-  ];
+    // Ahead: My schedule shows the rest of the month (Co Host on one of them).
+    hs(3308, 16, "08:00", "13:00", "BRD-008", "STD-01", "Planned"),
+    hs(3309, 21, "08:00", "13:00", "BRD-008", "STD-01", "Planned"),
+    hs(3310, 24, "19:00", "21:00", "BRD-003", "STD-03", "Planned", "Shopee"),
+  ].map((x) => Object.assign(x, { Position: x.Title === "SCD-3309" ? "Co Host" : "Main Host" }));
   const abs = (n, scd, day, time) => ({ ID: 8800 + n, Title: `ABS-${8800 + n}`, HostID: "HST-001", ScheduleID: scd, AbsenceDate: d(day), CheckInTime: d(day, time), Created: d(day, time) });
   const hostAbsences = [abs(1, "SCD-3215", 14, "06:40"), abs(2, "SCD-3213", 13, "09:40"), abs(3, "SCD-3301", 11, "12:45"), abs(4, "SCD-3302", 12, "18:40"), abs(5, "SCD-3303", 9, "09:40"), abs(6, "SCD-3305", 8, "09:35"), abs(7, "SCD-3306", 5, "14:40")];
   const hr = (id, scd, day, status, metrics, created, extra) => Object.assign({

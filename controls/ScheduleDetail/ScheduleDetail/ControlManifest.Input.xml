@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<manifest>
+  <control namespace="Host" constructor="ScheduleDetail" version="1.0.0" display-name-key="PBS Host Schedule Detail" description-key="PBS Hub host app Detail sesi: one schedule with its next step (clock in, absen, kirim report, perbaiki), the four session steps, schedule facts, the report summary and other sessions that day." control-type="standard">
+    <external-service-usage enabled="false"></external-service-usage>
+
+    <property name="Context" display-name-key="Context" description-key="JSON {userEmail,userName,roles,permissions,config}. config: absenLeadMin (30), reportDeadlineDays (2), requireAbsen (true)." of-type="Multiple" usage="input" required="false" />
+    <property name="ScheduleId" display-name-key="ScheduleId" description-key="Schedule Title (SCD-…) or item ID of the session to show. Empty shows the first row of SchedulesJson." of-type="SingleLine.Text" usage="input" required="false" />
+    <property name="HostJson" display-name-key="HostJson" description-key="JSON row of the signed-in host [Host - PBS Hub]: Title, NamaHost. Used for the ABSEN payload." of-type="Multiple" usage="input" required="false" />
+    <property name="SchedulesJson" display-name-key="SchedulesJson" description-key="JSON rows of [Schedule - PBS Hub] of this host on the session day (the session itself plus the others that day): ID, Title, Date, StartTime, EndTime, JamLive, BrandID, StudioID, HostID, Platform, AccountID, Account, Position, Status." of-type="Multiple" usage="input" required="false" />
+    <property name="ClockInJson" display-name-key="ClockInJson" description-key="JSON rows of [Clock In - PBS Hub] of this host on the session day: ID, ClockInDate, CheckInTime, CheckOutTime, ClockInTime, CheckInOffice, IsInsideGeofence." of-type="Multiple" usage="input" required="false" />
+    <property name="AbsenceJson" display-name-key="AbsenceJson" description-key="JSON rows of [Host Absence - PBS Hub] for these sessions: Title, ScheduleID, CheckInTime, Created." of-type="Multiple" usage="input" required="false" />
+    <property name="ReportsJson" display-name-key="ReportsJson" description-key="JSON rows of [Report - PBS Hub] for these sessions: ID, Title, ScheduleID, LiveDate, Penjualan, Pesanan, CTR, CTOR, ApprovalStatus, ApprovalComment, Approver, Created." of-type="Multiple" usage="input" required="false" />
+    <property name="BrandsJson" display-name-key="BrandsJson" description-key="JSON rows Title, NamaBrand." of-type="Multiple" usage="input" required="false" />
+    <property name="StudiosJson" display-name-key="StudiosJson" description-key="JSON rows Title, NamaStudio." of-type="Multiple" usage="input" required="false" />
+    <property name="IsLoading" display-name-key="IsLoading" description-key="true while canvas is loading: renders a skeleton." of-type="TwoOptions" usage="input" required="false" />
+    <property name="ReferenceDate" display-name-key="ReferenceDate" description-key="Optional ISO date-time used as now (testing)." of-type="SingleLine.Text" usage="input" required="false" />
+    <property name="ActionResult" display-name-key="ActionResult" description-key="Canvas reply {requestId,status,message} for ABSEN." of-type="SingleLine.Text" usage="input" required="false" />
+    <property name="ActionPayload" display-name-key="ActionPayload" description-key="JSON {action,requestId,payload}: ABSEN, CLOCK_IN, NEW_REPORT, OPEN_REPORT, OPEN_SCHEDULE, BACK." of-type="SingleLine.Text" usage="output" required="false" />
+
+    <resources>
+      <code path="index.ts" order="1" />
+    </resources>
+  </control>
+</manifest>

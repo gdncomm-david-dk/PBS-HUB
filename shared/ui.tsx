@@ -3,7 +3,7 @@ import type { ActionResult } from "./contract";
 import type { Tone } from "./reconcile";
 import { MASCOT_CHEER } from "./assets.generated";
 
-type IconName =
+export type IconName =
   | "checkSquare" | "mapPin" | "clock" | "file" | "calendar" | "upload" | "alert" | "check" | "info"
   | "image" | "zoom" | "refresh" | "x" | "chevronDown" | "arrowLeft" | "external" | "bell" | "sparkle" | "inbox" | "filterX"
   | "eye" | "eyeOff" | "lock" | "search" | "plus" | "user";

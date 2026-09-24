@@ -1,7 +1,8 @@
 # Integrasi canvas — PBS Hub Host PCF
 
-Solusi terpisah dari Ops Console: **`PBSHubHostPCF`** (managed, `dist/PBSHubHostPCF_1_0_2_0_managed.zip`).
-Publisher dan prefix sama (`PBSHub` / `pbs`), jadi kedua solusi bisa dipasang berdampingan di environment yang
+Solusi terpisah dari Ops Console: **`PBSHubHostPCF`** (managed, `dist/PBSHubHostPCF_1_0_3_0_managed.zip`)
+dan, untuk layar jadwal, **`PBSHubHostSchedulePCF`** (managed, `dist/PBSHubHostSchedulePCF_1_0_0_0_managed.zip`).
+Publisher dan prefix sama (`PBSHub` / `pbs`), jadi ketiga solusi bisa dipasang berdampingan di environment yang
 sama, tapi bisa di-upgrade sendiri-sendiri.
 
 | Control | Layar desain (PBS Host App) | Fungsi |
@@ -9,6 +10,8 @@ sama, tapi bisa di-upgrade sendiri-sendiri.
 | `pbs_Host.HostDashboard` | *Hari ini* | Sapaan, kartu shift (clock in / clock out), to-do (revisi, report belum dikirim, absen), jadwal hari ini, skor. |
 | `pbs_Host.MyReports` | *Report saya* | Report sebulan + sesi yang belum dilaporkan, filter status, pilih bulan. |
 | `pbs_Host.MyReportDetail` | *Kirim report*, *Revisi*, *Detail report* | Satu control, tiga mode: form submit (metrik + screenshot), layar revisi (angka yang ditandai, perbaiki / sanggah), tampilan read-only. |
+| `pbs_Host.MySchedule` *(PBSHubHostSchedulePCF)* | *Jadwal saya* (5a) | Tabel sesi sebulan, 4 KPI, strip *Hari ini* dengan tombol clock in / absen / kirim report, filter platform + status + cari. |
+| `pbs_Host.ScheduleDetail` *(PBSHubHostSchedulePCF)* | *Detail sesi* (dibuka dari 4b / 5a / Hari ini) | Langkah berikutnya, 4 langkah sesi, detail jadwal, ringkasan report, sesi lain di hari yang sama. |
 
 Aturan kontrak sama dengan Ops (lihat [`CANVAS-INTEGRATION.md` §1](CANVAS-INTEGRATION.md#1-aturan-kontrak-berlaku-untuk-semua-control)):
 control **tidak pernah menulis ke SharePoint**, tombol mengirim `ActionPayload`, canvas menulis di `OnChange`
@@ -104,6 +107,7 @@ Aksi:
 | `ABSEN` 🔒 | `{scheduleId, scheduleItemId, hostId, hostName, liveDate, brandId, studioId, platform, account}` | Patch Host Absence (di bawah) |
 | `NEW_REPORT` | `{scheduleId, scheduleItemId, liveDate}` | `Set(varRptSchedule, Text(p.scheduleId)); Set(varRptId, Blank()); Navigate(scrMyReportDetail)` |
 | `OPEN_REPORT` | `{reportId, title, scheduleId}` | `Set(varRptId, Value(p.reportId)); Set(varRptSchedule, Text(p.scheduleId)); Navigate(scrMyReportDetail)` |
+| `OPEN_SCHEDULE` | `{scheduleId, scheduleItemId, liveDate}` | `Set(varSchId, Text(p.scheduleId)); Set(varSchDate, DateValue(Text(p.liveDate))); Navigate(scrScheduleDetail)` (nama brand di kartu sesi) |
 | `NAV` | `{target: "SCHEDULE" \| "REPORTS" \| "SCORE"}` | `Switch(Text(p.target), "REPORTS", Navigate(scrMyReports), "SCHEDULE", Navigate(scrMySchedule), "SCORE", Navigate(scrMyScore))` |
 | `RELOAD` | `{}` | ulangi OnVisible |
 
@@ -324,16 +328,106 @@ sanggahan di ApprovalComment.
 kunci `pbs-host-draft:{HostID}:{ScheduleID}`). Tidak ada status baru di list Report. Screenshot tidak ikut
 draft (terlalu besar); host memilihnya lagi saat submit. Draft dihapus setelah submit berhasil.
 
-## 6. Pemasangan
+## 6. MySchedule (layar *Jadwal saya*) — `PBSHubHostSchedulePCF`
 
-1. Import `dist/PBSHubHostPCF_1_0_2_0_managed.zip` (Solutions → Import). Bisa di environment yang sama dengan
-   `PBSHubOpsPCF`.
+```powerfx
+// Screen.OnVisible  (varMsPeriod = "yyyy-mm", kosong = bulan ini)
+Set(varMsLoading, true);
+With({from: If(IsBlank(varMsPeriod), Date(Year(Today()), Month(Today()), 1), DateValue(varMsPeriod & "-01"))},
+    With({to: DateAdd(from, 1, TimeUnit.Months)},
+        ClearCollect(colMsSch, Filter('Schedule - PBS Hub', HostID = varMe.Title, Date >= from, Date < to));
+        ClearCollect(colMsClk, Filter('Clock In - PBS Hub', HostID = varMe.Title, ClockInDate >= from, ClockInDate < to));
+        ClearCollect(colMsAbs, Filter('Host Absence - PBS Hub', HostID = varMe.Title, LiveDate >= from, LiveDate < to));
+        ClearCollect(colMsRep, Filter('Report - PBS Hub', HostID = varMe.Title, LiveDate >= from, LiveDate < to))
+    )
+);
+Set(varMsLoading, false);
+```
+
+| Properti | Nilai |
+|---|---|
+| `Period` | `varMsPeriod` |
+| `DefaultFilter` | `varMsFilter` — kosong, `ACTION` (perlu tindakan), `PLANNED`, `FINISHED`, `CANCELLED` |
+| `HostJson` | seperti HostDashboard (dipakai untuk payload `ABSEN`) |
+| `SchedulesJson` | seperti HostDashboard dari `colMsSch`, **plus** `JamLive: JamLive` dan `Position: Position.Value` kalau kolom posisi (Main Host / Co Host) ada. Kolom *Posisi* hanya tampil kalau ada baris yang mengisinya. |
+| `ClockInJson`, `AbsenceJson`, `ReportsJson`, `BrandsJson`, `StudiosJson` | seperti HostDashboard, dari koleksi `colMs…` |
+| `HasMore` | `false` (per host per bulan kecil) |
+| `IsLoading` | `varMsLoading` |
+| `ActionResult` | `varMsResult` |
+
+Status yang dilihat host (sama dengan dashboard, dengan kata dari app v1):
+
+| Status | Syarat |
+|---|---|
+| **Planned** | sebelum absen dibuka |
+| Segera mulai / Sedang live | jendela absen terbuka / sesi berjalan |
+| Perlu absen · Tanpa clock in | langkah yang masih kurang |
+| Belum report · Report terlambat | clock in + absen ada, belum ada Report (terlambat setelah H+`reportDeadlineDays`) |
+| Perlu revisi · Menunggu review | dari `Report.ApprovalStatus` |
+| **Finished** | report disetujui (manual atau otomatis), atau `Schedule.Status = Finished` tanpa report yang masih menunggu |
+| Dibatalkan | `Schedule.Status` Cancelled / Leave |
+
+KPI: *Live schedule* (sesi bulan ini, tanpa yang batal), *Jam live* (jam sesi yang sudah lewat dari total jam
+terjadwal), *Absen hari ini*, *Hari clock in* (hari berjadwal sampai hari ini yang punya Clock In).
+
+| Aksi | Canvas |
+|---|---|
+| `OPEN_SCHEDULE` `{scheduleId, scheduleItemId, liveDate}` | seperti HostDashboard → `Navigate(scrScheduleDetail)` |
+| `ABSEN` 🔒 | sama dengan HostDashboard (balas ke `varMsResult`, lalu `Collect(colMsAbs, …)`) |
+| `CLOCK_IN`, `NEW_REPORT`, `OPEN_REPORT` | sama dengan HostDashboard |
+| `PERIOD_CHANGED` `{period}` | `Set(varMsPeriod, Text(p.period))` lalu ulangi OnVisible |
+| `FILTER_CHANGED` `{status, platform, period}` | opsional: `Set(varMsFilter, Text(p.status))` supaya filter bertahan saat kembali |
+| `LOAD_MORE` `{period, loaded}` | hanya kalau `HasMore` dipakai |
+
+Filter platform, status dan kotak cari (brand, akun, Schedule ID, studio) jalan di control, tanpa reload.
+
+## 7. ScheduleDetail (layar *Detail sesi*) — `PBSHubHostSchedulePCF`
+
+Kirim sesi itu **plus sesi lain host di hari yang sama** (untuk daftar *Sesi lain hari ini*):
+
+```powerfx
+// Screen.OnVisible  (varSchId dan varSchDate diisi oleh OPEN_SCHEDULE)
+Set(varSdLoading, true);
+ClearCollect(colSdSch, Filter('Schedule - PBS Hub', HostID = varMe.Title, Date = varSchDate));
+ClearCollect(colSdClk, Filter('Clock In - PBS Hub', HostID = varMe.Title, ClockInDate = varSchDate));
+ClearCollect(colSdAbs, Filter('Host Absence - PBS Hub', HostID = varMe.Title, LiveDate = varSchDate));
+ClearCollect(colSdRep, Filter('Report - PBS Hub', HostID = varMe.Title, LiveDate = varSchDate));
+Set(varSdLoading, false);
+```
+
+| Properti | Nilai |
+|---|---|
+| `ScheduleId` | `varSchId` (Title `SCD-…`, atau ID item) |
+| `SchedulesJson` | seperti MySchedule, dari `colSdSch` |
+| `ClockInJson` | `JSON(ForAll(colSdClk, {ID: ID, ClockInDate: Text(ClockInDate, "yyyy-mm-dd"), CheckInTime: CheckInTime, CheckOutTime: CheckOutTime, ClockInTime: ClockInTime, CheckInOffice: CheckInOffice, IsInsideGeofence: IsInsideGeofence}), JSONFormat.Compact)` |
+| `AbsenceJson` | seperti HostDashboard, plus `CheckInTime` (jam absen yang ditampilkan) |
+| `ReportsJson` | field Report seperti HostDashboard (ringkasan memakai `Penjualan, Pesanan, CTR, CTOR`, `ApprovalComment`, `Approver`) |
+| `HostJson`, `BrandsJson`, `StudiosJson` | seperti HostDashboard |
+| `IsLoading` | `varSdLoading` |
+| `ActionResult` | `varSdResult` |
+
+| Aksi | Canvas |
+|---|---|
+| `ABSEN` 🔒 | sama dengan HostDashboard (balas ke `varSdResult`, lalu `Collect(colSdAbs, …)`) |
+| `CLOCK_IN` | `Navigate(scrClockIn)` |
+| `NEW_REPORT`, `OPEN_REPORT` | sama dengan HostDashboard |
+| `OPEN_SCHEDULE` `{scheduleId, …}` | sesi lain di hari yang sama: `Set(varSchId, Text(p.scheduleId))` — data sudah ada, tidak perlu reload |
+| `BACK` | `Back()` |
+
+Kartu *langkah berikutnya* selalu satu: clock in dulu → absen → kirim report → perbaiki report; sesi tanpa
+clock in diarahkan minta clock in manual ke tim PBS, sesi batal hanya diberi keterangan.
+
+## 8. Pemasangan
+
+1. Import `dist/PBSHubHostPCF_1_0_3_0_managed.zip` dan `dist/PBSHubHostSchedulePCF_1_0_0_0_managed.zip`
+   (Solutions → Import). Bisa di environment yang sama dengan `PBSHubOpsPCF`; urutan bebas, tidak saling bergantung.
 2. Di canvas app host: **Insert → Get more components → Code** → `PBS Host Dashboard`, `PBS Host My Reports`,
-   `PBS Host My Report Detail`.
+   `PBS Host My Report Detail`, `PBS Host My Schedule`, `PBS Host Schedule Detail`.
 3. Buat flow *PBS Host – Upload report screenshot* (bagian 5) dan tambahkan ke app (**Power Automate** pane).
 4. Satu control per layar, ukuran = area konten. Layout menyesuaikan lebar sendiri (container query): di HP
-   (≤ 560 px) kolom tunggal, di tablet/desktop kolom tengah 720 px.
+   (≤ 560 px) kolom tunggal, di tablet/desktop kolom tengah 720 px. *Jadwal saya* memakai kolom lebar
+   (sampai 1160 px) dan menyembunyikan kolom Akun / Posisi / Studio di bawah 900 px.
 
 Update: naikkan `version` di `ControlManifest.Input.xml` yang berubah **dan** `Version` di
-`solution/PBSHubHostPCF/src/Other/Solution.xml`, lalu `npm run release` (membangun kedua solusi; hanya satu:
-`SOLUTIONS=PBSHubHostPCF ./scripts/package-solution.sh`).
+`solution/<Solusi>/src/Other/Solution.xml` milik control itu (`PBSHubHostPCF` atau `PBSHubHostSchedulePCF`),
+lalu `npm run release` (membangun semua solusi; hanya satu: `SOLUTIONS=PBSHubHostSchedulePCF ./scripts/package-solution.sh`).

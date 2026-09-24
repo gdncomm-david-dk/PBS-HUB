@@ -24,11 +24,19 @@ Power Apps code components (PCF) untuk canvas app PBS Hub, dibuat dari design ha
 | `pbs_Host.MyReports` | Report saya — report sebulan + sesi belum dikirim, filter status | `controls/MyReports` |
 | `pbs_Host.MyReportDetail` | Kirim report (metrik + screenshot), revisi / sanggahan, detail | `controls/MyReportDetail` |
 
-**Output:** dua managed solution, dibangun dengan target MSBuild resmi Power Platform
+**Host schedule** (solusi terpisah lagi `PBSHubHostSchedulePCF`, bisa di-upgrade tanpa menyentuh Host app):
+
+| Control | Layar | Folder |
+|---|---|---|
+| `pbs_Host.MySchedule` | Jadwal saya — tabel sesi sebulan, KPI, strip *Hari ini* (clock in / absen / kirim report), filter platform + status + cari | `controls/MySchedule` |
+| `pbs_Host.ScheduleDetail` | Detail sesi — langkah berikutnya, 4 langkah sesi (clock in → absen → report → review), detail jadwal, ringkasan report, sesi lain hari itu | `controls/ScheduleDetail` |
+
+**Output:** tiga managed solution, dibangun dengan target MSBuild resmi Power Platform
 (`Microsoft.PowerApps.MSBuild.Solution`):
 
 - `dist/PBSHubOpsPCF_1_5_2_0_managed.zip` — Ops Console (7 control `pbs_Ops.*`)
-- `dist/PBSHubHostPCF_1_0_2_0_managed.zip` — Host app (3 control `pbs_Host.*`)
+- `dist/PBSHubHostPCF_1_0_3_0_managed.zip` — Host app (3 control `pbs_Host.*`)
+- `dist/PBSHubHostSchedulePCF_1_0_0_0_managed.zip` — Host schedule (2 control `pbs_Host.*`)
 
 Cara pasang dan formula Power Fx lengkap (properti, `OnChange`, Patch ke SharePoint):
 [`docs/CANVAS-INTEGRATION.md`](docs/CANVAS-INTEGRATION.md) (Ops) dan
@@ -48,7 +56,7 @@ shared/            logika + UI bersama (dipakai semua control)
   contract.ts      Context, ActionPayload/ActionResult, useAction (requestId lock)
   ui.tsx styles.ts token Blu Basic internal-app, badge, tombol pill, 4 state tabel
 controls/<Name>/   project PCF (ControlManifest.Input.xml, index.ts, *View.tsx, .pcfproj)
-solution/          PBSHubOpsPCF + PBSHubHostPCF (cdsproj, SolutionPackageType = Managed)
+solution/          PBSHubOpsPCF + PBSHubHostPCF + PBSHubHostSchedulePCF (cdsproj, SolutionPackageType = Managed)
 harness/           halaman uji lokal + data contoh v1 + skrip Playwright
 tests/             unit test Jest untuk logika data
 ```
@@ -58,14 +66,14 @@ tests/             unit test Jest untuk logika data
 ```bash
 npm install
 npm test                 # unit test logika (Jest)
-npm run build            # build 10 control (pcf-scripts, production)
+npm run build            # build 12 control (pcf-scripts, production)
 npm run typecheck
-npm run solution         # kedua managed zip → dist/  (butuh .NET SDK 8+)
+npm run solution         # ketiga managed zip → dist/  (butuh .NET SDK 8+)
 ```
 
 Uji tampilan tanpa Power Apps: `npm run build`, lalu buka `harness/index.html` di browser
 (`?c=Dashboard`, `?c=ReportReview`, `?c=ReportDetail&r=RPT-20862`, `?c=PayrollRuns&pay=none`, `?c=PayrollRunDetail&run=118`, `?c=HostList`, `?c=HostDetail&h=HST-012`,
-`?c=HostDashboard`, `?c=MyReports`, `?c=MyReportDetail&r=RPT-20901`, `?c=MyReportDetail&sch=SCD-3302`; `&w=390` untuk lebar HP).
+`?c=HostDashboard`, `?c=MyReports`, `?c=MyReportDetail&r=RPT-20901`, `?c=MyReportDetail&sch=SCD-3302`, `?c=MySchedule`, `?c=ScheduleDetail&sch=SCD-3201`; `&w=390` untuk lebar HP).
 Tambahkan `&hostile=1` untuk menyuntikkan CSS global yang agresif (meniru Power Apps player) — tampilan harus
 tetap utuh karena control dirender di Shadow DOM.
 `node harness/flows.js <dir>` menjalankan cek interaksi (approve → mengirim → hasil, konflik, revisi, bulk approve,

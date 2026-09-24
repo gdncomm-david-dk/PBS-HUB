@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8" ?>
 <manifest>
-  <control namespace="Host" constructor="HostDashboard" version="1.0.1" display-name-key="PBS Host Dashboard" description-key="PBS Hub host app H-1 Hari ini: shift state, today sessions with the next step (absen, kirim report, perbaiki), open reports and the credit score." control-type="standard">
+  <control namespace="Host" constructor="HostDashboard" version="1.0.2" display-name-key="PBS Host Dashboard" description-key="PBS Hub host app H-1 Hari ini: shift state, today sessions with the next step (absen, kirim report, perbaiki), open reports and the credit score." control-type="standard">
     <external-service-usage enabled="false"></external-service-usage>
 
     <property name="Context" display-name-key="Context" description-key="JSON {userEmail,userName,roles,permissions,config}. config: absenLeadMin (30), reportDeadlineDays (2), maxShiftHours (12), requireAbsen (true)." of-type="Multiple" usage="input" required="false" />
@@ -16,7 +16,7 @@
     <property name="IsLoading" display-name-key="IsLoading" description-key="true while canvas is loading: renders skeletons." of-type="TwoOptions" usage="input" required="false" />
     <property name="ReferenceDate" display-name-key="ReferenceDate" description-key="Optional ISO date-time used as now (testing)." of-type="SingleLine.Text" usage="input" required="false" />
     <property name="ActionResult" display-name-key="ActionResult" description-key="Canvas reply {requestId,status,message} for ABSEN." of-type="SingleLine.Text" usage="input" required="false" />
-    <property name="ActionPayload" display-name-key="ActionPayload" description-key="JSON {action,requestId,payload}: CLOCK_IN, CLOCK_OUT, ABSEN, NEW_REPORT, OPEN_REPORT, NAV, RELOAD." of-type="SingleLine.Text" usage="output" required="false" />
+    <property name="ActionPayload" display-name-key="ActionPayload" description-key="JSON {action,requestId,payload}: CLOCK_IN, CLOCK_OUT, ABSEN, NEW_REPORT, OPEN_REPORT, OPEN_SCHEDULE, NAV, RELOAD." of-type="SingleLine.Text" usage="output" required="false" />
 
     <resources>
       <code path="index.ts" order="1" />
