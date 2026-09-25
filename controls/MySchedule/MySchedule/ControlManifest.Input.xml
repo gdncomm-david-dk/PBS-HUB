@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8" ?>
 <manifest>
-  <control namespace="Host" constructor="MySchedule" version="1.0.0" display-name-key="PBS Host My Schedule" description-key="PBS Hub host app Jadwal saya: sessions of a month as a table (Schedule ID, brand, date, account, time, studio, duration, status), KPI cards, the today strip (clock in, absen, kirim report) and filters." control-type="standard">
+  <control namespace="Host" constructor="MySchedule" version="1.0.1" display-name-key="PBS Host My Schedule" description-key="PBS Hub host app Jadwal saya: sessions of a month as a table (Schedule ID, brand, date, account, time, studio, duration, status), KPI cards, the today strip (clock in, absen, kirim report) and filters." control-type="standard">
     <external-service-usage enabled="false"></external-service-usage>
 
     <property name="Context" display-name-key="Context" description-key="JSON {userEmail,userName,roles,permissions,config}. config: pageSize (20), absenLeadMin (30), reportDeadlineDays (2), requireAbsen (true)." of-type="Multiple" usage="input" required="false" />

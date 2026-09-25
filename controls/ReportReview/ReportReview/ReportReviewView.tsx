@@ -2,7 +2,7 @@ import * as React from "react";
 import { ModuleContext, UseActionResult, configNumber, hasPermission } from "../../../shared/contract";
 import { Row, date, localDayKey } from "../../../shared/data";
 import { fmtAge, fmtDayMonth, fmtNumber, fmtSignedPct } from "../../../shared/format";
-import { REASONS, REVIEW_STATES, ReasonCode, ReviewState, reasonDetail } from "../../../shared/reconcile";
+import { REASONS, ReasonCode, ReviewState, reasonDetail, reviewBadge } from "../../../shared/reconcile";
 import { DECISION_ACTIONS, DECISION_DONE_TEXT, DecisionPanel, EvidenceRail, MetricsTable, ReportHeader } from "../../../shared/reportUi";
 import { ReportItem, buildReportItems, itemRef } from "../../../shared/reportItems";
 import { Badge, Button, EmptyState, EndOfData, FilterDate, FilterSelect, Icon, InfoBanner, ModuleHeader, Overlay, Pill, ResultBanner, SkeletonRows, Spinner } from "../../../shared/ui";
@@ -349,7 +349,7 @@ function ReviewModal(props: {
   const conflict = action.lastResult?.status === "conflict" ? action.lastResult : null;
   const error = action.lastResult?.status === "error" ? action.lastResult : null;
   const reason = REASONS[item.rec.reason];
-  const st = REVIEW_STATES[item.state];
+  const st = reviewBadge(item.row, item.state);
   return (
     <Overlay onClose={props.onClose} busy={pending} labelledBy="pbs-rv-title" wide>
         <div className="pbs-modal-h">
@@ -404,7 +404,7 @@ function ReportRow(props: {
   const reason = REASONS[it.rec.reason];
   const detail = reasonDetail(it.rec, fmtSignedPct);
   const ageDays = it.since ? (now.getTime() - it.since.getTime()) / 86400000 : 0;
-  const st = REVIEW_STATES[it.state as ReviewState];
+  const st = reviewBadge(it.row, it.state as ReviewState);
   return (
     <tr className={props.checked ? "sel" : undefined}>
       {props.showBulk ? (

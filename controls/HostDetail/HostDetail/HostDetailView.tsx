@@ -32,7 +32,7 @@ import {
   scoreDefaults,
 } from "../../../shared/host";
 import { buildRuns, fmtPeriod } from "../../../shared/payroll";
-import { REVIEW_STATES } from "../../../shared/reconcile";
+import { reviewBadge } from "../../../shared/reconcile";
 import { Badge, Button, EmptyState, EndOfData, Icon, InfoBanner, Overlay, Pill, ResultBanner, SectionHeader, Skeleton, SkeletonRows, Spinner, TONE_DOT } from "../../../shared/ui";
 
 export type HostTab = "Summary" | "Schedule" | "Attendance" | "Reports" | "Payroll" | "Personal";
@@ -614,7 +614,7 @@ function ReportsTab(props: { reports: HostReport[]; loading: boolean; onOpen: (r
               <SkeletonRows rows={6} cols={6} />
             ) : (
               props.reports.map((r) => {
-                const rs = REVIEW_STATES[r.state];
+                const rs = reviewBadge(r.row, r.state);
                 return (
                   <tr key={r.id || r.title}>
                     <td className="pbs-num" style={{ whiteSpace: "nowrap" }}>

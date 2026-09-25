@@ -131,8 +131,8 @@ describe("submit form", () => {
     expect(Object.keys(cols)).toHaveLength(12);
   });
   it("builds the evidence file name", () => {
-    expect(evidenceFileName("RPT-20901", "Shopee", "ACC-003", "jpg")).toBe("RPT-20901_Shopee_ACC-003.jpg");
-    expect(evidenceFileName("", "TikTok", "wings official/store", "jpg")).toBe("RPT-{ID}_TikTok_wings-official-store.jpg");
+    expect(evidenceFileName("REP-20901", "Shopee", "ACC-003", "jpg")).toBe("REP-20901_Shopee_ACC-003.jpg");
+    expect(evidenceFileName("", "TikTok", "wings official/store", "jpg")).toBe("REP-{ID}_TikTok_wings-official-store.jpg");
   });
 });
 

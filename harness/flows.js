@@ -12,7 +12,7 @@ const assert = (c, m) => { if (!c) { console.log("FAIL", m); process.exitCode = 
   const shot = (n) => p.$("#stage").then((e) => e.screenshot({ path: path.join(out, n + ".png") }));
 
   // Approve: locks while pending, then success banner and summary.
-  await go("c=ReportDetail&r=RPT-20862&delay=1500");
+  await go("c=ReportDetail&r=REP-20862&delay=1500");
   await p.getByRole("button", { name: "Setujui", exact: true }).click();
   await p.waitForTimeout(200);
   await shot("f-submitting");
@@ -25,21 +25,21 @@ const assert = (c, m) => { if (!c) { console.log("FAIL", m); process.exitCode = 
   await shot("f-approved");
 
   // Conflict reply from canvas.
-  await go("c=ReportDetail&r=RPT-20862&reply=conflict&delay=200");
+  await go("c=ReportDetail&r=REP-20862&reply=conflict&delay=200");
   await p.getByRole("button", { name: "Setujui", exact: true }).click();
   await p.waitForTimeout(600);
   assert(await p.getByText(/sudah diputuskan oleh Bayu Prasetyo/).isVisible(), "conflict banner names the other reviewer");
   await shot("f-conflict");
 
   // Error reply keeps the bar and shows a persistent error.
-  await go("c=ReportDetail&r=RPT-20862&reply=error&delay=200");
+  await go("c=ReportDetail&r=REP-20862&reply=error&delay=200");
   await p.getByRole("button", { name: "Setujui", exact: true }).click();
   await p.waitForTimeout(600);
   assert(await p.getByText("Gagal menyimpan. Coba lagi.").isVisible(), "error banner on status=error");
   assert((await p.getByRole("button", { name: "Setujui", exact: true }).count()) === 1, "decision bar still available after error");
 
   // Revision needs a metric and a note.
-  await go("c=ReportDetail&r=RPT-20862");
+  await go("c=ReportDetail&r=REP-20862");
   await p.getByRole("button", { name: "Perlu revisi" }).click();
   const send = p.getByRole("button", { name: "Kirim permintaan" });
   assert(await send.isDisabled(), "Kirim permintaan disabled without a note");
@@ -52,7 +52,7 @@ const assert = (c, m) => { if (!c) { console.log("FAIL", m); process.exitCode = 
   assert(!rv.payload.flaggedMetrics.some((m) => ["Durasi(Min)", "Durasi", "AddToCart", "TotalViewer", "Comment", "Share"].includes(m)), "0% metrics never flagged");
 
   // All metrics in one table; 0% rows cannot be checked; unchecking narrows the payload.
-  await go("c=ReportDetail&r=RPT-20862");
+  await go("c=ReportDetail&r=REP-20862");
   assert((await p.locator(".pbs-table tbody tr").first().locator("xpath=ancestor::table").locator("tbody tr").count()) === 12, "all 12 metrics in the table");
   assert((await p.getByText("Tidak dibandingkan").count()) === 0, "no uncompared section");
   await p.getByRole("button", { name: "Perlu revisi" }).click();
@@ -64,22 +64,22 @@ const assert = (c, m) => { if (!c) { console.log("FAIL", m); process.exitCode = 
   assert(!pl.find((x) => x.action === "REQUEST_REVISION").payload.flaggedMetrics.includes("Pesanan"), "unchecked metric left out");
 
   // Identical claim and evidence: nothing to revise.
-  await go("c=ReportDetail&r=RPT-20860");
+  await go("c=ReportDetail&r=REP-20860");
   assert(await p.getByRole("button", { name: "Perlu revisi" }).isDisabled(), "Perlu revisi disabled when every metric matches");
 
   // No evidence.
-  await go("c=ReportDetail&r=RPT-20865");
+  await go("c=ReportDetail&r=REP-20865");
   assert(await p.getByText(/Menunggu bukti sejak/).isVisible(), "no-evidence column text");
   assert(await p.getByRole("button", { name: "Setujui tanpa bukti" }).isDisabled(), "approve-without-evidence needs a comment");
   await shot("f-noevidence");
 
   // Decided by someone else.
-  await go("c=ReportDetail&r=RPT-20870");
+  await go("c=ReportDetail&r=REP-20870");
   assert(await p.getByText(/sudah diputuskan oleh Bayu Prasetyo 5 menit lalu/).isVisible(), "decided-elsewhere banner");
   await shot("f-decided");
 
   // Orphan evidence note.
-  await go("c=ReportDetail&r=RPT-20861");
+  await go("c=ReportDetail&r=REP-20861");
   assert(await p.getByText(/HostID yang berbeda/).isVisible(), "orphan evidence warning");
 
   // Bulk approve only for low-confidence matching rows.
@@ -110,17 +110,17 @@ const assert = (c, m) => { if (!c) { console.log("FAIL", m); process.exitCode = 
   await go("c=ReportReview");
   await p.getByRole("button", { name: "Detail", exact: true }).nth(2).click();
   pl = await payloads();
-  assert(pl.some((x) => x.action === "OPEN_REPORT" && x.payload.title === "RPT-20862"), "Detail emits OPEN_REPORT");
+  assert(pl.some((x) => x.action === "OPEN_REPORT" && x.payload.title === "REP-20862"), "Detail emits OPEN_REPORT");
 
   // Row actions: Review opens a popup; approving there closes it and shows the banner.
   await go("c=ReportReview&delay=300");
   await p.getByRole("button", { name: "Review", exact: true }).nth(2).click();
   const dlg = p.getByRole("dialog");
-  assert(await dlg.getByText("Review RPT-20862").isVisible(), "review popup opens");
+  assert(await dlg.getByText("Review REP-20862").isVisible(), "review popup opens");
   await shot("f-rr-popup");
   await dlg.getByRole("button", { name: "Setujui", exact: true }).click();
   pl = await payloads();
-  assert(pl.some((x) => x.action === "APPROVE" && x.payload.title === "RPT-20862"), "APPROVE from popup");
+  assert(pl.some((x) => x.action === "APPROVE" && x.payload.title === "REP-20862"), "APPROVE from popup");
   await p.waitForTimeout(600);
   assert((await p.getByRole("dialog").count()) === 0, "popup closes after ok");
   assert(await p.getByText("Keputusan tersimpan: report disetujui.").isVisible(), "list shows success banner");
@@ -368,6 +368,22 @@ const assert = (c, m) => { if (!c) { console.log("FAIL", m); process.exitCode = 
   await p.fill("#pbs-adj-out", "02:00");
   assert(await p.getByText(/lewat tengah malam/).isVisible(), "clock out before clock in means the next day");
 
+  // Player container narrower and shorter than the control (the Review REP-1159 screenshot): the
+  // popup must fit what is visible, close button included.
+  await go("c=ReportReview&w=1060&ht=1400&clip=760x520");
+  await p.getByRole("button", { name: "Review", exact: true }).nth(2).click();
+  await p.waitForTimeout(200);
+  const fit = await p.evaluate(() => {
+    const box = document.getElementById("clipbox").getBoundingClientRect();
+    const host = document.querySelector("#stage div");
+    const dlg = (host.shadowRoot || document).querySelector("[role=dialog]").getBoundingClientRect();
+    const x = (host.shadowRoot || document).querySelector("[role=dialog] .pbs-x, [role=dialog] [aria-label=Tutup]").getBoundingClientRect();
+    return dlg.left >= box.left - 1 && dlg.right <= box.right + 1 && dlg.top >= box.top - 1 && dlg.bottom <= box.bottom + 1 && x.right <= box.right + 1;
+  });
+  assert(fit, "review popup fits a clipped player container (width and height)");
+  await shot("f-rr-popup-clip");
+  await p.keyboard.press("Escape");
+
   // Popups open where the user is looking, not at the top of the content.
   const inView = async () => p.getByRole("dialog").evaluate((el) => { const r = el.getBoundingClientRect(); return r.top >= -1 && r.bottom <= window.innerHeight + 1 && r.height > 100; });
   await go("c=HostDetail&h=HST-001&tab=Attendance");
@@ -410,16 +426,18 @@ const assert = (c, m) => { if (!c) { console.log("FAIL", m); process.exitCode = 
 
   // ---- Host app: my reports --------------------------------------------------------------------
   await go("c=MyReports");
-  assert((await p.locator(".hc-row:not(.head)").count()) === 7, "7 rows in September (5 reports + 2 unsent)");
+  assert((await p.locator(".hc-row:not(.head)").count()) === 7, "7 rows in September: Report rows only");
+  assert((await p.getByText("Belum dikirim").count()) === 0, "no schedule-only rows in the report list");
+  assert(await p.getByText("REP-20905 · SCD-3312 · 13:00–15:00").isVisible(), "report row shows its schedule looked up by ScheduleID");
+  assert(await p.getByText("Menunggu review ulang").isVisible() && (await p.getByText("Live break").first().isVisible()), "Waiting Approval Revision and LiveBreak badges");
   await p.getByRole("tab", { name: /Perlu revisi/ }).click();
   assert((await p.locator(".hc-row:not(.head)").count()) === 1, "revision filter");
   await p.getByRole("button", { name: "Perbaiki" }).click();
   pl = await payloads();
-  assert(pl.some((x) => x.action === "OPEN_REPORT" && x.payload.title === "RPT-20901"), "OPEN_REPORT from the list");
+  assert(pl.some((x) => x.action === "OPEN_REPORT" && x.payload.title === "REP-20901"), "OPEN_REPORT from the list");
+  await p.getByRole("tab", { name: /Live break/ }).click();
+  assert((await p.locator(".hc-row:not(.head)").count()) === 1, "LiveBreak filter");
   await p.getByRole("tab", { name: /Semua/ }).click();
-  await p.getByRole("button", { name: "Kirim" }).first().click();
-  pl = await payloads();
-  assert(pl.some((x) => x.action === "NEW_REPORT" && x.payload.scheduleId === "SCD-3302"), "NEW_REPORT for an unsent session");
   await p.selectOption("select[aria-label=Bulan]", "2026-07");
   await p.waitForTimeout(200);
   assert(await p.getByText("Belum ada report di Juli 2026").isVisible(), "empty month after PERIOD_CHANGED");
@@ -434,7 +452,7 @@ const assert = (c, m) => { if (!c) { console.log("FAIL", m); process.exitCode = 
   assert(await submit.isDisabled(), "still disabled without a screenshot");
   await p.setInputFiles("input[type=file]", { name: "Screenshot 2026-09-12.png", mimeType: "image/png", buffer: png });
   await p.waitForTimeout(600);
-  assert(await p.getByText("SCD-3302_TikTok_ACC-005.jpg").isVisible() || (await p.getByText(/RPT-\{ID\}_TikTok_ACC-005\.jpg|_TikTok_ACC-005\.jpg/).count()) > 0, "file name generated from platform + account");
+  assert(await p.getByText("SCD-3302_TikTok_ACC-005.jpg").isVisible() || (await p.getByText(/REP-\{ID\}_TikTok_ACC-005\.jpg|_TikTok_ACC-005\.jpg/).count()) > 0, "file name generated from platform + account");
   await shot("f-host-submit");
   await p.waitForTimeout(300); // let the page settle after the element screenshot scrolled it
   assert(await submit.isEnabled(), "submit enabled with metrics + screenshot");
@@ -463,7 +481,7 @@ const assert = (c, m) => { if (!c) { console.log("FAIL", m); process.exitCode = 
   assert(await p.getByText("Absen tercatat untuk SCD-3201.").isVisible(), "absen from the report screen");
 
   // ---- Host app: revision + dispute -------------------------------------------------------------
-  await go("c=MyReportDetail&r=RPT-20901");
+  await go("c=MyReportDetail&r=REP-20901");
   assert(await p.getByText("Ada 2 angka yang perlu kamu cek").isVisible(), "revision headline counts flagged metrics");
   await p.getByRole("button", { name: "Perbaiki report" }).click();
   const kirim = p.getByRole("button", { name: "Kirim revisi" });
@@ -475,7 +493,7 @@ const assert = (c, m) => { if (!c) { console.log("FAIL", m); process.exitCode = 
   pl = await payloads();
   const rsb = pl.find((x) => x.action === "RESUBMIT_REPORT");
   assert(rsb && rsb.payload.reportId === "20901" && rsb.payload.metrics.Penjualan === 6980000 && rsb.payload.changed.join() === "Penjualan,CTOR" && rsb.payload.file === null, "RESUBMIT_REPORT payload");
-  await go("c=MyReportDetail&r=RPT-20901");
+  await go("c=MyReportDetail&r=REP-20901");
   await p.getByRole("button", { name: "Saya rasa angka saya benar" }).click();
   const dsend = p.getByRole("dialog").getByRole("button", { name: /Kirim sanggahan/ });
   assert(await dsend.isDisabled(), "dispute needs a reason");
@@ -484,13 +502,13 @@ const assert = (c, m) => { if (!c) { console.log("FAIL", m); process.exitCode = 
   await p.waitForTimeout(700);
   pl = await payloads();
   assert(pl.some((x) => x.action === "DISPUTE_REVIEW" && x.payload.reason.startsWith("Angka penjualan")), "DISPUTE_REVIEW payload");
-  await go("c=MyReportDetail&r=RPT-20902");
+  await go("c=MyReportDetail&r=REP-20902");
   assert((await p.getByRole("button", { name: "Perbaiki report" }).count()) === 0, "done report is read-only");
 
   // ---- Host app: my schedule --------------------------------------------------------------------
   await go("c=MySchedule");
   const schRows = () => p.locator(".hc-row.sch:not(.head)").count();
-  assert((await schRows()) === 16, "16 sessions in September, cancelled included");
+  assert((await schRows()) === 18, "18 sessions in September, cancelled included");
   assert(await p.getByText("Planned").first().isVisible() && (await p.getByText("Finished").first().isVisible()), "Planned / Finished status words");
   await p.selectOption("select[aria-label=Status]", "ACTION");
   assert((await schRows()) === 5, "Perlu tindakan filter");
@@ -502,7 +520,7 @@ const assert = (c, m) => { if (!c) { console.log("FAIL", m); process.exitCode = 
   pl = await payloads();
   assert(pl.some((x) => x.action === "OPEN_SCHEDULE" && x.payload.scheduleId === "SCD-3302" && x.payload.liveDate === "2026-09-12"), "OPEN_SCHEDULE from the table");
   await p.getByRole("button", { name: "Reset" }).click();
-  assert((await schRows()) === 16, "reset clears the filters");
+  assert((await schRows()) === 18, "reset clears the filters");
   await p.getByRole("button", { name: "Absen", exact: true }).click();
   await p.waitForTimeout(700);
   pl = await payloads();

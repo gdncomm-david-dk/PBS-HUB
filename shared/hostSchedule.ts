@@ -1,7 +1,7 @@
 import { Row, date, localDayKey, num, str } from "./data";
 import { clockInDay } from "./payroll";
 import { sessionStatus } from "./host";
-import { HOST_REPORT_STATE, HostOptions, HostSession, clockedDays } from "./hostApp";
+import { HostOptions, HostSession, clockedDays, hostReportBadge } from "./hostApp";
 import { Tone } from "./reconcile";
 
 /**
@@ -32,7 +32,7 @@ export const SCHEDULE_STATE: Record<ScheduleState, { label: string; tone: Tone }
   NEEDS_REPORT: { label: "Belum report", tone: "warning" },
   LATE: { label: "Report terlambat", tone: "danger" },
   REVISION: { label: "Perlu revisi", tone: "danger" },
-  WAITING: { label: HOST_REPORT_STATE.WAITING.label, tone: "info" },
+  WAITING: { label: "Menunggu review", tone: "info" },
   FINISHED: { label: "Finished", tone: "success" },
   CANCELLED: { label: "Dibatalkan", tone: "neutral" },
 };
@@ -57,7 +57,7 @@ export function scheduleState(s: HostSession, now: Date): ScheduleState {
       return "REVISION";
     default:
       // A report is in. Finished once ops decided it (or canvas already closed the schedule).
-      return s.reportState === "DONE_AUTO" || s.reportState === "DONE_MANUAL" || (s.reportState !== "WAITING" && sessionStatus(s.row) === "DONE") ? "FINISHED" : "WAITING";
+      return s.reportState === "DONE_AUTO" || s.reportState === "DONE_MANUAL" || s.reportState === "LIVE_BREAK" || (s.reportState !== "WAITING" && sessionStatus(s.row) === "DONE") ? "FINISHED" : "WAITING";
   }
 }
 
@@ -250,7 +250,7 @@ export function sessionSteps(s: HostSession, clockIn: Row | undefined, now: Date
     state: cancelled ? "skip" : st === "FINISHED" ? "done" : st === "REVISION" ? "bad" : st === "WAITING" ? "now" : "todo",
     text:
       st === "FINISHED"
-        ? `${s.reportState ? HOST_REPORT_STATE[s.reportState].label : "Selesai"}${reviewer ? ` · ${reviewer}` : ""}`
+        ? `${s.reportState ? hostReportBadge(s.report, s.reportState).label : "Selesai"}${reviewer ? ` · ${reviewer}` : ""}`
         : st === "REVISION"
           ? `Perlu revisi${reviewer ? ` dari ${reviewer}` : ""}. Perbaiki angka yang ditandai.`
           : st === "WAITING"

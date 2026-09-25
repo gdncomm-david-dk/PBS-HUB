@@ -2,7 +2,7 @@ import * as React from "react";
 import { ModuleContext, UseActionResult, configNumber } from "../../../shared/contract";
 import { Row, date, nameIndex, rowId, str } from "../../../shared/data";
 import { fmtDayMonth, fmtNumber, fmtRupiah } from "../../../shared/format";
-import { HOST_REPORT_STATE, HostSession, buildHostSessions, hostOptions } from "../../../shared/hostApp";
+import { hostReportBadge } from "../../../shared/hostApp";
 import { Period, addMonths, fmtPeriod, inPeriod, parsePeriod, periodKey, periodOf } from "../../../shared/payroll";
 import { ALL_METRICS, ReviewState, readMetric, reviewState } from "../../../shared/reconcile";
 import { Badge, Button, EmptyState, EndOfData, Icon, ResultBanner, Skeleton, Spinner } from "../../../shared/ui";
@@ -22,34 +22,33 @@ export interface MyReportsProps {
   action: UseActionResult;
 }
 
-type Filter = "All" | "Unsent" | "Revision" | "Waiting" | "Done" | "Auto";
+type Filter = "All" | "Revision" | "Waiting" | "Done" | "Auto" | "LiveBreak";
 
 const FILTERS: { key: Filter; label: string; states?: ReviewState[] }[] = [
   { key: "All", label: "Semua" },
-  { key: "Unsent", label: "Belum dikirim" },
   { key: "Revision", label: "Perlu revisi", states: ["REVISION"] },
   { key: "Waiting", label: "Menunggu review", states: ["WAITING"] },
   { key: "Done", label: "Selesai", states: ["DONE_MANUAL"] },
   { key: "Auto", label: "Otomatis disetujui", states: ["DONE_AUTO"] },
+  { key: "LiveBreak", label: "Live break", states: ["LIVE_BREAK"] },
 ];
 
+/** One row of the list: a Report row, with its Schedule looked up by ScheduleID for the session time. */
 interface Item {
   key: string;
   day: Date | null;
   brand: string;
   platform: string;
   sales: number | null;
-  state: ReviewState | "UNSENT";
-  late: boolean;
-  report?: Row;
-  session?: HostSession;
+  state: ReviewState;
+  report: Row;
+  schedule: Row | undefined;
 }
 
 const penjualan = ALL_METRICS.find((d) => d.key === "Penjualan");
 
 export function MyReportsView(props: MyReportsProps): React.ReactElement {
   const { ctx, now, action } = props;
-  const opts = React.useMemo(() => hostOptions(ctx.config), [ctx]);
   const pageSize = Math.max(10, configNumber(ctx, "pageSize", 20));
   const period: Period = parsePeriod(props.period) ?? periodOf(now);
   const months = Array.from({ length: 6 }, (_, i) => addMonths(periodOf(now), -i));
@@ -62,46 +61,46 @@ export function MyReportsView(props: MyReportsProps): React.ReactElement {
 
   const brands = React.useMemo(() => nameIndex(props.brands, ["NamaBrand", "BrandName"]), [props.brands]);
   const items = React.useMemo((): Item[] => {
-    const sessions = buildHostSessions({ schedules: props.schedules, clockIns: props.clockIns, absences: props.absences, reports: props.reports, brands: props.brands, studios: [] }, now, opts);
-    const unsent: Item[] = sessions
-      .filter((s) => s.phase === "NEEDS_REPORT" && inPeriod(s.day, period))
-      .map((s) => ({ key: `s-${s.title}`, day: s.day, brand: s.brand, platform: s.platform, sales: null, state: "UNSENT", late: s.late, session: s }));
-    const reps: Item[] = props.reports
+    const bySchedule = new Map<string, Row>();
+    for (const x of props.schedules) {
+      const t = str(x, "Title").toLowerCase();
+      if (t && !bySchedule.has(t)) bySchedule.set(t, x);
+    }
+    return props.reports
       .filter((r) => {
         const d = date(r, "LiveDate");
         return !d || inPeriod(d, period);
       })
-      .map((r) => ({
-        key: `r-${rowId(r) || str(r, "Title")}`,
-        day: date(r, "LiveDate"),
-        brand: brands.get(str(r, "BrandID")) ?? (str(r, "BrandName") || str(r, "BrandID") || "—"),
-        platform: str(r, "Platform"),
-        sales: penjualan ? readMetric(r, penjualan) : null,
-        state: reviewState(r),
-        late: false,
-        report: r,
-      }));
-    return [...unsent, ...reps].sort((a, b) => (b.day?.getTime() ?? 0) - (a.day?.getTime() ?? 0));
-  }, [props.schedules, props.clockIns, props.absences, props.reports, props.brands, brands, now, opts, period]);
+      .map((r) => {
+        const schedule = bySchedule.get(str(r, "ScheduleID").toLowerCase());
+        const brandId = str(r, "BrandID") || str(schedule, "BrandID");
+        return {
+          key: `r-${rowId(r) || str(r, "Title")}`,
+          day: date(r, "LiveDate") ?? date(schedule, "Date"),
+          brand: brands.get(brandId) ?? (str(r, "BrandName") || brandId || "—"),
+          platform: str(r, "Platform") || str(schedule, "Platform"),
+          sales: penjualan ? readMetric(r, penjualan) : null,
+          state: reviewState(r),
+          report: r,
+          schedule,
+        };
+      })
+      .sort((a, b) => (b.day?.getTime() ?? 0) - (a.day?.getTime() ?? 0));
+  }, [props.schedules, props.reports, brands, period]);
 
-  const count = (f: (typeof FILTERS)[number]) => (f.key === "All" ? items.length : f.key === "Unsent" ? items.filter((i) => i.state === "UNSENT").length : items.filter((i) => f.states?.includes(i.state as ReviewState)).length);
+  const count = (f: (typeof FILTERS)[number]) => (f.key === "All" ? items.length : items.filter((i) => f.states?.includes(i.state)).length);
   const active = FILTERS.find((f) => f.key === filter) ?? FILTERS[0];
-  const filtered = !active || active.key === "All" ? items : active.key === "Unsent" ? items.filter((i) => i.state === "UNSENT") : items.filter((i) => active.states?.includes(i.state as ReviewState));
+  const filtered = !active || active.key === "All" ? items : items.filter((i) => active.states?.includes(i.state));
   const visible = filtered.slice(0, shown);
   const localMore = filtered.length > shown;
-  const reportCount = items.filter((i) => i.state !== "UNSENT").length;
   const revision = items.filter((i) => i.state === "REVISION").length;
-  const unsent = items.filter((i) => i.state === "UNSENT").length;
 
   const choose = (f: Filter) => {
     setFilter(f);
     setShown(pageSize);
     action.fire("FILTER_CHANGED", { filter: f, period: periodKey(period) });
   };
-  const open = (i: Item) =>
-    i.report
-      ? action.fire("OPEN_REPORT", { reportId: rowId(i.report), title: str(i.report, "Title"), scheduleId: str(i.report, "ScheduleID") })
-      : i.session && action.fire("NEW_REPORT", { scheduleId: i.session.title, scheduleItemId: i.session.id, liveDate: i.session.dayKey });
+  const open = (i: Item) => action.fire("OPEN_REPORT", { reportId: rowId(i.report), title: str(i.report, "Title"), scheduleId: str(i.report, "ScheduleID") });
 
   const firstLoad = props.loading && items.length === 0;
 
@@ -113,7 +112,7 @@ export function MyReportsView(props: MyReportsProps): React.ReactElement {
           <p>
             {firstLoad
               ? "Memuat report…"
-              : `${fmtNumber(reportCount)}${props.hasMore ? "+" : ""} report pada ${fmtPeriod(period)}${revision ? ` · ${revision} perlu revisi` : ""}${unsent ? ` · ${unsent} belum dikirim` : ""}`}
+              : `${fmtNumber(items.length)}${props.hasMore ? "+" : ""} report pada ${fmtPeriod(period)}${revision ? ` · ${revision} perlu revisi` : ""}`}
           </p>
         </div>
         <label className="pbs-chip">
@@ -141,7 +140,7 @@ export function MyReportsView(props: MyReportsProps): React.ReactElement {
       <div className="hc-chips" role="tablist" aria-label="Status">
         {FILTERS.map((f) => {
           const n = count(f);
-          if (f.key === "Unsent" && n === 0 && filter !== "Unsent") return null;
+          if (f.key === "LiveBreak" && n === 0 && filter !== "LiveBreak") return null;
           return (
             <button key={f.key} type="button" role="tab" aria-selected={filter === f.key} className={`hc-chip${filter === f.key ? " on" : ""}`} onClick={() => choose(f.key)}>
               {f.label} <span className="n">{firstLoad ? "" : fmtNumber(n)}</span>
@@ -216,16 +215,16 @@ export function MyReportsView(props: MyReportsProps): React.ReactElement {
 
 function ReportRow(props: { i: Item; onOpen: () => void }): React.ReactElement {
   const { i } = props;
-  const st = i.state === "UNSENT" ? { label: i.late ? "Terlambat" : "Belum dikirim", tone: i.late ? ("danger" as const) : ("warning" as const) } : HOST_REPORT_STATE[i.state];
-  const bad = i.state === "REVISION" || (i.state === "UNSENT" && i.late);
+  const st = hostReportBadge(i.report, i.state);
+  const time = i.schedule ? [str(i.schedule, "StartTime"), str(i.schedule, "EndTime")].filter(Boolean).join("–") : "";
   return (
-    <div className={`hc-row${bad ? " bad" : ""}`}>
+    <div className={`hc-row${i.state === "REVISION" ? " bad" : ""}`}>
       <span className="pbs-num">{fmtDayMonth(i.day)}</span>
       <span style={{ minWidth: 0 }}>
         <b style={{ fontWeight: 600 }}>{i.brand}</b>
         {i.platform ? <span className="pbs-muted"> · {i.platform}</span> : null}
         <span className="pbs-muted" style={{ display: "block", fontSize: 11.5 }}>
-          {i.report ? str(i.report, "Title") : i.session ? `${i.session.title} · ${i.session.startText}–${i.session.endText}` : ""}
+          {[str(i.report, "Title"), str(i.report, "ScheduleID"), time].filter(Boolean).join(" · ")}
         </span>
       </span>
       <span className="r pbs-num hide-s">{i.sales === null ? <span className="pbs-muted">—</span> : fmtRupiah(i.sales)}</span>
@@ -234,7 +233,7 @@ function ReportRow(props: { i: Item; onOpen: () => void }): React.ReactElement {
       </span>
       <span className="r">
         <button type="button" className="pbs-link" onClick={props.onOpen}>
-          {i.state === "UNSENT" ? "Kirim" : i.state === "REVISION" ? "Perbaiki" : "Buka"}
+          {i.state === "REVISION" ? "Perbaiki" : "Buka"}
         </button>
       </span>
     </div>

@@ -34,9 +34,9 @@ Power Apps code components (PCF) untuk canvas app PBS Hub, dibuat dari design ha
 **Output:** tiga managed solution, dibangun dengan target MSBuild resmi Power Platform
 (`Microsoft.PowerApps.MSBuild.Solution`):
 
-- `dist/PBSHubOpsPCF_1_5_2_0_managed.zip` — Ops Console (7 control `pbs_Ops.*`)
-- `dist/PBSHubHostPCF_1_0_3_0_managed.zip` — Host app (3 control `pbs_Host.*`)
-- `dist/PBSHubHostSchedulePCF_1_1_0_0_managed.zip` — Host schedule (2 control `pbs_Host.*`)
+- `dist/PBSHubOpsPCF_1_5_3_0_managed.zip` — Ops Console (7 control `pbs_Ops.*`)
+- `dist/PBSHubHostPCF_1_0_4_0_managed.zip` — Host app (3 control `pbs_Host.*`)
+- `dist/PBSHubHostSchedulePCF_1_1_1_0_managed.zip` — Host schedule (2 control `pbs_Host.*`)
 
 Cara pasang dan formula Power Fx lengkap (properti, `OnChange`, Patch ke SharePoint):
 [`docs/CANVAS-INTEGRATION.md`](docs/CANVAS-INTEGRATION.md) (Ops) dan
@@ -72,8 +72,8 @@ npm run solution         # ketiga managed zip → dist/  (butuh .NET SDK 8+)
 ```
 
 Uji tampilan tanpa Power Apps: `npm run build`, lalu buka `harness/index.html` di browser
-(`?c=Dashboard`, `?c=ReportReview`, `?c=ReportDetail&r=RPT-20862`, `?c=PayrollRuns&pay=none`, `?c=PayrollRunDetail&run=118`, `?c=HostList`, `?c=HostDetail&h=HST-012`,
-`?c=HostDashboard`, `?c=MyReports`, `?c=MyReportDetail&r=RPT-20901`, `?c=MyReportDetail&sch=SCD-3302`, `?c=MySchedule`, `?c=ScheduleDetail&sch=SCD-3201`; `&w=390` untuk lebar HP).
+(`?c=Dashboard`, `?c=ReportReview`, `?c=ReportDetail&r=REP-20862`, `?c=PayrollRuns&pay=none`, `?c=PayrollRunDetail&run=118`, `?c=HostList`, `?c=HostDetail&h=HST-012`,
+`?c=HostDashboard`, `?c=MyReports`, `?c=MyReportDetail&r=REP-20901`, `?c=MyReportDetail&sch=SCD-3302`, `?c=MySchedule`, `?c=ScheduleDetail&sch=SCD-3201`; `&w=390` untuk lebar HP).
 Tambahkan `&hostile=1` untuk menyuntikkan CSS global yang agresif (meniru Power Apps player) — tampilan harus
 tetap utuh karena control dirender di Shadow DOM.
 `node harness/flows.js <dir>` menjalankan cek interaksi (approve → mengirim → hasil, konflik, revisi, bulk approve,

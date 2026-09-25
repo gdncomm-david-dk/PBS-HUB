@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8" ?>
 <manifest>
-  <control namespace="Ops" constructor="PayrollRunDetail" version="1.2.0" display-name-key="PBS Ops Payroll Run Detail" description-key="PBS Hub Ops Console P-3, P-4 and P-5: payroll lines per host with source attendance, the four-gate approval tracker, and payslip status." control-type="standard">
+  <control namespace="Ops" constructor="PayrollRunDetail" version="1.2.1" display-name-key="PBS Ops Payroll Run Detail" description-key="PBS Hub Ops Console P-3, P-4 and P-5: payroll lines per host with source attendance, the four-gate approval tracker, and payslip status." control-type="standard">
     <external-service-usage enabled="false"></external-service-usage>
 
     <property name="Context" display-name-key="Context" description-key="JSON {userEmail,userName,roles,permissions,config}. config: payrollLabelOffset (-1), payrollAssemblyMinutes (30), pageSize (50)." of-type="Multiple" usage="input" required="false" />

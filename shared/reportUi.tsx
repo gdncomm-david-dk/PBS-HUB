@@ -2,7 +2,7 @@ import * as React from "react";
 import { ModuleContext, UseActionResult, configNumber, hasPermission } from "./contract";
 import { Row, date, person, str } from "./data";
 import { fmtAgo, fmtDate, fmtDateTimeShort, fmtNumber, fmtPercentValue, fmtRupiah, fmtSignedPct } from "./format";
-import { MetricComparison, MetricDef, REVIEW_STATES, sameValue } from "./reconcile";
+import { MetricComparison, MetricDef, reviewBadge, sameValue } from "./reconcile";
 import { ReportItem, itemRef } from "./reportItems";
 import { Badge, Button, Icon, SectionHeader, Spinner } from "./ui";
 
@@ -334,7 +334,7 @@ export function DecisionPanel(props: { item: ReportItem; ctx: ModuleContext; act
 
 function DecisionSummary(props: { report: Row; item: ReportItem; now: Date; decidedByMe: boolean; readOnly: boolean }): React.ReactElement {
   const { report, item, now } = props;
-  const st = REVIEW_STATES[item.state];
+  const st = reviewBadge(report, item.state);
   const approver = person(report, "Approver");
   const who = approver.name || str(report, "ApproverEmail") || "—";
   const commentText = str(report, "ApprovalComment");

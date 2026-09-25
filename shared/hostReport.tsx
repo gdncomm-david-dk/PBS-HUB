@@ -3,7 +3,7 @@ import { ModuleContext, UseActionResult, configNumber } from "./contract";
 import { Row, date, nameIndex, person, rowId, str } from "./data";
 import { fmtDateTimeShort, fmtLongDate, fmtSignedPct, fmtTime } from "./format";
 import {
-  HOST_REPORT_STATE,
+  hostReportBadge,
   HostSession,
   MetricValues,
   buildHostSessions,
@@ -309,7 +309,7 @@ export function SubmitReport(props: MyReportDetailProps & { session: HostSession
         image={image}
         setImage={setImage}
         disabled={pending}
-        fileName={evidenceFileName("", session?.platform ?? "", session?.accountId ?? "", "jpg").replace("RPT-{ID}", "RPT-(baru)")}
+        fileName={evidenceFileName("", session?.platform ?? "", session?.accountId ?? "", "jpg").replace("REP-{ID}", "REP-(baru)")}
         maxPx={configNumber(ctx, "imageMaxPx", 2000)}
         maxKb={configNumber(ctx, "imageMaxKb", 1200)}
         required
@@ -561,6 +561,12 @@ export function Revision(props: Omit<MyReportDetailProps, "report"> & { report: 
       title: str(report, "Title"),
       scheduleId: str(report, "ScheduleID"),
       expectedModified: str(report, "Modified"),
+      // Report goes back to the reviewer as a second look; its Report Automation row (same Title) is
+      // set to Unmatch so the reviewer compares again.
+      approvalStatus: "Waiting Approval Revision",
+      evidenceId: evidence ? rowId(evidence) : "",
+      evidenceTitle: str(report, "Title"),
+      evidenceStatus: "Unmatch",
       metrics: metricColumns(values),
       changed: changed.map((d) => d.fields[0] ?? d.key),
       flagged: flaggedDefs.map((d) => d.fields[0] ?? d.key),
@@ -808,7 +814,7 @@ function ViewReport(props: Omit<MyReportDetailProps, "report"> & { report: Row; 
   const tolerancePct = configNumber(ctx, "tolerancePct", 5);
   const evidence = props.evidence[0];
   const state = reviewState(report);
-  const st = HOST_REPORT_STATE[state];
+  const st = hostReportBadge(props.report, state);
   const rows = ALL_METRICS.map((d) => compareMetric(d, report, evidence, tolerancePct)).filter((m) => m.claim !== null || m.evidence !== null);
   const note = reviewerNote(str(report, "ApprovalComment"));
   const approver = person(report, "Approver");

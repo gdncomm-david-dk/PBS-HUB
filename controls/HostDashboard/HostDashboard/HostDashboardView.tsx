@@ -4,7 +4,7 @@ import { Row, date, localDayKey, nameIndex, num, rowId, startOfDay, str } from "
 import { fmtDayMonth, fmtLongDate, fmtNumber, fmtTime } from "../../../shared/format";
 import { bandOf, parseBands } from "../../../shared/host";
 import {
-  HOST_REPORT_STATE,
+  hostReportBadge,
   HostSession,
   PHASE_LABEL,
   Shift,
@@ -335,7 +335,7 @@ function SessionCard(props: { s: HostSession; now: Date; shift: Shift; pending: 
       );
       break;
     case "REPORTED": {
-      const st = HOST_REPORT_STATE[s.reportState ?? "WAITING"];
+      const st = hostReportBadge(s.report, s.reportState ?? "WAITING");
       right = (
         <>
           <Badge tone={st.tone}>{st.label}</Badge>

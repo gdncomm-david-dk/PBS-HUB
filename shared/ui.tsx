@@ -232,23 +232,50 @@ export function Spinner(props: { small?: boolean }): React.ReactElement {
  * the top of the content opened far above a row clicked lower down. This measures the visible band on
  * open and on scroll/resize, and locks the root's own scroll while open.
  */
+/**
+ * The part of `el` the user can actually see: its rect cut by every ancestor that clips (overflow other
+ * than visible), across the shadow boundary, and by the window. The Power Apps player puts the control
+ * in scrolling / clipping containers, so the window alone is not enough.
+ */
+export function visibleBand(el: HTMLElement): { top: number; bottom: number; left: number; right: number } {
+  const r = el.getBoundingClientRect();
+  let top = r.top;
+  let bottom = r.bottom;
+  let left = r.left;
+  let right = r.right;
+  let node: Element | null = el.parentElement ?? ((el.getRootNode() as ShadowRoot).host || null);
+  while (node && node !== document.documentElement) {
+    const cs = window.getComputedStyle(node);
+    if (/(auto|scroll|hidden|clip)/.test(cs.overflow + cs.overflowX + cs.overflowY)) {
+      const a = node.getBoundingClientRect();
+      top = Math.max(top, a.top);
+      bottom = Math.min(bottom, a.bottom);
+      left = Math.max(left, a.left);
+      right = Math.min(right, a.right);
+    }
+    const parent: Element | null = node.parentElement ?? ((node.getRootNode() as ShadowRoot).host || null);
+    node = parent === node ? null : parent;
+  }
+  const vw = window.innerWidth || document.documentElement.clientWidth || r.width;
+  const vh = window.innerHeight || document.documentElement.clientHeight || r.height;
+  return { top: Math.max(top, 0), bottom: Math.min(bottom, vh), left: Math.max(left, 0), right: Math.min(right, vw) };
+}
+
 export function Overlay(props: { onClose: () => void; busy?: boolean; labelledBy: string; children: React.ReactNode; wide?: boolean }): React.ReactElement {
   const ref = React.useRef<HTMLDivElement>(null);
-  const [box, setBox] = React.useState<{ top: number; height: number } | null>(null);
+  const [box, setBox] = React.useState<{ top: number; height: number; left: number; width: number } | null>(null);
   React.useLayoutEffect(() => {
     const el = ref.current;
     const root = el?.closest(".pbs-root") as HTMLElement | null;
     const anchor = el?.offsetParent as HTMLElement | null;
     if (!el || !root || !anchor) return;
     const place = () => {
-      const r = root.getBoundingClientRect();
       const a = anchor.getBoundingClientRect();
-      const vh = window.innerHeight || document.documentElement.clientHeight || r.height;
-      // Visible part of the root in the window (the canvas screen may scroll the control itself).
-      const visTop = Math.max(r.top, 0);
-      const visBottom = Math.min(r.bottom, vh);
-      const height = Math.max(240, visBottom - visTop);
-      setBox({ top: visTop - a.top + (anchor === root ? root.scrollTop : 0), height });
+      const v = visibleBand(root);
+      const height = Math.max(240, v.bottom - v.top);
+      const width = Math.max(300, v.right - v.left);
+      const own = anchor === root;
+      setBox({ top: v.top - a.top + (own ? root.scrollTop : 0), height, left: v.left - a.left + (own ? root.scrollLeft : 0), width });
     };
     const prev = root.style.overflow;
     place();
@@ -275,7 +302,7 @@ export function Overlay(props: { onClose: () => void; busy?: boolean; labelledBy
       ref={ref}
       className="pbs-overlay"
       role="presentation"
-      style={box ? { top: box.top, height: box.height, bottom: "auto" } : { visibility: "hidden" }}
+      style={box ? { top: box.top, height: box.height, left: box.left, width: box.width, bottom: "auto", right: "auto" } : { visibility: "hidden" }}
       onMouseDown={(e) => e.target === e.currentTarget && !props.busy && props.onClose()}
     >
       <div className={`pbs-modal${props.wide ? " wide" : ""}`} role="dialog" aria-modal="true" aria-labelledby={props.labelledBy} tabIndex={-1} style={{ outline: "none" }}>

@@ -2,7 +2,7 @@ import * as React from "react";
 import { ModuleContext, UseActionResult, configNumber } from "../../../shared/contract";
 import { Row, date, person, str } from "../../../shared/data";
 import { fmtAgo } from "../../../shared/format";
-import { REASONS, REVIEW_STATES } from "../../../shared/reconcile";
+import { REASONS, reviewBadge } from "../../../shared/reconcile";
 import { ReportItem, buildReportItems, itemRef } from "../../../shared/reportItems";
 import { DECISION_ACTIONS, DECISION_DONE_TEXT, DecisionPanel, EvidenceRail, MetricsTable, ReportHeader } from "../../../shared/reportUi";
 import { Button, Icon, InfoBanner, Pill, ResultBanner, Skeleton } from "../../../shared/ui";
@@ -71,7 +71,7 @@ function Detail(props: ReportDetailProps & { item: ReportItem; tolerancePct: num
   ) : item.state === "WAITING" ? (
     <Pill tone={reason.tone}>{reason.label}</Pill>
   ) : (
-    <Pill tone={REVIEW_STATES[item.state].tone}>{REVIEW_STATES[item.state].label}</Pill>
+    <Pill tone={reviewBadge(item.row, item.state).tone}>{reviewBadge(item.row, item.state).label}</Pill>
   );
 
   return (

@@ -119,7 +119,7 @@ font-family:"Blibli","Helvetica Neue",Arial,sans-serif;font-size:13px;line-heigh
 @keyframes pbs-pulse{0%,100%{opacity:1}50%{opacity:.35}}
 .pbs-host{position:relative;min-height:100%}
 .pbs-overlay{position:absolute;left:0;right:0;top:0;bottom:0;background:rgba(0,0,0,.36);display:flex;justify-content:center;align-items:center;padding:24px 16px;z-index:20}
-.pbs-modal{width:640px;max-width:100%;max-height:100%;background:#fff;border-radius:12px;display:flex;flex-direction:column;box-shadow:0 12px 40px rgba(0,0,0,.18)}
+.pbs-modal{width:640px;max-width:100%;max-height:100%;container-type:inline-size;background:#fff;border-radius:12px;display:flex;flex-direction:column;box-shadow:0 12px 40px rgba(0,0,0,.18)}
 .pbs-modal-b{overflow:auto;min-height:0}
 .pbs-modal-h{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:18px 22px;border-bottom:1px solid var(--bd)}
 .pbs-modal-h h2{margin:0;font-size:18px;font-weight:700}
@@ -206,6 +206,7 @@ font-family:"Blibli","Helvetica Neue",Arial,sans-serif;font-size:13px;line-heigh
 .pbs-modal.wide{width:1080px}
 .pbs-rv{display:grid;grid-template-columns:minmax(0,1fr) 320px;gap:16px;align-items:start}
 @media (max-width:900px){.pbs-rv{grid-template-columns:minmax(0,1fr)}}
+@container (max-width:900px){.pbs-rv{grid-template-columns:minmax(0,1fr)}}
 .pbs-rowact{display:inline-flex;gap:8px;justify-content:flex-end;white-space:nowrap}
 .pbs-rev-row{display:flex;align-items:center;gap:12px;padding:10px;border-top:1px solid var(--row);cursor:pointer}
 .pbs-rev-row.off{cursor:default;color:var(--dis)}

@@ -37,7 +37,7 @@
 <div id="bar">
   <a href="?c=Dashboard">Dashboard</a> <a href="?c=Dashboard&s=loading">loading</a> <a href="?c=Dashboard&s=empty">empty</a> |
   <a href="?c=ReportReview">ReportReview</a> <a href="?c=ReportReview&s=loading">loading</a> <a href="?c=ReportReview&s=empty">empty</a> |
-  <a href="?c=ReportDetail&r=RPT-20862">Detail (luar toleransi)</a> <a href="?c=ReportDetail&r=RPT-20865">tanpa bukti</a> <a href="?c=ReportDetail&r=RPT-20870">sudah diputuskan</a> <a href="?c=ReportDetail&r=RPT-20861">bukti yatim</a>
+  <a href="?c=ReportDetail&r=REP-20862">Detail (luar toleransi)</a> <a href="?c=ReportDetail&r=REP-20865">tanpa bukti</a> <a href="?c=ReportDetail&r=REP-20870">sudah diputuskan</a> <a href="?c=ReportDetail&r=REP-20861">bukti yatim</a>
   |
   <a href="?c=PayrollRuns">PayrollRuns</a> <a href="?c=PayrollRuns&pay=none">tanpa run terbuka</a> <a href="?c=PayrollRuns&pay=done&pf=block">terblokir</a> <a href="?c=PayrollRuns&pay=assembling">disusun</a> <a href="?c=PayrollRuns&s=loading">loading</a> <a href="?c=PayrollRuns&s=empty">empty</a> |
   <a href="?c=PayrollRunDetail&run=118">Run 118</a> <a href="?c=PayrollRunDetail&run=118&tab=Approval">approval</a> <a href="?c=PayrollRunDetail&run=115&tab=Approval">ditolak</a> <a href="?c=PayrollRunDetail&run=117&slips=1&tab=Payslip">slip</a> <a href="?c=PayrollRunDetail&run=116">manual</a>
@@ -49,7 +49,7 @@
   <a href="?c=MySchedule">MySchedule</a> <a href="?c=MySchedule&f=ACTION">perlu tindakan</a> <a href="?c=MySchedule&period=2026-07">bulan kosong</a> <a href="?c=MySchedule&s=loading">loading</a> <a href="?c=MySchedule&w=760">tablet</a> <a href="?c=MySchedule&w=390">mobile</a> |
   <a href="?c=ScheduleDetail&sch=SCD-3201">ScheduleDetail live</a> <a href="?c=ScheduleDetail&sch=SCD-3301">revisi</a> <a href="?c=ScheduleDetail&sch=SCD-3302">belum report</a> <a href="?c=ScheduleDetail&sch=SCD-3304">tanpa clock in</a> <a href="?c=ScheduleDetail&sch=SCD-3305">finished</a> <a href="?c=ScheduleDetail&sch=SCD-3309">planned</a> <a href="?c=ScheduleDetail&sch=SCD-3307">batal</a> <a href="?c=ScheduleDetail&sch=SCD-9999">tidak ada</a> <a href="?c=ScheduleDetail&sch=SCD-3201&w=390">mobile</a> |
   <a href="?c=MyReports">MyReports</a> <a href="?c=MyReports&f=Revision">revisi</a> <a href="?c=MyReports&period=2026-07">bulan kosong</a> <a href="?c=MyReports&s=loading">loading</a> <a href="?c=MyReports&w=390">mobile</a> |
-  <a href="?c=MyReportDetail&sch=SCD-3302">submit</a> <a href="?c=MyReportDetail&sch=SCD-3201">belum absen</a> <a href="?c=MyReportDetail&sch=SCD-3304">tanpa clock in</a> <a href="?c=MyReportDetail&sch=SCD-3203">belum mulai</a> <a href="?c=MyReportDetail&r=RPT-20901">revisi</a> <a href="?c=MyReportDetail&r=RPT-20863">menunggu</a> <a href="?c=MyReportDetail&r=RPT-20902">selesai</a> <a href="?c=MyReportDetail&r=RPT-20903">otomatis</a> <a href="?c=MyReportDetail&r=RPT-20901&w=390">revisi mobile</a>
+  <a href="?c=MyReportDetail&sch=SCD-3302">submit</a> <a href="?c=MyReportDetail&sch=SCD-3201">belum absen</a> <a href="?c=MyReportDetail&sch=SCD-3304">tanpa clock in</a> <a href="?c=MyReportDetail&sch=SCD-3203">belum mulai</a> <a href="?c=MyReportDetail&r=REP-20901">revisi</a> <a href="?c=MyReportDetail&r=REP-20863">menunggu</a> <a href="?c=MyReportDetail&r=REP-20902">selesai</a> <a href="?c=MyReportDetail&r=REP-20903">otomatis</a> <a href="?c=MyReportDetail&r=REP-20901&w=390">revisi mobile</a>
   <label><input type="checkbox" id="auto" checked> auto-reply ok</label>
 </div>
 <div id="stage"></div>
@@ -68,7 +68,7 @@
   });
   if (c === "ReportReview") Object.assign(params, { ReportsJson: J(empty ? [] : S.reports), EvidenceJson: J(empty ? [] : S.evidence), HostsJson: J(S.hosts), BrandsJson: J(S.brands) });
   if (c === "ReportDetail") {
-    const rep = S.reports.find((r) => r.Title === (q.get("r") || "RPT-20862"));
+    const rep = S.reports.find((r) => r.Title === (q.get("r") || "REP-20862"));
     Object.assign(params, { ReportJson: J(rep ? [rep] : []), EvidenceJson: J(S.evidence.filter((e) => rep && e.Title === rep.Title)), HostsJson: J(S.hosts), BrandsJson: J(S.brands) });
   }
   // Payroll: ?pay=open (default) | none | done | assembling · ?pf=block · ?slips=1 · ?run=118
@@ -104,7 +104,7 @@
       ScoreTxJson: J(S.scoreTx[hostId] || []), ThresholdsJson: J(S.thresholds), BrandsJson: J(S.brands), StudiosJson: J(S.studios), RevealedJson: "",
     });
   }
-  // Host app: the signed-in host (HST-001) sees only her rows. ?shift=none|out · ?ref=<ISO now> · ?sch=SCD-… · ?r=RPT-… · ?period=yyyy-mm · ?f=<filter>
+  // Host app: the signed-in host (HST-001) sees only her rows. ?shift=none|out · ?ref=<ISO now> · ?sch=SCD-… · ?r=REP-… · ?period=yyyy-mm · ?f=<filter>
   const isHostApp = ["HostDashboard", "MyReports", "MyReportDetail", "MySchedule", "ScheduleDetail"].includes(c);
   if (isHostApp) {
     const HA = S.hostApp, me = HA.hostId;
@@ -156,6 +156,16 @@
   });
   const stage = document.getElementById("stage");
   stage.style.width = W + "px";
+  // ?clip=700x480: the player's scrolling container, narrower and shorter than the control (Power Apps).
+  if (q.get("clip")) {
+    const [cw, ch] = q.get("clip").split("x").map(Number);
+    const box = document.createElement("div");
+    box.id = "clipbox";
+    box.style.cssText = `width:${cw}px;height:${ch}px;overflow:auto;margin:16px;border:2px dashed #c33`;
+    stage.parentNode.insertBefore(box, stage);
+    box.appendChild(stage);
+    stage.style.margin = "0";
+  }
   const div = document.createElement("div");
   stage.appendChild(div);
   const ctl = new Ctor();
@@ -233,17 +243,17 @@
           message = `Absen tercatat untuk ${p.payload.scheduleId}.`;
         }
         if (!fail && p.action === "SUBMIT_REPORT") {
-          const row = Object.assign({ ID: 20950, Title: "RPT-20950", ScheduleID: p.payload.scheduleId, HostID: p.payload.hostId, BrandID: p.payload.brandId, Platform: { Value: p.payload.platform }, LiveDate: p.payload.liveDate, ApprovalStatus: { Value: "Waiting Approval" }, Created: S.REF, Modified: S.REF, Attachment: "RPT-20950_" + p.payload.file.name.split("_").slice(1).join("_") }, p.payload.metrics);
+          const row = Object.assign({ ID: 20950, Title: "REP-20950", ScheduleID: p.payload.scheduleId, HostID: p.payload.hostId, BrandID: p.payload.brandId, Platform: { Value: p.payload.platform }, LiveDate: p.payload.liveDate, ApprovalStatus: { Value: "Waiting Approval" }, Created: S.REF, Modified: S.REF, Attachment: "REP-20950_" + p.payload.file.name.split("_").slice(1).join("_") }, p.payload.metrics);
           if (c === "ScheduleDetail") params.ReportsJson = J(JSON.parse(params.ReportsJson || "[]").concat([row]));
           else params.ReportJson = J([row]);
-          message = "Report RPT-20950 terkirim.";
+          message = "Report REP-20950 terkirim.";
         }
         if (!fail && (p.action === "RESUBMIT_REPORT" || p.action === "DISPUTE_REVIEW")) {
           const key = c === "ScheduleDetail" ? "ReportsJson" : "ReportJson";
           const rows = JSON.parse(params[key]);
           const at = Math.max(0, rows.findIndex((x) => String(x.ID) === String(p.payload.reportId)));
           const row = Object.assign({}, rows[at]);
-          if (p.action === "RESUBMIT_REPORT") Object.assign(row, p.payload.metrics, { ApprovalStatus: { Value: "Waiting Approval" }, Modified: S.REF });
+          if (p.action === "RESUBMIT_REPORT") Object.assign(row, p.payload.metrics, { ApprovalStatus: { Value: p.payload.approvalStatus }, Modified: S.REF });
           else row.ApprovalComment = (row.ApprovalComment || "") + "\n[Sanggahan host] " + p.payload.reason;
           rows[at] = row;
           params[key] = J(rows);

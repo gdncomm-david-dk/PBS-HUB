@@ -101,6 +101,23 @@ di bawah yang disarankan.
 | `Attachment` | Attachment (Note, URL) | fallback URL screenshot |
 | `Created`, `Modified` | sistem | umur antrean, "diputuskan X menit lalu" |
 
+**Pilihan kolom (Choice) yang dibaca control:**
+
+| List · kolom | Nilai | Arti di control |
+|---|---|---|
+| `Report.ApprovalStatus` | `Waiting Approval` | menunggu review (tab *Menunggu review*) |
+| | `Waiting Approval Revision` | host sudah memperbaiki report yang diminta revisi — menunggu review lagi, badge *Menunggu review (revisi)* |
+| | `Need Revision` | dikembalikan ke host (tab *Perlu revisi*) |
+| | `Done` | selesai (manual, atau *Otomatis* kalau `ApprovalComment` berisi "Automated …") |
+| | `LiveBreak` | live terputus — badge *Live break*, tidak menunggu siapa pun |
+| `Report.Match` | `Match` / `Unmatch` | hasil keputusan reviewer |
+| `Report Automation.Status` | `Match` / `Unmatch` | hasil pembacaan AI |
+
+`Report Automation.Title` = `Report.Title` (mis. `REP-120` ↔ `REP-120`); itu kunci join bukti ke report.
+Minta revisi menulis ke Report: `Match = Unmatch`, `ApprovalComment` = komentar reviewer, `ApproverEmail` =
+reviewer, `ApprovalStatus = Need Revision`. Host yang memperbaiki menulis `ApprovalStatus = Waiting Approval
+Revision` dan `Report Automation.Status = Unmatch` (hanya kolom itu) — lihat `HOST-CANVAS-INTEGRATION.md` §5.
+
 ### `Report Automation - PBS Hub` (bukti AI) → `EvidenceJson`
 
 | Field JSON | Kolom | Catatan |
@@ -265,7 +282,7 @@ If(!IsBlank(Self.ActionPayload),
                             ForAll(Table(p.items),
                                 With({it: ThisRecord.Value, cur: LookUp('Report - PBS Hub', ID = Value(ThisRecord.Value.reportId))},
                                     // Lewati yang sudah diputuskan orang lain sejak layar dibuka.
-                                    If(cur.ApprovalStatus.Value = "Waiting Approval" || IsBlank(cur.ApprovalStatus.Value),
+                                    If(cur.ApprovalStatus.Value in ["Waiting Approval", "Waiting Approval Revision"] || IsBlank(cur.ApprovalStatus.Value),
                                         Patch('Report - PBS Hub', cur, {
                                             ApprovalStatus: {Value: "Done"}, Match: {Value: "Match"},
                                             ApprovalComment: Text(p.comment), ApproverEmail: User().Email
@@ -286,7 +303,7 @@ If(!IsBlank(Self.ActionPayload),
                 If(act in ["APPROVE", "APPROVE_WITHOUT_EVIDENCE", "REQUEST_REVISION", "ESCALATE"],
                     With({cur: LookUp('Report - PBS Hub', ID = Value(p.reportId))},
                         If(
-                            !(cur.ApprovalStatus.Value = "Waiting Approval" || IsBlank(cur.ApprovalStatus.Value)),
+                            !(cur.ApprovalStatus.Value in ["Waiting Approval", "Waiting Approval Revision"] || IsBlank(cur.ApprovalStatus.Value)),
                             Set(varRrResult, JSON({requestId: rid, status: "conflict",
                                 decidedBy: Coalesce(cur.Approver.DisplayName, cur.ApproverEmail, "orang lain"),
                                 decidedAt: cur.Modified}, JSONFormat.Compact)),
@@ -379,7 +396,7 @@ If(!IsBlank(Self.ActionPayload),
                     With({cur: LookUp('Report - PBS Hub', ID = Value(p.reportId))},
                         If(
                             // Sudah diputuskan orang lain sejak layar dibuka → tolak tulis (race R2).
-                            !(cur.ApprovalStatus.Value = "Waiting Approval" || IsBlank(cur.ApprovalStatus.Value)),
+                            !(cur.ApprovalStatus.Value in ["Waiting Approval", "Waiting Approval Revision"] || IsBlank(cur.ApprovalStatus.Value)),
                             Set(varRdResult, JSON({requestId: rid, status: "conflict",
                                 decidedBy: Coalesce(cur.Approver.DisplayName, cur.ApproverEmail, "orang lain"),
                                 decidedAt: cur.Modified}, JSONFormat.Compact)),
@@ -968,7 +985,7 @@ belum ada di v1, bulk approve tidak akan muncul — itu disengaja.
 
 1. Power Platform admin center → environment → **Settings → Product → Features** → aktifkan
    *Allow publishing of canvas apps with code components*.
-2. make.powerapps.com → **Solutions → Import solution** → `PBSHubOpsPCF_1_5_2_0_managed.zip`
+2. make.powerapps.com → **Solutions → Import solution** → `PBSHubOpsPCF_1_5_3_0_managed.zip`
    (sudah pernah import versi lama? Import ini meng-**upgrade** solusi yang sama — pilih *Upgrade*, bukan
    *Stage for upgrade* yang belum di-*Apply*).
 3. Di canvas app: **Insert → Get more components → Code** → pilih `PBS Ops Dashboard`,

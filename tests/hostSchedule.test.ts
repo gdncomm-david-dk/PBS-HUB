@@ -23,8 +23,8 @@ const schedules = [
 ];
 const absences = [{ ScheduleID: "SCD-3" }, { ScheduleID: "SCD-4" }, { ScheduleID: "SCD-6", CheckInTime: "2026-09-12T18:40:00", Title: "ABS-6" }];
 const reports = [
-  { ID: 30, Title: "RPT-30", ScheduleID: "SCD-3", ApprovalStatus: "Done", Created: "2026-09-12T16:00:00" },
-  { ID: 40, Title: "RPT-40", ScheduleID: "SCD-4", ApprovalStatus: "Waiting Approval", Created: "2026-09-12T18:00:00" },
+  { ID: 30, Title: "REP-30", ScheduleID: "SCD-3", ApprovalStatus: "Done", Created: "2026-09-12T16:00:00" },
+  { ID: 40, Title: "REP-40", ScheduleID: "SCD-4", ApprovalStatus: "Waiting Approval", Created: "2026-09-12T18:00:00" },
 ];
 const sessions = (at = now) => buildHostSessions({ ...base, schedules, clockIns, absences, reports }, at, DEFAULT_HOST_OPTIONS);
 const byTitle = (at = now) => Object.fromEntries(sessions(at).map((s) => [s.title, s]));

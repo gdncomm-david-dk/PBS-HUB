@@ -1,7 +1,7 @@
 import { Row, date, localDayKey, nameIndex, num, parseClock, rowId, startOfDay, str } from "./data";
 import { clockInDay } from "./payroll";
 import { sessionStatus } from "./host";
-import { ALL_METRICS, MetricDef, ReviewState, Tone, readMetric, reviewState } from "./reconcile";
+import { ALL_METRICS, MetricDef, ReviewState, Tone, isResubmitted, readMetric, reviewState } from "./reconcile";
 
 /**
  * Host self-service (pbs_Host.*): what a host has to do right now. Everything here is derived from
@@ -114,8 +114,15 @@ export const HOST_REPORT_STATE: Record<ReviewState, { label: string; tone: Tone 
   REVISION: { label: "Perlu revisi", tone: "danger" },
   DONE_AUTO: { label: "Otomatis disetujui", tone: "info" },
   DONE_MANUAL: { label: "Selesai", tone: "success" },
+  LIVE_BREAK: { label: "Live break", tone: "warning" },
   OTHER: { label: "Lainnya", tone: "neutral" },
 };
+
+/** Host wording, with the corrected report (`Waiting Approval Revision`) told apart. */
+export function hostReportBadge(report: Row | undefined, state: ReviewState): { label: string; tone: Tone } {
+  if (state === "WAITING" && isResubmitted(report)) return { label: "Menunggu review ulang", tone: "info" };
+  return HOST_REPORT_STATE[state];
+}
 
 // ---- Sessions -----------------------------------------------------------------------------------
 
@@ -372,7 +379,7 @@ export function metricColumns(v: MetricValues): Record<string, number | null> {
  */
 export function evidenceFileName(reportTitle: string, platform: string, accountId: string, ext: string): string {
   const clean = (s: string) => s.trim().replace(/[\\/:*?"<>|#%\s]+/g, "-");
-  return `${clean(reportTitle || "RPT-{ID}")}_${clean(platform || "Platform")}_${clean(accountId || "Akun")}.${ext}`;
+  return `${clean(reportTitle || "REP-{ID}")}_${clean(platform || "Platform")}_${clean(accountId || "Akun")}.${ext}`;
 }
 
 export function avg(rows: MetricValues[], key: string): number | null {

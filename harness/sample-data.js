@@ -83,7 +83,7 @@
     const s = byTitle[scd];
     const id = ++rid;
     const r = Object.assign({
-      ID: id, Title: `RPT-${id}`, ScheduleID: scd, HostID: s.HostID, BrandID: s.BrandID, AccountID: `ACC-${s.BrandID.slice(-3)}`,
+      ID: id, Title: `REP-${id}`, ScheduleID: scd, HostID: s.HostID, BrandID: s.BrandID, AccountID: `ACC-${s.BrandID.slice(-3)}`,
       Account: s.BrandID === "BRD-008" ? "wingsofficialstore" : s.BrandID.toLowerCase().replace("brd-", "brand") + ".official",
       Platform: s.Platform, LiveDate: s.Date, ApprovalStatus: { Value: status }, Match: { Value: "" }, Created: created, Modified: created,
       Attachment: "",
@@ -261,11 +261,14 @@
     hs(3308, 16, "08:00", "13:00", "BRD-008", "STD-01", "Planned"),
     hs(3309, 21, "08:00", "13:00", "BRD-008", "STD-01", "Planned"),
     hs(3310, 24, "19:00", "21:00", "BRD-003", "STD-03", "Planned", "Shopee"),
+    // Reported: one live that broke off, one corrected after a revision (waiting for the second review).
+    hs(3311, 6, "19:00", "21:00", "BRD-004", "STD-04"),
+    hs(3312, 10, "13:00", "15:00", "BRD-002", "STD-02"),
   ].map((x) => Object.assign(x, { Position: x.Title === "SCD-3309" ? "Co Host" : "Main Host" }));
   const abs = (n, scd, day, time) => ({ ID: 8800 + n, Title: `ABS-${8800 + n}`, HostID: "HST-001", ScheduleID: scd, AbsenceDate: d(day), CheckInTime: d(day, time), Created: d(day, time) });
-  const hostAbsences = [abs(1, "SCD-3215", 14, "06:40"), abs(2, "SCD-3213", 13, "09:40"), abs(3, "SCD-3301", 11, "12:45"), abs(4, "SCD-3302", 12, "18:40"), abs(5, "SCD-3303", 9, "09:40"), abs(6, "SCD-3305", 8, "09:35"), abs(7, "SCD-3306", 5, "14:40")];
+  const hostAbsences = [abs(8, "SCD-3311", 6, "18:40"), abs(9, "SCD-3312", 10, "12:40"), abs(1, "SCD-3215", 14, "06:40"), abs(2, "SCD-3213", 13, "09:40"), abs(3, "SCD-3301", 11, "12:45"), abs(4, "SCD-3302", 12, "18:40"), abs(5, "SCD-3303", 9, "09:40"), abs(6, "SCD-3305", 8, "09:35"), abs(7, "SCD-3306", 5, "14:40")];
   const hr = (id, scd, day, status, metrics, created, extra) => Object.assign({
-    ID: id, Title: `RPT-${id}`, ScheduleID: scd, HostID: "HST-001", BrandID: hostSchedules.find((x) => x.Title === scd).BrandID,
+    ID: id, Title: `REP-${id}`, ScheduleID: scd, HostID: "HST-001", BrandID: hostSchedules.find((x) => x.Title === scd).BrandID,
     AccountID: `ACC-${hostSchedules.find((x) => x.Title === scd).BrandID.slice(-3)}`, Platform: hostSchedules.find((x) => x.Title === scd).Platform, LiveDate: d(day),
     ApprovalStatus: { Value: status }, Match: { Value: "" }, Created: created, Modified: created, Attachment: "",
   }, metrics, extra || {});
@@ -275,12 +278,14 @@
       ApprovalComment: "Angka penjualan dan CTOR beda dengan screenshot. Tolong cek lagi di seller center.\nMetrik yang perlu dibetulkan: Penjualan, CTOR",
     }),
     hr(20902, "SCD-3305", 8, "Done", M(5200000, 140, 162, 120, 3.8, 9.1, 1320), d(8, "12:40"), { ApprovalComment: "Oke, sesuai.", ApproverEmail: "bayu@example.com", Approver: { DisplayName: "Bayu Prasetyo" }, Match: { Value: "Unmatch" }, Modified: d(9, "09:00") }),
+    hr(20904, "SCD-3311", 6, "LiveBreak", M(900000, 20, 24, 18, 1.2, 3.1, 240), d(6, "21:30"), { ApprovalComment: "Live terputus 19:40, koneksi studio.", ApproverEmail: "bayu@example.com", Approver: { DisplayName: "Bayu Prasetyo" }, Modified: d(7, "09:00") }),
+    hr(20905, "SCD-3312", 10, "Waiting Approval Revision", M(3900000, 96, 120, 88, 3.1, 8.4, 1100), d(10, "15:40"), { ApprovalComment: "Pesanan beda dengan screenshot.\nMetrik yang perlu dibetulkan: Pesanan\n[Revisi host] angka diperbaiki: Pesanan", Match: { Value: "Unmatch" }, Modified: d(11, "08:10") }),
     hr(20903, "SCD-3306", 5, "Done", M(3100000, 81, 95, 70, 2.9, 7.2, 820), d(5, "17:20"), { ApprovalComment: "Automated Match by AI", Match: { Value: "Match" }, Modified: d(5, "17:30") }),
   ];
   const hostEvidence = [
-    { ID: 990, Title: "RPT-20901", HostID: "HST-001", ScheduleID: "SCD-3301", Platform: { Value: "Shopee" }, Status: { Value: "Unmatch" }, Created: d(11, "15:34"), Confidence: 0.93,
-      Attachment: "https://gdncomm.sharepoint.com/sites/StudioTeamBlibli/PBS%20Power%20Apps/Report%20Automation/RPT-20901_Shopee_ACC-003.jpg", ...M(6980000, 188, 240, 171, 4.4, 11.6, 1980) },
-    { ID: 991, Title: "RPT-20902", HostID: "HST-001", ScheduleID: "SCD-3305", Platform: { Value: "TikTok" }, Status: { Value: "Unmatch" }, Created: d(8, "12:44"), ...M(5200000, 140, 162, 120, 3.8, 9.3, 1320) },
+    { ID: 990, Title: "REP-20901", HostID: "HST-001", ScheduleID: "SCD-3301", Platform: { Value: "Shopee" }, Status: { Value: "Unmatch" }, Created: d(11, "15:34"), Confidence: 0.93,
+      Attachment: "https://gdncomm.sharepoint.com/sites/StudioTeamBlibli/PBS%20Power%20Apps/Report%20Automation/REP-20901_Shopee_ACC-003.jpg", ...M(6980000, 188, 240, 171, 4.4, 11.6, 1980) },
+    { ID: 991, Title: "REP-20902", HostID: "HST-001", ScheduleID: "SCD-3305", Platform: { Value: "TikTok" }, Status: { Value: "Unmatch" }, Created: d(8, "12:44"), ...M(5200000, 140, 162, 120, 3.8, 9.3, 1320) },
   ];
   const hostApp = { hostId: "HST-001", schedules: hostSchedules, absences: hostAbsences, reports: hostReports, evidence: hostEvidence };
   window.PBS_SAMPLE = { REF, hostApp, thresholds, scoreTx, hostExtraClockIns, hostExtraSchedules, piiValues, brands, hosts, studios, schedules, reports, evidence, clockIns, payrolls, context, clockInsAug, clockInsAugBlocked, payrollRuns, payrollHistory, payrollLines, payslips };

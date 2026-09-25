@@ -72,15 +72,28 @@ export const REASONS: Record<ReasonCode, { label: string; tone: Tone }> = {
   ALL_MATCH: { label: "Semua cocok", tone: "success" },
 };
 
-export type ReviewState = "WAITING" | "REVISION" | "DONE_AUTO" | "DONE_MANUAL" | "OTHER";
+export type ReviewState = "WAITING" | "REVISION" | "DONE_AUTO" | "DONE_MANUAL" | "LIVE_BREAK" | "OTHER";
 
 export const REVIEW_STATES: Record<ReviewState, { label: string; tone: Tone }> = {
   WAITING: { label: "Menunggu review", tone: "neutral" },
   REVISION: { label: "Perlu revisi", tone: "danger" },
   DONE_AUTO: { label: "Otomatis disetujui", tone: "info" },
   DONE_MANUAL: { label: "Selesai", tone: "success" },
+  LIVE_BREAK: { label: "Live break", tone: "warning" },
   OTHER: { label: "Lainnya", tone: "neutral" },
 };
+
+/**
+ * `Waiting Approval Revision` is the host's corrected report after a `Need Revision`: still waiting on
+ * the reviewer, but the second look.
+ */
+export const isResubmitted = (report: Row | undefined): boolean => /^\s*waiting\s*approval\s*revision\s*$/i.test(str(report, "ApprovalStatus"));
+
+/** Badge for a report: the review state, with the resubmitted revision told apart. */
+export function reviewBadge(report: Row | undefined, state: ReviewState): { label: string; tone: Tone } {
+  if (state === "WAITING" && isResubmitted(report)) return { label: "Menunggu review (revisi)", tone: "info" };
+  return REVIEW_STATES[state];
+}
 
 /**
  * Report.ApprovalStatus vocabulary. v1 writes two different words for the same "rejected" state:
@@ -89,6 +102,8 @@ export const REVIEW_STATES: Record<ReviewState, { label: string; tone: Tone }> =
  */
 export function reviewState(report: Row): ReviewState {
   const s = str(report, "ApprovalStatus").toLowerCase();
+  // Report.ApprovalStatus choices: Done, LiveBreak, Need Revision, Waiting Approval, Waiting Approval Revision.
+  if (s.replace(/[\s_-]+/g, "") === "livebreak") return "LIVE_BREAK";
   if (s === "" || s.startsWith("waiting") || s === "menunggu" || s === "pending" || s === "menunggu review") return "WAITING";
   if (s.includes("revis") || s === "rejected" || s === "ditolak") return "REVISION";
   if (s === "done" || s === "approved" || s === "selesai" || s === "disetujui") {
@@ -132,7 +147,7 @@ export function compareMetric(def: MetricDef, report: Row, evidence: Row | undef
   return { def, claim, evidence: ev, ratio: (claim - ev) / ev, within, note: "" };
 }
 
-/** Numeric tail of a Title: "RPT-20863" → "20863", "SCD-12_Tiktok" → "12". */
+/** Numeric tail of a Title: "REP-20863" → "20863", "SCD-12_Tiktok" → "12". */
 export function numericTail(title: string): string {
   const parts = title.split("-");
   const last = parts[parts.length - 1] ?? "";

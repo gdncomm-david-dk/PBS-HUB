@@ -1,7 +1,7 @@
 # Integrasi canvas — PBS Hub Host PCF
 
-Solusi terpisah dari Ops Console: **`PBSHubHostPCF`** (managed, `dist/PBSHubHostPCF_1_0_3_0_managed.zip`)
-dan, untuk layar jadwal, **`PBSHubHostSchedulePCF`** (managed, `dist/PBSHubHostSchedulePCF_1_1_0_0_managed.zip`).
+Solusi terpisah dari Ops Console: **`PBSHubHostPCF`** (managed, `dist/PBSHubHostPCF_1_0_4_0_managed.zip`)
+dan, untuk layar jadwal, **`PBSHubHostSchedulePCF`** (managed, `dist/PBSHubHostSchedulePCF_1_1_1_0_managed.zip`).
 Publisher dan prefix sama (`PBSHub` / `pbs`), jadi ketiga solusi bisa dipasang berdampingan di environment yang
 sama, tapi bisa di-upgrade sendiri-sendiri.
 
@@ -69,7 +69,7 @@ Status sesi yang dilihat host dihitung dari data di atas (aturan v1 tetap):
 | Perlu clock in | sesi lewat tanpa Clock In di hari itu → host diarahkan minta **clock in manual** ke tim PBS (fitur HostList / HostDetail) |
 | Perlu absen | sudah clock in tapi tidak ada Host Absence untuk `ScheduleID` |
 | Belum dikirim / Terlambat | clock in + absen ada, belum ada Report; *Terlambat* setelah H+`reportDeadlineDays` |
-| Menunggu review / Perlu revisi / Selesai / Otomatis disetujui | dari `Report.ApprovalStatus` + `ApprovalComment` (sama dengan Ops) |
+| Menunggu review / Menunggu review ulang / Perlu revisi / Selesai / Otomatis disetujui / Live break | dari `Report.ApprovalStatus` (`Waiting Approval`, `Waiting Approval Revision`, `Need Revision`, `Done`, `LiveBreak`) + `ApprovalComment` (sama dengan Ops) |
 
 Angka yang ditandai reviewer dibaca dari baris `Metrik yang perlu dibetulkan: …` di `ApprovalComment` yang
 ditulis ReportDetail (Ops). Kalau baris itu tidak ada, control memakai metrik yang di luar toleransi.
@@ -145,9 +145,8 @@ Kerangka `OnChange` sama dengan Ops: `ParseJSON(Self.ActionPayload)` → cek `ri
 Set(varMrLoading, true);
 With({from: If(IsBlank(varMrPeriod), Date(Year(Today()), Month(Today()), 1), DateValue(varMrPeriod & "-01"))},
     ClearCollect(colMrRep, Filter('Report - PBS Hub', HostID = varMe.Title, LiveDate >= from, LiveDate < DateAdd(from, 1, TimeUnit.Months)));
-    ClearCollect(colMrSch, Filter('Schedule - PBS Hub', HostID = varMe.Title, Date >= from, Date < DateAdd(from, 1, TimeUnit.Months)));
-    ClearCollect(colMrClk, Filter('Clock In - PBS Hub', HostID = varMe.Title, ClockInDate >= from, ClockInDate < DateAdd(from, 1, TimeUnit.Months)));
-    ClearCollect(colMrAbs, Filter('Host Absence - PBS Hub', HostID = varMe.Title, LiveDate >= from, LiveDate < DateAdd(from, 1, TimeUnit.Months)))
+    // Schedule hanya untuk lookup jam sesi dari Report.ScheduleID.
+    ClearCollect(colMrSch, Filter('Schedule - PBS Hub', HostID = varMe.Title, Date >= from, Date < DateAdd(from, 1, TimeUnit.Months)))
 );
 Set(varMrLoading, false);
 ```
@@ -155,8 +154,8 @@ Set(varMrLoading, false);
 | Properti | Nilai |
 |---|---|
 | `Period` | `varMrPeriod` |
-| `DefaultFilter` | `varMrFilter` (`All`, `Unsent`, `Revision`, `Waiting`, `Done`, `Auto`) — mis. dari to-do dashboard |
-| `ReportsJson`, `SchedulesJson`, `ClockInJson`, `AbsenceJson`, `BrandsJson` | seperti HostDashboard, dari koleksi `colMr…` |
+| `DefaultFilter` | `varMrFilter` (`All`, `Revision`, `Waiting`, `Done`, `Auto`, `LiveBreak`) — mis. dari to-do dashboard |
+| `ReportsJson`, `SchedulesJson`, `BrandsJson` | seperti HostDashboard, dari koleksi `colMr…` (`ClockInJson`, `AbsenceJson`: kosongkan) |
 | `HasMore` | `false` (report per bulan per host kecil; pakai `LOAD_MORE` kalau dibatasi delegasi) |
 | `IsLoading` | `varMrLoading` |
 
@@ -167,7 +166,9 @@ Set(varMrLoading, false);
 | `OPEN_REPORT`, `NEW_REPORT` | sama dengan HostDashboard |
 | `LOAD_MORE` `{period, loaded}` | muat halaman berikut kalau `HasMore` dipakai |
 
-Sesi *Belum dikirim* muncul di daftar ini walau belum punya baris Report, supaya host tidak lupa.
+Daftar ini **hanya baris Report** (`colMrRep`); `SchedulesJson` dipakai untuk lookup `Report.ScheduleID` →
+jam sesi. `ClockInJson` dan `AbsenceJson` tidak dipakai lagi (boleh kosong). Sesi yang belum dilaporkan
+muncul di *Hari ini* dan *Jadwal saya*, bukan di sini.
 
 ## 5. MyReportDetail (kirim / revisi / lihat)
 
@@ -202,7 +203,7 @@ Set(varMrdLoading, false);
 Host hanya memilih gambar. Control mengecilkannya jadi JPEG (sisi terpanjang `imageMaxPx`, ukuran ≤ `imageMaxKb`)
 dan mengirim base64-nya lewat **output kedua `UploadData`**, bukan di `ActionPayload` (tetap kecil). Nama file
 disusun control: `ReportID_Platform_AccountID.jpg` — defect O1 v1 (host harus menamai file sendiri) hilang.
-Untuk report baru ID belum ada, jadi `file.name` berisi `RPT-{ID}_…`; canvas mengganti `{ID}` setelah baris
+Untuk report baru ID belum ada, jadi `file.name` berisi `REP-{ID}_…`; canvas mengganti `{ID}` setelah baris
 Report dibuat.
 
 Buat flow **PBS Host – Upload report screenshot** (trigger *Power Apps (V2)*):
@@ -242,8 +243,8 @@ Metrik yang kosong bernilai `null`.
                         Comment: Value(m.Comment), Share: Value(m.Share),
                         ApprovalStatus: {Value: "Waiting Approval"}
                     })},
-                    With({title: "RPT-" & row.ID},
-                        With({up: 'PBSHost-Uploadreportscreenshot'.Run(Substitute(Text(p.file.name), "RPT-{ID}", title), data)},
+                    With({title: "REP-" & row.ID},
+                        With({up: 'PBSHost-Uploadreportscreenshot'.Run(Substitute(Text(p.file.name), "REP-{ID}", title), data)},
                             Patch('Report - PBS Hub', row, {Title: title, Attachment: up.url})
                         );
                         Set(varRptId, row.ID);
@@ -263,8 +264,8 @@ kosong: Ops Console menampilkannya sebagai *Tanpa bukti*, host bisa mengganti sc
 
 ### RESUBMIT_REPORT 🔒
 
-Payload: `{reportId, title, scheduleId, expectedModified, metrics, changed: ["Penjualan","CTOR"], flagged: [..],
-note, file: {…} | null}`. Tombol *Kirim revisi* baru aktif kalau ada angka yang berubah **atau** screenshot baru.
+Payload: `{reportId, title, scheduleId, expectedModified, approvalStatus: "Waiting Approval Revision", evidenceId,
+evidenceTitle, evidenceStatus: "Unmatch", metrics, changed: ["Penjualan","CTOR"], flagged: [..], note, file: {…} | null}`. Tombol *Kirim revisi* baru aktif kalau ada angka yang berubah **atau** screenshot baru.
 
 ```powerfx
 "RESUBMIT_REPORT",
@@ -277,9 +278,13 @@ note, file: {…} | null}`. Tombol *Kirim revisi* baru aktif kalau ada angka yan
                     JumlahPembeli: Value(m.JumlahPembeli), CTR: Value(m.CTR), CTOR: Value(m.CTOR), PeakViewer: Value(m.PeakViewer),
                     'Durasi(Min)': Value(m.'Durasi(Min)'), AddToCart: Value(m.AddToCart), TotalViewer: Value(m.TotalViewer),
                     Comment: Value(m.Comment), Share: Value(m.Share),
-                    ApprovalStatus: {Value: "Waiting Approval"},
+                    ApprovalStatus: {Value: Text(p.approvalStatus)},   // "Waiting Approval Revision"
                     ApprovalComment: cur.ApprovalComment & Char(10) & "[Revisi host] " & Coalesce(Text(p.note), "angka diperbaiki: " & Concat(Table(p.changed), Text(ThisRecord.Value), ", "))
                 });
+                // Bukti AI dibaca ulang: hanya Status di Report Automation (Title sama dengan Title report).
+                With({ev: LookUp('Report Automation - PBS Hub', Title = cur.Title)},
+                    If(!IsBlank(ev), Patch('Report Automation - PBS Hub', ev, {Status: {Value: Text(p.evidenceStatus)}}))
+                );
                 If(!IsBlank(p.file),
                     With({up: 'PBSHost-Uploadreportscreenshot'.Run(Text(p.file.name), Self.UploadData)},
                         Patch('Report - PBS Hub', LookUp('Report - PBS Hub', ID = cur.ID), {Attachment: up.url}))
@@ -430,7 +435,7 @@ tim PBS, sesi batal hanya diberi keterangan.
 
 ## 8. Pemasangan
 
-1. Import `dist/PBSHubHostPCF_1_0_3_0_managed.zip` dan `dist/PBSHubHostSchedulePCF_1_1_0_0_managed.zip`
+1. Import `dist/PBSHubHostPCF_1_0_4_0_managed.zip` dan `dist/PBSHubHostSchedulePCF_1_1_1_0_managed.zip`
    (Solutions → Import). Bisa di environment yang sama dengan `PBSHubOpsPCF`; urutan bebas, tidak saling bergantung.
 2. Di canvas app host: **Insert → Get more components → Code** → `PBS Host Dashboard`, `PBS Host My Reports`,
    `PBS Host My Report Detail`, `PBS Host My Schedule`, `PBS Host Schedule Detail`.

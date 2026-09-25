@@ -1,8 +1,8 @@
-import { COMPARED_METRICS, compareMetric, sameValue, indexEvidence, reconcile, reviewState, numericTail, reasonDetail } from "../shared/reconcile";
+import { COMPARED_METRICS, compareMetric, sameValue, indexEvidence, reconcile, reviewState, numericTail, reasonDetail, isResubmitted, reviewBadge } from "../shared/reconcile";
 import { fmtSignedPct } from "../shared/format";
 
-const claim = { ID: 20863, Title: "RPT-20863", HostID: "HST-1", Penjualan: 12400000, Pesanan: 340, ProdukTerjual: 512, JumlahPembeli: 288, CTR: 4.8, CTOR: 11.4, PeakViewer: 3120, ApprovalStatus: "Waiting Approval" };
-const ev = { Title: "RPT-20863", HostID: "HST-1", Penjualan: 10980000, Pesanan: 331, ProdukTerjual: 498, JumlahPembeli: 284, CTR: 4.62, CTOR: 9.85, PeakViewer: 3080, Status: "Unmatch" };
+const claim = { ID: 20863, Title: "REP-20863", HostID: "HST-1", Penjualan: 12400000, Pesanan: 340, ProdukTerjual: 512, JumlahPembeli: 288, CTR: 4.8, CTOR: 11.4, PeakViewer: 3120, ApprovalStatus: "Waiting Approval" };
+const ev = { Title: "REP-20863", HostID: "HST-1", Penjualan: 10980000, Pesanan: 331, ProdukTerjual: 498, JumlahPembeli: 284, CTR: 4.62, CTOR: 9.85, PeakViewer: 3080, Status: "Unmatch" };
 const opts = { tolerancePct: 5, confidenceThreshold: 0.85 };
 
 describe("compareMetric — PBS0005A rule", () => {
@@ -29,7 +29,7 @@ describe("reconcile — reason codes", () => {
     expect(reasonDetail(r, fmtSignedPct)).toBe("CTOR +15,7% +1");
   });
   it("falls back to the numeric tail of the evidence Title = Report.ID", () => {
-    const r = reconcile({ ...claim, Title: "Report 1" }, indexEvidence([{ ...ev, Title: "RPT-20863" }]), opts);
+    const r = reconcile({ ...claim, Title: "Report 1" }, indexEvidence([{ ...ev, Title: "REP-20863" }]), opts);
     expect(r.evidence).toBeDefined();
   });
   it("prefers the newest evidence row when there are duplicates (R6)", () => {
@@ -90,8 +90,28 @@ describe("reviewState — M7 vocabulary", () => {
     expect(reviewState({})).toBe("WAITING");
   });
   it("numericTail", () => {
-    expect(numericTail("RPT-20863")).toBe("20863");
+    expect(numericTail("REP-20863")).toBe("20863");
     expect(numericTail("SCD-0012")).toBe("12");
     expect(numericTail("abc")).toBe("");
+  });
+});
+
+describe("Report.ApprovalStatus choices", () => {
+  const r = (ApprovalStatus: string, extra: Record<string, unknown> = {}) => ({ ApprovalStatus: { Value: ApprovalStatus }, ...extra });
+  it("reads all five v1 values", () => {
+    expect(reviewState(r("Waiting Approval"))).toBe("WAITING");
+    expect(reviewState(r("Waiting Approval Revision"))).toBe("WAITING");
+    expect(reviewState(r("Need Revision"))).toBe("REVISION");
+    expect(reviewState(r("Done"))).toBe("DONE_MANUAL");
+    expect(reviewState(r("Done", { ApprovalComment: "Automated Match by AI" }))).toBe("DONE_AUTO");
+    expect(reviewState(r("LiveBreak"))).toBe("LIVE_BREAK");
+    expect(reviewState(r("Live Break"))).toBe("LIVE_BREAK");
+  });
+  it("tells the corrected report apart from a first review", () => {
+    expect(isResubmitted(r("Waiting Approval Revision"))).toBe(true);
+    expect(isResubmitted(r("Waiting Approval"))).toBe(false);
+    expect(reviewBadge(r("Waiting Approval Revision"), "WAITING").label).toBe("Menunggu review (revisi)");
+    expect(reviewBadge(r("Waiting Approval"), "WAITING").label).toBe("Menunggu review");
+    expect(reviewBadge(r("LiveBreak"), "LIVE_BREAK").label).toBe("Live break");
   });
 });

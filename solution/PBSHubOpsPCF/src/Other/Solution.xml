@@ -10,7 +10,7 @@
     <Descriptions>
       <Description description="PBS Hub Ops Console code components: Dashboard (pbs_Ops.Dashboard), Report review queue (pbs_Ops.ReportReview) and Report detail / adjudication (pbs_Ops.ReportDetail)." languagecode="1033" />
     </Descriptions>
-    <Version>1.5.2.0</Version>
+    <Version>1.5.3.0</Version>
     <!-- Solution Package Type: Unmanaged(0)/Managed(1)/Both(2)-->
     <Managed>2</Managed>
     <Publisher>

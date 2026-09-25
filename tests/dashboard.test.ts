@@ -64,8 +64,8 @@ describe("buildDashboard", () => {
     const m = buildDashboard({
       ...base,
       reports: [
-        { ID: 1, Title: "RPT-1", ApprovalStatus: "Waiting Approval", Created: "2026-09-10T08:00:00" },
-        { ID: 2, Title: "RPT-2", ApprovalStatus: "Done" },
+        { ID: 1, Title: "REP-1", ApprovalStatus: "Waiting Approval", Created: "2026-09-10T08:00:00" },
+        { ID: 2, Title: "REP-2", ApprovalStatus: "Done" },
       ],
       clockIns: [
         { HostID: "H1", ClockInDate: "2026-09-14", CheckInTime: "2026-09-14T08:00:00", IsInsideGeofence: false },
