@@ -24,6 +24,9 @@ app (`BlibliUniversalSidebar`).
   **setiap cabang `OnChange` wajib men-set `ActionResult`**, termasuk saat error (`IfError`).
 - Aksi navigasi/informasi (`NAV`, `OPEN_REPORT`, `BACK`, `RELOAD`, `OPEN_EVIDENCE`, `LOAD_MORE`,
   `FILTER_CHANGED`) tidak mengunci dan tidak perlu dibalas.
+- **List tidak dipotong per halaman.** Semua baris yang dikirim canvas langsung tampil, dengan *Total N …* di
+  bawah tabel (config `pageSize` sudah tidak dipakai). Tombol *Muat lebih banyak* hanya muncul kalau `HasMore`
+  = true, yaitu canvas belum memuat semua baris dari SharePoint (mis. `varRrTop`).
 - Data masuk sebagai **JSON teks** di properti `…Json`. Bentuk baris lewat `ForAll(…, {…})` supaya nama
   field pasti, kolom Choice jadi teks, dan kolom `Attachments` tidak ikut (`JSON()` gagal pada kolom itu).
 - **Jangan kirim `KTP`, `NoRekening`, `Alamat`, GPS, atau selfie** ke control mana pun. Dashboard hanya butuh
@@ -47,7 +50,6 @@ Set(
                 confidenceThreshold: 0.85,
                 maxShiftHours: 12,          // sama dengan varMaxShiftHours
                 missingReportDays: 2,
-                pageSize: 50,
                 payrollLabelOffset: -1,     // Payroll.Periode = bulan run, data = bulan sebelumnya (P8)
                 payrollAssemblyMinutes: 30, // run baru < 30 menit dengan gate 1 terbuka = "Sedang disusun"
                 payrollAnyPeriod: false,    // true hanya kalau flow sudah menerima periode sebagai input
@@ -1004,7 +1006,7 @@ belum ada di v1, bulk approve tidak akan muncul — itu disengaja.
 
 1. Power Platform admin center → environment → **Settings → Product → Features** → aktifkan
    *Allow publishing of canvas apps with code components*.
-2. make.powerapps.com → **Solutions → Import solution** → `PBSHubOpsPCF_1_6_1_0_managed.zip`
+2. make.powerapps.com → **Solutions → Import solution** → `PBSHubOpsPCF_1_6_2_0_managed.zip`
    (sudah pernah import versi lama? Import ini meng-**upgrade** solusi yang sama — pilih *Upgrade*, bukan
    *Stage for upgrade* yang belum di-*Apply*).
 3. Di canvas app: **Insert → Get more components → Code** → pilih `PBS Ops Dashboard`,
@@ -1017,8 +1019,8 @@ belum ada di v1, bulk approve tidak akan muncul — itu disengaja.
 disisipkan. Setelah upgrade solusi: buka app di Studio → akan muncul banner *"Updated code components
 detected"* → **Update**. Kalau banner tidak muncul: tutup Studio, hard refresh browser (Ctrl+Shift+R), buka
 lagi. Lalu **Save + Publish** app. Pastikan juga di Solutions → PBS Hub Ops PCF → History bahwa versi
-1.6.1.0 benar-benar terpasang. Versi control di solusi ini: Dashboard 1.3.2, ReportReview / ReportDetail
-1.4.1, PayrollRuns 1.2.3, PayrollRunDetail 1.2.2, HostList 1.2.4, HostDetail 1.3.5. ReportReview dan
+1.6.2.0 benar-benar terpasang. Versi control di solusi ini: Dashboard 1.3.3, ReportReview / ReportDetail
+1.4.2, PayrollRuns 1.2.4, PayrollRunDetail 1.2.3, HostList 1.2.5, HostDetail 1.3.6. ReportReview dan
 ReportDetail 1.4.0 punya properti baru `SchedulesJson` — isi di canvas supaya kolom *Jam live* terisi.
 
 **Tampilan rusak di app (tabel tidak full, tombol tanpa border, checkbox hilang)?** Itu CSS global Power

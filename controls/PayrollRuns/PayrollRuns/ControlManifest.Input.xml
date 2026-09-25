@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="utf-8" ?>
 <manifest>
-  <control namespace="Ops" constructor="PayrollRuns" version="1.2.3" display-name-key="PBS Ops Payroll Runs" description-key="PBS Hub Ops Console P-1 and P-2: payroll run list with approval progress, and the Jalankan payroll preflight (explicit period, pass/warn/block checklist)." control-type="standard">
+  <control namespace="Ops" constructor="PayrollRuns" version="1.2.4" display-name-key="PBS Ops Payroll Runs" description-key="PBS Hub Ops Console P-1 and P-2: payroll run list with approval progress, and the Jalankan payroll preflight (explicit period, pass/warn/block checklist)." control-type="standard">
     <external-service-usage enabled="false"></external-service-usage>
 
-    <property name="Context" display-name-key="Context" description-key="JSON {userEmail,userName,roles,permissions,config}. config: payrollLabelOffset (-1), payrollAssemblyMinutes (30), payrollPeriodOptions (6), payrollAnyPeriod (false), pageSize (50)." of-type="Multiple" usage="input" required="false" />
+    <property name="Context" display-name-key="Context" description-key="JSON {userEmail,userName,roles,permissions,config}. config: payrollLabelOffset (-1), payrollAssemblyMinutes (30), payrollPeriodOptions (6), payrollAnyPeriod (false)." of-type="Multiple" usage="input" required="false" />
     <property name="PayrollJson" display-name-key="PayrollJson" description-key="JSON rows of [Payroll - PBS Hub]: ID, Title, PayrollName, Periode, Status, Trigger, TotalPayroll, TotalHost, the Approval and Comment columns, Created, Modified." of-type="Multiple" usage="input" required="false" />
     <property name="PayrollDataJson" display-name-key="PayrollDataJson" description-key="JSON rows of [Payroll Data] for the runs above, only payroll_id and TotalGaji. Used for the total and host count per run." of-type="Multiple" usage="input" required="false" />
     <property name="PayslipJson" display-name-key="PayslipJson" description-key="Optional. JSON rows of a payslip log (payroll_id, Status). v1 has no such list: leave blank." of-type="Multiple" usage="input" required="false" />

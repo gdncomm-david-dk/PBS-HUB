@@ -151,8 +151,11 @@ const assert = (c, m) => { if (!c) { console.log("FAIL", m); process.exitCode = 
   await go("c=ReportDetail&r=REP-20862");
   assert((await p.getByText("SCD-3212").first().isVisible()) && (await p.getByText("19:00–21:00").isVisible()) && (await p.getByText("Playbook").first().isVisible()) && (await p.getByText("Payday", { exact: true }).first().isVisible()), "detail shows Schedule ID, live window and the Playbook choice");
 
-  // Paging: pageSize 10 local, then LOAD_MORE when HasMore.
+  // No local paging: every loaded report is rendered with its total; LOAD_MORE only when canvas has more.
   await go("c=ReportReview&tab=All");
+  const nRep = await p.evaluate(() => window.PBS_SAMPLE.reports.length);
+  assert((await p.locator("tbody tr").count()) === nRep && (await p.getByText(`Total ${nRep} report`).isVisible()), `all ${nRep} reports rendered with the total`);
+  assert((await p.getByRole("button", { name: "Muat lebih banyak" }).count()) === 0, "no Muat lebih banyak without HasMore");
   await p.evaluate(() => window.__rerender({ HasMore: true }));
   await p.waitForTimeout(100);
   await p.getByRole("button", { name: "Muat lebih banyak" }).click();
@@ -445,6 +448,7 @@ const assert = (c, m) => { if (!c) { console.log("FAIL", m); process.exitCode = 
 
   // ---- Host app: my reports --------------------------------------------------------------------
   await go("c=MyReports");
+  assert(await p.getByText("Total 7 report pada September 2026").isVisible(), "MyReports footer shows the total");
   assert((await p.locator(".hc-row:not(.head)").count()) === 7, "7 rows in September: Report rows only");
   assert((await p.getByText("Belum dikirim").count()) === 0, "no schedule-only rows in the report list");
   assert(await p.locator(".hc-row", { hasText: "REP-20905" }).getByText("13:00–15:00").isVisible() && (await p.locator(".hc-row", { hasText: "REP-20905" }).getByText("SCD-3312").isVisible()), "report row shows its schedule looked up by ScheduleID");

@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="utf-8" ?>
 <manifest>
-  <control namespace="Ops" constructor="HostList" version="1.2.4" display-name-key="PBS Ops Host List" description-key="PBS Hub Ops Console HD-1: host directory with package, status, credit score band and a warning for hosts without bank details." control-type="standard">
+  <control namespace="Ops" constructor="HostList" version="1.2.5" display-name-key="PBS Ops Host List" description-key="PBS Hub Ops Console HD-1: host directory with package, status, credit score band and a warning for hosts without bank details." control-type="standard">
     <external-service-usage enabled="false"></external-service-usage>
 
-    <property name="Context" display-name-key="Context" description-key="JSON {userEmail,userName,roles,permissions,config}. config: pageSize (50), scoreInitial, scoreMin, scoreMax (ScoreConfig)." of-type="Multiple" usage="input" required="false" />
+    <property name="Context" display-name-key="Context" description-key="JSON {userEmail,userName,roles,permissions,config}. config: scoreInitial, scoreMin, scoreMax (ScoreConfig)." of-type="Multiple" usage="input" required="false" />
     <property name="HostsJson" display-name-key="HostsJson" description-key="JSON rows of [Host - PBS Hub]: Title, HostCode, NamaHost, Status, Package, Email, JoinDate, InitialScore, CurrentScore, MinimumScore, MaximumScore, plus HasRekening computed in canvas. Optional LedgerScore. Never send KTP, NoRekening, Alamat, PhoneNumber or PersonalEmail." of-type="Multiple" usage="input" required="false" />
     <property name="ThresholdsJson" display-name-key="ThresholdsJson" description-key="JSON rows of [FAS STUDIO] HostScoreThreshold: ThresholdID, Label, Description, MinimumScore, MaximumScore, Tone, Active, SortOrder." of-type="Multiple" usage="input" required="false" />
     <property name="SchedulesJson" display-name-key="SchedulesJson" description-key="Optional JSON rows of [Schedule - PBS Hub] for the clock-in popup: Title, HostID, Date, StartTime, EndTime, Status. Only days up to today are used." of-type="Multiple" usage="input" required="false" />

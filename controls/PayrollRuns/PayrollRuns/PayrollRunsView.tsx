@@ -65,11 +65,9 @@ export function PayrollRunsView(props: PayrollRunsProps): React.ReactElement {
   );
   const runs = React.useMemo(() => buildRuns(props.runs, props.lines, props.slips, runOpts), [props.runs, props.lines, props.slips, runOpts]);
   const canRun = hasPermission(ctx, "PAYROLL_RUN");
-  const pageSize = Math.max(10, configNumber(ctx, "pageSize", 50));
 
   const [phase, setPhase] = React.useState("");
   const [year, setYear] = React.useState("");
-  const [shown, setShown] = React.useState(pageSize);
   const [modal, setModal] = React.useState(false);
   const hostRef = React.useRef<HTMLDivElement>(null);
 
@@ -80,8 +78,8 @@ export function PayrollRunsView(props: PayrollRunsProps): React.ReactElement {
     if (year && String(r.dataPeriod?.year ?? "") !== year) return false;
     return true;
   });
-  const visible = filtered.slice(0, shown);
-  const localMore = filtered.length > visible.length;
+  // Every loaded row is rendered: a partial list was read as the whole total.
+  const visible = filtered;
   const years = [...new Set(runs.map((r) => r.dataPeriod?.year).filter((y): y is number => !!y))].sort((a, b) => b - a);
   const filterActive = phase !== "" || year !== "";
   const last = runs[0];
@@ -135,8 +133,8 @@ export function PayrollRunsView(props: PayrollRunsProps): React.ReactElement {
         ) : null}
 
         <div className="pbs-filters">
-          <FilterSelect label="Status" value={phase} options={PHASE_FILTER} onChange={(v) => { setPhase(v); setShown(pageSize); }} />
-          <FilterSelect label="Tahun" value={year} options={years.map((y) => ({ value: String(y), label: String(y) }))} onChange={(v) => { setYear(v); setShown(pageSize); }} />
+          <FilterSelect label="Status" value={phase} options={PHASE_FILTER} onChange={(v) => { setPhase(v); }} />
+          <FilterSelect label="Tahun" value={year} options={years.map((y) => ({ value: String(y), label: String(y) }))} onChange={(v) => { setYear(v); }} />
           {filterActive ? (
             <button type="button" className="pbs-link" onClick={() => { setPhase(""); setYear(""); }} style={{ marginLeft: 4 }}>
               Hapus filter
@@ -183,14 +181,13 @@ export function PayrollRunsView(props: PayrollRunsProps): React.ReactElement {
             ) : (
               <EmptyState icon="inbox" title="Belum ada run payroll" text={canRun ? "Pilih Jalankan payroll untuk membuat run pertama." : "Run payroll akan muncul di sini setelah dijalankan tim PBS."} />
             )
-          ) : localMore || props.hasMore ? (
+          ) : props.hasMore ? (
             <div className="pbs-foot">
               <span>
-                Menampilkan 1–{fmtNumber(visible.length)} dari {fmtNumber(filtered.length)}
-                {props.hasMore ? "+" : ""}
+                Total {fmtNumber(filtered.length)} run payroll dimuat · masih ada data lain di server
               </span>
               <span className="line" />
-              <Button variant="secondary" size="sm" disabled={props.loading} onClick={() => (localMore ? setShown(shown + pageSize) : action.fire("LOAD_MORE", { loaded: runs.length }))}>
+              <Button variant="secondary" size="sm" disabled={props.loading} onClick={() => action.fire("LOAD_MORE", { loaded: runs.length })}>
                 {props.loading ? (
                   <>
                     <Spinner small /> Memuat…
@@ -201,7 +198,7 @@ export function PayrollRunsView(props: PayrollRunsProps): React.ReactElement {
               </Button>
             </div>
           ) : (
-            <EndOfData text={`Semua ${fmtNumber(filtered.length)} run sudah ditampilkan`} />
+            <EndOfData text={`Total ${fmtNumber(filtered.length)} run payroll`} />
           )}
         </div>
       </div>

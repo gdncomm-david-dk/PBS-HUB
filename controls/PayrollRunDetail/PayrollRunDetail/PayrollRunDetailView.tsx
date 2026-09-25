@@ -143,7 +143,7 @@ export function PayrollRunDetailView(props: PayrollRunDetailProps): React.ReactE
         ))}
       </div>
 
-      {tab === "Lines" ? <LinesTab d={d} loading={props.loading} pageSize={Math.max(10, configNumber(ctx, "pageSize", 50))} /> : null}
+      {tab === "Lines" ? <LinesTab d={d} loading={props.loading} /> : null}
       {tab === "Approval" ? (
         <div className="pbs-card pbs-card-pad">
           <ApprovalTimeline gates={run.gates} />
@@ -159,13 +159,12 @@ export function PayrollRunDetailView(props: PayrollRunDetailProps): React.ReactE
 
 // ---- P-3 lines ------------------------------------------------------------------------------------
 
-function LinesTab(props: { d: RunDetail; loading: boolean; pageSize: number }): React.ReactElement {
+function LinesTab(props: { d: RunDetail; loading: boolean }): React.ReactElement {
   const { d } = props;
   const [show, setShow] = React.useState("");
   const [open, setOpen] = React.useState<Set<string>>(new Set());
-  const [shown, setShown] = React.useState(props.pageSize);
   const rows = show === "ATTN" ? d.lines.filter((l) => l.flags.length > 0) : show ? d.lines.filter((l) => l.flags.includes(show as PayLine["flags"][number])) : d.lines;
-  const visible = rows.slice(0, shown);
+  const visible = rows; // every row: a partial list was read as the whole total
   const toggle = (id: string) =>
     setOpen((s) => {
       const n = new Set(s);
@@ -191,7 +190,7 @@ function LinesTab(props: { d: RunDetail; loading: boolean; pageSize: number }): 
         </InfoBanner>
       ) : null}
       <div className="pbs-filters">
-        <FilterSelect label="Tampilkan semua baris" value={show} options={flagOptions} onChange={(v) => { setShow(v); setShown(props.pageSize); }} />
+        <FilterSelect label="Tampilkan semua baris" value={show} options={flagOptions} onChange={(v) => { setShow(v); }} />
         {show ? (
           <button type="button" className="pbs-link" onClick={() => setShow("")}>
             Hapus filter
@@ -251,18 +250,8 @@ function LinesTab(props: { d: RunDetail; loading: boolean; pageSize: number }): 
           ) : (
             <EmptyState icon="inbox" title="Belum ada baris payroll" text="Baris muncul setelah flow selesai menyusun Payroll Data untuk run ini." />
           )
-        ) : rows.length > visible.length ? (
-          <div className="pbs-foot">
-            <span>
-              Menampilkan 1–{fmtNumber(visible.length)} dari {fmtNumber(rows.length)}
-            </span>
-            <span className="line" />
-            <Button variant="secondary" size="sm" onClick={() => setShown(shown + props.pageSize)}>
-              Muat lebih banyak
-            </Button>
-          </div>
         ) : (
-          <EndOfData text={`Semua ${fmtNumber(rows.length)} baris sudah ditampilkan`} />
+          <EndOfData text={`Total ${fmtNumber(rows.length)} baris`} />
         )}
       </div>
     </>

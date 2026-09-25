@@ -1,5 +1,5 @@
 import * as React from "react";
-import { ModuleContext, UseActionResult, configNumber } from "../../../shared/contract";
+import { ModuleContext, UseActionResult } from "../../../shared/contract";
 import { Row, date, nameIndex, rowId, str } from "../../../shared/data";
 import { fmtDayMonth, fmtNumber, fmtRupiah } from "../../../shared/format";
 import { hostReportBadge } from "../../../shared/hostApp";
@@ -49,8 +49,7 @@ interface Item {
 const penjualan = ALL_METRICS.find((d) => d.key === "Penjualan");
 
 export function MyReportsView(props: MyReportsProps): React.ReactElement {
-  const { ctx, now, action } = props;
-  const pageSize = Math.max(10, configNumber(ctx, "pageSize", 20));
+  const { now, action } = props;
   const period: Period = parsePeriod(props.period) ?? periodOf(now);
   const months = Array.from({ length: 6 }, (_, i) => addMonths(periodOf(now), -i));
   if (!months.some((m) => periodKey(m) === periodKey(period))) months.push(period);
@@ -58,7 +57,6 @@ export function MyReportsView(props: MyReportsProps): React.ReactElement {
   const initial = (FILTERS.find((f) => f.key === props.defaultFilter)?.key ?? "All") as Filter;
   const [filter, setFilter] = React.useState<Filter>(initial);
   React.useEffect(() => setFilter(initial), [initial]);
-  const [shown, setShown] = React.useState(pageSize);
 
   const brands = React.useMemo(() => nameIndex(props.brands, ["NamaBrand", "BrandName"]), [props.brands]);
   const items = React.useMemo((): Item[] => {
@@ -92,13 +90,12 @@ export function MyReportsView(props: MyReportsProps): React.ReactElement {
   const count = (f: (typeof FILTERS)[number]) => (f.key === "All" ? items.length : items.filter((i) => f.states?.includes(i.state)).length);
   const active = FILTERS.find((f) => f.key === filter) ?? FILTERS[0];
   const filtered = !active || active.key === "All" ? items : items.filter((i) => active.states?.includes(i.state));
-  const visible = filtered.slice(0, shown);
-  const localMore = filtered.length > shown;
+  // Every loaded row is rendered: a partial list was read as the whole total.
+  const visible = filtered;
   const revision = items.filter((i) => i.state === "REVISION").length;
 
   const choose = (f: Filter) => {
     setFilter(f);
-    setShown(pageSize);
     action.fire("FILTER_CHANGED", { filter: f, period: periodKey(period) });
   };
   const open = (i: Item) => action.fire("OPEN_REPORT", { reportId: rowId(i.report), title: str(i.report, "Title"), scheduleId: str(i.report, "ScheduleID") });
@@ -122,7 +119,6 @@ export function MyReportsView(props: MyReportsProps): React.ReactElement {
             aria-label="Bulan"
             value={periodKey(period)}
             onChange={(e) => {
-              setShown(pageSize);
               action.fire("PERIOD_CHANGED", { period: e.target.value });
             }}
           >
@@ -185,18 +181,17 @@ export function MyReportsView(props: MyReportsProps): React.ReactElement {
             ) : undefined
           }
         />
-      ) : localMore || props.hasMore ? (
+      ) : props.hasMore ? (
         <div className="pbs-foot">
           <span>
-            Menampilkan 1–{fmtNumber(visible.length)} dari {fmtNumber(filtered.length)}
-            {props.hasMore ? "+" : ""}
+            Total {fmtNumber(filtered.length)} report dimuat · masih ada data lain di server
           </span>
           <span className="line" />
           <Button
             variant="secondary"
             size="sm"
             disabled={props.loading}
-            onClick={() => (localMore ? setShown(shown + pageSize) : action.fire("LOAD_MORE", { period: periodKey(period), loaded: props.reports.length }))}
+            onClick={() => action.fire("LOAD_MORE", { period: periodKey(period), loaded: props.reports.length })}
           >
             {props.loading ? (
               <>
@@ -208,7 +203,7 @@ export function MyReportsView(props: MyReportsProps): React.ReactElement {
           </Button>
         </div>
       ) : (
-        <EndOfData text={`Semua ${fmtNumber(filtered.length)} report ${fmtPeriod(period)} sudah ditampilkan`} />
+        <EndOfData text={`Total ${fmtNumber(filtered.length)} report pada ${fmtPeriod(period)}`} />
       )}
     </div>
   );

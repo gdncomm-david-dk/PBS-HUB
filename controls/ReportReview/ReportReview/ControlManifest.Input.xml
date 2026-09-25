@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="utf-8" ?>
 <manifest>
-  <control namespace="Ops" constructor="ReportReview" version="1.4.1" display-name-key="PBS Ops Report Review" description-key="PBS Hub Ops Console R-1: report list and reconciliation queue (Report vs Report Automation), ordered by age, with reason codes and restricted bulk approve." control-type="standard">
+  <control namespace="Ops" constructor="ReportReview" version="1.4.2" display-name-key="PBS Ops Report Review" description-key="PBS Hub Ops Console R-1: report list and reconciliation queue (Report vs Report Automation), ordered by age, with reason codes and restricted bulk approve." control-type="standard">
     <external-service-usage enabled="false"></external-service-usage>
 
-    <property name="Context" display-name-key="Context" description-key="JSON {userEmail,userName,roles,permissions,config}. config: tolerancePct (5), confidenceThreshold (0.85), pageSize (50)." of-type="Multiple" usage="input" required="false" />
+    <property name="Context" display-name-key="Context" description-key="JSON {userEmail,userName,roles,permissions,config}. config: tolerancePct (5), confidenceThreshold (0.85)." of-type="Multiple" usage="input" required="false" />
     <property name="ReportsJson" display-name-key="ReportsJson" description-key="JSON rows of [Report - PBS Hub] (ID, Title, ScheduleID, HostID, BrandID, AccountID, Platform, Account, LiveDate, Playbook, 7+5 metrics, ApprovalStatus, Match, ApprovalComment, Approver, Created, Modified)." of-type="Multiple" usage="input" required="false" />
     <property name="EvidenceJson" display-name-key="EvidenceJson" description-key="JSON rows of [Report Automation - PBS Hub] for the same reports (ID, Title, HostID, ScheduleID, AccountID, metrics, Status, Created)." of-type="Multiple" usage="input" required="false" />
     <property name="SchedulesJson" display-name-key="SchedulesJson" description-key="JSON rows of [Schedule - PBS Hub] for the ScheduleID of each report (ID, Title, Date, StartTime, EndTime): shows the live window." of-type="Multiple" usage="input" required="false" />

@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="utf-8" ?>
 <manifest>
-  <control namespace="Host" constructor="MyReports" version="1.0.4" display-name-key="PBS Host My Reports" description-key="PBS Hub host app H-4 Report saya: the host reports for one month with status chips (Belum dikirim, Perlu revisi, Menunggu review, Selesai, Otomatis disetujui)." control-type="standard">
+  <control namespace="Host" constructor="MyReports" version="1.0.5" display-name-key="PBS Host My Reports" description-key="PBS Hub host app H-4 Report saya: the host reports for one month with status chips (Belum dikirim, Perlu revisi, Menunggu review, Selesai, Otomatis disetujui)." control-type="standard">
     <external-service-usage enabled="false"></external-service-usage>
 
-    <property name="Context" display-name-key="Context" description-key="JSON {userEmail,userName,roles,permissions,config}. config: pageSize (20), absenLeadMin, reportDeadlineDays, requireAbsen." of-type="Multiple" usage="input" required="false" />
+    <property name="Context" display-name-key="Context" description-key="JSON {userEmail,userName,roles,permissions,config}. config: absenLeadMin, reportDeadlineDays, requireAbsen." of-type="Multiple" usage="input" required="false" />
     <property name="Period" display-name-key="Period" description-key="Month shown, yyyy-mm. Empty means the current month. The month picker sends PERIOD_CHANGED; canvas reloads the rows and sets this." of-type="SingleLine.Text" usage="input" required="false" />
     <property name="DefaultFilter" display-name-key="DefaultFilter" description-key="All, Revision, Waiting, Done, Auto or LiveBreak." of-type="SingleLine.Text" usage="input" required="false" />
     <property name="ReportsJson" display-name-key="ReportsJson" description-key="JSON rows of [Report - PBS Hub] for this host and month: ID, Title, ScheduleID, LiveDate, BrandID, Platform, Account, Penjualan, ApprovalStatus, ApprovalComment, Created, Modified." of-type="Multiple" usage="input" required="false" />

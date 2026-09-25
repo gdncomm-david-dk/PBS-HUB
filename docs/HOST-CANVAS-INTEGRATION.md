@@ -1,7 +1,7 @@
 # Integrasi canvas — PBS Hub Host PCF
 
-Solusi terpisah dari Ops Console: **`PBSHubHostPCF`** (managed, `dist/PBSHubHostPCF_1_0_6_0_managed.zip`)
-dan, untuk layar jadwal, **`PBSHubHostSchedulePCF`** (managed, `dist/PBSHubHostSchedulePCF_1_1_3_0_managed.zip`).
+Solusi terpisah dari Ops Console: **`PBSHubHostPCF`** (managed, `dist/PBSHubHostPCF_1_0_7_0_managed.zip`)
+dan, untuk layar jadwal, **`PBSHubHostSchedulePCF`** (managed, `dist/PBSHubHostSchedulePCF_1_1_4_0_managed.zip`).
 Publisher dan prefix sama (`PBSHub` / `pbs`), jadi ketiga solusi bisa dipasang berdampingan di environment yang
 sama, tapi bisa di-upgrade sendiri-sendiri.
 
@@ -37,8 +37,7 @@ Set(varHostCtx, JSON({
         maxShiftHours: 12,         // shift terbuka lebih lama dari ini diberi peringatan "lupa clock out"
         tolerancePct: 5,           // PBS0005A ±5 % (layar revisi)
         imageMaxPx: 2000,          // sisi terpanjang screenshot setelah dikompres
-        imageMaxKb: 1200,          // batas ukuran JPEG yang dikirim ke flow
-        pageSize: 20
+        imageMaxKb: 1200           // batas ukuran JPEG yang dikirim ke flow
     }
 }, JSONFormat.Compact));
 Set(varMe, LookUp('Host - PBS Hub', Email.Email = User().Email));
@@ -435,7 +434,7 @@ tim PBS, sesi batal hanya diberi keterangan.
 
 ## 8. Pemasangan
 
-1. Import `dist/PBSHubHostPCF_1_0_6_0_managed.zip` dan `dist/PBSHubHostSchedulePCF_1_1_3_0_managed.zip`
+1. Import `dist/PBSHubHostPCF_1_0_7_0_managed.zip` dan `dist/PBSHubHostSchedulePCF_1_1_4_0_managed.zip`
    (Solutions → Import). Bisa di environment yang sama dengan `PBSHubOpsPCF`; urutan bebas, tidak saling bergantung.
 2. Di canvas app host: **Insert → Get more components → Code** → `PBS Host Dashboard`, `PBS Host My Reports`,
    `PBS Host My Report Detail`, `PBS Host My Schedule`, `PBS Host Schedule Detail`.

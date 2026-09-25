@@ -67,13 +67,11 @@ export function ReportReviewView(props: ReportReviewProps): React.ReactElement {
     () => ({ tolerancePct: configNumber(ctx, "tolerancePct", 5), confidenceThreshold: configNumber(ctx, "confidenceThreshold", 0.85) }),
     [ctx],
   );
-  const pageSize = Math.max(10, configNumber(ctx, "pageSize", 50));
   const items = React.useMemo(() => buildReportItems(props.reports, props.evidence, props.brands, props.hosts, opts, props.schedules), [props.reports, props.evidence, props.brands, props.hosts, opts, props.schedules]);
 
   const [tab, setTab] = React.useState<Tab>(props.defaultTab);
   React.useEffect(() => setTab(props.defaultTab), [props.defaultTab]);
   const [filters, setFilters] = React.useState<Filters>(NO_FILTERS);
-  const [shown, setShown] = React.useState(pageSize);
   const [selected, setSelected] = React.useState<Set<string>>(new Set());
   const [reviewId, setReviewId] = React.useState<string | null>(null);
   const hostRef = React.useRef<HTMLDivElement>(null);
@@ -93,19 +91,16 @@ export function ReportReviewView(props: ReportReviewProps): React.ReactElement {
   const setFilter = (k: keyof Filters, v: string) => {
     const next = { ...filters, [k]: v };
     setFilters(next);
-    setShown(pageSize);
     setSelected(new Set());
     // Informational: lets canvas re-query server-side if it pages. Never locks the control.
     action.fire("FILTER_CHANGED", { tab, filters: next });
   };
   const clearFilters = () => {
     setFilters(NO_FILTERS);
-    setShown(pageSize);
     action.fire("FILTER_CHANGED", { tab, filters: NO_FILTERS });
   };
   const changeTab = (t: Tab) => {
     setTab(t);
-    setShown(pageSize);
     setSelected(new Set());
     action.fire("FILTER_CHANGED", { tab: t, filters });
   };
@@ -139,8 +134,8 @@ export function ReportReviewView(props: ReportReviewProps): React.ReactElement {
         : (b.liveDate?.getTime() ?? 0) - (a.liveDate?.getTime() ?? 0),
     );
 
-  const visible = filtered.slice(0, shown);
-  const localMore = filtered.length > shown;
+  // Every loaded row is rendered: a partial list was read as the whole total.
+  const visible = filtered;
   const canDecide = !props.readOnly && hasPermission(ctx, "REPORT_ADJUDICATE");
   const showBulk = canDecide && tab === "Waiting";
   const selectedItems = filtered.filter((it) => selected.has(it.id) && it.bulkEligible);
@@ -293,18 +288,17 @@ export function ReportReviewView(props: ReportReviewProps): React.ReactElement {
           ) : (
             <EmptyState icon="inbox" title={`Belum ada report ${TAB_LABEL[tab].toLowerCase()}`} text="Report akan muncul di sini setelah host submit." />
           )
-        ) : localMore || props.hasMore ? (
+        ) : props.hasMore ? (
           <div className="pbs-foot">
             <span>
-              Menampilkan 1–{fmtNumber(visible.length)} dari {fmtNumber(filtered.length)}
-              {props.hasMore ? "+" : ""}
+              Total {fmtNumber(filtered.length)} report dimuat · masih ada data lain di server
             </span>
             <span className="line" />
             <Button
               variant="secondary"
               size="sm"
               disabled={props.loading}
-              onClick={() => (localMore ? setShown(shown + pageSize) : action.fire("LOAD_MORE", { tab, loaded: items.length }))}
+              onClick={() => action.fire("LOAD_MORE", { tab, loaded: items.length })}
             >
               {props.loading ? (
                 <>
@@ -316,7 +310,7 @@ export function ReportReviewView(props: ReportReviewProps): React.ReactElement {
             </Button>
           </div>
         ) : (
-          <EndOfData text={`Semua ${fmtNumber(filtered.length)} report ${tab === "Waiting" ? "yang menunggu " : ""}sudah ditampilkan`} />
+          <EndOfData text={`Total ${fmtNumber(filtered.length)} report${tab === "All" ? "" : ` ${TAB_LABEL[tab].toLowerCase()}`}${filterActive ? " sesuai filter" : ""}`} />
         )}
       </div>
     </div>

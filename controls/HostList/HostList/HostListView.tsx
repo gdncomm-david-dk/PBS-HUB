@@ -1,5 +1,5 @@
 import * as React from "react";
-import { ModuleContext, UseActionResult, configNumber, hasPermission } from "../../../shared/contract";
+import { ModuleContext, UseActionResult, hasPermission } from "../../../shared/contract";
 import { Row } from "../../../shared/data";
 import { fmtDateShort, fmtNumber } from "../../../shared/format";
 import { ClockInModal } from "../../../shared/clockIn";
@@ -61,19 +61,16 @@ const sorter = (k: SortKey) => (a: HostModel, b: HostModel): number => {
 
 export function HostListView(props: HostListProps): React.ReactElement {
   const { ctx, action } = props;
-  const pageSize = Math.max(10, configNumber(ctx, "pageSize", 50));
   const bands = React.useMemo(() => parseBands(props.thresholds), [props.thresholds]);
   const defaults = React.useMemo(() => scoreDefaults(ctx.config), [ctx]);
   const hosts = React.useMemo(() => buildHosts(props.hosts, bands, defaults), [props.hosts, bands, defaults]);
 
   const [filters, setFilters] = React.useState<Filters>(NO_FILTERS);
   const [sort, setSort] = React.useState<SortKey>("code");
-  const [shown, setShown] = React.useState(pageSize);
   const filterActive = Object.values(filters).some((v) => v !== "");
 
   const apply = (next: Filters) => {
     setFilters(next);
-    setShown(pageSize);
     // Informational: canvas may re-query server-side. Never locks the control.
     action.fire("FILTER_CHANGED", { filters: next, sort });
   };
@@ -91,8 +88,8 @@ export function HostListView(props: HostListProps): React.ReactElement {
       return true;
     })
     .sort(sorter(sort));
-  const visible = filtered.slice(0, shown);
-  const localMore = filtered.length > shown;
+  // Every loaded row is rendered: a partial list was read as the whole total.
+  const visible = filtered;
 
   const active = hosts.filter((h) => h.status === "ACTIVE").length;
   const noBank = hosts.filter((h) => h.hasBank === false);
@@ -246,18 +243,17 @@ export function HostListView(props: HostListProps): React.ReactElement {
               action={canEdit ? <Button size="sm" onClick={() => action.fire("ADD_HOST", {})}>Tambah host</Button> : undefined}
             />
           )
-        ) : localMore || props.hasMore ? (
+        ) : props.hasMore ? (
           <div className="pbs-foot">
             <span>
-              Menampilkan 1–{fmtNumber(visible.length)} dari {fmtNumber(filtered.length)}
-              {props.hasMore ? "+" : ""}
+              Total {fmtNumber(filtered.length)} host dimuat · masih ada data lain di server
             </span>
             <span className="line" />
             <Button
               variant="secondary"
               size="sm"
               disabled={props.loading}
-              onClick={() => (localMore ? setShown(shown + pageSize) : action.fire("LOAD_MORE", { loaded: hosts.length, filters, sort }))}
+              onClick={() => action.fire("LOAD_MORE", { loaded: hosts.length, filters, sort })}
             >
               {props.loading ? (
                 <>
@@ -269,7 +265,7 @@ export function HostListView(props: HostListProps): React.ReactElement {
             </Button>
           </div>
         ) : (
-          <EndOfData text={`Semua ${fmtNumber(filtered.length)} host sudah ditampilkan`} />
+          <EndOfData text={`Total ${fmtNumber(filtered.length)} host`} />
         )}
       </div>
 

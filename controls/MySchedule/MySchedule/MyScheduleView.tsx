@@ -1,5 +1,5 @@
 import * as React from "react";
-import { ModuleContext, UseActionResult, configNumber } from "../../../shared/contract";
+import { ModuleContext, UseActionResult } from "../../../shared/contract";
 import { Row, localDayKey, rowId, str } from "../../../shared/data";
 import { fmtDayMonth, fmtLongDate, fmtNumber } from "../../../shared/format";
 import { HostSession, buildHostSessions, hostOptions } from "../../../shared/hostApp";
@@ -93,7 +93,6 @@ interface Col {
 export function MyScheduleView(props: MyScheduleProps): React.ReactElement {
   const { ctx, now, action } = props;
   const opts = React.useMemo(() => hostOptions(ctx.config), [ctx]);
-  const pageSize = Math.max(10, configNumber(ctx, "pageSize", 20));
   const pk = periodKey(parsePeriod(props.period) ?? periodOf(now));
   const period: Period = React.useMemo(() => parsePeriod(pk) as Period, [pk]);
   const months = Array.from({ length: 7 }, (_, i) => addMonths(periodOf(now), 1 - i));
@@ -105,7 +104,6 @@ export function MyScheduleView(props: MyScheduleProps): React.ReactElement {
   React.useEffect(() => setStatus(initial), [initial]);
   const [platform, setPlatform] = React.useState("");
   const [search, setSearch] = React.useState("");
-  const [shown, setShown] = React.useState(pageSize);
 
   const sessions = React.useMemo(
     () => buildHostSessions({ schedules: props.schedules, clockIns: props.clockIns, absences: props.absences, reports: props.reports, brands: props.brands, studios: props.studios }, now, opts),
@@ -117,8 +115,8 @@ export function MyScheduleView(props: MyScheduleProps): React.ReactElement {
   const focus = React.useMemo(() => todayFocus(sessions, now), [sessions, now]);
   const platforms = React.useMemo(() => [...new Set(rows.map((r) => r.s.platform).filter(Boolean))].sort(), [rows]);
   const filtered = rows.filter((r) => matchesQuery(r.s, r.st, { platform, status, search }));
-  const visible = filtered.slice(0, shown);
-  const localMore = filtered.length > shown;
+  // Every loaded row is rendered: a partial list was read as the whole total.
+  const visible = filtered;
   const hasPosition = rows.some((r) => positionOf(r.s.row));
   const todayKey = localDayKey(now);
   const firstLoad = props.loading && rows.length === 0;
@@ -144,10 +142,8 @@ export function MyScheduleView(props: MyScheduleProps): React.ReactElement {
     setStatus("");
     setPlatform("");
     setSearch("");
-    setShown(pageSize);
   };
   const changed = (next: { status?: StatusFilter; platform?: string }) => {
-    setShown(pageSize);
     action.fire("FILTER_CHANGED", { status: next.status ?? status, platform: next.platform ?? platform, period: periodKey(period) });
   };
 
@@ -167,7 +163,6 @@ export function MyScheduleView(props: MyScheduleProps): React.ReactElement {
             aria-label="Bulan"
             value={periodKey(period)}
             onChange={(e) => {
-              setShown(pageSize);
               action.fire("PERIOD_CHANGED", { period: e.target.value });
             }}
           >
@@ -220,7 +215,6 @@ export function MyScheduleView(props: MyScheduleProps): React.ReactElement {
             value={search}
             onChange={(e) => {
               setSearch(e.target.value);
-              setShown(pageSize);
             }}
           />
         </label>
@@ -308,18 +302,17 @@ export function MyScheduleView(props: MyScheduleProps): React.ReactElement {
             ) : undefined
           }
         />
-      ) : localMore || props.hasMore ? (
+      ) : props.hasMore ? (
         <div className="pbs-foot">
           <span>
-            Menampilkan 1–{fmtNumber(visible.length)} dari {fmtNumber(filtered.length)}
-            {props.hasMore ? "+" : ""} sesi
+            Total {fmtNumber(filtered.length)} jadwal dimuat · masih ada data lain di server sesi
           </span>
           <span className="line" />
           <Button
             variant="secondary"
             size="sm"
             disabled={props.loading}
-            onClick={() => (localMore ? setShown(shown + pageSize) : action.fire("LOAD_MORE", { period: periodKey(period), loaded: props.schedules.length }))}
+            onClick={() => action.fire("LOAD_MORE", { period: periodKey(period), loaded: props.schedules.length })}
           >
             {props.loading ? (
               <>
