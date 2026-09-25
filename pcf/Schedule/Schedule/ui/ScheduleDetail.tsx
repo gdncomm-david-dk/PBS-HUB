@@ -6,6 +6,7 @@ import { formatDateLong } from "../core/time";
 import { Banner, Button, Card, cx, Icon } from "./components";
 import { Env, scheduleStatus, StatusBadge } from "./shared";
 import { DeleteDialog } from "./Dialogs";
+import { ReportReview } from "./ReportReview";
 
 export function ScheduleDetail(props: { env: Env; schedule: ScheduleRow; onBack: () => void; onEdit: () => void; onDuplicate: () => void }): React.ReactElement {
     const { env, schedule: s } = props;
@@ -84,7 +85,12 @@ export function ScheduleDetail(props: { env: Env; schedule: ScheduleRow; onBack:
                 </div>
             </Card>
 
-            {locked && (
+            {env.ev.noReportReason(s) && (
+                <Banner tone="info">
+                    {Icon.info(14)} {env.ev.noReportReason(s) === "livebreak" ? "Live Break — sesi ini tidak perlu report." : "Co-Host — report sesi ini dibuat oleh Main Host, jadi tidak ada report dari host ini."}
+                </Banner>
+            )}
+            {locked && env.ev.realReportsFor(s).length > 0 && (
                 <Banner tone="info">
                     {Icon.lock(14)} Report host untuk sesi ini sudah masuk, jadi jadwal terkunci. Mengubah jam atau host sekarang akan membuat report tidak cocok lagi.
                 </Banner>
@@ -139,6 +145,7 @@ export function ScheduleDetail(props: { env: Env; schedule: ScheduleRow; onBack:
                 </Card>
 
                 <div className="sc-stack">
+                    <ReportReview env={env} schedule={s} />
                     <Card title={step.label} aside={<StepBadge step={step} />}>
                         {step.todo && (
                             <div className={cx("sc-todo", step.state === "failed" && "is-danger")}>

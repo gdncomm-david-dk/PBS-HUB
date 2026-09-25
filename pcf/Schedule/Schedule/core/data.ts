@@ -51,6 +51,21 @@ export function toNum(v: unknown): number | null {
     return isFinite(n) ? n : null;
 }
 
+/** "LiveBreak", "Live Break", "live_break". */
+export const isLiveBreakText = (v: string): boolean => /live\s*-?_?break/i.test(v);
+
+export type ApprovalKind = "done" | "livebreak" | "revision" | "waitingRevision" | "waiting";
+
+/** Report.ApprovalStatus: Done, LiveBreak, Need Revision, Waiting Approval, Waiting Approval Revision. */
+export function approvalKind(status: string): ApprovalKind {
+    const l = status.toLowerCase();
+    if (l === "done" || l === "approved") return "done";
+    if (isLiveBreakText(l)) return "livebreak";
+    if (l.includes("waiting") && l.includes("revis")) return "waitingRevision";
+    if (l.includes("revis")) return "revision";
+    return "waiting";
+}
+
 export function toBool(v: unknown, fallback: boolean): boolean {
     const f = flatten(v);
     if (f === null || f === undefined || f === "") return fallback;
@@ -362,6 +377,8 @@ export function mapSchedules(recs: RawRecord[], lk: Lookups): ScheduleRow[] {
             sesi: toText(r.get(C.sesi)),
             position: toText(r.get(C.position)),
             liveBreak: toText(r.get(C.liveBreak)),
+            isLiveBreak: toBool(r.get(C.liveBreak), false) || isLiveBreakText(toText(r.get(C.liveBreak))),
+            isCoHost: /co.?host/i.test(toText(r.get(C.position))),
             campaignName: toText(r.get(C.campaign)),
             totalAccount: toNum(r.get(C.totalAccount)),
             status: toText(r.get(C.status)),
@@ -386,6 +403,7 @@ export function mapReports(recs: RawRecord[]): ReportRow[] {
         if (reportId) seen.add(reportId.toLowerCase());
         out.push({
             key: r.id,
+            itemId: toNum(r.get(C.id)),
             reportId,
             scheduleId,
             hostId: toText(r.get(C.hostId)),
@@ -399,6 +417,7 @@ export function mapReports(recs: RawRecord[]): ReportRow[] {
             approvalStatus: toText(r.get(["ApprovalStatus", "Approval Status"])),
             match: toText(r.get(["Match"])),
             approvalComment: toText(r.get(["ApprovalComment", "Approval Comment"])),
+            approverEmail: toText(r.get(["ApproverEmail", "Approver Email", "Approver"])),
             createdText: toText(r.get(["CreatedDate", "Created"])),
         });
     }
@@ -465,13 +484,19 @@ export function mapEvidence(recs: RawRecord[]): EvidenceRow[] {
     const out: EvidenceRow[] = [];
     for (const r of recs) {
         const scheduleId = toText(r.get(C.scheduleId));
-        if (!scheduleId) continue;
+        const title = toText(r.get(C.title));
+        // Joined to Report by Title (REP-120 = REP-120); ScheduleID is optional.
+        if (!scheduleId && !title) continue;
         out.push({
             key: r.id,
-            title: toText(r.get(C.title)),
+            itemId: toNum(r.get(C.id)),
+            title,
             scheduleId,
             status: toText(r.get(C.status)),
-            penjualan: toNum(r.get(["Penjualan"])),
+            penjualan: toNum(r.get(["Penjualan", "GMV"])),
+            pesanan: toNum(r.get(["Pesanan"])),
+            totalViewer: toNum(r.get(["TotalViewer", "Total Viewer"])),
+            durasiMin: toNum(r.get(C.durasi)),
             startHour: toText(r.get(["StartHour", "Start Hour"])),
             endHour: toText(r.get(["EndHour", "End Hour"])),
         });

@@ -68,7 +68,7 @@ export function ScheduleList(props: {
         if (v === "calendar") setWeek(f.from);
     };
 
-    const missingReport = React.useCallback((s: ScheduleRow) => scheduleStatus(s.status).chip !== "off" && phaseOf(s, env.now) === "ended" && !env.ev.isLocked(s), [env.now, env.ev]);
+    const missingReport = React.useCallback((s: ScheduleRow) => scheduleStatus(s.status).chip !== "off" && phaseOf(s, env.now) === "ended" && !env.ev.isLocked(s) && !env.ev.noReportReason(s), [env.now, env.ev]);
     const inRange = React.useMemo(() => env.schedules.filter((s) => s.dateKey >= f.from && s.dateKey <= f.to), [env.schedules, f.from, f.to]);
     const rows = React.useMemo(
         () => applyFilters(env.schedules, f, { conflicts: env.conflicts, missingReport }).sort(sortByBrand),

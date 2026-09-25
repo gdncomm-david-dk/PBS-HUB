@@ -208,6 +208,8 @@ export function checkFile(file: string, t: SheetTable, cx: CheckContext): FileCh
         sesi: "",
         position: "",
         liveBreak: "",
+        isLiveBreak: false,
+        isCoHost: false,
         campaignName: "",
         totalAccount: null,
         status: "Planned",

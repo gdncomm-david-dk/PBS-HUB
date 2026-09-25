@@ -1,7 +1,7 @@
 // The evidence chain of one session (brief 05): what exists, what is missing, and what to do about it.
 
 import { AbsenceRow, ClockRow, EvidenceRow, ReportRow, ScheduleRow } from "./types";
-import { occupies } from "./data";
+import { approvalKind, occupies } from "./data";
 import { Evidence, phaseOf, sessionEnd, sessionStart } from "./schedule";
 import { formatMinutes, minutesOfDay } from "./time";
 
@@ -33,8 +33,9 @@ export function buildTimeline(s: ScheduleRow, ev: Evidence, now: Date): Step[] {
     const end = sessionEnd(s);
     const clock = ev.clockFor(s);
     const abs = ev.absencesFor(s);
-    const reports = ev.reportsFor(s);
+    const reports = ev.realReportsFor(s);
     const evidence = ev.evidenceFor(s);
+    const exempt = ev.noReportReason(s);
 
     const steps: Step[] = [];
     steps.push({
@@ -77,16 +78,25 @@ export function buildTimeline(s: ScheduleRow, ev: Evidence, now: Date): Step[] {
 
     steps.push(clockStep(s, clock, phase, start, now));
     steps.push(absenStep(abs, phase));
+    if (exempt) {
+        const why = exempt === "livebreak" ? "Live Break — sesi ini tidak perlu report." : "Co-Host — report dibuat oleh Main Host sesi ini.";
+        const tag = exempt === "livebreak" ? "Live Break" : "Co-Host";
+        steps.push({ id: "report", label: "Report host", state: "skipped", when: tag, detail: why, record: [] });
+        steps.push({ id: "evidence", label: "Bukti AI", state: "skipped", when: "", detail: why, record: [] });
+        steps.push({ id: "verdict", label: "Verdict", state: "skipped", when: "", detail: why, record: [] });
+        steps.push({ id: "payroll", label: "Baris payroll", state: "skipped", when: "", detail: "Dihitung saat payroll run bulanan dari Clock In (HKTugas, Insentif, Streak).", record: [] });
+        return steps;
+    }
     steps.push(reportStep(reports, phase, end, now));
     steps.push(evidenceStep(evidence, reports));
     steps.push(verdictStep(reports, evidence));
     steps.push({
         id: "payroll",
         label: "Baris payroll",
-        state: reports.some((r) => low(r.approvalStatus) === "done") ? "pending" : "skipped",
+        state: reports.some((r) => approvalKind(r.approvalStatus) === "done") ? "pending" : "skipped",
         when: "",
         detail: "Dihitung saat payroll run bulanan dari Clock In (HKTugas, Insentif, Streak).",
-        todo: reports.some((r) => low(r.approvalStatus) === "done") ? "Masuk ke payroll run berikutnya. Lihat modul Payroll." : undefined,
+        todo: reports.some((r) => approvalKind(r.approvalStatus) === "done") ? "Masuk ke payroll run berikutnya. Lihat modul Payroll." : undefined,
         record: [],
     });
     return steps;
@@ -231,10 +241,21 @@ function evidenceStep(ev: EvidenceRow[], reports: ReportRow[]): Step {
 function verdictStep(reports: ReportRow[], ev: EvidenceRow[]): Step {
     const base = { id: "verdict" as const, label: "Verdict" };
     if (!reports.length) return { ...base, state: "pending", when: "", detail: "Menunggu report.", record: [] };
-    const st = reports.map((r) => low(r.approvalStatus));
-    const record = [{ section: "Verdict", rows: reports.map((r) => [r.reportId || "Report", `${r.approvalStatus || "—"} · ${r.match || ev[0]?.status || "belum dicocokkan"}${r.approvalComment ? ` · ${r.approvalComment}` : ""}`] as [string, string]) }];
-    if (st.some((x) => x.includes("revision") || x.includes("revisi")))
-        return { ...base, state: "failed", when: "Need Revision", detail: "Report diminta revisi.", todo: "Host perlu merevisi report.", remind: true, record };
+    const st = reports.map((r) => approvalKind(r.approvalStatus));
+    const record = [
+        {
+            section: "Verdict",
+            rows: reports.flatMap((r) => [
+                [r.reportId || "Report", `${r.approvalStatus || "—"} · ${r.match || ev[0]?.status || "belum dicocokkan"}`],
+                ...(r.approvalComment ? [["Komentar", r.approvalComment]] : []),
+                ...(r.approverEmail ? [["Approver", r.approverEmail]] : []),
+            ]) as [string, string][],
+        },
+    ];
+    if (st.includes("revision"))
+        return { ...base, state: "failed", when: "Need Revision", detail: "Report diminta revisi.", todo: "Host perlu merevisi report. Setelah host submit ulang, status menjadi Waiting Approval Revision.", remind: true, record };
     if (st.every((x) => x === "done")) return { ...base, state: "done", when: "Done", detail: reports.some((r) => low(r.match) === "unmatch") ? "Disetujui walau Unmatch" : "Disetujui", record };
-    return { ...base, state: "active", when: "Waiting", detail: "Menunggu review.", todo: "Report menunggu keputusan reviewer di Adjudication.", record };
+    if (st.includes("waitingRevision"))
+        return { ...base, state: "active", when: "Waiting Approval Revision", detail: "Host sudah mengirim revisi.", todo: "Bandingkan lagi report host dengan hasil AI, lalu setujui atau minta revisi.", record };
+    return { ...base, state: "active", when: "Waiting Approval", detail: "Menunggu review.", todo: "Bandingkan report host dengan hasil AI, lalu setujui atau minta revisi.", record };
 }

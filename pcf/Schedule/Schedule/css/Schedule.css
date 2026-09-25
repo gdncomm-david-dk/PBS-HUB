@@ -409,3 +409,20 @@
 .pbs-sc .sc-group td { background: var(--surface, #F5F7FA); padding: 8px 12px; border-top: 1px solid var(--border); font-size: 13px; }
 .pbs-sc .sc-group td b { margin-right: 8px; color: var(--text-primary); }
 .pbs-sc .sc-viewtoggle--sm button { padding: 0 10px; font-size: 12px; }
+
+/* Report host vs AI */
+.sc-review { display: flex; flex-direction: column; gap: 20px; }
+.sc-review__item { display: flex; flex-direction: column; gap: 10px; }
+.sc-review__item + .sc-review__item { border-top: 1px solid var(--border); padding-top: 16px; }
+.sc-review__head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.sc-review__badges { margin-left: auto; display: flex; gap: 6px; }
+.sc-vs th[scope="row"] { text-align: left; font-weight: 500; color: var(--text-secondary); white-space: nowrap; }
+.sc-vs .sc-num { font-variant-numeric: tabular-nums; }
+.sc-vs tr.is-diff td, .sc-vs tr.is-diff th { background: var(--danger-bg); }
+.sc-small { font-size: 11px; margin: 0; }
+.sc-verdictline { display: flex; align-items: center; gap: 8px; padding: 8px 12px; border-radius: 8px; background: var(--surface); font-size: 13px; }
+.sc-verdictline.is-danger { background: var(--danger-bg); color: var(--danger-text); }
+.sc-verdictline.is-ok { background: var(--success-bg); color: var(--success-text); }
+.sc-review__prev { margin: 0; }
+.sc-judge { display: flex; flex-direction: column; gap: 8px; }
+.sc-judge__actions { display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end; }

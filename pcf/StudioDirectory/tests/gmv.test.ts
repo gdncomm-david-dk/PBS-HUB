@@ -1,5 +1,5 @@
 import { jsonRecords, mapReports, mapSchedules, mapStudios } from "../StudioDirectory/core/data";
-import { formatIdr, formatIdrShort, ReportIndex, sessionGmv, studioGmv } from "../StudioDirectory/core/gmv";
+import { approvalState, formatIdr, formatIdrShort, ReportIndex, sessionGmv, studioGmv } from "../StudioDirectory/core/gmv";
 import { ScheduleIndex } from "../StudioDirectory/core/utilization";
 
 const rec = (rows: Record<string, unknown>[]) => jsonRecords(JSON.stringify(rows)) ?? [];
@@ -155,5 +155,11 @@ describe("Co-Host", () => {
         const none = new ReportIndex([]);
         expect(sessionGmv(none, rows[0], "2026-09-20", 600).state).toBe("coHost");
         expect(sessionGmv(none, rows[1], "2026-09-20", 600).state).toBe("missing");
+    });
+});
+
+describe("approval statuses", () => {
+    it("reads Waiting Approval Revision as waiting for review, not as a revision request", () => {
+        expect(["Done", "Need Revision", "Waiting Approval", "Waiting Approval Revision"].map(approvalState)).toEqual(["verified", "revision", "pending", "pending"]);
     });
 });

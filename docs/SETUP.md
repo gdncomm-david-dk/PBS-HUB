@@ -5,8 +5,8 @@ for the Studio screens and part C for the Schedule screen.
 
 | Control | Display name | Solution (managed) | Version | Screens |
 |---|---|---|---|---|
-| `pbs_Ops.StudioHub` | PBS Studio Hub | `releases/PBSStudioHub_managed_1.6.0.zip` (`PBSStudioHub`) | 1.6.0 | Studio list, Studio detail |
-| `pbs_Ops.Schedule` | PBS Schedule | `releases/PBSSchedule_managed_1.2.2.zip` (`PBSSchedule`) | 1.2.2 | Schedule board, session detail, create/edit, bulk & AI upload |
+| `pbs_Ops.StudioHub` | PBS Studio Hub | `releases/PBSStudioHub_managed_1.6.1.zip` (`PBSStudioHub`) | 1.6.1 | Studio list, Studio detail |
+| `pbs_Ops.Schedule` | PBS Schedule | `releases/PBSSchedule_managed_1.3.0.zip` (`PBSSchedule`) | 1.3.0 | Schedule board, session detail, create/edit, bulk & AI upload |
 
 Neither control writes to SharePoint. Each one emits an `ActionPayload` `{ action, requestId, payload }`; the
 canvas app does the `Patch` and replies through `ActionResult` with the same `requestId`. Until that reply
@@ -27,7 +27,7 @@ arrives the control stays locked. It gives up after 30 seconds for a save, or 3 
 **Check the version.** From 1.5.0 the Studio control is a new component, **PBS Studio Hub**
 (`pbs_Ops.StudioHub`, solution `PBSStudioHub`), so the app cannot keep running a cached older build. Delete the old
 *PBS Studio Master* / *PBS Studio Directory* control from the screen, insert *PBS Studio Hub* and set the same
-properties and `OnChange` on it. The header then shows `pbs_Ops.StudioHub 1.6.0`.
+properties and `OnChange` on it. The header then shows `pbs_Ops.StudioHub 1.6.1`.
 
 The old solutions `PBSStudioMaster`, `PBSHubStudio` and `PBSStudioDirectory` can be deleted once the app runs
 `pbs_Ops.StudioHub`.
@@ -69,7 +69,7 @@ in the tables below.
 
 ---
 
-# B. PBS Studio Hub (`pbs_Ops.StudioHub` 1.6.0)
+# B. PBS Studio Hub (`pbs_Ops.StudioHub` 1.6.1)
 
 ## B1. Period variables
 
@@ -237,7 +237,7 @@ These are display metrics. Nothing that money depends on is computed in the cont
 
 ---
 
-# C. PBS Schedule (`pbs_Ops.Schedule` 1.2.2)
+# C. PBS Schedule (`pbs_Ops.Schedule` 1.3.0)
 
 The control renders the **Schedule board (S-1)** as a calendar (week × brand lanes, or studio lanes) or a list, grouped by brand and sorted by start time,, and the
 **session detail (S-2)** with the seven-step evidence chain. It also provides three ways to create schedules:
@@ -281,10 +281,10 @@ lists which IDs are unmatched — that means the `brands`/`hosts` dataset is not
 | `accounts` | `Account - PBS Hub` | `'Account - PBS Hub'` |
 | `studios` | `Studio - PBS Hub` | `'Studio - PBS Hub'` |
 | `hosts` | `Host - PBS Hub` | `ShowColumns('Host - PBS Hub', ID, Title, NamaHost, HostName, Status)` (add `HostID` if the list has it) — **never bind the whole list** (KTP, NoRekening) |
-| `reports` | `Report - PBS Hub` | `Filter('Report - PBS Hub', LiveDate >= varSchedStart && LiveDate <= varSchedEnd)` |
+| `reports` | `Report - PBS Hub` | `Filter('Report - PBS Hub', LiveDate >= varSchedStart && LiveDate <= varSchedEnd)`. Fields: `ID`, `Title`, `ScheduleID`, `AccountID`, `Platform`, `Penjualan`, `Pesanan`, `TotalViewer`, durasi, `ApprovalStatus`, `Match`, `ApprovalComment`, `ApproverEmail` |
 | `absences` | `Host Absence - PBS Hub` | `Filter('Host Absence - PBS Hub', LiveDate >= varSchedStart && LiveDate <= varSchedEnd)` |
 | `clockins` | `Clock In - PBS Hub` | `ShowColumns(Filter('Clock In - PBS Hub', ClockInDate >= varSchedStart && ClockInDate <= varSchedEnd), Title, HostID, ClockInDate, CheckInTime, CheckOutTime, ClockInTime, ClockOutTime, IsInsideGeofence, CheckInOffice, Status)` — never bind GPS or selfie columns |
-| `evidence` | `Report Automation - PBS Hub` | `Filter('Report Automation - PBS Hub', LiveDate >= varSchedStart && LiveDate <= varSchedEnd)` |
+| `evidence` | `Report Automation - PBS Hub` | `Filter('Report Automation - PBS Hub', LiveDate >= varSchedStart && LiveDate <= varSchedEnd)`. Fields: `ID`, `Title` (= `Report.Title`, e.g. `REP-120`), `Status` (Match / Unmatch), `Penjualan`, `Pesanan`, `TotalViewer`, durasi, `StartHour`, `EndHour` |
 
 `reports`, `absences`, `clockins` and `evidence` are optional. Without them the detail page shows those steps as
 "belum". A session that has a report is **locked**: it cannot be edited or deleted. For each dataset,
@@ -320,6 +320,26 @@ JSON({
 **Status.** A session ends as **`Finished`** (not `Done`). The edit form offers Planned, Waiting Report,
 Finished, Cancelled and Leave, plus any other value already in the list; an old `Done` row is still shown as
 *Selesai*. The `Schedule.Status` choice column must have a `Finished` value.
+
+**Live Break and Co-Host.** As on the Studio page, a session needs no report when `Schedule.LiveBreak` is `Yes`,
+when its only report row has `ApprovalStatus = LiveBreak`, or when `Schedule.Position` is `Co-Host` (the main host
+reports). Such a session is not counted under *Belum ada report*, and its Report, Bukti AI and Verdict steps read
+*Live Break* or *Co-Host*.
+
+**Report host vs AI.** The session detail puts every host report next to its Report Automation row
+(`Report Automation.Title` = `Report.Title`, e.g. `REP-120`): Penjualan, Pesanan, Total viewer, Durasi, Jam live and
+the AI `Status`, with each difference marked. The reviewer then either approves (**Sesuai — setujui**) or, with a
+comment, asks for a revision (**Tidak sesuai — minta revisi**), which emits `REVIEW_REPORT` (handler in C4):
+
+| Decision | Report | Report Automation |
+|---|---|---|
+| Minta revisi | `ApprovalStatus` → `Need Revision`, `Match` → `Unmatch`, `ApprovalComment` → the comment, `ApproverEmail` → the reviewer | `Status` → `Unmatch` (only this column) |
+| Setujui | `ApprovalStatus` → `Done`, `Match` → `Match`, `ApproverEmail` → the reviewer (comment kept unless a new one is given) | unchanged |
+
+When the host resubmits, the host app sets `ApprovalStatus` to `Waiting Approval Revision`; the detail then asks for a
+new comparison. `ApprovalStatus` values: `Waiting Approval`, `Waiting Approval Revision`, `Need Revision`, `Done`,
+`LiveBreak`. If `ApproverEmail` is a Person column instead of text, write
+`ApproverEmail: { Claims: "i:0#.f|membership|" & User().Email, DisplayName: User().FullName, Email: User().Email, Department: "", JobTitle: "", Picture: "" }`.
 
 The single-schedule form no longer asks for Shift, Sesi, Live break or Campaign name; the handlers below do
 not write those columns, so existing values stay as they are on edit. **Position** is a choice of
@@ -392,6 +412,23 @@ If(rid <> varLastSchedRid,
                     Set(varSchedMsg, "Terunggah, AI Schedule berjalan")),
                 Set(varSchedOk, false); Set(varSchedErr, FirstError.Message)),
 
+        // Judgement on a host report after comparing it with Report Automation (Title = Report.Title).
+        // revision: Report → Need Revision + Unmatch + comment + approver; Report Automation → Status Unmatch.
+        // approve:  Report → Done + Match (+ comment if given) + approver.
+        "REVIEW_REPORT",
+            IfError(
+                With({ rep: LookUp('Report - PBS Hub', Title = Text(p.reportId)), revise: Text(p.decision) = "revision" },
+                    Patch('Report - PBS Hub', rep, {
+                        ApprovalStatus: { Value: If(revise, "Need Revision", "Done") },
+                        Match: { Value: If(revise, "Unmatch", "Match") },
+                        ApprovalComment: If(IsBlank(Text(p.comment)), rep.ApprovalComment, Text(p.comment)),
+                        ApproverEmail: User().Email });
+                    If(revise,
+                        ForAll(Filter('Report Automation - PBS Hub', Title = Text(p.reportId)) As ra,
+                            Patch('Report Automation - PBS Hub', ra, { Status: { Value: "Unmatch" } })));
+                    Set(varSchedMsg, Text(p.reportId) & If(revise, " dikembalikan ke host untuk revisi.", " disetujui."))); true,
+                Set(varSchedOk, false); Set(varSchedErr, FirstError.Message)),
+
         "REMIND_HOST",
             // Optional. Any channel you already use; e-mail shown.
             IfError(
@@ -402,7 +439,7 @@ If(rid <> varLastSchedRid,
                 Set(varSchedOk, false); Set(varSchedErr, FirstError.Message))
         // NAV_SESSION_DETAIL is informational; SelectedScheduleId already carries the open session.
     );
-    If(action in ["CREATE_SCHEDULE", "EDIT_SCHEDULE", "DELETE_SCHEDULE", "UPLOAD_SCHEDULE_FILE", "REMIND_HOST"],
+    If(action in ["CREATE_SCHEDULE", "EDIT_SCHEDULE", "DELETE_SCHEDULE", "UPLOAD_SCHEDULE_FILE", "REVIEW_REPORT", "REMIND_HOST"],
         Set(varSchedResult, JSON({
             requestId: rid, status: If(varSchedOk, "ok", "error"),
             message: If(varSchedOk, varSchedMsg, varSchedErr), data: { scheduleId: varSchedId } }, JSONFormat.Compact)))
@@ -553,7 +590,7 @@ file was uploaded.
 
 | Symptom | Cause | Fix |
 |---|---|---|
-| Studio header does not show `pbs_Ops.StudioHub 1.6.0` | The screen still holds the old control, or the code component was not updated | Delete the control, insert **PBS Studio Hub**, then save and publish. After an import, accept **Update code components** |
+| Studio header does not show `pbs_Ops.StudioHub 1.6.1` | The screen still holds the old control, or the code component was not updated | Delete the control, insert **PBS Studio Hub**, then save and publish. After an import, accept **Update code components** |
 | *Mapping lokasi* banner: studios not linked | `LocationID` is missing from **Fields** on `studios` or `locations` | Open **Lihat kolom** in the banner to see which columns actually arrive. Add `LocationID` under **Fields → Edit** on both datasets, or use `StudiosJson` as in B2 |
 | *LocationID tidak ditemukan* on a studio | The studio's `LocationID` is not carried by any item in the `locations` dataset (typo, extra space, or the item is filtered out) | Bind the whole `Studio Location - PBS` list, or pick another location in the Geofence tab |
 | Brand or host shows an ID, with a yellow banner | `brands` / `hosts` are not bound, or lack `ID`, `Title`, `BrandID`/`HostID` or the name column | See C2 *Names, not IDs* |

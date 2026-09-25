@@ -2,8 +2,8 @@
 
 | Control | Screens | Managed solution | Canvas setup |
 |---|---|---|---|
-| `pbs_Ops.StudioHub` | Studio list, Studio detail | `releases/PBSStudioHub_managed_1.6.0.zip` | [`docs/SETUP.md` § B](docs/SETUP.md) |
-| `pbs_Ops.Schedule` | Schedule board, session detail, create/edit, bulk & AI upload | `releases/PBSSchedule_managed_1.2.2.zip` | [`docs/SETUP.md` § C](docs/SETUP.md) |
+| `pbs_Ops.StudioHub` | Studio list, Studio detail | `releases/PBSStudioHub_managed_1.6.1.zip` | [`docs/SETUP.md` § B](docs/SETUP.md) |
+| `pbs_Ops.Schedule` | Schedule board, session detail, create/edit, bulk & AI upload | `releases/PBSSchedule_managed_1.3.0.zip` | [`docs/SETUP.md` § C](docs/SETUP.md) |
 
 ## `pbs_Ops.StudioHub` (Studio list + Studio detail)
 
@@ -34,6 +34,7 @@ built on the SharePoint data model in `DESIGN.md`.
   **Kalender**: week columns × brand lanes (or studio lanes), chips coloured by status, red dot on conflicts,
   lock when a report is in, today tinted. **List**: a header per brand (sessions, hours), then Tanggal, Jam,
   Account, Host (+ position), Studio, Platform, Status, row menu, "Muat lebih banyak" paging.
+- **Report host vs AI** — in the session detail, each host report next to its Report Automation row (same Title): GMV, orders, viewers, duration, live hours and the AI status, with differences marked; approve, or ask for a revision with a comment (Report → Need Revision / Unmatch, Report Automation → Unmatch). Live Break and Co-Host sessions need no report.
 - **Session detail** — the evidence chain Dijadwalkan → Clock in → Absen → Report host → Bukti AI → Verdict →
   Baris payroll; each step says what is missing and offers "Ingatkan host"; conflicts; other sessions of the
   same host or studio that day. Edit, duplicate, delete (locked once a report exists).

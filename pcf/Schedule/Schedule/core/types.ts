@@ -60,6 +60,8 @@ export interface ScheduleRow {
     sesi: string;              // Sesi
     position: string;          // Position (Choice)
     liveBreak: string;         // LiveBreak (Choice)
+    isLiveBreak: boolean;      // LiveBreak = Yes: no report is expected
+    isCoHost: boolean;         // Position = Co-Host: the main host files the report
     campaignName: string;      // CampaignName
     totalAccount: number | null;
     status: string;            // Status: Planned, Waiting Report, Finished (final), Cancelled, Leave. Legacy "Done" is read as Finished
@@ -72,6 +74,7 @@ export interface ScheduleRow {
 
 export interface ReportRow {
     key: string;
+    itemId: number | null;     // SharePoint ID
     reportId: string;          // Title
     scheduleId: string;        // ScheduleID — join to Schedule.Title
     hostId: string;
@@ -82,9 +85,10 @@ export interface ReportRow {
     pesanan: number | null;
     totalViewer: number | null;
     durasiMin: number | null;
-    approvalStatus: string;    // Waiting / Done / Need Revision
+    approvalStatus: string;    // Waiting Approval / Waiting Approval Revision / Need Revision / Done / LiveBreak
     match: string;             // Match / Unmatch
     approvalComment: string;
+    approverEmail: string;
     createdText: string;
 }
 
@@ -115,10 +119,14 @@ export interface ClockRow {
 
 export interface EvidenceRow {
     key: string;
-    title: string;             // Report Automation.Title
+    itemId: number | null;
+    title: string;             // Report Automation.Title = Report.Title (REP-120)
     scheduleId: string;
     status: string;            // Match / Unmatch
     penjualan: number | null;
+    pesanan: number | null;
+    totalViewer: number | null;
+    durasiMin: number | null;
     startHour: string;
     endHour: string;
 }
@@ -139,6 +147,7 @@ export type ActionName =
     | "UPLOAD_SCHEDULE_FILE"
     | "OPEN_UPLOAD"
     | "REMIND_HOST"
+    | "REVIEW_REPORT"
     | "NAV_SESSION_DETAIL";
 
 export interface ActionResult {

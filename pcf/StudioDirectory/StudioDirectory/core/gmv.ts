@@ -37,6 +37,8 @@ export class ReportIndex {
 export function approvalState(status: string): "verified" | "pending" | "revision" {
     const l = status.toLowerCase();
     if (l === "done" || l === "approved") return "verified";
+    // Waiting Approval Revision: the host resubmitted and it awaits review again.
+    if (l.includes("waiting")) return "pending";
     if (l.includes("revis")) return "revision";
     return "pending";
 }

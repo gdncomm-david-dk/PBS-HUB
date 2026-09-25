@@ -1,7 +1,8 @@
 import { strToU8, zipSync } from "fflate";
-import { buildLookups, jsonRecords, mapAccounts, mapBrands, mapHosts, mapReports, mapSchedules, mapStudios } from "../Schedule/core/data";
+import { approvalKind, buildLookups, jsonRecords, mapAccounts, mapBrands, mapEvidence, mapHosts, mapReports, mapSchedules, mapStudios } from "../Schedule/core/data";
 import { applyFilters, conflictIndex, conflictsFor, Evidence, phaseOf, weekStart } from "../Schedule/core/schedule";
 import { buildTimeline } from "../Schedule/core/timeline";
+import { compareReport } from "../Schedule/core/review";
 import { readWorkbook, serialToDateKey, serialToMinutes } from "../Schedule/core/xlsx";
 import { bytesToBase64, checkFile, errorCsv, mapHeaders, uploadName } from "../Schedule/core/import";
 
@@ -96,7 +97,7 @@ describe("timeline", () => {
     });
     it("completes and locks the session once the report is approved", () => {
         const reports = mapReports(recs([{ Title: "RPT-1", ScheduleID: "SCD-9", Penjualan: 1500000, ApprovalStatus: "Done", Match: "Match" }]));
-        const ev = new Evidence(reports, [{ key: "a", absId: "ABS-1", scheduleId: "SCD-9", hostId: "HST-1", status: "Present", keterangan: "", dateKey: "2026-09-20" }], [], [{ key: "e", title: "RPT-1", scheduleId: "SCD-9", status: "Match", penjualan: 1500000, startHour: "10:00", endHour: "12:00" }]);
+        const ev = new Evidence(reports, [{ key: "a", absId: "ABS-1", scheduleId: "SCD-9", hostId: "HST-1", status: "Present", keterangan: "", dateKey: "2026-09-20" }], [], [{ key: "e", itemId: 7, title: "RPT-1", scheduleId: "SCD-9", status: "Match", penjualan: 1500000, pesanan: null, totalViewer: null, durasiMin: null, startHour: "10:00", endHour: "12:00" }]);
         const steps = buildTimeline(s, ev, new Date(2026, 8, 22, 9, 0));
         expect(steps.map((x) => x.state)).toEqual(["done", "failed", "done", "done", "done", "done", "pending"]);
         expect(ev.isLocked(s)).toBe(true);
@@ -235,5 +236,52 @@ describe("brand and host names", () => {
         expect([c.brandName, c.brandId, c.hostName]).toEqual(["Aruna Beauty", "BR-07", "Dinda Maharani"]);
         expect([d.brandName, d.brandId]).toEqual(["Aruna Beauty", "BR-07"]);
         expect([e.brandName, e.brandKnown, e.hostKnown]).toEqual(["BR-99", false, false]);
+    });
+});
+
+describe("live break, Co-Host and review", () => {
+    const base = { Date: "2026-09-20", StudioID: "CWG-05", HostID: "HST-1", StartTime: "10:00", EndTime: "12:00", Status: "Finished" };
+    const now = new Date(2026, 8, 22, 9, 0);
+    it("needs no report for LiveBreak = Yes or Position = Co-Host", () => {
+        const [lb, co, main] = sched([
+            { ...base, Title: "SCD-20", LiveBreak: { Value: "Yes" }, Position: { Value: "Main Host" } },
+            { ...base, Title: "SCD-21", LiveBreak: { Value: "No" }, Position: { Value: "Co-Host" } },
+            { ...base, Title: "SCD-22", LiveBreak: { Value: "No" }, Position: { Value: "Main Host" } },
+        ]);
+        const ev = new Evidence([], [], [], []);
+        expect([lb, co, main].map((x) => ev.noReportReason(x))).toEqual(["livebreak", "cohost", null]);
+        expect(buildTimeline(lb, ev, now).find((x) => x.id === "report")?.state).toBe("skipped");
+        expect(buildTimeline(co, ev, now).find((x) => x.id === "report")?.when).toBe("Co-Host");
+    });
+    it("treats a LiveBreak report row as no report, and a real report on a Co-Host session normally", () => {
+        const [a, b] = sched([
+            { ...base, Title: "SCD-30" },
+            { ...base, Title: "SCD-31", Position: { Value: "Co-Host" } },
+        ]);
+        const ev = new Evidence(
+            mapReports(recs([
+                { Title: "REP-30", ScheduleID: "SCD-30", Penjualan: 0, ApprovalStatus: "LiveBreak" },
+                { Title: "REP-31", ScheduleID: "SCD-31", Penjualan: 100, ApprovalStatus: "Waiting Approval" },
+            ])),
+            [], [], [],
+        );
+        expect(ev.noReportReason(a)).toBe("livebreak");
+        expect(ev.noReportReason(b)).toBeNull();
+    });
+    it("reads the five approval statuses", () => {
+        expect(["Done", "LiveBreak", "Need Revision", "Waiting Approval", "Waiting Approval Revision"].map(approvalKind)).toEqual(["done", "livebreak", "revision", "waiting", "waitingRevision"]);
+    });
+    it("joins Report Automation by Title and compares host vs AI", () => {
+        const [s1] = sched([{ ...base, Title: "SCD-40" }]);
+        const reports = mapReports(recs([{ ID: 5, Title: "REP-120", ScheduleID: "SCD-40", Penjualan: 1000000, Pesanan: 10, ApprovalStatus: "Waiting Approval" }]));
+        const evidence = mapEvidence(recs([{ ID: 9, Title: "REP-120", Status: "Unmatch", Penjualan: 800000, Pesanan: 10, StartHour: "10:00", EndHour: "12:00" }]));
+        const ev = new Evidence(reports, [], [], evidence);
+        expect(ev.evidenceFor(s1).map((e) => e.itemId)).toEqual([9]);
+        const lines = compareReport(reports[0], ev.evidenceForReport(reports[0])[0], s1);
+        expect(lines.find((l) => l.label === "Penjualan (GMV)")?.same).toBe(false);
+        expect(lines.find((l) => l.label === "Pesanan")?.same).toBe(true);
+        expect(lines.find((l) => l.label === "Jam live")?.same).toBe(true);
+        const steps = buildTimeline(s1, ev, now);
+        expect(steps.find((x) => x.id === "verdict")?.when).toBe("Waiting Approval");
     });
 });

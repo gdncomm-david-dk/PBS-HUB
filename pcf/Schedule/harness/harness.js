@@ -100,10 +100,18 @@
         if (i % 9 === 4) return; // no absen, no report
         absences.push({ ID: 1500 + i, Title: "ABS-" + r.ID, ScheduleID: r.Title, HostID: r.HostID, Status: { Value: "Hadir" }, Keterangan: "", LiveDate: r.Date });
         if (r.Status.Value === "Waiting Report") return;
+        if (i % 8 === 3) { // live break: LiveBreak = Yes and a placeholder report
+            r.LiveBreak = { Value: "Yes" };
+            reports.push({ ID: 2000 + i, Title: "REP-" + r.ID, ScheduleID: r.Title, HostID: r.HostID, LiveDate: r.Date, Penjualan: 0, ApprovalStatus: { Value: "LiveBreak" } });
+            return;
+        }
+        if (r.Position.Value === "Co-Host" && i % 2 === 0) return; // the main host reports
         var gmv = 4000000 + ((i * 7919) % 26) * 1000000;
-        var appr = i % 6 === 0 ? "Waiting" : i % 11 === 0 ? "Need Revision" : "Done";
-        reports.push({ ID: 2000 + i, Title: "RPT-" + r.ID, ScheduleID: r.Title, HostID: r.HostID, AccountID: r.Account, Platform: r.Platform, LiveDate: r.Date, Penjualan: gmv, Pesanan: Math.round(gmv / 95000), TotalViewer: 3000 + (i * 37) % 9000, Durasi_x0028_Min_x0029_0: r.JamLive * 60, ApprovalStatus: { Value: appr }, Match: { Value: i % 13 === 0 ? "Unmatch" : "Match" }, ApprovalComment: appr === "Need Revision" ? "Screenshot tidak terbaca" : "" });
-        if (i % 5 !== 2) evidence.push({ ID: 3000 + i, Title: "RPT-" + r.ID, ScheduleID: r.Title, Status: { Value: i % 13 === 0 ? "Unmatch" : "Match" }, Penjualan: i % 13 === 0 ? gmv * 0.8 : gmv, StartHour: r.StartTime, EndHour: r.EndTime });
+        var appr = i % 6 === 0 ? "Waiting Approval" : i % 7 === 0 ? "Waiting Approval Revision" : i % 11 === 0 ? "Need Revision" : "Done";
+        reports.push({ ID: 2000 + i, Title: "REP-" + r.ID, ScheduleID: r.Title, HostID: r.HostID, AccountID: r.Account, Platform: r.Platform, LiveDate: r.Date, Penjualan: gmv, Pesanan: Math.round(gmv / 95000), TotalViewer: 3000 + (i * 37) % 9000, Durasi_x0028_Min_x0029_0: r.JamLive * 60, ApprovalStatus: { Value: appr }, Match: { Value: i % 13 === 0 ? "Unmatch" : "Match" }, ApprovalComment: appr === "Need Revision" ? "Screenshot tidak terbaca" : "" });
+        // Report Automation is joined by Title (REP-xxx = REP-xxx); it carries no ScheduleID here.
+        var off = i % 4 === 1;
+        if (i % 5 !== 2) evidence.push({ ID: 3000 + i, Title: "REP-" + r.ID, Status: { Value: off ? "Unmatch" : "Match" }, Penjualan: off ? Math.round(gmv * 0.8) : gmv, Pesanan: Math.round(gmv / 95000) - (off ? 3 : 0), TotalViewer: 3000 + (i * 37) % 9000, StartHour: r.StartTime, EndHour: r.EndTime });
     });
     clockins.push({ ID: 999, Title: "CI-live", HostID: live1.HostID, ClockInDate: todayKey, ClockInTime: live1.StartTime, IsInsideGeofence: true, CheckInOffice: "CWG-05", Status: { Value: "Clock In" } });
 
@@ -196,6 +204,17 @@
                     reply(req.requestId, "ok", p.kind === "AI" ? "Tersimpan di /" + p.folder : "", p.kind === "BULK" ? { created: p.rowCount, fileName: p.fileName } : { fileName: p.fileName });
                 });
                 return;
+            case "REVIEW_REPORT": {
+                var rp = reports.find(function (x) { return x.Title === p.reportId; });
+                if (!rp) return reply(req.requestId, "error", "Report " + p.reportId + " tidak ditemukan.");
+                if (p.decision === "revision") {
+                    Object.assign(rp, { ApprovalStatus: { Value: "Need Revision" }, Match: { Value: "Unmatch" }, ApprovalComment: p.comment, ApproverEmail: "ops@example.com" });
+                    evidence.forEach(function (x) { if (x.Title === p.reportId) x.Status = { Value: "Unmatch" }; });
+                } else {
+                    Object.assign(rp, { ApprovalStatus: { Value: "Done" }, Match: { Value: "Match" }, ApprovalComment: p.comment || rp.ApprovalComment, ApproverEmail: "ops@example.com" });
+                }
+                return reply(req.requestId, "ok", p.decision === "revision" ? p.reportId + " dikembalikan untuk revisi." : p.reportId + " disetujui.");
+            }
             case "REMIND_HOST":
                 later(400, function () { reply(req.requestId, "ok", "Pengingat terkirim (contoh).", {}); });
                 return;

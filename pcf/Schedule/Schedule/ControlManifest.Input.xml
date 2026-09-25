@@ -7,7 +7,7 @@
     The control never writes. It emits ActionPayload; the canvas app performs the Patch, the Graph upload
     or the flow call, and answers through ActionResult with the same requestId.
   -->
-  <control namespace="Ops" constructor="Schedule" version="1.2.2" display-name-key="PBS Schedule" description-key="PBS Hub schedule board, session detail, single create and bulk or AI schedule upload." control-type="standard">
+  <control namespace="Ops" constructor="Schedule" version="1.3.0" display-name-key="PBS Schedule" description-key="PBS Hub schedule board, session detail, single create and bulk or AI schedule upload." control-type="standard">
     <external-service-usage enabled="false">
     </external-service-usage>
     <data-set name="schedules" display-name-key="Schedules (Schedule - PBS Hub)" description-key="Bind to the Schedule - PBS Hub list filtered to the selected period. Columns: Title, Date, BrandID, StudioID, HostID, Account, Platform, Shift, Sesi, StartTime, EndTime, JamLive, Status, CampaignName, TotalAccount, Position, LiveBreak." />

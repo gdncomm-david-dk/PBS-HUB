@@ -2,7 +2,7 @@
 // account double-booking. The control only warns; canvas and flows still accept the write.
 
 import { AbsenceRow, ClockRow, EvidenceRow, ReportRow, ScheduleRow, StudioRow } from "./types";
-import { occupies } from "./data";
+import { approvalKind, occupies } from "./data";
 import { dateKeyToDate, formatMinutes, shiftDay, toDateKey } from "./time";
 
 const low = (s: string): string => s.trim().toLowerCase();
@@ -128,6 +128,7 @@ export class Evidence {
     readonly reports = new Map<string, ReportRow[]>();
     readonly absences = new Map<string, AbsenceRow[]>();
     readonly evidence = new Map<string, EvidenceRow[]>();
+    private readonly evidenceByTitle = new Map<string, EvidenceRow[]>();
     private readonly clocks = new Map<string, ClockRow[]>();
 
     constructor(reports: ReportRow[], absences: AbsenceRow[], clocks: ClockRow[], evidence: EvidenceRow[]) {
@@ -138,7 +139,10 @@ export class Evidence {
         };
         for (const r of reports) push(this.reports, low(r.scheduleId), r);
         for (const a of absences) push(this.absences, low(a.scheduleId), a);
-        for (const e of evidence) push(this.evidence, low(e.scheduleId), e);
+        for (const e of evidence) {
+            if (e.scheduleId) push(this.evidence, low(e.scheduleId), e);
+            if (e.title) push(this.evidenceByTitle, low(e.title), e);
+        }
         for (const c of clocks) if (c.hostId) push(this.clocks, `${low(c.hostId)}|${c.dateKey}`, c);
     }
 
@@ -155,8 +159,30 @@ export class Evidence {
         return s.scheduleId ? this.absences.get(low(s.scheduleId)) ?? [] : [];
     }
 
+    /** Report Automation rows of the session: by ScheduleID, and by Title = the Title of one of its reports. */
     evidenceFor(s: ScheduleRow): EvidenceRow[] {
-        return s.scheduleId ? this.evidence.get(low(s.scheduleId)) ?? [] : [];
+        const out = new Map<string, EvidenceRow>();
+        for (const e of s.scheduleId ? this.evidence.get(low(s.scheduleId)) ?? [] : []) out.set(e.key, e);
+        for (const r of this.reportsFor(s)) for (const e of this.evidenceForReport(r)) out.set(e.key, e);
+        return Array.from(out.values());
+    }
+
+    /** Report Automation.Title = Report.Title. */
+    evidenceForReport(r: ReportRow): EvidenceRow[] {
+        return r.reportId ? this.evidenceByTitle.get(low(r.reportId)) ?? [] : [];
+    }
+
+    /** Reports that are real submissions (a LiveBreak row is a placeholder). */
+    realReportsFor(s: ScheduleRow): ReportRow[] {
+        return this.reportsFor(s).filter((r) => approvalKind(r.approvalStatus) !== "livebreak");
+    }
+
+    /** Why the session needs no report, or null when it does: a live break, or a Co-Host whose main host reports. */
+    noReportReason(s: ScheduleRow): "livebreak" | "cohost" | null {
+        if (this.realReportsFor(s).length > 0) return null;
+        if (s.isLiveBreak || this.reportsFor(s).length > 0) return "livebreak";
+        if (s.isCoHost) return "cohost";
+        return null;
     }
 
     /** Clock In has no ScheduleID: the shift is matched by host and business date. */
