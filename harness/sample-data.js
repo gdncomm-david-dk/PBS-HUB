@@ -72,6 +72,8 @@
     sch(12, "16:00", "18:00", "BRD-004", "HST-008", "STD-03", "Waiting Report"),
     // corrected after Need Revision -> Waiting Approval Revision
     sch(11, "10:00", "12:00", "BRD-007", "HST-003", "STD-02", "Finished"),
+    // report with a blank ApprovalStatus -> not in the waiting queue
+    sch(9, "13:00", "15:00", "BRD-005", "HST-003", "STD-03", "Finished"),
   ];
 
   const M = (Penjualan, Pesanan, ProdukTerjual, JumlahPembeli, CTR, CTOR, PeakViewer, extra) =>
@@ -81,7 +83,7 @@
   let rid = 20859;
   const reports = [];
   const evidence = [];
-  const PLAYBOOKS = ["Flash sale 9.9 — bundling best seller", "", "https://example.com/playbook/payday-live.pdf", "Launching produk baru: demo + Q&A"];
+  const PLAYBOOKS = ["Flash Sale", "", "Payday", "Launching Produk"]; // Report.Playbook is a Choice column
   const rep = (scd, status, metrics, created, extra) => {
     const s = byTitle[scd];
     const id = ++rid;
@@ -89,7 +91,7 @@
       ID: id, Title: `REP-${id}`, ScheduleID: scd, HostID: s.HostID, BrandID: s.BrandID, AccountID: `ACC-${s.BrandID.slice(-3)}`,
       Account: s.BrandID === "BRD-008" ? "wingsofficialstore" : s.BrandID.toLowerCase().replace("brd-", "brand") + ".official",
       Platform: s.Platform, LiveDate: s.Date, ApprovalStatus: { Value: status }, Match: { Value: "" }, Created: created, Modified: created,
-      Attachment: "", Playbook: PLAYBOOKS[id % PLAYBOOKS.length],
+      Attachment: "", Playbook: PLAYBOOKS[id % PLAYBOOKS.length] ? { Value: PLAYBOOKS[id % PLAYBOOKS.length] } : null,
     }, metrics, extra || {});
     reports.push(r);
     return r;
@@ -105,7 +107,7 @@
   r = rep("SCD-3212", "Waiting Approval", M(12400000, 340, 512, 288, 4.8, 11.4, 3120), d(12, "21:02")); evi(r, M(10980000, 331, 498, 284, 4.62, 9.85, 3080), d(12, "21:04"), { Confidence: 0.91 });
   r = rep("SCD-3213", "Waiting Approval", M(8450000, 212, 260, 190, 5.1, 10.2, 2210), d(13, "12:30")); evi(r, M(8450000, 212, 259, 190, 5.1, 10.2, 2200), d(13, "12:40"), { Confidence: 0.62 });
   r = rep("SCD-3214", "Waiting Approval", M(3900000, 98, 120, 90, 2.8, 7.4, 870), d(13, "15:20")); evi(r, M(3890000, 98, 120, 90, 2.8, 7.4, 870), d(13, "15:25"), { Confidence: 0.71 });
-  r = rep("SCD-3215", "", M(5120000, 168, 201, 150, 3.9, 8.2, 1400), d(14, "09:10"));
+  r = rep("SCD-3215", "Waiting Approval", M(5120000, 168, 201, 150, 3.9, 8.2, 1400), d(14, "09:10"));
   r = rep("SCD-3216", "Waiting Approval", M(2750000, 70, 85, 66, 2.1, 6.3, 640), d(14, "09:40")); evi(r, M(2750000, 70, 85, null, 2.1, 6.3, 640), d(14, "09:45"));
 
   // Decided today by the flow.
@@ -118,6 +120,7 @@
   rep("SCD-3220", "Need Revision", M(6100000, 150, 170, 130, 4, 9, 1500), d(12, "11:00"), { Approver: { DisplayName: "Bayu Prasetyo", Email: "bayu@example.com" }, ApproverEmail: "bayu@example.com", ApprovalComment: "Penjualan tidak sesuai screenshot", Modified: "2026-09-14T11:37:00" });
   r = rep("SCD-3225", "Waiting Approval Revision", M(4480000, 120, 150, 104, 3.4, 8.1, 1250), d(14, "10:30"), { Approver: { DisplayName: "Bayu Prasetyo", Email: "bayu@example.com" }, ApproverEmail: "bayu@example.com", ApprovalComment: "Pesanan tidak sesuai screenshot\n[Revisi host] Sudah dicek ulang dari dashboard seller.", Match: { Value: "Unmatch" } });
   evi(r, M(4480000, 118, 150, 104, 3.4, 8.1, 1250), d(11, "12:20"));
+  rep("SCD-3226", "", M(3300000, 90, 110, 80, 2.9, 7.2, 900), d(9, "15:30"));
 
   const clockIns = [];
   let cid = 1;
@@ -275,7 +278,7 @@
   const hr = (id, scd, day, status, metrics, created, extra) => Object.assign({
     ID: id, Title: `REP-${id}`, ScheduleID: scd, HostID: "HST-001", BrandID: hostSchedules.find((x) => x.Title === scd).BrandID,
     AccountID: `ACC-${hostSchedules.find((x) => x.Title === scd).BrandID.slice(-3)}`, Platform: hostSchedules.find((x) => x.Title === scd).Platform, LiveDate: d(day),
-    ApprovalStatus: { Value: status }, Match: { Value: "" }, Created: created, Modified: created, Attachment: "", Playbook: PLAYBOOKS[id % PLAYBOOKS.length],
+    ApprovalStatus: { Value: status }, Match: { Value: "" }, Created: created, Modified: created, Attachment: "", Playbook: PLAYBOOKS[id % PLAYBOOKS.length] ? { Value: PLAYBOOKS[id % PLAYBOOKS.length] } : null,
   }, metrics, extra || {});
   const hostReports = [
     hr(20901, "SCD-3301", 11, "Need Revision", M(7350000, 188, 240, 171, 4.4, 12.8, 1980), d(11, "15:30"), {

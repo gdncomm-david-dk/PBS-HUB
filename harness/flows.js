@@ -139,12 +139,17 @@ const assert = (c, m) => { if (!c) { console.log("FAIL", m); process.exitCode = 
   const revRow = p.locator("tbody tr", { hasText: "SCD-3225" });
   assert((await revRow.count()) === 1 && (await revRow.getByText("Waiting Approval Revision").isVisible()), "Waiting Approval Revision report is in the Menunggu review tab");
   assert(await revRow.getByText("10:00–12:00").isVisible(), "live window looked up from the schedule");
+  assert((await p.locator("tbody tr", { hasText: "SCD-3226" }).count()) === 0, "blank ApprovalStatus is not in Menunggu review");
+  await p.getByRole("tab", { name: /Semua/ }).click();
+  const blankRow = p.locator("tbody tr", { hasText: "SCD-3226" });
+  assert((await blankRow.count()) === 1 && (await blankRow.getByText("Belum ada status").isVisible()), "blank ApprovalStatus shows under Semua as Belum ada status");
+  await p.getByRole("tab", { name: /Menunggu review/ }).click();
   await revRow.getByRole("button", { name: "Review", exact: true }).click();
   const rdlg = p.getByRole("dialog");
   assert((await rdlg.getByText("SCD-3225").first().isVisible()) && (await rdlg.getByText("Waiting Approval Revision").first().isVisible()) && (await rdlg.getByText("Jam live").isVisible()), "popup header shows Schedule ID, Jam live and Status");
   await shot("f-rr-revision");
   await go("c=ReportDetail&r=REP-20862");
-  assert((await p.getByText("SCD-3212").first().isVisible()) && (await p.getByText("19:00–21:00").isVisible()) && (await p.getByText("Playbook").first().isVisible()), "detail shows Schedule ID, live window and Playbook");
+  assert((await p.getByText("SCD-3212").first().isVisible()) && (await p.getByText("19:00–21:00").isVisible()) && (await p.getByText("Playbook").first().isVisible()) && (await p.getByText("Payday", { exact: true }).first().isVisible()), "detail shows Schedule ID, live window and the Playbook choice");
 
   // Paging: pageSize 10 local, then LOAD_MORE when HasMore.
   await go("c=ReportReview&tab=All");

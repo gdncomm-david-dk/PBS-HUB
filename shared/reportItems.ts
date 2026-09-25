@@ -1,5 +1,4 @@
-import { Row, date, nameIndex, parseClock, rowId, str } from "./data";
-import { fmtClock } from "./format";
+import { Row, clockText, date, nameIndex, rowId, str } from "./data";
 import { ReconcileOptions, Reconciliation, ReviewState, indexEvidence, numericTail, reconcile, reviewState, waitingSince } from "./reconcile";
 
 /** Schedule rows by Title (SCD-xxx), ID and numeric tail, so Report.ScheduleID finds its row either way. */
@@ -8,6 +7,9 @@ export function indexSchedules(schedules: Row[]): Map<string, Row> {
   for (const s of schedules) {
     const title = str(s, "Title").trim().toLowerCase();
     if (title && !m.has(title)) m.set(title, s);
+    // Some tenants keep the code in its own column next to Title.
+    const code = str(s, "ScheduleID", "ScheduleCode").trim().toLowerCase();
+    if (code && !m.has(code)) m.set(code, s);
     const id = rowId(s);
     if (id && !m.has(`#${id}`)) m.set(`#${id}`, s);
     const tail = numericTail(title);
@@ -26,8 +28,7 @@ export function scheduleFor(idx: Map<string, Row>, scheduleId: string): Row | un
 export function liveWindow(schedule: Row | undefined, report?: Row): string {
   const clock = (...fields: string[]) => {
     const raw = str(schedule, ...fields) || str(report, ...fields);
-    const m = parseClock(raw);
-    return m === null ? raw : fmtClock(m);
+    return clockText(raw);
   };
   const start = clock("StartTime", "JamMulai");
   const end = clock("EndTime", "JamSelesai");

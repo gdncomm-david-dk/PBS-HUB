@@ -96,9 +96,9 @@ di bawah yang disarankan.
 | `LiveDate` | LiveDate | tanggal live (kirim `Text(LiveDate,"yyyy-mm-dd")`) |
 | `Penjualan`, `Pesanan`, `ProdukTerjual`, `JumlahPembeli`, `CTR`, `CTOR`, `PeakViewer` | idem | 7 metrik inti PBS0005A (selalu dibandingkan) |
 | `DurasiMin`, `AddToCart`, `TotalViewer`, `Comment`, `Share` | `Durasi(Min)`, … | ikut dibandingkan di tabel yang sama bila klaim atau bukti berisi nilai |
-| `ApprovalStatus`, `Match` | Choice | tab & kolom *Status* (nilai `ApprovalStatus` apa adanya; `Waiting Approval`, `Waiting Approval Revision`/kosong = menunggu, `Need Revision` = perlu revisi, `Done` = selesai; komentar `Automated…` = otomatis) |
+| `ApprovalStatus`, `Match` | Choice | tab & kolom *Status* (nilai `ApprovalStatus` apa adanya; `Waiting Approval`, `Waiting Approval Revision` = menunggu; kosong = *Belum ada status*, tidak masuk antrean, `Need Revision` = perlu revisi, `Done` = selesai; komentar `Automated…` = otomatis) |
 | `ApprovalComment`, `Approver`, `ApproverEmail` | idem | ringkasan keputusan, banner "sudah diputuskan oleh…" |
-| `Playbook` | Playbook | kolom & detail *Playbook* (teks; link `https://…` jadi tombol *Buka playbook* → `OPEN_EVIDENCE`). Kalau kolomnya Choice kirim `Playbook.Value`, kalau Hyperlink kirim teks URL-nya |
+| `Playbook` | Playbook (Choice) | kolom & detail *Playbook*. Kirim `Playbook: Playbook.Value` (Choice multi-pilih: `Concat(Playbook, Value, ", ")`) |
 | `Attachment` | Attachment (Note, URL) | fallback URL screenshot |
 | `Created`, `Modified` | sistem | umur antrean, "diputuskan X menit lalu" |
 
@@ -111,6 +111,7 @@ di bawah yang disarankan.
 | | `Need Revision` | dikembalikan ke host (tab *Perlu revisi*) |
 | | `Done` | selesai (manual, atau *Otomatis* kalau `ApprovalComment` berisi "Automated …") |
 | | `LiveBreak` | live terputus — badge *Live break*, tidak menunggu siapa pun |
+| | *(kosong)* | *Belum ada status* — **tidak** masuk tab *Menunggu review* (hanya di *Semua*) dan tidak bisa diputuskan sampai `ApprovalStatus` diisi |
 | `Report.Match` | `Match` / `Unmatch` | hasil keputusan reviewer |
 | `Report Automation.Status` | `Match` / `Unmatch` | hasil pembacaan AI |
 
@@ -119,8 +120,15 @@ Minta revisi menulis ke Report: `Match = Unmatch`, `ApprovalComment` = komentar 
 reviewer, `ApprovalStatus = Need Revision`. Host yang memperbaiki menulis `ApprovalStatus = Waiting Approval
 Revision` dan `Report Automation.Status = Unmatch` (hanya kolom itu) — lihat `HOST-CANVAS-INTEGRATION.md` §5.
 
+> **Jam live tampil "—"?** Jam diambil dari `Schedule - PBS Hub` kolom `StartTime` dan `EndTime`, dicocokkan
+> lewat `Report.ScheduleID` = `Schedule.Title` (atau kolom `Schedule.ScheduleID`, atau angka ID-nya). Cek: (1)
+> properti `SchedulesJson` sudah diisi di ReportReview / ReportDetail — properti ini baru sejak 1.4.0, jadi
+> kosong setelah upgrade; (2) `colRrSchedule` memuat jadwal report yang lama (perlebar `DateAdd(Today(), -90)`
+> kalau perlu); (3) `StartTime`/`EndTime` boleh teks (`10:00`, `10.00`, `1000`) atau kolom Date and Time — dua-duanya
+> dibaca, Date and Time ditampilkan dalam jam lokal.
+
 > **Report `Waiting Approval Revision` tidak muncul di antrean?** Kontrol memasukkannya ke tab *Menunggu review*
-> (juga ejaan `Waiting Revision Approval`). Kalau tetap tidak muncul, baris itu tidak sampai ke kontrol: cek
+> (juga ejaan `Waiting Revision Approval`). Report dengan `ApprovalStatus` kosong memang tidak masuk antrean. Kalau tetap tidak muncul, baris itu tidak sampai ke kontrol: cek
 > `Filter(...)` di OnVisible/OnStart canvas yang hanya memuat `ApprovalStatus.Value = "Waiting Approval"`
 > (contoh lama untuk Dashboard), dan pastikan `ReportsJson` mengirim `ApprovalStatus: ApprovalStatus.Value`.
 
@@ -242,7 +250,7 @@ DefaultTab   = "Waiting"
 IsLoading    = varRrLoading
 HasMore      = CountRows(colRrReport) >= varRrTop
 ActionResult = varRrResult
-ReportsJson  = JSON(ForAll(colRrReport, {ID: ID, Title: Title, ScheduleID: ScheduleID, HostID: HostID, BrandID: BrandID, AccountID: AccountID, Account: Account, Platform: Platform.Value, LiveDate: Text(LiveDate, "yyyy-mm-dd"), Playbook: Playbook, Penjualan: Penjualan, Pesanan: Pesanan, ProdukTerjual: ProdukTerjual, JumlahPembeli: JumlahPembeli, CTR: CTR, CTOR: CTOR, PeakViewer: PeakViewer, DurasiMin: 'Durasi(Min)', AddToCart: AddToCart, TotalViewer: TotalViewer, Comment: Comment, Share: Share, ApprovalStatus: ApprovalStatus.Value, Match: Match.Value, ApprovalComment: ApprovalComment, Approver: Approver.DisplayName, ApproverEmail: ApproverEmail, Attachment: Attachment, Created: Created, Modified: Modified}), JSONFormat.Compact)
+ReportsJson  = JSON(ForAll(colRrReport, {ID: ID, Title: Title, ScheduleID: ScheduleID, HostID: HostID, BrandID: BrandID, AccountID: AccountID, Account: Account, Platform: Platform.Value, LiveDate: Text(LiveDate, "yyyy-mm-dd"), Playbook: Playbook.Value, Penjualan: Penjualan, Pesanan: Pesanan, ProdukTerjual: ProdukTerjual, JumlahPembeli: JumlahPembeli, CTR: CTR, CTOR: CTOR, PeakViewer: PeakViewer, DurasiMin: 'Durasi(Min)', AddToCart: AddToCart, TotalViewer: TotalViewer, Comment: Comment, Share: Share, ApprovalStatus: ApprovalStatus.Value, Match: Match.Value, ApprovalComment: ApprovalComment, Approver: Approver.DisplayName, ApproverEmail: ApproverEmail, Attachment: Attachment, Created: Created, Modified: Modified}), JSONFormat.Compact)
 EvidenceJson = JSON(ForAll(colRrEvidence, {ID: ID, Title: Title, HostID: HostID, ScheduleID: ScheduleID, AccountID: AccountID, Platform: Platform.Value, Penjualan: Penjualan, Pesanan: Pesanan, ProdukTerjual: ProdukTerjual, JumlahPembeli: JumlahPembeli, CTR: CTR, CTOR: CTOR, PeakViewer: PeakViewer, DurasiMin: 'Durasi(Min)', AddToCart: AddToCart, TotalViewer: TotalViewer, Comment: Comment, Share: Share, Status: Status.Value, Attachment: Attachment, Created: Created}), JSONFormat.Compact)
 HostsJson    = JSON(ForAll('Host - PBS Hub', {Title: Title, NamaHost: NamaHost}), JSONFormat.Compact)
 BrandsJson   = JSON(ForAll('Brand - PBS Hub', {Title: Title, NamaBrand: NamaBrand}), JSONFormat.Compact)
@@ -292,7 +300,7 @@ If(!IsBlank(Self.ActionPayload),
                             ForAll(Table(p.items),
                                 With({it: ThisRecord.Value, cur: LookUp('Report - PBS Hub', ID = Value(ThisRecord.Value.reportId))},
                                     // Lewati yang sudah diputuskan orang lain sejak layar dibuka.
-                                    If(cur.ApprovalStatus.Value in ["Waiting Approval", "Waiting Approval Revision"] || IsBlank(cur.ApprovalStatus.Value),
+                                    If(cur.ApprovalStatus.Value in ["Waiting Approval", "Waiting Approval Revision"],
                                         Patch('Report - PBS Hub', cur, {
                                             ApprovalStatus: {Value: "Done"}, Match: {Value: "Match"},
                                             ApprovalComment: Text(p.comment), ApproverEmail: User().Email
@@ -313,7 +321,7 @@ If(!IsBlank(Self.ActionPayload),
                 If(act in ["APPROVE", "APPROVE_WITHOUT_EVIDENCE", "REQUEST_REVISION", "ESCALATE"],
                     With({cur: LookUp('Report - PBS Hub', ID = Value(p.reportId))},
                         If(
-                            !(cur.ApprovalStatus.Value in ["Waiting Approval", "Waiting Approval Revision"] || IsBlank(cur.ApprovalStatus.Value)),
+                            !(cur.ApprovalStatus.Value in ["Waiting Approval", "Waiting Approval Revision"]),
                             Set(varRrResult, JSON({requestId: rid, status: "conflict",
                                 decidedBy: Coalesce(cur.Approver.DisplayName, cur.ApproverEmail, "orang lain"),
                                 decidedAt: cur.Modified}, JSONFormat.Compact)),
@@ -361,7 +369,7 @@ Context      = varPbsCtx
 Mode         = If(userRole.Value = "HOST", "ReadOnly", "Admin")
 IsLoading    = varRdLoading
 ActionResult = varRdResult
-ReportJson   = JSON(ForAll(Filter('Report - PBS Hub', ID = varSelectedReportId), {ID: ID, Title: Title, ScheduleID: ScheduleID, HostID: HostID, BrandID: BrandID, AccountID: AccountID, Account: Account, Platform: Platform.Value, LiveDate: Text(LiveDate, "yyyy-mm-dd"), Playbook: Playbook, Penjualan: Penjualan, Pesanan: Pesanan, ProdukTerjual: ProdukTerjual, JumlahPembeli: JumlahPembeli, CTR: CTR, CTOR: CTOR, PeakViewer: PeakViewer, DurasiMin: 'Durasi(Min)', AddToCart: AddToCart, TotalViewer: TotalViewer, Comment: Comment, Share: Share, ApprovalStatus: ApprovalStatus.Value, Match: Match.Value, ApprovalComment: ApprovalComment, Approver: Approver.DisplayName, ApproverEmail: ApproverEmail, Attachment: Attachment, Created: Created, Modified: Modified}), JSONFormat.Compact)
+ReportJson   = JSON(ForAll(Filter('Report - PBS Hub', ID = varSelectedReportId), {ID: ID, Title: Title, ScheduleID: ScheduleID, HostID: HostID, BrandID: BrandID, AccountID: AccountID, Account: Account, Platform: Platform.Value, LiveDate: Text(LiveDate, "yyyy-mm-dd"), Playbook: Playbook.Value, Penjualan: Penjualan, Pesanan: Pesanan, ProdukTerjual: ProdukTerjual, JumlahPembeli: JumlahPembeli, CTR: CTR, CTOR: CTOR, PeakViewer: PeakViewer, DurasiMin: 'Durasi(Min)', AddToCart: AddToCart, TotalViewer: TotalViewer, Comment: Comment, Share: Share, ApprovalStatus: ApprovalStatus.Value, Match: Match.Value, ApprovalComment: ApprovalComment, Approver: Approver.DisplayName, ApproverEmail: ApproverEmail, Attachment: Attachment, Created: Created, Modified: Modified}), JSONFormat.Compact)
 EvidenceJson = JSON(ForAll(Filter('Report Automation - PBS Hub', Title = LookUp('Report - PBS Hub', ID = varSelectedReportId).Title), {ID: ID, Title: Title, HostID: HostID, ScheduleID: ScheduleID, AccountID: AccountID, Platform: Platform.Value, Penjualan: Penjualan, Pesanan: Pesanan, ProdukTerjual: ProdukTerjual, JumlahPembeli: JumlahPembeli, CTR: CTR, CTOR: CTOR, PeakViewer: PeakViewer, DurasiMin: 'Durasi(Min)', AddToCart: AddToCart, TotalViewer: TotalViewer, Comment: Comment, Share: Share, Status: Status.Value, Attachment: Attachment, Created: Created}), JSONFormat.Compact)
 HostsJson    = JSON(ForAll(Filter('Host - PBS Hub', Title = LookUp('Report - PBS Hub', ID = varSelectedReportId).HostID), {Title: Title, NamaHost: NamaHost}), JSONFormat.Compact)
 BrandsJson   = JSON(ForAll('Brand - PBS Hub', {Title: Title, NamaBrand: NamaBrand}), JSONFormat.Compact)
@@ -407,7 +415,7 @@ If(!IsBlank(Self.ActionPayload),
                     With({cur: LookUp('Report - PBS Hub', ID = Value(p.reportId))},
                         If(
                             // Sudah diputuskan orang lain sejak layar dibuka → tolak tulis (race R2).
-                            !(cur.ApprovalStatus.Value in ["Waiting Approval", "Waiting Approval Revision"] || IsBlank(cur.ApprovalStatus.Value)),
+                            !(cur.ApprovalStatus.Value in ["Waiting Approval", "Waiting Approval Revision"]),
                             Set(varRdResult, JSON({requestId: rid, status: "conflict",
                                 decidedBy: Coalesce(cur.Approver.DisplayName, cur.ApproverEmail, "orang lain"),
                                 decidedAt: cur.Modified}, JSONFormat.Compact)),
@@ -822,7 +830,7 @@ ActionResult    = varHdResult
 RevealedJson    = varHdReveal
 HostJson        = JSON(ForAll(Table(varHdHost), {ID: ID, Title: Title, HostCode: HostCode, NamaHost: NamaHost, Status: Status.Value, Package: Package.Value, Email: Email.Email, JoinDate: JoinDate, RegistrationDate: RegistrationDate, RegisteredBy: RegisteredBy, InitialScore: InitialScore, CurrentScore: CurrentScore, MinimumScore: MinimumScore, MaximumScore: MaximumScore, Modified: Modified, Bank: Bank, HasRekening: !IsBlank(NoRekening) && !IsBlank(Bank), NorekLast4: Right(NoRekening, 4), KtpLast4: Right(KTP, 4), PhoneLast4: Right(PhoneNumber, 4), HasAlamat: !IsBlank(Alamat), HasNamaRekening: !IsBlank(NamaRekening), HasPersonalEmail: !IsBlank(PersonalEmail)}), JSONFormat.Compact)
 SchedulesJson   = JSON(ForAll(colHdSched, {ID: ID, Title: Title, Date: Date, StartTime: StartTime, EndTime: EndTime, BrandID: BrandID, StudioID: StudioID, HostID: HostID, Platform: Platform.Value, Status: Status.Value}), JSONFormat.Compact)
-ReportsJson     = JSON(ForAll(colHdReport, {ID: ID, Title: Title, ScheduleID: ScheduleID, Playbook: Playbook, LiveDate: LiveDate, BrandID: BrandID, HostID: HostID, Platform: Platform.Value, Penjualan: Penjualan, ApprovalStatus: ApprovalStatus.Value, ApprovalComment: ApprovalComment, Modified: Modified}), JSONFormat.Compact)
+ReportsJson     = JSON(ForAll(colHdReport, {ID: ID, Title: Title, ScheduleID: ScheduleID, Playbook: Playbook.Value, LiveDate: LiveDate, BrandID: BrandID, HostID: HostID, Platform: Platform.Value, Penjualan: Penjualan, ApprovalStatus: ApprovalStatus.Value, ApprovalComment: ApprovalComment, Modified: Modified}), JSONFormat.Compact)
 ClockInJson     = JSON(ForAll(colHdClockIn, {ID: ID, Title: Title, HostID: HostID, ClockInDate: Text(ClockInDate, "yyyy-mm-dd"), CheckInTime: CheckInTime, CheckOutTime: CheckOutTime, ClockInTime: ClockInTime, ClockOutTime: ClockOutTime, IsInsideGeofence: IsInsideGeofence, StatusKehadiran: Status.Value, HKTugas: HKTugas, Tier: Tier.Value, Insentif: Insentif, Streak: Streak, AdjustedBy: AdjustedBy, AdjustedAt: AdjustedAt, AdjustReason: AdjustReason, Modified: Modified}), JSONFormat.Compact)
 // Tier: pakai Tier.Value kalau kolomnya Choice, Tier kalau Text. AdjustedBy/At/Reason opsional (lihat Kehadiran di bawah).
 PayrollDataJson = JSON(ForAll(colHdLine, {Title: Title, payroll_id: payroll_id, HostID: varSelectedHostId, Periode: Periode, JumlahHari: JumlahHari, TotalGaji: TotalGaji, PPh21: PPh21, NetTHP: NetTHP, Bank: Bank, NorekLast4: Right(Norek, 4), HasRekening: !IsBlank(Norek) && !IsBlank(Bank)}), JSONFormat.Compact)
@@ -996,7 +1004,7 @@ belum ada di v1, bulk approve tidak akan muncul — itu disengaja.
 
 1. Power Platform admin center → environment → **Settings → Product → Features** → aktifkan
    *Allow publishing of canvas apps with code components*.
-2. make.powerapps.com → **Solutions → Import solution** → `PBSHubOpsPCF_1_6_0_0_managed.zip`
+2. make.powerapps.com → **Solutions → Import solution** → `PBSHubOpsPCF_1_6_1_0_managed.zip`
    (sudah pernah import versi lama? Import ini meng-**upgrade** solusi yang sama — pilih *Upgrade*, bukan
    *Stage for upgrade* yang belum di-*Apply*).
 3. Di canvas app: **Insert → Get more components → Code** → pilih `PBS Ops Dashboard`,
@@ -1009,8 +1017,8 @@ belum ada di v1, bulk approve tidak akan muncul — itu disengaja.
 disisipkan. Setelah upgrade solusi: buka app di Studio → akan muncul banner *"Updated code components
 detected"* → **Update**. Kalau banner tidak muncul: tutup Studio, hard refresh browser (Ctrl+Shift+R), buka
 lagi. Lalu **Save + Publish** app. Pastikan juga di Solutions → PBS Hub Ops PCF → History bahwa versi
-1.6.0.0 benar-benar terpasang. Versi control di solusi ini: Dashboard 1.3.1, ReportReview / ReportDetail
-1.4.0, PayrollRuns 1.2.2, PayrollRunDetail 1.2.1, HostList 1.2.3, HostDetail 1.3.4. ReportReview dan
+1.6.1.0 benar-benar terpasang. Versi control di solusi ini: Dashboard 1.3.2, ReportReview / ReportDetail
+1.4.1, PayrollRuns 1.2.3, PayrollRunDetail 1.2.2, HostList 1.2.4, HostDetail 1.3.5. ReportReview dan
 ReportDetail 1.4.0 punya properti baru `SchedulesJson` — isi di canvas supaya kolom *Jam live* terisi.
 
 **Tampilan rusak di app (tabel tidak full, tombol tanpa border, checkbox hilang)?** Itu CSS global Power

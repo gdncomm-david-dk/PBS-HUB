@@ -64,7 +64,7 @@ function Detail(props: ReportDetailProps & { item: ReportItem; tolerancePct: num
   const approverName = approver.name || approverEmail;
   const modified = date(report, "Modified");
   const mine = !!approverEmail && !!ctx.userEmail && approverEmail.toLowerCase() === ctx.userEmail.toLowerCase();
-  const decidedElsewhere = item.state !== "WAITING" && !decidedByMe && !mine;
+  const decidedElsewhere = item.state !== "WAITING" && item.state !== "OTHER" && !decidedByMe && !mine;
   const reason = REASONS[item.rec.reason];
 
   const headerPill = decidedByMe ? (

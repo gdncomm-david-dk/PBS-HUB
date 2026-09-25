@@ -149,10 +149,18 @@ export function toDate(v: unknown): Date | null {
   return Number.isNaN(d.getTime()) ? null : d;
 }
 
-/** "10:00", "10.00", "1000", "10:00:00", "10:00 AM" → minutes after midnight. */
+/**
+ * "10:00", "10.00", "1000", "10:00:00", "10:00 AM", a whole hour "10", or a SharePoint Date and Time
+ * value ("2026-09-14T03:00:00Z", read in local time) → minutes after midnight.
+ */
 export function parseClock(v: string): number | null {
   const s = v.trim().toUpperCase();
   if (!s) return null;
+  if (/^\d{4}-\d{2}-\d{2}[T ]\d{1,2}:\d{2}/.test(s)) {
+    const d = new Date(v.trim());
+    return Number.isNaN(d.getTime()) ? null : d.getHours() * 60 + d.getMinutes();
+  }
+  if (/^\d{1,2}$/.test(s)) return Number(s) <= 24 ? Number(s) * 60 : null;
   const m = /^(\d{1,2})[:.]?(\d{2})(?::\d{2})?\s*(AM|PM)?$/.exec(s);
   if (!m) return null;
   let h = Number(m[1]);
@@ -188,4 +196,11 @@ export function nameIndex(rows: Row[], nameKeys: string[]): Map<string, string> 
     if (key) m.set(key, name || key);
   }
   return m;
+}
+
+/** Clock value as "HH:mm" for display; the raw text when it is not a time; "" when blank. */
+export function clockText(v: string): string {
+  const m = parseClock(v);
+  if (m === null) return v.trim();
+  return `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`;
 }

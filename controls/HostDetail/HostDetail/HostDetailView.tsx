@@ -634,7 +634,7 @@ function ReportsTab(props: { reports: HostReport[]; loading: boolean; onOpen: (r
                     </td>
                     <td className="r pbs-num">{money(r.sales)}</td>
                     <td style={{ whiteSpace: "nowrap" }}>
-                      <Badge tone={rs.tone} title={rs.label}>{r.approvalStatus || "Waiting Approval"}</Badge>
+                      <Badge tone={rs.tone} title={rs.label}>{r.approvalStatus || "Belum ada status"}</Badge>
                     </td>
                     <td className="r">
                       <Button variant="secondary" size="sm" onClick={() => props.onOpen(r)}>

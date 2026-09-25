@@ -58,13 +58,13 @@ export function evidenceUrl(report: Row, evidence: Row | undefined): string {
 }
 
 /** Title card: report id, live date, brand, host, account, and a status pill on the right. */
-/** Report.ApprovalStatus as stored, toned by its review state. Blank reads as waiting. */
+/** Report.ApprovalStatus as stored, toned by its review state. */
 export function ApprovalStatusBadge(props: { item: ReportItem }): React.ReactElement {
   const { item } = props;
   const st = reviewBadge(item.row, item.state);
   return (
     <Badge tone={st.tone} title={st.label}>
-      {item.approvalStatus || "Waiting Approval"}
+      {item.approvalStatus || "Belum ada status"}
     </Badge>
   );
 }
@@ -360,6 +360,13 @@ function DecisionSummary(props: { report: Row; item: ReportItem; now: Date; deci
           <div style={{ fontWeight: 600 }}>Keputusanmu sudah tercatat.</div>
           <div style={{ fontSize: 12, color: "#60686E" }}>Report akan hilang dari antrean setelah data dimuat ulang.</div>
         </div>
+      </div>
+    );
+  }
+  if (item.state === "OTHER" && !item.approvalStatus) {
+    return (
+      <div className="pbs-card" style={{ padding: 18, fontSize: 13, color: "#60686E" }}>
+        ApprovalStatus report ini masih kosong, jadi belum masuk antrean review. Isi ApprovalStatus di list Report (mis. <b>Waiting Approval</b>) supaya bisa diputuskan.
       </div>
     );
   }

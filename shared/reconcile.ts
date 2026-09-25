@@ -93,9 +93,13 @@ export const isResubmitted = (report: Row | undefined): boolean => {
   return v.startsWith("waiting") && v.includes("revis");
 };
 
+/** Report with a blank ApprovalStatus. */
+export const NO_STATUS: { label: string; tone: Tone } = { label: "Belum ada status", tone: "neutral" };
+
 /** Badge for a report: the review state, with the resubmitted revision told apart. */
 export function reviewBadge(report: Row | undefined, state: ReviewState): { label: string; tone: Tone } {
   if (state === "WAITING" && isResubmitted(report)) return { label: "Menunggu review (revisi)", tone: "info" };
+  if (state === "OTHER" && !str(report, "ApprovalStatus")) return NO_STATUS;
   return REVIEW_STATES[state];
 }
 
@@ -108,7 +112,9 @@ export function reviewState(report: Row): ReviewState {
   const s = str(report, "ApprovalStatus").toLowerCase();
   // Report.ApprovalStatus choices: Done, LiveBreak, Need Revision, Waiting Approval, Waiting Approval Revision.
   if (s.replace(/[\s_-]+/g, "") === "livebreak") return "LIVE_BREAK";
-  if (s === "" || s.startsWith("waiting") || s === "menunggu" || s === "pending" || s === "menunggu review") return "WAITING";
+  // Blank is not a request for review: it stays out of the waiting queue (shown under Semua only).
+  if (s === "") return "OTHER";
+  if (s.startsWith("waiting") || s === "menunggu" || s === "pending" || s === "menunggu review") return "WAITING";
   if (s.includes("revis") || s === "rejected" || s === "ditolak") return "REVISION";
   if (s === "done" || s === "approved" || s === "selesai" || s === "disetujui") {
     return isAutomatedDecision(report) ? "DONE_AUTO" : "DONE_MANUAL";

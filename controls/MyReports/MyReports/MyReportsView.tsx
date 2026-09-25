@@ -242,7 +242,7 @@ function ReportRow(props: { i: Item; onOpen: () => void }): React.ReactElement {
       <span className="r pbs-num hide-s">{i.sales === null ? <span className="pbs-muted">—</span> : fmtRupiah(i.sales)}</span>
       <span>
         <Badge tone={st.tone} title={st.label}>
-          {str(i.report, "ApprovalStatus") || "Waiting Approval"}
+          {str(i.report, "ApprovalStatus") || "Belum ada status"}
         </Badge>
       </span>
       <span className="r">

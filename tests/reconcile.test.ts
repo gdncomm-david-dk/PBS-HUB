@@ -87,7 +87,8 @@ describe("reviewState — M7 vocabulary", () => {
     expect(reviewState({ ApprovalStatus: { Value: "Need Revision" } })).toBe("REVISION");
     expect(reviewState({ ApprovalStatus: "Done", ApprovalComment: "Automated Match by AI" })).toBe("DONE_AUTO");
     expect(reviewState({ ApprovalStatus: "Done", ApprovalComment: "ok" })).toBe("DONE_MANUAL");
-    expect(reviewState({})).toBe("WAITING");
+    expect(reviewState({})).toBe("OTHER"); // blank is not waiting for review
+    expect(reviewBadge({}, "OTHER").label).toBe("Belum ada status");
   });
   it("numericTail", () => {
     expect(numericTail("REP-20863")).toBe("20863");

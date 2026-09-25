@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8" ?>
 <manifest>
-  <control namespace="Ops" constructor="HostList" version="1.2.3" display-name-key="PBS Ops Host List" description-key="PBS Hub Ops Console HD-1: host directory with package, status, credit score band and a warning for hosts without bank details." control-type="standard">
+  <control namespace="Ops" constructor="HostList" version="1.2.4" display-name-key="PBS Ops Host List" description-key="PBS Hub Ops Console HD-1: host directory with package, status, credit score band and a warning for hosts without bank details." control-type="standard">
     <external-service-usage enabled="false"></external-service-usage>
 
     <property name="Context" display-name-key="Context" description-key="JSON {userEmail,userName,roles,permissions,config}. config: pageSize (50), scoreInitial, scoreMin, scoreMax (ScoreConfig)." of-type="Multiple" usage="input" required="false" />

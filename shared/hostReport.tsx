@@ -179,7 +179,7 @@ export function ReportFacts(props: { report: Row; session: HostSession | undefin
           <dt>Status</dt>
           <dd>
             <Badge tone={st.tone} title={st.label}>
-              {str(report, "ApprovalStatus") || "Waiting Approval"}
+              {str(report, "ApprovalStatus") || "Belum ada status"}
             </Badge>
           </dd>
         </div>

@@ -392,7 +392,7 @@ function ReportCard(props: { report: Row; revision: boolean; onOpen: () => void 
         ))}
         <div>
           <dt>Status</dt>
-          <dd>{str(r, "ApprovalStatus") || "Waiting Approval"}</dd>
+          <dd>{str(r, "ApprovalStatus") || "Belum ada status"}</dd>
         </div>
         {str(r, "Playbook").trim() ? (
           <div style={{ gridColumn: "span 2" }}>

@@ -1,14 +1,6 @@
 import * as React from "react";
 import { ModuleContext, UseActionResult } from "./contract";
-import {
-  Row,
-  date,
-  localDayKey,
-  num,
-  parseClock,
-  startOfDay,
-  str,
-} from "./data";
+import { Row, clockText, date, localDayKey, num, parseClock, startOfDay, str } from "./data";
 import { fmtClock, fmtLongDate, fmtRupiah } from "./format";
 import { clockInDay } from "./payroll";
 import { sessionStatus } from "./host";
@@ -84,8 +76,8 @@ export function availableClockInDates(
     if (!d || startOfDay(d).getTime() > today) continue;
     const key = localDayKey(d);
     if (clocked.has(key)) continue;
-    const start = str(s, "StartTime", "JamMulai");
-    const end = str(s, "EndTime", "JamSelesai");
+    const start = clockText(str(s, "StartTime", "JamMulai"));
+    const end = clockText(str(s, "EndTime", "JamSelesai"));
     const entry = days.get(key) ?? {
       key,
       day: startOfDay(d),

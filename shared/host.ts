@@ -1,4 +1,4 @@
-import { Row, bool, date, num, rowId, startOfDay, str } from "./data";
+import { Row, bool, clockText, date, num, rowId, startOfDay, str } from "./data";
 import { Period, RunModel, addMonths, clockInDay, hasBank, inPeriod, parsePeriod, periodKey, periodOf } from "./payroll";
 import { ReviewState, Tone, reviewState } from "./reconcile";
 import { indexSchedules, liveWindow, scheduleFor } from "./reportItems";
@@ -318,8 +318,8 @@ export function buildSessions(schedules: Row[], clockIns: Row[], brands: Map<str
         id: rowId(s),
         title: str(s, "Title"),
         day,
-        start: str(s, "StartTime", "JamMulai"),
-        end: str(s, "EndTime", "JamSelesai"),
+        start: clockText(str(s, "StartTime", "JamMulai")),
+        end: clockText(str(s, "EndTime", "JamSelesai")),
         brandId,
         brand: brands.get(brandId) ?? (str(s, "BrandName", "NamaBrand") || brandId || "—"),
         studio: studios.get(studioId) ?? (str(s, "StudioName", "NamaStudio") || studioId || "—"),

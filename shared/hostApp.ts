@@ -1,7 +1,7 @@
-import { Row, date, localDayKey, nameIndex, num, parseClock, rowId, startOfDay, str } from "./data";
+import { Row, clockText, date, localDayKey, nameIndex, num, parseClock, rowId, startOfDay, str } from "./data";
 import { clockInDay } from "./payroll";
 import { sessionStatus } from "./host";
-import { ALL_METRICS, MetricDef, ReviewState, Tone, isResubmitted, readMetric, reviewState } from "./reconcile";
+import { ALL_METRICS, MetricDef, NO_STATUS, ReviewState, Tone, isResubmitted, readMetric, reviewState } from "./reconcile";
 
 /**
  * Host self-service (pbs_Host.*): what a host has to do right now. Everything here is derived from
@@ -121,6 +121,7 @@ export const HOST_REPORT_STATE: Record<ReviewState, { label: string; tone: Tone 
 /** Host wording, with the corrected report (`Waiting Approval Revision`) told apart. */
 export function hostReportBadge(report: Row | undefined, state: ReviewState): { label: string; tone: Tone } {
   if (state === "WAITING" && isResubmitted(report)) return { label: "Menunggu review ulang", tone: "info" };
+  if (state === "OTHER" && !str(report, "ApprovalStatus")) return NO_STATUS;
   return HOST_REPORT_STATE[state];
 }
 
@@ -208,8 +209,8 @@ export function buildHostSessions(d: HostData, now: Date, opts: HostOptions = DE
     .map((s): HostSession => {
       const day = date(s, "Date", "Tanggal");
       const dayKey = day ? localDayKey(day) : "";
-      const startText = str(s, "StartTime", "JamMulai");
-      const endText = str(s, "EndTime", "JamSelesai");
+      const startText = clockText(str(s, "StartTime", "JamMulai"));
+      const endText = clockText(str(s, "EndTime", "JamSelesai"));
       const start = withClock(day, startText);
       let end = withClock(day, endText);
       if (start && end && end <= start) end = new Date(end.getTime() + 864e5); // past midnight

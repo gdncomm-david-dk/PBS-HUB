@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8" ?>
 <manifest>
-  <control namespace="Ops" constructor="ReportDetail" version="1.4.0" display-name-key="PBS Ops Report Detail" description-key="PBS Hub Ops Console R-2: report detail / adjudication. Host claim vs AI evidence vs delta on the 7 compared metrics; approve, request revision, escalate." control-type="standard">
+  <control namespace="Ops" constructor="ReportDetail" version="1.4.1" display-name-key="PBS Ops Report Detail" description-key="PBS Hub Ops Console R-2: report detail / adjudication. Host claim vs AI evidence vs delta on the 7 compared metrics; approve, request revision, escalate." control-type="standard">
     <external-service-usage enabled="false"></external-service-usage>
 
     <property name="Context" display-name-key="Context" description-key="JSON {userEmail,userName,roles,permissions,config}. config: tolerancePct (5), confidenceThreshold (0.85)." of-type="Multiple" usage="input" required="false" />
