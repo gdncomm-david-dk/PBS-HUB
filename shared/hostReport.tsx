@@ -22,7 +22,8 @@ import {
 import { PreparedImage, fmtBytes, prepareImage } from "./hostImage";
 import { ALL_METRICS, COMPARED_METRICS, MetricComparison, MetricDef, compareMetric, reviewState, sameValue } from "./reconcile";
 import { evidenceUrl, fmtMetric } from "./reportUi";
-import { Badge, Button, Icon, InfoBanner, Overlay, ResultBanner, Skeleton, Spinner } from "./ui";
+import { liveWindow } from "./reportItems";
+import { Badge, Button, Icon, InfoBanner, Overlay, PlaybookValue, ResultBanner, Skeleton, Spinner } from "./ui";
 
 export interface MyReportDetailProps {
   ctx: ModuleContext;
@@ -152,6 +153,45 @@ function sessionMeta(s: HostSession | undefined, report: Row | undefined): strin
   if (s) return [s.title, s.day ? fmtLongDate(s.day) : "", s.startText && `${s.startText}–${s.endText}`, s.studio !== "—" ? s.studio : "", s.account && `Akun ${s.account}`].filter(Boolean).join(" · ");
   const d = date(report, "LiveDate");
   return [str(report, "ScheduleID"), d ? fmtLongDate(d) : "", str(report, "Account", "AccountID") && `Akun ${str(report, "Account", "AccountID")}`].filter(Boolean).join(" · ");
+}
+
+/** Rep ID, Schedule ID, live window, the stored ApprovalStatus and the Playbook: the same facts the Ops list shows. */
+export function ReportFacts(props: { report: Row; session: HostSession | undefined; onLink?: (url: string) => void }): React.ReactElement {
+  const { report, session } = props;
+  const st = hostReportBadge(report, reviewState(report));
+  const time = session && (session.startText || session.endText) ? `${session.startText || "?"}–${session.endText || "?"}` : liveWindow(undefined, report);
+  return (
+    <div className="hc-card" style={{ marginBottom: 16 }}>
+      <dl className="hc-dl">
+        <div>
+          <dt>Rep ID</dt>
+          <dd className="pbs-num">{str(report, "Title") || "—"}</dd>
+        </div>
+        <div>
+          <dt>Schedule ID</dt>
+          <dd className="pbs-num">{str(report, "ScheduleID") || session?.title || "—"}</dd>
+        </div>
+        <div>
+          <dt>Jam live</dt>
+          <dd className="pbs-num">{time || "—"}</dd>
+        </div>
+        <div>
+          <dt>Status</dt>
+          <dd>
+            <Badge tone={st.tone} title={st.label}>
+              {str(report, "ApprovalStatus") || "Waiting Approval"}
+            </Badge>
+          </dd>
+        </div>
+        <div style={{ gridColumn: "span 2" }}>
+          <dt>Playbook</dt>
+          <dd>
+            <PlaybookValue value={str(report, "Playbook").trim()} onOpen={props.onLink} />
+          </dd>
+        </div>
+      </dl>
+    </div>
+  );
 }
 
 // ---- submit (H-5) -------------------------------------------------------------------------------
@@ -606,6 +646,7 @@ export function Revision(props: Omit<MyReportDetailProps, "report"> & { report: 
           </p>
         </>
       )}
+      <ReportFacts report={report} session={session} onLink={(u) => action.fire("OPEN_EVIDENCE", { url: u, reportId: rowId(report), title: str(report, "Title") })} />
 
       {res && res.status !== "ok" && (res.action === "RESUBMIT_REPORT" || res.action === "DISPUTE_REVIEW") ? (
         <InfoBanner tone="err">{res.message || (res.status === "conflict" ? "Report ini sudah diubah sejak kamu buka. Muat ulang lalu coba lagi." : "Gagal mengirim. Coba lagi.")}</InfoBanner>
@@ -835,6 +876,7 @@ function ViewReport(props: Omit<MyReportDetailProps, "report"> & { report: Row; 
         {sessionMeta(session, report)}
         {created ? ` · dikirim ${fmtDateTimeShort(created)}` : ""}
       </p>
+      <ReportFacts report={report} session={session} onLink={(u) => action.fire("OPEN_EVIDENCE", { url: u, reportId: rowId(report), title: str(report, "Title") })} />
       {res && (res.action === "SUBMIT_REPORT" || res.action === "RESUBMIT_REPORT") && res.status === "ok" ? (
         <ResultBanner result={res} okText="Report terkirim dan masuk antrean review." onClose={action.clearResult} />
       ) : null}

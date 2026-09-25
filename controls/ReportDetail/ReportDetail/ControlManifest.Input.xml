@@ -1,11 +1,12 @@
 <?xml version="1.0" encoding="utf-8" ?>
 <manifest>
-  <control namespace="Ops" constructor="ReportDetail" version="1.3.1" display-name-key="PBS Ops Report Detail" description-key="PBS Hub Ops Console R-2: report detail / adjudication. Host claim vs AI evidence vs delta on the 7 compared metrics; approve, request revision, escalate." control-type="standard">
+  <control namespace="Ops" constructor="ReportDetail" version="1.4.0" display-name-key="PBS Ops Report Detail" description-key="PBS Hub Ops Console R-2: report detail / adjudication. Host claim vs AI evidence vs delta on the 7 compared metrics; approve, request revision, escalate." control-type="standard">
     <external-service-usage enabled="false"></external-service-usage>
 
     <property name="Context" display-name-key="Context" description-key="JSON {userEmail,userName,roles,permissions,config}. config: tolerancePct (5), confidenceThreshold (0.85)." of-type="Multiple" usage="input" required="false" />
-    <property name="ReportJson" display-name-key="ReportJson" description-key="JSON of ONE [Report - PBS Hub] row (object or one-row array), including Approver, ApproverEmail, ApprovalComment, Attachment, Created, Modified." of-type="Multiple" usage="input" required="false" />
+    <property name="ReportJson" display-name-key="ReportJson" description-key="JSON of ONE [Report - PBS Hub] row (object or one-row array), including ScheduleID, Playbook, Approver, ApproverEmail, ApprovalComment, Attachment, Created, Modified." of-type="Multiple" usage="input" required="false" />
     <property name="EvidenceJson" display-name-key="EvidenceJson" description-key="JSON rows of [Report Automation - PBS Hub] for this report (Title = Report.Title, or numeric tail = Report.ID). Several rows allowed: newest wins." of-type="Multiple" usage="input" required="false" />
+    <property name="SchedulesJson" display-name-key="SchedulesJson" description-key="JSON rows of [Schedule - PBS Hub] for the reports' ScheduleID (ID, Title, Date, StartTime, EndTime): shows the live window." of-type="Multiple" usage="input" required="false" />
     <property name="BrandsJson" display-name-key="BrandsJson" description-key="JSON rows of [Brand - PBS Hub]: Title, NamaBrand (optional, for the name)." of-type="Multiple" usage="input" required="false" />
     <property name="HostsJson" display-name-key="HostsJson" description-key="JSON rows of [Host - PBS Hub]: Title, NamaHost (optional, for the name)." of-type="Multiple" usage="input" required="false" />
     <property name="Mode" display-name-key="Mode" description-key="Admin renders the decision bar; ReadOnly never does." of-type="Enum" usage="input" required="false" default-value="Admin">

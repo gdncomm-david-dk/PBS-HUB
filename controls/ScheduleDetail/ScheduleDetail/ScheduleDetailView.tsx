@@ -390,6 +390,16 @@ function ReportCard(props: { report: Row; revision: boolean; onOpen: () => void 
             <dd className="pbs-num">{fmt(readMetric(r, d), d.format)}</dd>
           </div>
         ))}
+        <div>
+          <dt>Status</dt>
+          <dd>{str(r, "ApprovalStatus") || "Waiting Approval"}</dd>
+        </div>
+        {str(r, "Playbook").trim() ? (
+          <div style={{ gridColumn: "span 2" }}>
+            <dt>Playbook</dt>
+            <dd style={{ fontWeight: 400, whiteSpace: "pre-wrap" }}>{str(r, "Playbook").trim()}</dd>
+          </div>
+        ) : null}
       </dl>
       {note ? (
         <div className="hc-quote" style={{ marginTop: 12 }}>

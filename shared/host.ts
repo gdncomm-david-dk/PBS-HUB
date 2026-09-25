@@ -1,6 +1,7 @@
 import { Row, bool, date, num, rowId, startOfDay, str } from "./data";
 import { Period, RunModel, addMonths, clockInDay, hasBank, inPeriod, parsePeriod, periodKey, periodOf } from "./payroll";
 import { ReviewState, Tone, reviewState } from "./reconcile";
+import { indexSchedules, liveWindow, scheduleFor } from "./reportItems";
 
 /**
  * Host directory (HD-1, HD-2) and credit score (DESIGN.md → `Host - PBS Hub`,
@@ -341,16 +342,27 @@ export interface HostReport {
   sales: number | null;
   state: ReviewState;
   modified: string;
+  scheduleId: string;
+  /** "10:00–12:00" from the schedule; "" when unknown. */
+  liveTime: string;
+  approvalStatus: string;
+  playbook: string;
 }
 
-export function buildHostReports(reports: Row[], brands: Map<string, string>): HostReport[] {
+export function buildHostReports(reports: Row[], brands: Map<string, string>, schedules: Row[] = []): HostReport[] {
+  const sched = indexSchedules(schedules);
   return reports
     .map((r) => {
       const brandId = str(r, "BrandID");
+      const scheduleId = str(r, "ScheduleID");
       return {
         row: r,
         id: rowId(r),
         title: str(r, "Title"),
+        scheduleId,
+        liveTime: liveWindow(scheduleFor(sched, scheduleId), r),
+        approvalStatus: str(r, "ApprovalStatus").trim(),
+        playbook: str(r, "Playbook").trim(),
         liveDate: date(r, "LiveDate"),
         brand: brands.get(brandId) ?? (str(r, "BrandName", "NamaBrand") || brandId || "—"),
         platform: str(r, "Platform"),

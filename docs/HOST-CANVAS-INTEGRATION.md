@@ -1,7 +1,7 @@
 # Integrasi canvas — PBS Hub Host PCF
 
-Solusi terpisah dari Ops Console: **`PBSHubHostPCF`** (managed, `dist/PBSHubHostPCF_1_0_4_0_managed.zip`)
-dan, untuk layar jadwal, **`PBSHubHostSchedulePCF`** (managed, `dist/PBSHubHostSchedulePCF_1_1_1_0_managed.zip`).
+Solusi terpisah dari Ops Console: **`PBSHubHostPCF`** (managed, `dist/PBSHubHostPCF_1_0_5_0_managed.zip`)
+dan, untuk layar jadwal, **`PBSHubHostSchedulePCF`** (managed, `dist/PBSHubHostSchedulePCF_1_1_2_0_managed.zip`).
 Publisher dan prefix sama (`PBSHub` / `pbs`), jadi ketiga solusi bisa dipasang berdampingan di environment yang
 sama, tapi bisa di-upgrade sendiri-sendiri.
 
@@ -55,7 +55,7 @@ Set(varMe, LookUp('Host - PBS Hub', Email.Email = User().Email));
 | `SchedulesJson` / `ScheduleJson` | `Schedule - PBS Hub` | `ID, Title, Date (yyyy-mm-dd), StartTime, EndTime, BrandID, StudioID, HostID, Platform, AccountID, Account, Status` |
 | `ClockInJson` | `Clock In - PBS Hub` | `ID, ClockInDate, CheckInTime, CheckOutTime, ClockInTime, ClockOutTime, CheckInOffice` |
 | `AbsenceJson` | `Host Absence - PBS Hub` | `Title, ScheduleID, LiveDate, Status, Created` |
-| `ReportsJson` / `ReportJson` / `HistoryJson` | `Report - PBS Hub` | sama dengan Ops (`ID, Title, ScheduleID, HostID, BrandID, AccountID, Account, Platform, LiveDate`, 12 metrik, `ApprovalStatus, Match, ApprovalComment, Approver, ApproverEmail, Attachment, Created, Modified`) |
+| `ReportsJson` / `ReportJson` / `HistoryJson` | `Report - PBS Hub` | sama dengan Ops (`ID, Title, ScheduleID, HostID, BrandID, AccountID, Account, Platform, LiveDate, Playbook`, 12 metrik, `ApprovalStatus, Match, ApprovalComment, Approver, ApproverEmail, Attachment, Created, Modified`). List dan detail menampilkan Rep ID (`Title`), Schedule ID, jam live (dari `SchedulesJson`), kolom *Status* = `ApprovalStatus` apa adanya, dan `Playbook` |
 | `EvidenceJson` | `Report Automation - PBS Hub` | sama dengan Ops |
 | `ScoreTxJson` / `ThresholdsJson` | `[FAS STUDIO] HostScoreTransactions` / `HostScoreThreshold` | sama dengan HostDetail |
 | `BrandsJson` / `StudiosJson` | `Brand` / `Studio - PBS Hub` | `Title, NamaBrand` / `Title, NamaStudio` |
@@ -406,7 +406,7 @@ Set(varSdLoading, false);
 | `SchedulesJson` | seperti MySchedule, dari `colSdSch` |
 | `ClockInJson` | `JSON(ForAll(colSdClk, {ID: ID, ClockInDate: Text(ClockInDate, "yyyy-mm-dd"), CheckInTime: CheckInTime, CheckOutTime: CheckOutTime, ClockInTime: ClockInTime, CheckInOffice: CheckInOffice, IsInsideGeofence: IsInsideGeofence}), JSONFormat.Compact)` |
 | `AbsenceJson` | seperti HostDashboard, plus `CheckInTime` (jam absen yang ditampilkan) |
-| `ReportsJson` | field Report lengkap seperti MyReportDetail (12 metrik, `ApprovalStatus, ApprovalComment, Approver, Modified`) — form revisi membaca angka lama dari sini |
+| `ReportsJson` | field Report lengkap seperti MyReportDetail (12 metrik, `ApprovalStatus, ApprovalComment, Approver, Modified, Playbook`) — form revisi membaca angka lama dari sini |
 | `EvidenceJson` | `Report Automation - PBS Hub` untuk report di atas (`Title` = Title report), seperti MyReportDetail |
 | `HistoryJson` | opsional: report host sebelumnya di platform yang sama (peringatan "jauh di atas rata-rata kamu") |
 | `HostJson`, `BrandsJson`, `StudiosJson` | seperti HostDashboard |
@@ -435,7 +435,7 @@ tim PBS, sesi batal hanya diberi keterangan.
 
 ## 8. Pemasangan
 
-1. Import `dist/PBSHubHostPCF_1_0_4_0_managed.zip` dan `dist/PBSHubHostSchedulePCF_1_1_1_0_managed.zip`
+1. Import `dist/PBSHubHostPCF_1_0_5_0_managed.zip` dan `dist/PBSHubHostSchedulePCF_1_1_2_0_managed.zip`
    (Solutions → Import). Bisa di environment yang sama dengan `PBSHubOpsPCF`; urutan bebas, tidak saling bergantung.
 2. Di canvas app host: **Insert → Get more components → Code** → `PBS Host Dashboard`, `PBS Host My Reports`,
    `PBS Host My Report Detail`, `PBS Host My Schedule`, `PBS Host Schedule Detail`.

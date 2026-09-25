@@ -12,6 +12,7 @@ interface ShellProps {
   evidence: Row[];
   brands: Row[];
   hosts: Row[];
+  schedules: Row[];
   readOnly: boolean;
   loading: boolean;
   referenceDate: string | null;
@@ -43,6 +44,7 @@ export class ReportDetail implements ComponentFramework.StandardControl<IInputs,
         evidence: this.cache.get("e", p.EvidenceJson?.raw),
         brands: this.cache.get("b", p.BrandsJson?.raw),
         hosts: this.cache.get("h", p.HostsJson?.raw),
+        schedules: this.cache.get("s", p.SchedulesJson?.raw),
         readOnly: modeOf(p.Mode as { raw: string | null }) === "ReadOnly",
         loading: flag(p.IsLoading),
         referenceDate: p.ReferenceDate?.raw ?? null,

@@ -33,7 +33,7 @@ import {
 } from "../../../shared/host";
 import { buildRuns, fmtPeriod } from "../../../shared/payroll";
 import { reviewBadge } from "../../../shared/reconcile";
-import { Badge, Button, EmptyState, EndOfData, Icon, InfoBanner, Overlay, Pill, ResultBanner, SectionHeader, Skeleton, SkeletonRows, Spinner, TONE_DOT } from "../../../shared/ui";
+import { Badge, Button, EmptyState, EndOfData, Icon, InfoBanner, Overlay, Pill, PlaybookValue, ResultBanner, SectionHeader, Skeleton, SkeletonRows, Spinner, TONE_DOT } from "../../../shared/ui";
 
 export type HostTab = "Summary" | "Schedule" | "Attendance" | "Reports" | "Payroll" | "Personal";
 
@@ -72,7 +72,7 @@ export function HostDetailView(props: HostDetailProps): React.ReactElement {
   const brandNames = React.useMemo(() => nameIndex(props.brands, ["NamaBrand", "BrandName"]), [props.brands]);
   const studioNames = React.useMemo(() => nameIndex(props.studios, ["NamaStudio", "StudioName"]), [props.studios]);
   const sessions = React.useMemo(() => buildSessions(props.schedules, props.clockIns, brandNames, studioNames, now), [props.schedules, props.clockIns, brandNames, studioNames, now]);
-  const reports = React.useMemo(() => buildHostReports(props.reports, brandNames), [props.reports, brandNames]);
+  const reports = React.useMemo(() => buildHostReports(props.reports, brandNames, props.schedules), [props.reports, brandNames, props.schedules]);
   const runOpts = React.useMemo(() => ({ now, labelOffset: configNumber(ctx, "payrollLabelOffset", -1), assemblyMinutes: configNumber(ctx, "payrollAssemblyMinutes", 30) }), [ctx, now]);
   const runModels = React.useMemo(() => buildRuns(props.runs, props.lines, [], runOpts), [props.runs, props.lines, runOpts]);
   const payLines = React.useMemo(() => buildHostPayLines(props.lines, runModels), [props.lines, runModels]);
@@ -238,7 +238,7 @@ export function HostDetailView(props: HostDetailProps): React.ReactElement {
         ) : tab === "Attendance" ? (
           <AttendanceTab ctx={ctx} hostId={h.hostId} hostCode={h.code} hostName={h.name} clockIns={props.clockIns} runs={runModels} canEdit={canClockIn} loading={props.loading} now={now} action={action} />
         ) : tab === "Reports" ? (
-          <ReportsTab reports={reports} loading={props.loading} onOpen={(r) => action.fire("OPEN_REPORT", { reportId: r.id, title: r.title })} />
+          <ReportsTab reports={reports} loading={props.loading} onOpen={(r) => action.fire("OPEN_REPORT", { reportId: r.id, title: r.title })} onLink={(url, r) => action.fire("OPEN_EVIDENCE", { url, reportId: r.id, title: r.title })} />
         ) : tab === "Payroll" ? (
           <PayrollTab lines={payLines} loading={props.loading} onOpen={(l) => action.fire("OPEN_RUN", { runId: l.run?.id ?? "", title: l.runTitle })} />
         ) : (
@@ -593,7 +593,7 @@ function ScheduleTab(props: { sessions: HostSession[]; loading: boolean; haveClo
 
 // ---- Report -----------------------------------------------------------------------------------
 
-function ReportsTab(props: { reports: HostReport[]; loading: boolean; onOpen: (r: HostReport) => void }): React.ReactElement {
+function ReportsTab(props: { reports: HostReport[]; loading: boolean; onOpen: (r: HostReport) => void; onLink: (url: string, r: HostReport) => void }): React.ReactElement {
   const firstLoad = props.loading && props.reports.length === 0;
   return (
     <div className="pbs-table-wrap">
@@ -601,30 +601,40 @@ function ReportsTab(props: { reports: HostReport[]; loading: boolean; onOpen: (r
         <table className="pbs-table" aria-busy={props.loading}>
           <thead>
             <tr>
-              <th>Tanggal live</th>
-              <th>Brand</th>
-              <th>Platform</th>
+              <th>Rep ID</th>
+              <th>Schedule ID</th>
+              <th>Tanggal &amp; jam live</th>
+              <th>Brand &amp; platform</th>
+              <th>Playbook</th>
               <th className="r">Penjualan</th>
-              <th>Status review</th>
+              <th>Status</th>
               <th aria-label="Aksi" />
             </tr>
           </thead>
           <tbody>
             {firstLoad ? (
-              <SkeletonRows rows={6} cols={6} />
+              <SkeletonRows rows={6} cols={8} />
             ) : (
               props.reports.map((r) => {
                 const rs = reviewBadge(r.row, r.state);
                 return (
                   <tr key={r.id || r.title}>
+                    <td className="pbs-num" style={{ fontWeight: 600, whiteSpace: "nowrap" }}>{r.title || "—"}</td>
+                    <td className="pbs-num pbs-muted" style={{ whiteSpace: "nowrap" }}>{r.scheduleId || "—"}</td>
                     <td className="pbs-num" style={{ whiteSpace: "nowrap" }}>
                       {fmtDayMonth(r.liveDate)}
+                      <span className="pbs-muted" style={{ display: "block", fontSize: 12 }}>{r.liveTime || "—"}</span>
                     </td>
-                    <td style={{ fontWeight: 600 }}>{r.brand}</td>
-                    <td className="pbs-muted">{r.platform || "—"}</td>
-                    <td className="r pbs-num">{money(r.sales)}</td>
                     <td>
-                      <Badge tone={rs.tone}>{rs.label}</Badge>
+                      <span style={{ fontWeight: 600 }}>{r.brand}</span>
+                      <span className="pbs-muted" style={{ display: "block", fontSize: 12 }}>{r.platform || "—"}</span>
+                    </td>
+                    <td>
+                      <PlaybookValue compact value={r.playbook} onOpen={(url) => props.onLink(url, r)} />
+                    </td>
+                    <td className="r pbs-num">{money(r.sales)}</td>
+                    <td style={{ whiteSpace: "nowrap" }}>
+                      <Badge tone={rs.tone} title={rs.label}>{r.approvalStatus || "Waiting Approval"}</Badge>
                     </td>
                     <td className="r">
                       <Button variant="secondary" size="sm" onClick={() => props.onOpen(r)}>

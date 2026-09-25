@@ -70,6 +70,8 @@
     sch(10, "19:00", "21:00", "BRD-005", "HST-006", "STD-04", "Finished"),
     sch(11, "19:00", "21:00", "BRD-007", "HST-007", "STD-05", "Finished"),
     sch(12, "16:00", "18:00", "BRD-004", "HST-008", "STD-03", "Waiting Report"),
+    // corrected after Need Revision -> Waiting Approval Revision
+    sch(11, "10:00", "12:00", "BRD-007", "HST-003", "STD-02", "Finished"),
   ];
 
   const M = (Penjualan, Pesanan, ProdukTerjual, JumlahPembeli, CTR, CTOR, PeakViewer, extra) =>
@@ -79,6 +81,7 @@
   let rid = 20859;
   const reports = [];
   const evidence = [];
+  const PLAYBOOKS = ["Flash sale 9.9 — bundling best seller", "", "https://example.com/playbook/payday-live.pdf", "Launching produk baru: demo + Q&A"];
   const rep = (scd, status, metrics, created, extra) => {
     const s = byTitle[scd];
     const id = ++rid;
@@ -86,7 +89,7 @@
       ID: id, Title: `REP-${id}`, ScheduleID: scd, HostID: s.HostID, BrandID: s.BrandID, AccountID: `ACC-${s.BrandID.slice(-3)}`,
       Account: s.BrandID === "BRD-008" ? "wingsofficialstore" : s.BrandID.toLowerCase().replace("brd-", "brand") + ".official",
       Platform: s.Platform, LiveDate: s.Date, ApprovalStatus: { Value: status }, Match: { Value: "" }, Created: created, Modified: created,
-      Attachment: "",
+      Attachment: "", Playbook: PLAYBOOKS[id % PLAYBOOKS.length],
     }, metrics, extra || {});
     reports.push(r);
     return r;
@@ -113,6 +116,8 @@
   });
   // Need revision + manual decisions.
   rep("SCD-3220", "Need Revision", M(6100000, 150, 170, 130, 4, 9, 1500), d(12, "11:00"), { Approver: { DisplayName: "Bayu Prasetyo", Email: "bayu@example.com" }, ApproverEmail: "bayu@example.com", ApprovalComment: "Penjualan tidak sesuai screenshot", Modified: "2026-09-14T11:37:00" });
+  r = rep("SCD-3225", "Waiting Approval Revision", M(4480000, 120, 150, 104, 3.4, 8.1, 1250), d(14, "10:30"), { Approver: { DisplayName: "Bayu Prasetyo", Email: "bayu@example.com" }, ApproverEmail: "bayu@example.com", ApprovalComment: "Pesanan tidak sesuai screenshot\n[Revisi host] Sudah dicek ulang dari dashboard seller.", Match: { Value: "Unmatch" } });
+  evi(r, M(4480000, 118, 150, 104, 3.4, 8.1, 1250), d(11, "12:20"));
 
   const clockIns = [];
   let cid = 1;
@@ -270,7 +275,7 @@
   const hr = (id, scd, day, status, metrics, created, extra) => Object.assign({
     ID: id, Title: `REP-${id}`, ScheduleID: scd, HostID: "HST-001", BrandID: hostSchedules.find((x) => x.Title === scd).BrandID,
     AccountID: `ACC-${hostSchedules.find((x) => x.Title === scd).BrandID.slice(-3)}`, Platform: hostSchedules.find((x) => x.Title === scd).Platform, LiveDate: d(day),
-    ApprovalStatus: { Value: status }, Match: { Value: "" }, Created: created, Modified: created, Attachment: "",
+    ApprovalStatus: { Value: status }, Match: { Value: "" }, Created: created, Modified: created, Attachment: "", Playbook: PLAYBOOKS[id % PLAYBOOKS.length],
   }, metrics, extra || {});
   const hostReports = [
     hr(20901, "SCD-3301", 11, "Need Revision", M(7350000, 188, 240, 171, 4.4, 12.8, 1980), d(11, "15:30"), {

@@ -2,8 +2,8 @@ import * as React from "react";
 import { ModuleContext, UseActionResult, configNumber, hasPermission } from "../../../shared/contract";
 import { Row, date, localDayKey } from "../../../shared/data";
 import { fmtAge, fmtDayMonth, fmtNumber, fmtSignedPct } from "../../../shared/format";
-import { REASONS, ReasonCode, ReviewState, reasonDetail, reviewBadge } from "../../../shared/reconcile";
-import { DECISION_ACTIONS, DECISION_DONE_TEXT, DecisionPanel, EvidenceRail, MetricsTable, ReportHeader } from "../../../shared/reportUi";
+import { REASONS, ReasonCode, reasonDetail, reviewBadge } from "../../../shared/reconcile";
+import { ApprovalStatusBadge, DECISION_ACTIONS, DECISION_DONE_TEXT, DecisionPanel, EvidenceRail, MetricsTable, PlaybookValue, ReportHeader } from "../../../shared/reportUi";
 import { ReportItem, buildReportItems, itemRef } from "../../../shared/reportItems";
 import { Badge, Button, EmptyState, EndOfData, FilterDate, FilterSelect, Icon, InfoBanner, ModuleHeader, Overlay, Pill, ResultBanner, SkeletonRows, Spinner } from "../../../shared/ui";
 import { fmtAgo as fmtAgoText } from "../../../shared/format";
@@ -16,6 +16,7 @@ export interface ReportReviewProps {
   evidence: Row[];
   brands: Row[];
   hosts: Row[];
+  schedules: Row[];
   defaultTab: Tab;
   readOnly: boolean;
   hasMore: boolean;
@@ -67,7 +68,7 @@ export function ReportReviewView(props: ReportReviewProps): React.ReactElement {
     [ctx],
   );
   const pageSize = Math.max(10, configNumber(ctx, "pageSize", 50));
-  const items = React.useMemo(() => buildReportItems(props.reports, props.evidence, props.brands, props.hosts, opts), [props.reports, props.evidence, props.brands, props.hosts, opts]);
+  const items = React.useMemo(() => buildReportItems(props.reports, props.evidence, props.brands, props.hosts, opts, props.schedules), [props.reports, props.evidence, props.brands, props.hosts, opts, props.schedules]);
 
   const [tab, setTab] = React.useState<Tab>(props.defaultTab);
   React.useEffect(() => setTab(props.defaultTab), [props.defaultTab]);
@@ -173,7 +174,7 @@ export function ReportReviewView(props: ReportReviewProps): React.ReactElement {
   };
 
   const reasonOptions = (Object.keys(REASONS) as ReasonCode[]).map((k) => ({ value: k, label: REASONS[k].label }));
-  const cols = showBulk ? 8 : 7;
+  const cols = 9 + (showBulk ? 1 : 0) + (tab === "Waiting" ? 1 : 0);
 
   return (
     <div className="pbs-host" ref={hostRef}>
@@ -244,12 +245,15 @@ export function ReportReviewView(props: ReportReviewProps): React.ReactElement {
             <thead>
               <tr>
                 {showBulk ? <th style={{ width: 44 }} aria-label="Pilih" /> : null}
-                <th>Tanggal live</th>
-                <th>Brand</th>
+                <th>Rep ID</th>
+                <th>Schedule ID</th>
+                <th>Tanggal &amp; jam live</th>
+                <th>Brand &amp; platform</th>
                 <th>Host</th>
-                <th>Platform</th>
+                <th>Playbook</th>
                 <th>Alasan</th>
-                <th>{tab === "Waiting" ? "Menunggu" : "Status"}</th>
+                <th>Status</th>
+                {tab === "Waiting" ? <th>Menunggu</th> : null}
                 <th aria-label="Aksi" />
               </tr>
             </thead>
@@ -265,6 +269,7 @@ export function ReportReviewView(props: ReportReviewProps): React.ReactElement {
                   onToggle={() => toggle(it.id)}
                   disabled={!!pending}
                   onOpen={() => action.fire("OPEN_REPORT", itemRef(it))}
+                  onLink={(url) => action.fire("OPEN_EVIDENCE", { url, reportId: it.id, title: it.title })}
                   onReview={() => openReview(it)}
                 />
               ))}
@@ -364,7 +369,7 @@ function ReviewModal(props: {
           </div>
         </div>
         <div className="pbs-modal-b">
-          <ReportHeader item={item} pill={item.state === "WAITING" ? <Pill tone={reason.tone}>{reason.label}</Pill> : <Pill tone={st.tone}>{st.label}</Pill>} />
+          <ReportHeader item={item} onOpenLink={(url) => action.fire("OPEN_EVIDENCE", { url, reportId: item.id, title: item.title })} pill={item.state === "WAITING" ? <Pill tone={reason.tone}>{reason.label}</Pill> : <Pill tone={st.tone}>{st.label}</Pill>} />
           {conflict ? (
             <InfoBanner tone="warn">
               Report ini sudah diputuskan oleh {conflict.decidedBy || "orang lain"}
@@ -398,13 +403,13 @@ function ReportRow(props: {
   disabled: boolean;
   onToggle: () => void;
   onOpen: () => void;
+  onLink: (url: string) => void;
   onReview: () => void;
 }): React.ReactElement {
   const { it, now } = props;
   const reason = REASONS[it.rec.reason];
   const detail = reasonDetail(it.rec, fmtSignedPct);
   const ageDays = it.since ? (now.getTime() - it.since.getTime()) / 86400000 : 0;
-  const st = reviewBadge(it.row, it.state as ReviewState);
   return (
     <tr className={props.checked ? "sel" : undefined}>
       {props.showBulk ? (
@@ -414,10 +419,20 @@ function ReportRow(props: {
           ) : null}
         </td>
       ) : null}
-      <td className="pbs-num">{fmtDayMonth(it.liveDate)}</td>
-      <td style={{ fontWeight: 600 }}>{it.brand}</td>
+      <td className="pbs-num" style={{ fontWeight: 600, whiteSpace: "nowrap" }}>{it.title || "—"}</td>
+      <td className="pbs-num pbs-muted" style={{ whiteSpace: "nowrap" }}>{it.scheduleId || "—"}</td>
+      <td className="pbs-num" style={{ whiteSpace: "nowrap" }}>
+        {fmtDayMonth(it.liveDate)}
+        <span className="pbs-muted" style={{ display: "block", fontSize: 12 }}>{it.liveTime || "—"}</span>
+      </td>
+      <td>
+        <span style={{ fontWeight: 600 }}>{it.brand}</span>
+        <span className="pbs-muted" style={{ display: "block", fontSize: 12 }}>{it.platform || "—"}</span>
+      </td>
       <td>{it.host}</td>
-      <td className="pbs-muted">{it.platform || "—"}</td>
+      <td>
+        <PlaybookValue compact value={it.playbook} onOpen={props.onLink} />
+      </td>
       <td>
         <span style={{ display: "inline-flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
           <Badge tone={reason.tone}>{reason.label}</Badge>
@@ -433,15 +448,16 @@ function ReportRow(props: {
           ) : null}
         </span>
       </td>
-      <td>
-        {props.tab === "Waiting" ? (
-          <span className="pbs-num" style={{ fontWeight: ageDays >= 3 ? 600 : 400, color: ageDays >= 3 ? "#C0292A" : undefined }}>
+      <td style={{ whiteSpace: "nowrap" }}>
+        <ApprovalStatusBadge item={it} />
+      </td>
+      {props.tab === "Waiting" ? (
+        <td>
+          <span className="pbs-num" style={{ fontWeight: ageDays >= 3 ? 600 : 400, color: ageDays >= 3 ? "#C0292A" : undefined, whiteSpace: "nowrap" }}>
             {fmtAge(it.since, now)}
           </span>
-        ) : (
-          <Badge tone={st.tone}>{st.label}</Badge>
-        )}
-      </td>
+        </td>
+      ) : null}
       <td className="r">
         <span className="pbs-rowact">
           <Button size="sm" variant={it.state === "WAITING" ? "primary" : "secondary"} onClick={props.onReview}>

@@ -3,6 +3,7 @@ import { ModuleContext, UseActionResult, configNumber } from "../../../shared/co
 import { Row, date, nameIndex, rowId, str } from "../../../shared/data";
 import { fmtDayMonth, fmtNumber, fmtRupiah } from "../../../shared/format";
 import { hostReportBadge } from "../../../shared/hostApp";
+import { liveWindow } from "../../../shared/reportItems";
 import { Period, addMonths, fmtPeriod, inPeriod, parsePeriod, periodKey, periodOf } from "../../../shared/payroll";
 import { ALL_METRICS, ReviewState, readMetric, reviewState } from "../../../shared/reconcile";
 import { Badge, Button, EmptyState, EndOfData, Icon, ResultBanner, Skeleton, Spinner } from "../../../shared/ui";
@@ -216,7 +217,8 @@ export function MyReportsView(props: MyReportsProps): React.ReactElement {
 function ReportRow(props: { i: Item; onOpen: () => void }): React.ReactElement {
   const { i } = props;
   const st = hostReportBadge(i.report, i.state);
-  const time = i.schedule ? [str(i.schedule, "StartTime"), str(i.schedule, "EndTime")].filter(Boolean).join("–") : "";
+  const time = liveWindow(i.schedule, i.report);
+  const playbook = str(i.report, "Playbook").trim();
   return (
     <div className={`hc-row${i.state === "REVISION" ? " bad" : ""}`}>
       <span className="pbs-num">{fmtDayMonth(i.day)}</span>
@@ -224,12 +226,24 @@ function ReportRow(props: { i: Item; onOpen: () => void }): React.ReactElement {
         <b style={{ fontWeight: 600 }}>{i.brand}</b>
         {i.platform ? <span className="pbs-muted"> · {i.platform}</span> : null}
         <span className="pbs-muted" style={{ display: "block", fontSize: 11.5 }}>
-          {[str(i.report, "Title"), str(i.report, "ScheduleID"), time].filter(Boolean).join(" · ")}
+          {[str(i.report, "Title"), str(i.report, "ScheduleID"), time].filter(Boolean).map((t, n) => (
+            <React.Fragment key={n}>
+              {n ? " · " : ""}
+              <span style={{ whiteSpace: "nowrap" }}>{t}</span>
+            </React.Fragment>
+          ))}
         </span>
+        {playbook ? (
+          <span className="pbs-muted" style={{ display: "block", fontSize: 11.5, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={playbook}>
+            Playbook: {playbook}
+          </span>
+        ) : null}
       </span>
       <span className="r pbs-num hide-s">{i.sales === null ? <span className="pbs-muted">—</span> : fmtRupiah(i.sales)}</span>
       <span>
-        <Badge tone={st.tone}>{st.label}</Badge>
+        <Badge tone={st.tone} title={st.label}>
+          {str(i.report, "ApprovalStatus") || "Waiting Approval"}
+        </Badge>
       </span>
       <span className="r">
         <button type="button" className="pbs-link" onClick={props.onOpen}>

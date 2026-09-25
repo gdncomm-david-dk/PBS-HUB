@@ -109,6 +109,8 @@ describe("Report.ApprovalStatus choices", () => {
   });
   it("tells the corrected report apart from a first review", () => {
     expect(isResubmitted(r("Waiting Approval Revision"))).toBe(true);
+    expect(isResubmitted(r("Waiting Revision Approval"))).toBe(true);
+    expect(reviewState(r("Waiting Revision Approval"))).toBe("WAITING");
     expect(isResubmitted(r("Waiting Approval"))).toBe(false);
     expect(reviewBadge(r("Waiting Approval Revision"), "WAITING").label).toBe("Menunggu review (revisi)");
     expect(reviewBadge(r("Waiting Approval"), "WAITING").label).toBe("Menunggu review");

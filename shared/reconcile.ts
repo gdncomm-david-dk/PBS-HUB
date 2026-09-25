@@ -87,7 +87,11 @@ export const REVIEW_STATES: Record<ReviewState, { label: string; tone: Tone }> =
  * `Waiting Approval Revision` is the host's corrected report after a `Need Revision`: still waiting on
  * the reviewer, but the second look.
  */
-export const isResubmitted = (report: Row | undefined): boolean => /^\s*waiting\s*approval\s*revision\s*$/i.test(str(report, "ApprovalStatus"));
+export const isResubmitted = (report: Row | undefined): boolean => {
+  // Tenants spell it "Waiting Approval Revision" or "Waiting Revision Approval"; both are the second look.
+  const v = str(report, "ApprovalStatus").toLowerCase();
+  return v.startsWith("waiting") && v.includes("revis");
+};
 
 /** Badge for a report: the review state, with the resubmitted revision told apart. */
 export function reviewBadge(report: Row | undefined, state: ReviewState): { label: string; tone: Tone } {

@@ -181,7 +181,7 @@ font-family:"Blibli","Helvetica Neue",Arial,sans-serif;font-size:13px;line-heigh
 .pbs-search input:focus{border-color:var(--p);box-shadow:0 0 0 3px var(--p-tint)}
 .pbs-search svg{position:absolute;left:12px;color:var(--tx2);pointer-events:none}
 .pbs-rec{display:flex;align-items:center;gap:20px;padding:18px 22px;flex-wrap:wrap;margin:0 0 16px}
-.pbs-rec-code{font-size:18px;font-weight:700;letter-spacing:-.01em;white-space:nowrap}
+.pbs-rec-code{font-size:18px;font-weight:700;letter-spacing:-.01em;white-space:nowrap;display:flex;flex-direction:column;gap:2px}.pbs-rec-code .l{font-size:12px;font-weight:400;color:var(--tx2);letter-spacing:0}
 .pbs-rec-g{display:flex;align-items:center;gap:20px;flex-wrap:wrap;flex:1;min-width:0}
 .pbs-rec-m{display:flex;flex-direction:column;justify-content:center;gap:2px;padding-left:20px;border-left:1px solid var(--bd);min-height:40px}
 .pbs-rec-m .l{font-size:12px;color:var(--tx2)}.pbs-rec-m .v{font-size:14px;font-weight:600;white-space:nowrap}

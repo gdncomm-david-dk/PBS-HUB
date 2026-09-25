@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8" ?>
 <manifest>
-  <control namespace="Host" constructor="ScheduleDetail" version="1.1.1" display-name-key="PBS Host Schedule Detail" description-key="PBS Hub host app Detail sesi: one schedule with its next step, absen, the report form (metrics + screenshot) or the revision form in place, the four session steps, schedule facts and other sessions that day." control-type="standard">
+  <control namespace="Host" constructor="ScheduleDetail" version="1.1.2" display-name-key="PBS Host Schedule Detail" description-key="PBS Hub host app Detail sesi: one schedule with its next step, absen, the report form (metrics + screenshot) or the revision form in place, the four session steps, schedule facts and other sessions that day." control-type="standard">
     <external-service-usage enabled="false"></external-service-usage>
 
     <property name="Context" display-name-key="Context" description-key="JSON {userEmail,userName,roles,permissions,config}. config: absenLeadMin (30), reportDeadlineDays (2), requireAbsen (true)." of-type="Multiple" usage="input" required="false" />

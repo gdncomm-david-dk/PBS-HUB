@@ -13,6 +13,7 @@ export interface ReportDetailProps {
   evidence: Row[];
   brands: Row[];
   hosts: Row[];
+  schedules: Row[];
   readOnly: boolean;
   loading: boolean;
   now: Date;
@@ -25,8 +26,8 @@ export function ReportDetailView(props: ReportDetailProps): React.ReactElement {
   const confidenceThreshold = configNumber(ctx, "confidenceThreshold", 0.85);
   const opts = React.useMemo(() => ({ tolerancePct, confidenceThreshold }), [tolerancePct, confidenceThreshold]);
   const item: ReportItem | undefined = React.useMemo(
-    () => buildReportItems(props.reports.slice(0, 1), props.evidence, props.brands, props.hosts, opts)[0],
-    [props.reports, props.evidence, props.brands, props.hosts, opts],
+    () => buildReportItems(props.reports.slice(0, 1), props.evidence, props.brands, props.hosts, opts, props.schedules)[0],
+    [props.reports, props.evidence, props.brands, props.hosts, opts, props.schedules],
   );
 
   if (props.loading && !item) return <LoadingDetail />;
@@ -96,7 +97,7 @@ function Detail(props: ReportDetailProps & { item: ReportItem; tolerancePct: num
 
       <ResultBanner result={conflict ? null : last} okText={last ? DECISION_DONE_TEXT[last.action] : undefined} onClose={action.clearResult} />
 
-      <ReportHeader item={item} pill={headerPill} />
+      <ReportHeader item={item} pill={headerPill} onOpenLink={(url) => action.fire("OPEN_EVIDENCE", { url, reportId: item.id, title: item.title })} />
 
       <div className="pbs-rv">
         <div style={{ minWidth: 0, display: "grid", gap: 16 }}>

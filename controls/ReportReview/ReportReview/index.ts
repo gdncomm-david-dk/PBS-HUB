@@ -12,6 +12,7 @@ interface ShellProps {
   evidence: Row[];
   brands: Row[];
   hosts: Row[];
+  schedules: Row[];
   defaultTab: Tab;
   readOnly: boolean;
   hasMore: boolean;
@@ -48,6 +49,7 @@ export class ReportReview implements ComponentFramework.StandardControl<IInputs,
         evidence: this.cache.get("e", p.EvidenceJson?.raw),
         brands: this.cache.get("b", p.BrandsJson?.raw),
         hosts: this.cache.get("h", p.HostsJson?.raw),
+        schedules: this.cache.get("s", p.SchedulesJson?.raw),
         defaultTab: TABS.includes(tabRaw as Tab) ? (tabRaw as Tab) : "Waiting",
         readOnly: modeOf(p.Mode as { raw: string | null }) === "ReadOnly",
         hasMore: flag(p.HasMore),

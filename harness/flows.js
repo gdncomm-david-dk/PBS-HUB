@@ -132,6 +132,20 @@ const assert = (c, m) => { if (!c) { console.log("FAIL", m); process.exitCode = 
   pl = await payloads();
   assert(pl.some((x) => x.action === "OPEN_REPORT"), "Lihat detail emits OPEN_REPORT");
 
+  // New columns and the corrected report (Waiting Approval Revision) in the waiting queue.
+  await go("c=ReportReview");
+  const heads = await p.locator("thead th").allInnerTexts();
+  assert(["Rep ID", "Schedule ID", "Tanggal & jam live", "Playbook", "Status", "Menunggu"].every((h) => heads.includes(h)) && !heads.includes("Status review"), "list headers: Rep ID, Schedule ID, Jam live, Playbook, Status");
+  const revRow = p.locator("tbody tr", { hasText: "SCD-3225" });
+  assert((await revRow.count()) === 1 && (await revRow.getByText("Waiting Approval Revision").isVisible()), "Waiting Approval Revision report is in the Menunggu review tab");
+  assert(await revRow.getByText("10:00–12:00").isVisible(), "live window looked up from the schedule");
+  await revRow.getByRole("button", { name: "Review", exact: true }).click();
+  const rdlg = p.getByRole("dialog");
+  assert((await rdlg.getByText("SCD-3225").first().isVisible()) && (await rdlg.getByText("Waiting Approval Revision").first().isVisible()) && (await rdlg.getByText("Jam live").isVisible()), "popup header shows Schedule ID, Jam live and Status");
+  await shot("f-rr-revision");
+  await go("c=ReportDetail&r=REP-20862");
+  assert((await p.getByText("SCD-3212").first().isVisible()) && (await p.getByText("19:00–21:00").isVisible()) && (await p.getByText("Playbook").first().isVisible()), "detail shows Schedule ID, live window and Playbook");
+
   // Paging: pageSize 10 local, then LOAD_MORE when HasMore.
   await go("c=ReportReview&tab=All");
   await p.evaluate(() => window.__rerender({ HasMore: true }));
@@ -428,8 +442,9 @@ const assert = (c, m) => { if (!c) { console.log("FAIL", m); process.exitCode = 
   await go("c=MyReports");
   assert((await p.locator(".hc-row:not(.head)").count()) === 7, "7 rows in September: Report rows only");
   assert((await p.getByText("Belum dikirim").count()) === 0, "no schedule-only rows in the report list");
-  assert(await p.getByText("REP-20905 · SCD-3312 · 13:00–15:00").isVisible(), "report row shows its schedule looked up by ScheduleID");
-  assert(await p.getByText("Menunggu review ulang").isVisible() && (await p.getByText("Live break").first().isVisible()), "Waiting Approval Revision and LiveBreak badges");
+  assert(await p.locator(".hc-row", { hasText: "REP-20905" }).getByText("13:00–15:00").isVisible() && (await p.locator(".hc-row", { hasText: "REP-20905" }).getByText("SCD-3312").isVisible()), "report row shows its schedule looked up by ScheduleID");
+  assert(await p.getByText("Waiting Approval Revision", { exact: true }).isVisible() && (await p.getByText("LiveBreak", { exact: true }).first().isVisible()), "Status column shows the stored ApprovalStatus (Waiting Approval Revision, LiveBreak)");
+  assert((await p.getByText(/^Playbook: /).count()) > 0, "report rows show the Playbook");
   await p.getByRole("tab", { name: /Perlu revisi/ }).click();
   assert((await p.locator(".hc-row:not(.head)").count()) === 1, "revision filter");
   await p.getByRole("button", { name: "Perbaiki" }).click();

@@ -66,10 +66,10 @@
     SchedulesJson: J(empty ? [] : S.schedules), ReportsJson: J(empty ? [] : S.reports), EvidenceJson: J(empty ? [] : S.evidence),
     ClockInJson: J(empty ? [] : S.clockIns), HostsJson: J(S.hosts), StudiosJson: J(S.studios), BrandsJson: J(S.brands), PayrollJson: J(S.payrolls),
   });
-  if (c === "ReportReview") Object.assign(params, { ReportsJson: J(empty ? [] : S.reports), EvidenceJson: J(empty ? [] : S.evidence), HostsJson: J(S.hosts), BrandsJson: J(S.brands) });
+  if (c === "ReportReview") Object.assign(params, { ReportsJson: J(empty ? [] : S.reports), EvidenceJson: J(empty ? [] : S.evidence), SchedulesJson: J(S.schedules), HostsJson: J(S.hosts), BrandsJson: J(S.brands) });
   if (c === "ReportDetail") {
     const rep = S.reports.find((r) => r.Title === (q.get("r") || "REP-20862"));
-    Object.assign(params, { ReportJson: J(rep ? [rep] : []), EvidenceJson: J(S.evidence.filter((e) => rep && e.Title === rep.Title)), HostsJson: J(S.hosts), BrandsJson: J(S.brands) });
+    Object.assign(params, { ReportJson: J(rep ? [rep] : []), EvidenceJson: J(S.evidence.filter((e) => rep && e.Title === rep.Title)), SchedulesJson: J(S.schedules.filter((x) => rep && x.Title === rep.ScheduleID)), HostsJson: J(S.hosts), BrandsJson: J(S.brands) });
   }
   // Payroll: ?pay=open (default) | none | done | assembling · ?pf=block · ?slips=1 · ?run=118
   const pay = q.get("pay") || "open";

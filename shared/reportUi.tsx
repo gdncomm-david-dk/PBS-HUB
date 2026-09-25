@@ -4,7 +4,9 @@ import { Row, date, person, str } from "./data";
 import { fmtAgo, fmtDate, fmtDateTimeShort, fmtNumber, fmtPercentValue, fmtRupiah, fmtSignedPct } from "./format";
 import { MetricComparison, MetricDef, reviewBadge, sameValue } from "./reconcile";
 import { ReportItem, itemRef } from "./reportItems";
-import { Badge, Button, Icon, SectionHeader, Spinner } from "./ui";
+import { Badge, Button, Icon, PlaybookValue, SectionHeader, Spinner } from "./ui";
+
+export { PlaybookValue };
 
 /**
  * Review building blocks shared by ReportDetail (full screen) and the review pop-up in
@@ -56,28 +58,40 @@ export function evidenceUrl(report: Row, evidence: Row | undefined): string {
 }
 
 /** Title card: report id, live date, brand, host, account, and a status pill on the right. */
-export function ReportHeader(props: { item: ReportItem; pill: React.ReactNode }): React.ReactElement {
+/** Report.ApprovalStatus as stored, toned by its review state. Blank reads as waiting. */
+export function ApprovalStatusBadge(props: { item: ReportItem }): React.ReactElement {
   const { item } = props;
+  const st = reviewBadge(item.row, item.state);
+  return (
+    <Badge tone={st.tone} title={st.label}>
+      {item.approvalStatus || "Waiting Approval"}
+    </Badge>
+  );
+}
+
+export function ReportHeader(props: { item: ReportItem; pill: React.ReactNode; onOpenLink?: (url: string) => void }): React.ReactElement {
+  const { item } = props;
+  const meta = (l: string, v: React.ReactNode) => (
+    <div className="pbs-rec-m">
+      <span className="l">{l}</span>
+      <span className="v">{v}</span>
+    </div>
+  );
   return (
     <div className="pbs-card pbs-rec">
-      <div className="pbs-rec-code">{item.title || `Report #${item.id}`}</div>
+      <div className="pbs-rec-code">
+        <span className="l">Rep ID</span>
+        {item.title || `Report #${item.id}`}
+      </div>
       <div className="pbs-rec-g">
-        <div className="pbs-rec-m">
-          <span className="l">Tanggal live</span>
-          <span className="v">{fmtDate(item.liveDate)}</span>
-        </div>
-        <div className="pbs-rec-m">
-          <span className="l">Brand</span>
-          <span className="v">{item.brand}</span>
-        </div>
-        <div className="pbs-rec-m">
-          <span className="l">Host</span>
-          <span className="v">{item.host}</span>
-        </div>
-        <div className="pbs-rec-m">
-          <span className="l">Akun</span>
-          <span className="v">{[item.account, item.platform].filter(Boolean).join(" · ") || "—"}</span>
-        </div>
+        {meta("Schedule ID", <span className="pbs-num">{item.scheduleId || "—"}</span>)}
+        {meta("Tanggal live", fmtDate(item.liveDate))}
+        {meta("Jam live", <span className="pbs-num">{item.liveTime || "—"}</span>)}
+        {meta("Brand", item.brand)}
+        {meta("Host", item.host)}
+        {meta("Akun", [item.account, item.platform].filter(Boolean).join(" · ") || "—")}
+        {meta("Status", <ApprovalStatusBadge item={item} />)}
+        {meta("Playbook", <PlaybookValue compact value={item.playbook} onOpen={props.onOpenLink} />)}
       </div>
       {props.pill}
     </div>

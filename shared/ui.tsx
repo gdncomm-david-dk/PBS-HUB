@@ -311,3 +311,20 @@ export function Overlay(props: { onClose: () => void; busy?: boolean; labelledBy
     </div>
   );
 }
+
+/** Report.Playbook: a link opens through canvas (Launch), plain text is shown as is. */
+export function PlaybookValue(props: { value: string; onOpen?: (url: string) => void; compact?: boolean }): React.ReactElement {
+  const v = props.value;
+  if (!v) return <span className="pbs-muted">—</span>;
+  if (/^https?:\/\//i.test(v) && props.onOpen)
+    return (
+      <button type="button" className="pbs-link" title={v} onClick={() => props.onOpen?.(v)} style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
+        Buka playbook <Icon name="external" size={12} />
+      </button>
+    );
+  return (
+    <span title={v} style={props.compact ? { display: "inline-block", maxWidth: 150, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", verticalAlign: "bottom" } : { whiteSpace: "pre-wrap" }}>
+      {v}
+    </span>
+  );
+}
