@@ -266,6 +266,19 @@ Karena itu `OnChange` ReportReview harus menangani **aksi keputusan yang sama** 
 (`APPROVE`, `APPROVE_WITHOUT_EVIDENCE`, `REQUEST_REVISION`, `ESCALATE`, `REMIND_HOST`, `OPEN_EVIDENCE`)
 dan membalas lewat `varRrResult`. Popup tertutup sendiri setelah `status: "ok"`.
 
+**Yang ditulis saat review** (popup ReportReview dan ReportDetail memakai rumus yang sama):
+
+| Keputusan | `Report - PBS Hub` | `Report Automation - PBS Hub` (baris dengan `Title` = `Report.Title`) |
+|---|---|---|
+| Setujui (`APPROVE`, `BULK_APPROVE`) | `ApprovalStatus = Done`, `Match = Match`, `ApprovalComment`, `ApproverEmail`, `Approver` | `Status = Match` |
+| Setujui tanpa bukti | `ApprovalStatus = Done`, `Match` tetap, `ApprovalComment = [Tanpa bukti] …`, approver | tidak diubah |
+| Perlu revisi (`REQUEST_REVISION`) | `ApprovalStatus = Need Revision`, `Match = Unmatch`, `ApprovalComment` = komentar reviewer, `ApproverEmail` = reviewer, `TanggalRevisi` | `Status = Unmatch` |
+| Eskalasi | `ApprovalStatus` tetap, `ApprovalComment = [Eskalasi] …` | tidak diubah |
+| Host kirim perbaikan (Host app, `RESUBMIT_REPORT`) | `ApprovalStatus = Waiting Approval Revision`, metrik baru | `Status = Unmatch` saja |
+
+Keputusan hanya ditulis kalau `ApprovalStatus` masih `Waiting Approval` / `Waiting Approval Revision`; selain itu
+canvas membalas `conflict` dan tidak menulis apa pun.
+
 **OnChange**
 
 ```powerfx
@@ -307,13 +320,16 @@ If(!IsBlank(Self.ActionPayload),
                                             ApprovalStatus: {Value: "Done"}, Match: {Value: "Match"},
                                             ApprovalComment: Text(p.comment), ApproverEmail: User().Email
                                         });
-                                        If(!IsBlank(Text(it.evidenceId)),
-                                            Patch('Report Automation - PBS Hub', LookUp('Report Automation - PBS Hub', ID = Value(it.evidenceId)), {Status: {Value: "Match"}}))
+                                        With({ev: If(IsBlank(Text(it.evidenceId)),
+                                                    First(Sort(Filter('Report Automation - PBS Hub', Title = cur.Title), ID, SortOrder.Descending)),
+                                                    LookUp('Report Automation - PBS Hub', ID = Value(it.evidenceId)))},
+                                            If(!IsBlank(ev), Patch('Report Automation - PBS Hub', ev, {Status: {Value: "Match"}})))
                                     )
                                 )
                             );
                             Refresh('Report - PBS Hub');
                             ClearCollect(colRrReport, FirstN(Sort('Report - PBS Hub', ID, SortOrder.Descending), varRrTop));
+                            ClearCollect(colRrEvidence, Filter('Report Automation - PBS Hub', Created >= DateAdd(Today(), -60)));
                             Set(varRrResult, JSON({requestId: rid, status: "ok", message: CountRows(Table(p.items)) & " report disetujui."}, JSONFormat.Compact)),
                             Set(varRrResult, JSON({requestId: rid, status: "error", message: "Bulk approve gagal: " & FirstError.Message}, JSONFormat.Compact))
                         ),
@@ -341,12 +357,15 @@ If(!IsBlank(Self.ActionPayload),
                                     },
                                     TanggalRevisi: If(act = "REQUEST_REVISION", Now(), cur.TanggalRevisi)
                                 });
-                                If(!IsBlank(Text(p.evidenceId)) && !IsBlank(Text(p.match)),
-                                    Patch('Report Automation - PBS Hub',
-                                        LookUp('Report Automation - PBS Hub', ID = Value(p.evidenceId)),
-                                        {Status: {Value: Text(p.match)}}));
+                                // Report Automation: baris dengan Title yang sama (REP-xxx); yang terbaru kalau lebih dari satu.
+                                With({ev: If(IsBlank(Text(p.evidenceId)),
+                                            First(Sort(Filter('Report Automation - PBS Hub', Title = cur.Title), ID, SortOrder.Descending)),
+                                            LookUp('Report Automation - PBS Hub', ID = Value(p.evidenceId)))},
+                                    If(!IsBlank(ev) && !IsBlank(Text(p.match)),
+                                        Patch('Report Automation - PBS Hub', ev, {Status: {Value: Text(p.match)}})));
                                 Refresh('Report - PBS Hub');
                                 ClearCollect(colRrReport, FirstN(Sort('Report - PBS Hub', ID, SortOrder.Descending), varRrTop));
+                                ClearCollect(colRrEvidence, Filter('Report Automation - PBS Hub', Created >= DateAdd(Today(), -60)));
                                 Set(varRrResult, JSON({requestId: rid, status: "ok"}, JSONFormat.Compact)),
                                 Set(varRrResult, JSON({requestId: rid, status: "error", message: "Gagal menyimpan " & Text(p.title) & ": " & FirstError.Message}, JSONFormat.Compact))
                             )
@@ -435,11 +454,13 @@ If(!IsBlank(Self.ActionPayload),
                                     },
                                     TanggalRevisi: If(act = "REQUEST_REVISION", Now(), cur.TanggalRevisi)
                                 });
-                                If(!IsBlank(Text(p.evidenceId)) && !IsBlank(Text(p.match)),
-                                    Patch('Report Automation - PBS Hub',
-                                        LookUp('Report Automation - PBS Hub', ID = Value(p.evidenceId)),
-                                        {Status: {Value: Text(p.match)}}));
-                                Refresh('Report - PBS Hub');
+                                // Report Automation: baris dengan Title yang sama (REP-xxx); yang terbaru kalau lebih dari satu.
+                                With({ev: If(IsBlank(Text(p.evidenceId)),
+                                            First(Sort(Filter('Report Automation - PBS Hub', Title = cur.Title), ID, SortOrder.Descending)),
+                                            LookUp('Report Automation - PBS Hub', ID = Value(p.evidenceId)))},
+                                    If(!IsBlank(ev) && !IsBlank(Text(p.match)),
+                                        Patch('Report Automation - PBS Hub', ev, {Status: {Value: Text(p.match)}})));
+                                Refresh('Report - PBS Hub'); Refresh('Report Automation - PBS Hub');
                                 Set(varRdResult, JSON({requestId: rid, status: "ok"}, JSONFormat.Compact)),
                                 Set(varRdResult, JSON({requestId: rid, status: "error", message: "Gagal menyimpan " & Text(p.title) & ": " & FirstError.Message}, JSONFormat.Compact))
                             )
