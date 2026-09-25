@@ -303,5 +303,10 @@
     { ID: 991, Title: "REP-20902", HostID: "HST-001", ScheduleID: "SCD-3305", Platform: { Value: "TikTok" }, Status: { Value: "Unmatch" }, Created: d(8, "12:44"), ...M(5200000, 140, 162, 120, 3.8, 9.3, 1320) },
   ];
   const hostApp = { hostId: "HST-001", schedules: hostSchedules, absences: hostAbsences, reports: hostReports, evidence: hostEvidence };
-  window.PBS_SAMPLE = { REF, hostApp, thresholds, scoreTx, hostExtraClockIns, hostExtraSchedules, piiValues, brands, hosts, studios, schedules, reports, evidence, clockIns, payrolls, context, clockInsAug, clockInsAugBlocked, payrollRuns, payrollHistory, payrollLines, payslips };
+  const studioLocations = [
+    { Title: "Studio CWG Jakarta", LocationID: "LOC-01", Latitude: -6.2244, Longitude: 106.8031, RadiusMeter: 150, IsActive: true },
+    { Title: "Studio BSD", LocationID: "LOC-02", Latitude: -6.3015, Longitude: 106.6527, RadiusMeter: 100, IsActive: true },
+    { Title: "Studio Kemang (tutup)", LocationID: "LOC-03", Latitude: -6.2607, Longitude: 106.8132, RadiusMeter: 100, IsActive: false },
+  ];
+  window.PBS_SAMPLE = { REF, hostApp, studioLocations, thresholds, scoreTx, hostExtraClockIns, hostExtraSchedules, piiValues, brands, hosts, studios, schedules, reports, evidence, clockIns, payrolls, context, clockInsAug, clockInsAugBlocked, payrollRuns, payrollHistory, payrollLines, payslips };
 })();

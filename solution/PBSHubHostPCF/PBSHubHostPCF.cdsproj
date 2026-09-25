@@ -50,6 +50,7 @@
     <ProjectReference Include="../../controls/HostDashboard/PbsHostDashboard.pcfproj" />
     <ProjectReference Include="../../controls/MyReports/PbsHostMyReports.pcfproj" />
     <ProjectReference Include="../../controls/MyReportDetail/PbsHostMyReportDetail.pcfproj" />
+    <ProjectReference Include="../../controls/ClockIn/PbsHostClockIn.pcfproj" />
   </ItemGroup>
 
   <Import Project="$(MSBuildToolsPath)\Microsoft.Common.targets" />

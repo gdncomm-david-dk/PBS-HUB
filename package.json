@@ -2,7 +2,7 @@
   "name": "pbs-hub-pcf",
   "private": true,
   "version": "1.0.0",
-  "description": "PBS Hub PCF code components. Ops: Dashboard, ReportReview, ReportDetail, PayrollRuns, PayrollRunDetail, HostList, HostDetail. Host app: HostDashboard, MyReports, MyReportDetail. Host schedule: MySchedule, ScheduleDetail",
+  "description": "PBS Hub PCF code components. Ops: Dashboard, ReportReview, ReportDetail, PayrollRuns, PayrollRunDetail, HostList, HostDetail. Host app: HostDashboard, MyReports, MyReportDetail, ClockIn. Host schedule: MySchedule, ScheduleDetail",
   "workspaces": [
     "controls/*"
   ],

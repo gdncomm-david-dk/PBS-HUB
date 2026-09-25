@@ -1,6 +1,6 @@
 # Integrasi canvas — PBS Hub Host PCF
 
-Solusi terpisah dari Ops Console: **`PBSHubHostPCF`** (managed, `dist/PBSHubHostPCF_1_0_8_0_managed.zip`)
+Solusi terpisah dari Ops Console: **`PBSHubHostPCF`** (managed, `dist/PBSHubHostPCF_1_0_9_0_managed.zip`)
 dan, untuk layar jadwal, **`PBSHubHostSchedulePCF`** (managed, `dist/PBSHubHostSchedulePCF_1_1_5_0_managed.zip`).
 Publisher dan prefix sama (`PBSHub` / `pbs`), jadi ketiga solusi bisa dipasang berdampingan di environment yang
 sama, tapi bisa di-upgrade sendiri-sendiri.
@@ -9,6 +9,7 @@ sama, tapi bisa di-upgrade sendiri-sendiri.
 |---|---|---|
 | `pbs_Host.HostDashboard` | *Hari ini* | Sapaan, kartu shift (clock in / clock out), to-do (revisi, report belum dikirim, absen), jadwal hari ini, skor. |
 | `pbs_Host.MyReports` | *Report saya* | Report sebulan + sesi yang belum dilaporkan, filter status, pilih bulan. |
+| `pbs_Host.ClockIn` | *Clock in* (dibuka dari kartu shift *Hari ini*) | Clock in / clock out: GPS dicek terhadap radius `Studio Location - PBS`, selfie wajib saat in **dan** out, alasan wajib kalau di luar radius. Lihat bagian 9. |
 | `pbs_Host.MyReportDetail` | *Kirim report*, *Revisi*, *Detail report* | Satu control, tiga mode: form submit (metrik + screenshot), layar revisi (angka yang ditandai, perbaiki / sanggah), tampilan read-only. |
 | `pbs_Host.MySchedule` *(PBSHubHostSchedulePCF)* | *Jadwal saya* (5a) | Tabel sesi sebulan, 4 KPI, strip *Hari ini* dengan tombol clock in / absen / kirim report, filter platform + status + cari. |
 | `pbs_Host.ScheduleDetail` *(PBSHubHostSchedulePCF)* | *Detail sesi* (dibuka dari 4b / 5a / Hari ini) | Langkah berikutnya, **absen dan kirim report (metrik + screenshot) atau revisi langsung di layar ini**, 4 langkah sesi, detail jadwal, sesi lain di hari yang sama. |
@@ -16,9 +17,9 @@ sama, tapi bisa di-upgrade sendiri-sendiri.
 Aturan kontrak sama dengan Ops (lihat [`CANVAS-INTEGRATION.md` §1](CANVAS-INTEGRATION.md#1-aturan-kontrak-berlaku-untuk-semua-control)):
 control **tidak pernah menulis ke SharePoint**, tombol mengirim `ActionPayload`, canvas menulis di `OnChange`
 dan membalas lewat `ActionResult` dengan `requestId` yang sama. Aksi yang **mengunci** (wajib dibalas):
-`ABSEN`, `SUBMIT_REPORT`, `RESUBMIT_REPORT`, `DISPUTE_REVIEW`. Sisanya navigasi, tidak perlu dibalas.
+`ABSEN`, `SUBMIT_REPORT`, `RESUBMIT_REPORT`, `DISPUTE_REVIEW`, `CLOCK_IN`, `CLOCK_OUT` (ClockIn). Sisanya navigasi, tidak perlu dibalas.
 
-Control hanya merender isi layar. Header, sidebar/tab bar, dan layar clock in (GPS + selfie) tetap milik app.
+Control hanya merender isi layar. Header dan sidebar/tab bar tetap milik app. Layar clock in (GPS + selfie) sekarang juga control (`pbs_Host.ClockIn`, bagian 9); layar GeoAttendance lama boleh dipensiunkan.
 
 ## 1. Context
 
@@ -101,8 +102,8 @@ Aksi:
 
 | Aksi | Payload | Canvas |
 |---|---|---|
-| `CLOCK_IN` | `{}` | `Navigate(scrClockIn)` — layar GeoAttendance yang sudah ada (GPS + geofence tetap di sana) |
-| `CLOCK_OUT` | `{clockInId}` | `Navigate(scrClockIn)` (atau langsung patch `CheckOutTime` kalau layar itu tidak dipakai untuk clock out) |
+| `CLOCK_IN` | `{}` | `Navigate(scrClockIn)` — layar dengan control `pbs_Host.ClockIn` (bagian 9) |
+| `CLOCK_OUT` | `{clockInId}` | `Navigate(scrClockIn)` — control yang sama membuka mode clock out kalau shift masih terbuka |
 | `ABSEN` 🔒 | `{scheduleId, scheduleItemId, hostId, hostName, liveDate, brandId, studioId, platform, account}` | Patch Host Absence (di bawah) |
 | `NEW_REPORT` | `{scheduleId, scheduleItemId, liveDate}` | `Set(varRptSchedule, Text(p.scheduleId)); Set(varRptId, Blank()); Navigate(scrMyReportDetail)` |
 | `OPEN_REPORT` | `{reportId, title, scheduleId}` | `Set(varRptId, Value(p.reportId)); Set(varRptSchedule, Text(p.scheduleId)); Navigate(scrMyReportDetail)` |
@@ -434,11 +435,12 @@ tim PBS, sesi batal hanya diberi keterangan.
 
 ## 8. Pemasangan
 
-1. Import `dist/PBSHubHostPCF_1_0_8_0_managed.zip` dan `dist/PBSHubHostSchedulePCF_1_1_5_0_managed.zip`
+1. Import `dist/PBSHubHostPCF_1_0_9_0_managed.zip` dan `dist/PBSHubHostSchedulePCF_1_1_5_0_managed.zip`
    (Solutions → Import). Bisa di environment yang sama dengan `PBSHubOpsPCF`; urutan bebas, tidak saling bergantung.
 2. Di canvas app host: **Insert → Get more components → Code** → `PBS Host Dashboard`, `PBS Host My Reports`,
-   `PBS Host My Report Detail`, `PBS Host My Schedule`, `PBS Host Schedule Detail`.
-3. Buat flow *PBS Host – Upload report screenshot* (bagian 5) dan tambahkan ke app (**Power Automate** pane).
+   `PBS Host My Report Detail`, `PBS Host Clock In`, `PBS Host My Schedule`, `PBS Host Schedule Detail`.
+3. Buat flow *PBS Host – Upload report screenshot* (bagian 5) dan *PBS Host – Upload selfie* (bagian 9), lalu
+   tambahkan keduanya ke app (**Power Automate** pane).
 4. Satu control per layar, ukuran = area konten. Layout menyesuaikan lebar sendiri (container query): di HP
    (≤ 560 px) kolom tunggal, di tablet/desktop kolom tengah 720 px. *Jadwal saya* memakai kolom lebar
    (sampai 1160 px) dan menyembunyikan kolom Akun / Posisi / Studio di bawah 900 px.
@@ -446,3 +448,153 @@ tim PBS, sesi batal hanya diberi keterangan.
 Update: naikkan `version` di `ControlManifest.Input.xml` yang berubah **dan** `Version` di
 `solution/<Solusi>/src/Other/Solution.xml` milik control itu (`PBSHubHostPCF` atau `PBSHubHostSchedulePCF`),
 lalu `npm run release` (membangun semua solusi; hanya satu: `SOLUTIONS=PBSHubHostSchedulePCF ./scripts/package-solution.sh`).
+
+## 9. ClockIn (layar *Clock in*) — `PBSHubHostPCF`
+
+Satu layar untuk clock in **dan** clock out. Control membaca shift hari ini dari `ClockInJson`: belum ada baris →
+mode *Clock in*; baris dengan `CheckOutTime` kosong (termasuk shift semalam yang belum ditutup) → mode *Clock out*;
+sudah clock out → *Shift selesai*.
+
+Alur host: **Cek lokasi** (GPS HP, akurasi tinggi, maks. 20 detik) → **Ambil selfie** (kamera depan terbuka;
+foto dikecilkan jadi JPEG ≤ `selfieMaxKb`) → kalau **di luar radius**, isi **Alasan** (wajib, min. `minReasonChars`
+karakter) → **Clock in sekarang** / **Clock out sekarang**. Posisi yang lebih tua dari 5 menit harus dicek ulang.
+Di luar radius **tetap boleh** clock in/out; baris ditandai `IsInsideGeofence = false` dan alasannya tersimpan.
+
+Geofence: jarak ke setiap baris aktif `Studio Location - PBS` (`IsActive = Yes`, `Latitude`/`Longitude` terisi).
+*Di dalam radius* = jarak ≤ `RadiusMeter`; `RadiusMeter` kosong memakai `defaultRadiusM`. Kalau di luar semua
+radius, studio terdekat yang ditulis ke `CheckInOffice` / `CheckOutOffice` bersama jaraknya.
+
+**Context** — `varHostCtx` yang sama, config tambahan (semua opsional):
+
+```powerfx
+clockInStatus: "Hadir - Tugas",   // nilai Choice Status saat clock in
+hkTugas: 180000,                  // HKTugas yang ditulis (default mengikuti clockInStatus)
+statusAbsence: "",                // nilai Choice StatusAbsence saat clock out; kosong = kolom tidak ditulis
+defaultRadiusM: 100,              // radius kalau RadiusMeter kosong
+weakAccuracyM: 100,               // akurasi GPS di atas ini diberi peringatan (tidak memblokir)
+minReasonChars: 10,               // panjang minimum alasan di luar radius
+selfieMaxPx: 960, selfieMaxKb: 350
+```
+
+**OnVisible**
+
+```powerfx
+Set(varCkLoading, true);
+Concurrent(
+    ClearCollect(colCkLoc, Filter('Studio Location - PBS', IsActive = true)),
+    ClearCollect(colCkClk, Filter('Clock In - PBS Hub', HostID = varMe.Title, ClockInDate >= Today() - 1)),
+    ClearCollect(colCkSch, Filter('Schedule - PBS Hub', HostID = varMe.Title, Date >= Today() - 1, Date <= Today())),
+    ClearCollect(colCkRep, Filter('Report - PBS Hub', HostID = varMe.Title, LiveDate >= Today() - 1))
+);
+Set(varCkLoading, false)
+```
+
+**Properti**
+
+| Properti | Nilai |
+|---|---|
+| `Context` | `varHostCtx` |
+| `HostJson` | `JSON(ForAll(Table(varMe), {Title: Title, NamaHost: NamaHost, Email: Email.Email}), JSONFormat.Compact)` |
+| `LocationsJson` | `JSON(ForAll(colCkLoc, {Title: Title, LocationID: LocationID, Latitude: Latitude, Longitude: Longitude, RadiusMeter: RadiusMeter, IsActive: IsActive}), JSONFormat.Compact)` |
+| `ClockInJson` | `JSON(ForAll(colCkClk, {ID: ID, Title: Title, HostID: HostID, ClockInDate: Text(ClockInDate, "yyyy-mm-dd"), CheckInTime: CheckInTime, CheckOutTime: CheckOutTime, ClockInTime: ClockInTime, CheckInOffice: CheckInOffice, Reason: Reason}), JSONFormat.Compact)` |
+| `SchedulesJson` | `JSON(ForAll(colCkSch, {Title: Title, Date: Text(Date, "yyyy-mm-dd"), StartTime: StartTime, EndTime: EndTime, HostID: HostID, Status: Status.Value}), JSONFormat.Compact)` — untuk `ScheduleCount` (sesi *Cancelled* tidak dihitung) |
+| `ReportsJson` | `JSON(ForAll(colCkRep, {Title: Title, ScheduleID: ScheduleID, HostID: HostID, LiveDate: Text(LiveDate, "yyyy-mm-dd")}), JSONFormat.Compact)` — untuk `TotalReports` saat clock out |
+| `DeviceLocationJson` | `JSON({Latitude: Location.Latitude, Longitude: Location.Longitude}, JSONFormat.Compact)` — cadangan kalau browser/WebView menolak GPS; akurasinya tidak diketahui |
+| `IsLoading` / `ActionResult` | `varCkLoading` / `varCkResult` |
+| `ReferenceDate` | kosong (hanya untuk tes) |
+
+Output kedua **`UploadData`** berisi base64 JPEG selfie, terisi bersama `CLOCK_IN` / `CLOCK_OUT` — polanya sama
+dengan screenshot report (bagian 5). Nama file disusun control: `HST-001_20260925_IN_0803.jpg` / `…_OUT_1733.jpg`.
+
+**Flow *PBS Host – Upload selfie*** — salin flow *Upload report screenshot* (input `fileName`, `fileBase64`), ganti
+folder Create file ke mis. `/PBS Power Apps/Selfie Clock In`, **Respond to a PowerApp** dengan `url`. Di app
+namanya `'PBSHost-Uploadselfie'`.
+
+**Payload**
+
+`CLOCK_IN`: `{hostId, hostName, employeeName, employeeEmail, clockInDate, checkInTime (ISO), clockInTime ("HH:mm"),
+status, hkTugas, scheduleCount, latitude, longitude, accuracy, distance, office, locationId, inside, radius,
+positionSource ("device" | "canvas"), reason, selfieSource ("Camera" | "Gallery"), file: {name, ext, contentType, bytes, width, height}}`
+
+`CLOCK_OUT`: `{clockInId, clockInTitle, hostId, clockOutDate, checkOutTime, clockOutTime, workingMinutes, workingHours,
+scheduleCount, totalReports, statusAbsence, latitude, longitude, accuracy, distance, office, locationId, inside,
+radius, positionSource, reason, reasonText, selfieSource, file}`. `reasonText` = alasan clock in + `[Clock out] …`
+(satu kolom `Reason` untuk dua ujung shift). `scheduleCount` / `totalReports` dihitung untuk **hari clock in**
+(shift yang lewat tengah malam tetap milik hari itu).
+
+**OnChange**
+
+```powerfx
+If(!IsBlank(Self.ActionPayload),
+    With({req: ParseJSON(Self.ActionPayload)},
+        With({act: Text(req.action), rid: Text(req.requestId), p: req.payload, data: Self.UploadData},
+            If(!(rid in colPbsProcessed.Id),
+                Collect(colPbsProcessed, {Id: rid});
+                Switch(act,
+                    "CLOCK_IN",
+                        If(!IsBlank(LookUp('Clock In - PBS Hub', HostID = varMe.Title && ClockInDate = Today())),
+                            Set(varCkResult, JSON({requestId: rid, status: "conflict", message: "Kamu sudah clock in hari ini."}, JSONFormat.Compact)),
+                            IfError(
+                                // Selfie dulu: nama file tidak butuh ID, jadi upload gagal tidak meninggalkan baris tanpa foto.
+                                With({up: 'PBSHost-Uploadselfie'.Run(Text(p.file.name), data)},
+                                    With({row: Patch('Clock In - PBS Hub', Defaults('Clock In - PBS Hub'), {
+                                            HostID: varMe.Title, HostName: Text(p.hostName),
+                                            EmployeeName: Text(p.employeeName), EmployeeEmail: Text(p.employeeEmail),
+                                            ClockInDate: Today(), CheckInTime: Now(), ClockInTime: Text(Now(), "hh:mm"),
+                                            Status: {Value: Text(p.status)}, HKTugas: Value(p.hkTugas),
+                                            ScheduleCount: Value(p.scheduleCount),
+                                            CheckInLatitude: Value(p.latitude), CheckInLongitude: Value(p.longitude),
+                                            CheckInAccuracy: Value(p.accuracy), CheckInDistance: Value(p.distance),
+                                            CheckInOffice: Text(p.office), IsInsideGeofence: Boolean(p.inside),
+                                            Reason: Text(p.reason), SelfieSource: Text(p.selfieSource),
+                                            SelfiePhotoUrl: up.url
+                                        })},
+                                        Patch('Clock In - PBS Hub', row, {Title: "CLK-" & Text(row.ID, "0000")});
+                                        ClearCollect(colCkClk, Filter('Clock In - PBS Hub', HostID = varMe.Title, ClockInDate >= Today() - 1));
+                                        Set(varCkResult, JSON({requestId: rid, status: "ok", message: "Clock in " & Text(Now(), "hh:mm") & " tersimpan (CLK-" & Text(row.ID, "0000") & ")."}, JSONFormat.Compact))
+                                    )
+                                ),
+                                Set(varCkResult, JSON({requestId: rid, status: "error", message: "Gagal clock in: " & FirstError.Message}, JSONFormat.Compact))
+                            )
+                        ),
+                    "CLOCK_OUT",
+                        With({cur: LookUp('Clock In - PBS Hub', ID = Value(p.clockInId) && HostID = varMe.Title)},
+                            If(IsBlank(cur) || !IsBlank(cur.CheckOutTime),
+                                Set(varCkResult, JSON({requestId: rid, status: "conflict", message: "Shift ini sudah di-clock out. Muat ulang."}, JSONFormat.Compact)),
+                                IfError(
+                                    With({up: 'PBSHost-Uploadselfie'.Run(Text(p.file.name), data)},
+                                        Patch('Clock In - PBS Hub', cur, {
+                                            CheckOutTime: Now(), ClockOutDate: Today(),
+                                            CheckOutLatitude: Value(p.latitude), CheckOutLongitude: Value(p.longitude),
+                                            CheckOutAccuracy: Value(p.accuracy), CheckOutDistance: Value(p.distance),
+                                            CheckOutOffice: Text(p.office),
+                                            WorkingDuration: DateDiff(Coalesce(cur.CheckInTime, Now()), Now(), TimeUnit.Minutes),  // menit; pakai /60 kalau kolomnya jam
+                                            ScheduleCount: Value(p.scheduleCount), TotalReports: Value(p.totalReports),
+                                            Reason: Text(p.reasonText),
+                                            SelfieOutPhotoUrl: up.url
+                                            // , StatusAbsence: {Value: Text(p.statusAbsence)}   ← aktifkan kalau config.statusAbsence diisi
+                                        })
+                                    );
+                                    ClearCollect(colCkClk, Filter('Clock In - PBS Hub', HostID = varMe.Title, ClockInDate >= Today() - 1));
+                                    Set(varCkResult, JSON({requestId: rid, status: "ok", message: "Clock out " & Text(Now(), "hh:mm") & " tersimpan."}, JSONFormat.Compact)),
+                                    Set(varCkResult, JSON({requestId: rid, status: "error", message: "Gagal clock out: " & FirstError.Message}, JSONFormat.Compact))
+                                )
+                            )
+                        ),
+                    "NAV", Navigate(scrHome)   // tombol "Hari ini" / "Kembali ke Hari ini" ({target: "HOME"})
+                )
+            )
+        )
+    )
+)
+```
+
+Catatan:
+- Waktu yang disimpan `Now()` saat canvas menulis (bukan jam HP yang dikirim control); `checkInTime` /
+  `checkOutTime` di payload hanya untuk log.
+- Selfie di-upload **sebelum** baris ditulis (clock in) / di-patch (clock out). Upload gagal → `IfError` membalas
+  error, tidak ada baris setengah jadi, host tinggal menekan tombol lagi.
+- `ClockInDate = Today()` di pengecekan konflik: satu baris clock in per host per hari (sama dengan clock in manual
+  di Ops).
+- Izin lokasi: Power Apps mobile meminta izin lokasi saat pertama kali; di browser, situs `apps.powerapps.com` harus
+  diizinkan. Kalau ditolak, control memakai `DeviceLocationJson` (sinyal `Location` canvas) bila terisi.

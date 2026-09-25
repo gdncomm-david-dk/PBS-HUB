@@ -6,7 +6,7 @@ import { MASCOT_CHEER } from "./assets.generated";
 export type IconName =
   | "checkSquare" | "mapPin" | "clock" | "file" | "calendar" | "upload" | "alert" | "check" | "info"
   | "image" | "zoom" | "refresh" | "x" | "chevronDown" | "arrowLeft" | "external" | "bell" | "sparkle" | "inbox" | "filterX"
-  | "eye" | "eyeOff" | "lock" | "search" | "plus" | "user";
+  | "eye" | "eyeOff" | "lock" | "search" | "plus" | "user" | "camera";
 
 const PATHS: Record<IconName, React.ReactNode> = {
   checkSquare: <><path d="M9 11l3 3L22 4" /><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" /></>,
@@ -35,6 +35,7 @@ const PATHS: Record<IconName, React.ReactNode> = {
   search: <><circle cx="11" cy="11" r="8" /><path d="M21 21l-4.35-4.35" /></>,
   plus: <path d="M12 5v14M5 12h14" />,
   user: <><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" /></>,
+  camera: <><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" /><circle cx="12" cy="13" r="4" /></>,
 };
 
 export function Icon(props: { name: IconName; size?: number; color?: string; style?: React.CSSProperties }): React.ReactElement {

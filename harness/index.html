@@ -27,6 +27,7 @@
 <script src="../controls/MySchedule/out/controls/MySchedule/bundle.js"></script>
 <script src="../controls/ScheduleDetail/out/controls/ScheduleDetail/bundle.js"></script>
 <script src="../controls/MyReportDetail/out/controls/MyReportDetail/bundle.js"></script>
+<script src="../controls/ClockIn/out/controls/ClockIn/bundle.js"></script>
 <script src="sample-data.js"></script>
 <script>
   // ?hostile=1 mimics the player's global CSS that broke the controls before they moved into Shadow DOM.
@@ -50,6 +51,7 @@
   <a href="?c=ScheduleDetail&sch=SCD-3201">ScheduleDetail live</a> <a href="?c=ScheduleDetail&sch=SCD-3301">revisi</a> <a href="?c=ScheduleDetail&sch=SCD-3302">belum report</a> <a href="?c=ScheduleDetail&sch=SCD-3304">tanpa clock in</a> <a href="?c=ScheduleDetail&sch=SCD-3305">finished</a> <a href="?c=ScheduleDetail&sch=SCD-3309">planned</a> <a href="?c=ScheduleDetail&sch=SCD-3307">batal</a> <a href="?c=ScheduleDetail&sch=SCD-9999">tidak ada</a> <a href="?c=ScheduleDetail&sch=SCD-3201&w=390">mobile</a> |
   <a href="?c=MyReports">MyReports</a> <a href="?c=MyReports&f=Revision">revisi</a> <a href="?c=MyReports&period=2026-07">bulan kosong</a> <a href="?c=MyReports&s=loading">loading</a> <a href="?c=MyReports&w=390">mobile</a> |
   <a href="?c=MyReportDetail&sch=SCD-3302">submit</a> <a href="?c=MyReportDetail&sch=SCD-3201">belum absen</a> <a href="?c=MyReportDetail&sch=SCD-3304">tanpa clock in</a> <a href="?c=MyReportDetail&sch=SCD-3203">belum mulai</a> <a href="?c=MyReportDetail&r=REP-20901">revisi</a> <a href="?c=MyReportDetail&r=REP-20863">menunggu</a> <a href="?c=MyReportDetail&r=REP-20902">selesai</a> <a href="?c=MyReportDetail&r=REP-20903">otomatis</a> <a href="?c=MyReportDetail&r=REP-20901&w=390">revisi mobile</a>
+  | <a href="?c=ClockIn">ClockIn (clock out)</a> <a href="?c=ClockIn&shift=none">clock in</a> <a href="?c=ClockIn&shift=none&geo=-6.2300,106.8031,35">luar radius</a> <a href="?c=ClockIn&shift=none&geo=deny">izin ditolak</a> <a href="?c=ClockIn&shift=out">selesai</a> <a href="?c=ClockIn&shift=none&w=390">mobile</a>
   <label><input type="checkbox" id="auto" checked> auto-reply ok</label>
 </div>
 <div id="stage"></div>
@@ -105,7 +107,7 @@
     });
   }
   // Host app: the signed-in host (HST-001) sees only her rows. ?shift=none|out · ?ref=<ISO now> · ?sch=SCD-… · ?r=REP-… · ?period=yyyy-mm · ?f=<filter>
-  const isHostApp = ["HostDashboard", "MyReports", "MyReportDetail", "MySchedule", "ScheduleDetail"].includes(c);
+  const isHostApp = ["HostDashboard", "MyReports", "MyReportDetail", "MySchedule", "ScheduleDetail", "ClockIn"].includes(c);
   if (isHostApp) {
     const HA = S.hostApp, me = HA.hostId;
     const own = (rows) => rows.filter((x) => x.HostID === me);
@@ -137,6 +139,18 @@
         EvidenceJson: J(all.evidence.filter((e) => dayReps.some((r) => r.Title === e.Title))),
         HistoryJson: J(all.reports.filter((x) => sch && x.Platform && x.Platform.Value === (sch.Platform || {}).Value && x.ScheduleID !== id)),
       });
+    }
+    if (c === "ClockIn") {
+      // ?geo=lat,lng,accuracy | deny · ?cloc=lat,lng (canvas Location signal) · ?locs=none
+      Object.assign(params, base, {
+        LocationsJson: J(q.get("locs") === "none" ? [] : S.studioLocations), SchedulesJson: J(s === "loading" ? [] : all.schedules), ReportsJson: J(s === "loading" ? [] : all.reports),
+        DeviceLocationJson: q.get("cloc") ? J((([a, b]) => ({ Latitude: Number(a), Longitude: Number(b) }))(q.get("cloc").split(","))) : "",
+      });
+      const geo = q.get("geo") || "-6.2248,106.8031,12";
+      const [la, ln, ac] = geo.split(",").map(Number);
+      Object.defineProperty(navigator, "geolocation", { configurable: true, value: {
+        getCurrentPosition: (ok, err) => setTimeout(() => geo === "deny" ? err({ code: 1, message: "denied" }) : ok({ coords: { latitude: la, longitude: ln, accuracy: ac } }), 150),
+      } });
     }
     if (c === "MyReportDetail") {
       const rep = all.reports.find((x) => x.Title === q.get("r"));
@@ -225,6 +239,21 @@
           params.ClockInJson = J(rows);
         }
         params.ActionResult = J({ requestId: p.requestId, status: fail ? "error" : "ok", message: fail ? "Gagal menyimpan: akses ditolak." : `Kehadiran ${p.payload.clockInDate} disesuaikan (${p.payload.changes.length} perubahan).` });
+        ctl.updateView(context());
+      }, Number(q.get("delay") || 400));
+      return;
+    }
+    if ((p.action === "CLOCK_IN" || p.action === "CLOCK_OUT") && c === "ClockIn" && document.getElementById("auto").checked) {
+      // Canvas stand-in: write the Clock In row (selfie on UploadData), then hand the rows back.
+      const up = ctl.getOutputs().UploadData;
+      log(`UploadData ${Math.round((up.length * 3) / 4 / 1024)} KB selfie ${p.payload.file.name}`);
+      setTimeout(() => {
+        const fail = q.get("reply") === "error";
+        let rows = JSON.parse(params.ClockInJson || "[]");
+        if (!fail && p.action === "CLOCK_IN") rows.push({ ID: 99101, Title: "CLK-99101", HostID: p.payload.hostId, ClockInDate: p.payload.clockInDate, CheckInTime: p.payload.checkInTime, ClockInTime: p.payload.clockInTime, CheckInOffice: p.payload.office, IsInsideGeofence: p.payload.inside, Reason: p.payload.reason });
+        if (!fail && p.action === "CLOCK_OUT") rows = rows.map((x) => String(x.ID) === String(p.payload.clockInId) ? Object.assign({}, x, { CheckOutTime: p.payload.checkOutTime, CheckOutOffice: p.payload.office }) : x);
+        params.ClockInJson = J(rows);
+        params.ActionResult = J({ requestId: p.requestId, status: fail ? "error" : "ok", message: fail ? "Gagal menyimpan: akses ditolak." : "" });
         ctl.updateView(context());
       }, Number(q.get("delay") || 400));
       return;

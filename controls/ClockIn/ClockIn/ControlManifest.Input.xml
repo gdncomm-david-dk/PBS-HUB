@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<manifest>
+  <control namespace="Host" constructor="ClockIn" version="1.0.0" display-name-key="PBS Host Clock In" description-key="PBS Hub host app H-0 Clock in and clock out: GPS position against Studio Location - PBS radius, selfie in and out, reason when outside the radius." control-type="standard">
+    <external-service-usage enabled="false"></external-service-usage>
+
+    <property name="Context" display-name-key="Context" description-key="JSON {userEmail,userName,roles,permissions,config}. config: clockInStatus (Hadir - Tugas), hkTugas (180000), statusAbsence (blank), defaultRadiusM (100), weakAccuracyM (100), minReasonChars (10), selfieMaxPx (960), selfieMaxKb (350), maxShiftHours (12)." of-type="Multiple" usage="input" required="false" />
+    <property name="HostJson" display-name-key="HostJson" description-key="JSON row of the signed-in host [Host - PBS Hub]: Title, NamaHost, Email. Never send KTP or bank data." of-type="Multiple" usage="input" required="false" />
+    <property name="LocationsJson" display-name-key="LocationsJson" description-key="JSON rows of [Studio Location - PBS]: Title, LocationID, Latitude, Longitude, RadiusMeter, IsActive." of-type="Multiple" usage="input" required="false" />
+    <property name="ClockInJson" display-name-key="ClockInJson" description-key="JSON rows of [Clock In - PBS Hub] for this host, last 2 days: ID, Title, HostID, ClockInDate, CheckInTime, CheckOutTime, CheckInOffice, Reason." of-type="Multiple" usage="input" required="false" />
+    <property name="SchedulesJson" display-name-key="SchedulesJson" description-key="JSON rows of [Schedule - PBS Hub] for this host, yesterday and today: Title, Date, StartTime, EndTime, HostID, Status. Used for ScheduleCount." of-type="Multiple" usage="input" required="false" />
+    <property name="ReportsJson" display-name-key="ReportsJson" description-key="JSON rows of [Report - PBS Hub] for this host, yesterday and today: Title, ScheduleID, HostID, LiveDate. Used for TotalReports on clock out." of-type="Multiple" usage="input" required="false" />
+    <property name="DeviceLocationJson" display-name-key="DeviceLocationJson" description-key="Optional JSON {Latitude, Longitude} from the canvas Location signal, used when the browser position is blocked." of-type="Multiple" usage="input" required="false" />
+    <property name="IsLoading" display-name-key="IsLoading" description-key="true while canvas is loading: renders skeletons." of-type="TwoOptions" usage="input" required="false" />
+    <property name="ReferenceDate" display-name-key="ReferenceDate" description-key="Optional ISO date-time used as now (testing)." of-type="SingleLine.Text" usage="input" required="false" />
+    <property name="ActionResult" display-name-key="ActionResult" description-key="Canvas reply {requestId,status,message} for CLOCK_IN and CLOCK_OUT." of-type="SingleLine.Text" usage="input" required="false" />
+    <property name="ActionPayload" display-name-key="ActionPayload" description-key="JSON {action,requestId,payload}: CLOCK_IN, CLOCK_OUT, NAV." of-type="SingleLine.Text" usage="output" required="false" />
+    <property name="UploadData" display-name-key="UploadData" description-key="Base64 JPEG selfie (no data: prefix) that belongs to the CLOCK_IN or CLOCK_OUT in ActionPayload. Empty for other actions." of-type="Multiple" usage="output" required="false" />
+
+    <resources>
+      <code path="index.ts" order="1" />
+    </resources>
+  </control>
+</manifest>

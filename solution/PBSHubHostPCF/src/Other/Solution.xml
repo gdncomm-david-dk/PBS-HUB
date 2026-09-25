@@ -10,7 +10,7 @@
     <Descriptions>
       <Description description="PBS Hub Host app code components: Host dashboard (pbs_Host.HostDashboard), My reports (pbs_Host.MyReports) and My report detail / submit / revision (pbs_Host.MyReportDetail)." languagecode="1033" />
     </Descriptions>
-    <Version>1.0.8.0</Version>
+    <Version>1.0.9.0</Version>
     <!-- Solution Package Type: Unmanaged(0)/Managed(1)/Both(2)-->
     <Managed>2</Managed>
     <Publisher>

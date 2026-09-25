@@ -612,5 +612,69 @@ const assert = (c, m) => { if (!c) { console.log("FAIL", m); process.exitCode = 
   await go("c=ScheduleDetail&sch=SCD-3309");
   assert(await p.getByText("Co Host").isVisible() && (await p.getByText(/Mulai .* lagi/).isVisible()), "planned session shows position and countdown");
 
+  // Host Clock In: position + selfie, reason only outside the radius, selfie on UploadData.
+  const selfiePng = await p.screenshot({ clip: { x: 0, y: 0, width: 300, height: 400 } });
+  await go("c=ClockIn&shift=none&w=390");
+  const ciBtn = p.getByRole("button", { name: "Clock in sekarang" });
+  assert(await ciBtn.isDisabled(), "clock in disabled before location and selfie");
+  await p.getByRole("button", { name: "Cek lokasi" }).click();
+  await p.waitForTimeout(400);
+  assert(await p.getByText("Di dalam radius", { exact: true }).isVisible() && (await p.getByText(/Jarak 44 m dari titik studio \(radius 150 m\)/).isVisible()), "inside radius with distance");
+  assert((await p.locator("#hc-ci-reason").count()) === 0, "no reason field inside the radius");
+  await p.setInputFiles("input[type=file]", { name: "selfie.png", mimeType: "image/png", buffer: selfiePng });
+  await p.waitForTimeout(600);
+  assert(await p.getByText("Selfie siap").isVisible() && (await ciBtn.isEnabled()), "selfie ready enables clock in");
+  await shot("f-clockin-ready");
+  await ciBtn.click();
+  await p.waitForTimeout(900);
+  pl = await payloads();
+  const kIn = pl.find((x) => x.action === "CLOCK_IN");
+  assert(kIn && kIn.payload.hostId === "HST-001" && kIn.payload.clockInDate === "2026-09-14" && kIn.payload.clockInTime === "11:42" && kIn.payload.office === "Studio CWG Jakarta" && kIn.payload.locationId === "LOC-01" && kIn.payload.inside === true && kIn.payload.distance === 44 && kIn.payload.accuracy === 12 && kIn.payload.hkTugas === 180000 && kIn.payload.status === "Hadir - Tugas" && kIn.payload.reason === "", "CLOCK_IN payload maps to Clock In columns");
+  assert(kIn && /^HST-001_20260914_IN_1142\.jpg$/.test(kIn.payload.file.name) && kIn.payload.selfieSource === "Camera", "selfie file name and source");
+  assert(await p.getByText("Clock in tersimpan. Selamat bekerja!").isVisible() && (await p.getByRole("button", { name: "Clock out sekarang" }).isVisible()), "after clock in the screen turns to clock out");
+  await shot("f-clockin-done");
+
+  await go("c=ClockIn&shift=none&geo=-6.2300,106.8031,35&w=390");
+  await p.getByRole("button", { name: "Cek lokasi" }).click();
+  await p.waitForTimeout(400);
+  await p.setInputFiles("input[type=file]", { name: "selfie.png", mimeType: "image/png", buffer: selfiePng });
+  await p.waitForTimeout(600);
+  assert(await p.getByText("Di luar radius", { exact: true }).isVisible() && (await p.getByRole("button", { name: "Clock in sekarang" }).isDisabled()), "outside radius blocks until a reason");
+  await p.locator("#hc-ci-reason").fill("Live di gudang brand hari ini");
+  assert(await p.getByRole("button", { name: "Clock in sekarang" }).isEnabled(), "reason unlocks clock in outside the radius");
+  await shot("f-clockin-outside");
+  await p.getByRole("button", { name: "Clock in sekarang" }).click();
+  await p.waitForTimeout(700);
+  pl = await payloads();
+  const kOut = pl.find((x) => x.action === "CLOCK_IN");
+  assert(kOut && kOut.payload.inside === false && kOut.payload.reason === "Live di gudang brand hari ini" && kOut.payload.distance > 150, "outside CLOCK_IN carries the reason");
+
+  await go("c=ClockIn&shift=none&geo=deny");
+  await p.getByRole("button", { name: "Cek lokasi" }).click();
+  await p.waitForTimeout(400);
+  assert(await p.getByText(/Izin lokasi ditolak/).isVisible(), "denied location explained");
+  await go("c=ClockIn&shift=none&geo=deny&cloc=-6.2246,106.8031");
+  await p.getByRole("button", { name: "Cek lokasi" }).click();
+  await p.waitForTimeout(400);
+  assert(await p.getByText(/lokasi dari Power Apps/).isVisible() && (await p.getByText("Di dalam radius", { exact: true }).isVisible()), "falls back to the canvas Location signal");
+  await go("c=ClockIn&shift=none&locs=none");
+  assert(await p.getByText(/Lokasi studio belum diatur \(/).isVisible(), "no studio locations explained");
+
+  // Clock out: the open shift of 14 Sep (06:55), counts for ScheduleCount / TotalReports.
+  await go("c=ClockIn");
+  assert(await p.getByText(/Shift berjalan/).isVisible(), "open shift shows clock out");
+  await p.getByRole("button", { name: "Cek lokasi" }).click();
+  await p.waitForTimeout(400);
+  await p.setInputFiles("input[type=file]", { name: "selfie.png", mimeType: "image/png", buffer: selfiePng });
+  await p.waitForTimeout(600);
+  await shot("f-clockout-ready");
+  await p.getByRole("button", { name: "Clock out sekarang" }).click();
+  await p.waitForTimeout(700);
+  pl = await payloads();
+  const kDone = pl.find((x) => x.action === "CLOCK_OUT");
+  assert(kDone && kDone.payload.clockInId && kDone.payload.workingMinutes === 287 && kDone.payload.clockOutTime === "11:42" && typeof kDone.payload.scheduleCount === "number" && typeof kDone.payload.totalReports === "number" && /_OUT_/.test(kDone.payload.file.name), "CLOCK_OUT payload with duration and counts");
+  assert(await p.getByText("Clock out tersimpan. Terima kasih!").isVisible() && (await p.getByText(/Shift selesai/).count()) > 0, "after clock out the shift reads finished");
+  await shot("f-clockout-done");
+
   await b.close();
 })();

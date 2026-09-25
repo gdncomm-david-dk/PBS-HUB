@@ -23,6 +23,7 @@ Power Apps code components (PCF) untuk canvas app PBS Hub, dibuat dari design ha
 | `pbs_Host.HostDashboard` | Hari ini — shift clock in/out, to-do, jadwal hari ini, skor | `controls/HostDashboard` |
 | `pbs_Host.MyReports` | Report saya — report sebulan + sesi belum dikirim, filter status | `controls/MyReports` |
 | `pbs_Host.MyReportDetail` | Kirim report (metrik + screenshot), revisi / sanggahan, detail | `controls/MyReportDetail` |
+| `pbs_Host.ClockIn` | Clock in / clock out — GPS vs radius *Studio Location - PBS*, selfie in & out, alasan wajib di luar radius | `controls/ClockIn` |
 
 **Host schedule** (solusi terpisah lagi `PBSHubHostSchedulePCF`, bisa di-upgrade tanpa menyentuh Host app):
 
@@ -35,7 +36,7 @@ Power Apps code components (PCF) untuk canvas app PBS Hub, dibuat dari design ha
 (`Microsoft.PowerApps.MSBuild.Solution`):
 
 - `dist/PBSHubOpsPCF_1_6_3_0_managed.zip` — Ops Console (7 control `pbs_Ops.*`)
-- `dist/PBSHubHostPCF_1_0_8_0_managed.zip` — Host app (3 control `pbs_Host.*`)
+- `dist/PBSHubHostPCF_1_0_9_0_managed.zip` — Host app (4 control `pbs_Host.*`)
 - `dist/PBSHubHostSchedulePCF_1_1_5_0_managed.zip` — Host schedule (2 control `pbs_Host.*`)
 
 Cara pasang dan formula Power Fx lengkap (properti, `OnChange`, Patch ke SharePoint):
@@ -52,6 +53,7 @@ shared/            logika + UI bersama (dipakai semua control)
   payroll.ts       periode (P8), gate approval dari Status + kolom audit, preflight, baris per host
   host.ts          band skor, cek ledger vs CurrentScore, periode terdampak saat nonaktif, masking data pribadi
   hostApp.ts       app host: fase sesi (clock in → absen → report), shift, streak, revisi, input metrik
+  clockInApp.ts     clock in host: geofence Studio Location, payload CLOCK_IN / CLOCK_OUT, nama file selfie
   hostImage.ts     kompres screenshot ke JPEG (canvas) untuk output UploadData
   contract.ts      Context, ActionPayload/ActionResult, useAction (requestId lock)
   ui.tsx styles.ts token Blu Basic internal-app, badge, tombol pill, 4 state tabel
