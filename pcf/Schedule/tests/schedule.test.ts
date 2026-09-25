@@ -178,6 +178,22 @@ describe("bulk import check", () => {
         expect(mapHeaders(["Date", "HostID"]).missing).toEqual(["brandId", "studioId", "start", "end"]);
     });
 
+    it("reads the PBS template (StartHour / EndHour, name and ID columns)", () => {
+        const tpl = ["Date", "StartHour", "EndHour", "Brand", "Host", "Studio", "Account", "Position", "Platform", "BrandID", "HostID", "StudioID", "AccountID", "TotalAccount", "AutomatedDuration"];
+        expect(mapHeaders(tpl).missing).toEqual([]);
+        const bytes = makeXlsx([
+            tpl,
+            [46295, "09:00", "13:00", "Aruna", "Dinda", "Kemang B", "aruna.official - TikTok", "Main Host", "TikTok", "BR-01", "HST-1", "CWG-05", "ACC-1", 1, 4],
+            [46295, "14:00", "16:00", "Aruna", "Dinda", "Kemang B", "aruna.official - TikTok", "Main Host", "TikTok", "BR-01", "HST-1", "CWG-05", null, 1, 2], // AccountID empty: found by name
+        ]);
+        const c = checkFile("Template Upload Schedule Bulk.xlsx", readWorkbook(bytes), cx);
+        expect(c.missing).toEqual([]);
+        expect(c.rows.map((r) => [r.verdict, r.startMin, r.endMin, r.accountId, r.brandId, r.hostId, r.studioId])).toEqual([
+            ["valid", 540, 780, "ACC-1", "BR-01", "HST-1", "CWG-05"],
+            ["valid", 840, 960, "ACC-1", "BR-01", "HST-1", "CWG-05"],
+        ]);
+    });
+
     it("gives each row a verdict with reasons", () => {
         const bytes = makeXlsx([
             head,

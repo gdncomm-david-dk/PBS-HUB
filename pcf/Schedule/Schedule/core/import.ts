@@ -7,23 +7,29 @@ import { Cell, SheetTable, serialToDateKey, serialToMinutes } from "./xlsx";
 import { conflictsFor, Slot } from "./schedule";
 import { formatMinutes, parseDateKey, parseTimeToMinutes } from "./time";
 
-export type Field = "date" | "brandId" | "studioId" | "hostId" | "start" | "end" | "account" | "platform" | "shift" | "jamLive" | "campaign" | "sesi" | "position";
+export type Field = "date" | "brandId" | "studioId" | "hostId" | "start" | "end" | "account" | "accountName" | "platform" | "shift" | "jamLive" | "campaign" | "sesi" | "position" | "totalAccount";
 
-/** Header aliases, compared without spaces, underscores, dots and case. */
+/**
+ * Header aliases, compared without spaces, underscores, dots and case. The PBS template (Table1) has:
+ * Date, StartHour, EndHour, Brand, Host, Studio, Account, Position, Platform, BrandID, HostID, StudioID, AccountID,
+ * TotalAccount, AutomatedDuration. The ID columns win over the name columns; a name is used when its ID is empty.
+ */
 export const HEADER_ALIASES: Record<Field, string[]> = {
     date: ["date", "tanggal", "livedate", "tgl", "tanggallive"],
     brandId: ["brandid", "idbrand", "kodebrand"],
     studioId: ["studioid", "idstudio", "studio", "kodestudio"],
     hostId: ["hostid", "idhost", "host", "kodehost"],
-    start: ["starttime", "start", "jammulai", "mulai", "startlive"],
-    end: ["endtime", "end", "jamselesai", "selesai", "endlive"],
-    account: ["account", "accountid", "idaccount", "akun"],
+    start: ["starthour", "starttime", "start", "jammulai", "mulai", "startlive"],
+    end: ["endhour", "endtime", "end", "jamselesai", "selesai", "endlive"],
+    account: ["accountid", "idaccount", "account", "akun"],
+    accountName: ["accountname", "account", "namaaccount", "akun"],
     platform: ["platform"],
     shift: ["shift"],
-    jamLive: ["jamlive", "totallivetime", "durasi", "durasijam"],
+    jamLive: ["automatedduration", "jamlive", "totallivetime", "durasi", "durasijam", "duration"],
     campaign: ["brand", "campaign", "campaignname", "namabrand"],
     sesi: ["sesi", "session"],
     position: ["position", "posisi"],
+    totalAccount: ["totalaccount", "jumlahaccount"],
 };
 
 export const REQUIRED: Field[] = ["date", "brandId", "studioId", "hostId", "start", "end"];
@@ -33,15 +39,17 @@ export const FIELD_LABEL: Record<Field, string> = {
     brandId: "BrandID",
     studioId: "StudioID",
     hostId: "HostID",
-    start: "StartTime",
-    end: "EndTime",
-    account: "Account",
+    start: "StartHour",
+    end: "EndHour",
+    account: "AccountID",
+    accountName: "Account",
     platform: "Platform",
     shift: "Shift",
     jamLive: "JamLive",
     campaign: "Brand",
     sesi: "Sesi",
     position: "Position",
+    totalAccount: "TotalAccount",
 };
 
 const norm = (s: string): string => s.toLowerCase().replace(/[\s_.\-()/]/g, "");
@@ -114,6 +122,12 @@ export interface CheckContext {
 export function checkFile(file: string, t: SheetTable, cx: CheckContext): FileCheck {
     const { map, missing } = mapHeaders(t.headers);
     const get = (row: Cell[], f: Field): Cell => (map[f] === undefined ? null : row[map[f] as number] ?? null);
+    // The plain "Studio" / "Host" name columns, when the ID column is also present and took the ID alias.
+    const normed = t.headers.map(norm);
+    const nameCell = (row: Cell[], header: string): Cell => {
+        const i = normed.indexOf(header);
+        return i >= 0 && !Object.values(map).includes(i) ? row[i] ?? null : null;
+    };
     const rows: ImportRow[] = [];
     let no = 0;
     t.rows.forEach((cells, i) => {
@@ -129,20 +143,25 @@ export function checkFile(file: string, t: SheetTable, cx: CheckContext): FileCh
         const dateKey = cellDate(get(cells, "date"));
         if (!dateKey) reject("Tanggal kosong atau tidak terbaca");
 
-        const brandId = cellText(get(cells, "brandId"));
-        const brand = cx.lk.brands.get(brandId.toLowerCase());
+        const brandName = cellText(get(cells, "campaign"));
+        let brandId = cellText(get(cells, "brandId"));
+        let brand = cx.lk.brands.get(brandId.toLowerCase());
+        if (!brand && !brandId && brandName) {
+            brand = Array.from(cx.lk.brands.values()).find((b) => b.namaBrand.toLowerCase() === brandName.toLowerCase());
+            if (brand) brandId = brand.brandId;
+        }
         if (!brandId) reject("BrandID kosong");
         else if (!brand) reject(`BrandID ${brandId} tidak ada di master Brand`);
         else if (!brand.isActive) reasons.push(`Brand ${brand.namaBrand} tidak aktif`);
 
-        const studioRaw = cellText(get(cells, "studioId"));
+        const studioRaw = cellText(get(cells, "studioId")) || cellText(nameCell(cells, "studio"));
         let studio = cx.lk.studios.get(studioRaw.toLowerCase());
         if (!studio && studioRaw) studio = Array.from(cx.lk.studios.values()).find((s) => s.namaStudio.toLowerCase() === studioRaw.toLowerCase());
         if (!studioRaw) reject("StudioID kosong");
         else if (!studio) reject(`StudioID ${studioRaw} tidak ada di master Studio`);
         else if (!studio.isActive) reasons.push(`${studio.studioId} tidak aktif`);
 
-        const hostRaw = cellText(get(cells, "hostId"));
+        const hostRaw = cellText(get(cells, "hostId")) || cellText(nameCell(cells, "host"));
         let host = cx.lk.hosts.get(hostRaw.toLowerCase());
         if (!host && hostRaw) host = Array.from(cx.lk.hosts.values()).find((h) => h.name.toLowerCase() === hostRaw.toLowerCase());
         if (!hostRaw) reject("HostID kosong");
@@ -161,9 +180,18 @@ export function checkFile(file: string, t: SheetTable, cx: CheckContext): FileCh
             }
         }
 
-        const accountId = cellText(get(cells, "account"));
-        const account = accountId ? cx.lk.accounts.get(accountId.toLowerCase()) : undefined;
-        if (accountId && cx.lk.accounts.size && !account) reasons.push(`Account ${accountId} tidak ada di master Account`);
+        const accountIdRaw = cellText(get(cells, "account"));
+        const accountNameRaw = map.accountName !== map.account ? cellText(get(cells, "accountName")) : "";
+        let account = accountIdRaw ? cx.lk.accounts.get(accountIdRaw.toLowerCase()) : undefined;
+        // By name when the ID is empty or unknown: "sidomunculstore" or "sidomunculstore - Tiktok".
+        const byName = (name: string) => {
+            const n = name.toLowerCase().trim();
+            return n ? Array.from(cx.lk.accounts.values()).find((a) => a.accountName.toLowerCase() === n || `${a.accountName} - ${a.platform}`.toLowerCase() === n) : undefined;
+        };
+        if (!account) account = byName(accountNameRaw) ?? byName(accountIdRaw);
+        const accountId = account?.accountId ?? accountIdRaw;
+        const accountLabel = accountIdRaw || accountNameRaw;
+        if (accountLabel && cx.lk.accounts.size && !account) reasons.push(`Account ${accountLabel} tidak ada di master Account`);
         if (account && brand && account.brandId && account.brandId.toLowerCase() !== brand.brandId.toLowerCase())
             reasons.push(`Account ${account.accountName} milik brand lain (${account.brandId})`);
 

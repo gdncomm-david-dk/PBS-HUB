@@ -6,7 +6,7 @@ for the Studio screens and part C for the Schedule screen.
 | Control | Display name | Solution (managed) | Version | Screens |
 |---|---|---|---|---|
 | `pbs_Ops.StudioHub` | PBS Studio Hub | `releases/PBSStudioHub_managed_1.6.1.zip` (`PBSStudioHub`) | 1.6.1 | Studio list, Studio detail |
-| `pbs_Ops.Schedule` | PBS Schedule | `releases/PBSSchedule_managed_1.3.0.zip` (`PBSSchedule`) | 1.3.0 | Schedule board, session detail, create/edit, bulk & AI upload |
+| `pbs_Ops.Schedule` | PBS Schedule | `releases/PBSSchedule_managed_1.3.1.zip` (`PBSSchedule`) | 1.3.1 | Schedule board, session detail, create/edit, bulk & AI upload |
 
 Neither control writes to SharePoint. Each one emits an `ActionPayload` `{ action, requestId, payload }`; the
 canvas app does the `Patch` and replies through `ActionResult` with the same `requestId`. Until that reply
@@ -237,7 +237,7 @@ These are display metrics. Nothing that money depends on is computed in the cont
 
 ---
 
-# C. PBS Schedule (`pbs_Ops.Schedule` 1.3.0)
+# C. PBS Schedule (`pbs_Ops.Schedule` 1.3.1)
 
 The control renders the **Schedule board (S-1)** as a calendar (week × brand lanes, or studio lanes) or a list, grouped by brand and sorted by start time,, and the
 **session detail (S-2)** with the seven-step evidence chain. It also provides three ways to create schedules:
@@ -575,10 +575,12 @@ next refresh.
 | Inactive brand, host or studio; date in the past; overnight session; duplicate row | form, bulk preview | Warning |
 | Report already submitted | board (lock), detail, row menu | Edit and delete disabled |
 
-The bulk columns are matched by name, ignoring case, spaces and underscores:
-`Date`/`Tanggal`, `BrandID`, `StudioID`/`Studio`, `HostID`/`Host`, `StartTime`/`Jam Mulai`,
-`EndTime`/`Jam Selesai`, `Account`, `Platform`, `Shift`, `JamLive`, `Brand` (campaign), `Sesi` and `Position`.
-Studio and host also match by name. If the template uses other headers, the dialog lists the headers it
+The bulk columns are matched by name, ignoring case, spaces and underscores. The PBS template (`Table1`, header
+in row 2) is read as is: `Date`, `StartHour`, `EndHour`, `Brand`, `Host`, `Studio`, `Account`, `Position`, `Platform`,
+`BrandID`, `HostID`, `StudioID`, `AccountID`, `TotalAccount`, `AutomatedDuration`. The ID columns are checked
+against the master lists; when an ID cell is empty, the name column is used instead (`Account` may be
+`sidomunculstore` or `sidomunculstore - Tiktok`). Older headers still work: `Tanggal`, `StartTime`/`Jam Mulai`,
+`EndTime`/`Jam Selesai`, `JamLive`, `Shift`, `Sesi`. If the template uses other headers, the dialog lists the headers it
 found, and the user can still upload after ticking "sesuai template".
 
 AI-schedule files are not validated. PBS0002A was not exported (DESIGN.md), so the control only reports that the
