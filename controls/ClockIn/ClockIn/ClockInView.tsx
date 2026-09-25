@@ -197,11 +197,11 @@ export function ClockInView(props: ClockInViewProps): React.ReactElement {
                 aria-label="Ambil selfie"
                 onChange={(e) => void pick(e.target.files?.[0])}
               />
-              <div className="hc-drop">
+              <div className="hc-drop" style={{ flexWrap: "wrap" }}>
                 <div className="hc-thumb" style={{ width: 72, height: 72, borderRadius: 36 }}>
                   {selfie ? <img src={selfie.img.dataUrl} alt="Pratinjau selfie" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : selfieBusy ? <Spinner /> : <Icon name="camera" size={22} />}
                 </div>
-                <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ flex: 1, minWidth: 150 }}>
                   <div style={{ fontWeight: 600 }}>{selfieBusy ? "Menyiapkan foto…" : selfie ? "Selfie siap" : "Belum ada selfie"}</div>
                   <div className="pbs-muted" style={{ fontSize: 12 }}>
                     {selfie ? `${selfie.img.width}×${selfie.img.height} · ${Math.round(selfie.img.bytes / 1024)} KB` : "Kamera depan terbuka saat tombol ditekan."}
