@@ -1,5 +1,5 @@
-import { Row, date, localDayKey, num, str } from "./data";
-import { clockInDay } from "./payroll";
+import { NO_REPORT_LABEL, Row, date, localDayKey, num, schedulePosition, str } from "./data";
+import { clockInAt, clockInDay } from "./payroll";
 import { sessionStatus } from "./host";
 import { HostOptions, HostSession, clockedDays, hostReportBadge } from "./hostApp";
 import { Tone } from "./reconcile";
@@ -53,6 +53,8 @@ export function scheduleState(s: HostSession, now: Date): ScheduleState {
       return "NEEDS_ABSEN";
     case "NEEDS_REPORT":
       return s.late ? "LATE" : "NEEDS_REPORT";
+    case "NO_REPORT":
+      return "FINISHED";
     case "REVISION":
       return "REVISION";
     default:
@@ -87,7 +89,7 @@ export const fmtHours = (min: number | null): string => {
 };
 
 /** Main Host / Co Host when the tenant keeps it on Schedule. */
-export const positionOf = (row: Row): string => str(row, "Position", "HostPosition", "Posisi", "HostRole");
+export const positionOf = (row: Row): string => schedulePosition(row);
 
 export interface ScheduleQuery {
   platform: string;
@@ -177,14 +179,14 @@ export function clockInOf(s: HostSession, clockIns: Row[]): Row | undefined {
       const d = clockInDay(c);
       return !!d && localDayKey(d) === s.dayKey;
     })
-    .sort((a, b) => (date(b, "CheckInTime")?.getTime() ?? 0) - (date(a, "CheckInTime")?.getTime() ?? 0))[0];
+    .sort((a, b) => (clockInAt(b)?.getTime() ?? 0) - (clockInAt(a)?.getTime() ?? 0))[0];
 }
 
 export function sessionSteps(s: HostSession, clockIn: Row | undefined, now: Date, opts: HostOptions, fmt: { time: (d: Date | null) => string; day: (d: Date | null) => string }): SessionStep[] {
   const st = scheduleState(s, now);
   const cancelled = st === "CANCELLED";
   const opensAt = s.start ? new Date(s.start.getTime() - opts.absenLeadMin * 60000) : null;
-  const inAt = clockIn ? date(clockIn, "CheckInTime") : null;
+  const inAt = clockInAt(clockIn);
   const office = str(clockIn, "CheckInOffice", "Office");
   const outside = clockIn ? clockIn.IsInsideGeofence === false || str(clockIn, "IsInsideGeofence").toLowerCase() === "false" : false;
 
@@ -218,10 +220,11 @@ export function sessionSteps(s: HostSession, clockIn: Row | undefined, now: Date
                   : "Dibuka saat sesi dimulai.",
       };
 
+  const exempt = s.noReport && !s.report ? NO_REPORT_LABEL[s.noReport] : "";
   const report: SessionStep = {
     key: "REPORT",
     label: "Report",
-    state: cancelled
+    state: cancelled || exempt
       ? "skip"
       : s.report
         ? st === "REVISION"
@@ -234,7 +237,9 @@ export function sessionSteps(s: HostSession, clockIn: Row | undefined, now: Date
             : st === "NEEDS_CLOCKIN"
               ? "missing"
               : "todo",
-    text: s.report
+    text: exempt
+      ? `Tidak perlu report · ${exempt}.`
+      : s.report
       ? `${str(s.report, "Title") || "Report"} dikirim ${fmt.day(date(s.report, "Created", "CreatedDate"))}${st === "REVISION" ? " · dikembalikan untuk revisi" : ""}`
       : st === "LATE"
         ? `Lewat batas ${fmt.day(s.due)}. Kirim sekarang dan jelaskan di catatan.`
@@ -247,9 +252,10 @@ export function sessionSteps(s: HostSession, clockIn: Row | undefined, now: Date
   const review: SessionStep = {
     key: "REVIEW",
     label: "Review tim PBS",
-    state: cancelled ? "skip" : st === "FINISHED" ? "done" : st === "REVISION" ? "bad" : st === "WAITING" ? "now" : "todo",
-    text:
-      st === "FINISHED"
+    state: cancelled || exempt ? "skip" : st === "FINISHED" ? "done" : st === "REVISION" ? "bad" : st === "WAITING" ? "now" : "todo",
+    text: exempt
+      ? "Tidak ada report untuk direview."
+      : st === "FINISHED"
         ? `${s.reportState ? hostReportBadge(s.report, s.reportState).label : "Selesai"}${reviewer ? ` · ${reviewer}` : ""}`
         : st === "REVISION"
           ? `Perlu revisi${reviewer ? ` dari ${reviewer}` : ""}. Perbaiki angka yang ditandai.`

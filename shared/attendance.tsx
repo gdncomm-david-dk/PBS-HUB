@@ -3,7 +3,7 @@ import { ModuleContext, UseActionResult, configNumber } from "./contract";
 import { Row, date, localDayKey, num, parseClock, rowId, startOfDay, str } from "./data";
 import { fmtClock, fmtLongDate, fmtNumber, fmtRupiah, fmtTime } from "./format";
 import { clockInStatuses } from "./clockIn";
-import { Period, RunModel, clockInDay, fmtPeriod, inPeriod, periodKey, periodOf, samePeriod, tierOf } from "./payroll";
+import { Period, RunModel, clockInAt, clockInDay, clockOutAt, fmtPeriod, inPeriod, periodKey, periodOf, samePeriod, tierOf } from "./payroll";
 import { Badge, Button, EmptyState, EndOfData, Icon, InfoBanner, Overlay, SkeletonRows, Spinner } from "./ui";
 
 /**
@@ -65,14 +65,6 @@ export interface AttendanceDay {
   adjusted: { by: string; at: Date | null; reason: string } | null;
 }
 
-function withClock(day: Date, clock: string): Date | null {
-  const m = parseClock(clock);
-  if (m === null) return null;
-  const d = startOfDay(day);
-  d.setMinutes(m);
-  return d;
-}
-
 export function buildAttendance(clockIns: Row[], hostId: string, config: Record<string, unknown>): AttendanceDay[] {
   const statuses = clockInStatuses(config);
   const id = hostId.toLowerCase();
@@ -81,9 +73,9 @@ export function buildAttendance(clockIns: Row[], hostId: string, config: Record<
     if (hostId && str(c, "HostID") && str(c, "HostID").toLowerCase() !== id) continue;
     const day = clockInDay(c);
     if (!day) continue;
-    const inAt = date(c, "CheckInTime") ?? withClock(day, str(c, "ClockInTime"));
-    let outAt = date(c, "CheckOutTime") ?? withClock(date(c, "ClockOutDate") ?? day, str(c, "ClockOutTime"));
-    if (inAt && outAt && outAt < inAt) outAt = new Date(outAt.getTime() + 864e5); // text times past midnight
+    // GPS check-in columns first, then ClockInTime/ClockOutTime (Date and Time, or a text clock on the day).
+    const inAt = clockInAt(c);
+    const outAt = clockOutAt(c);
     const hk = num(c, "HKTugas") ?? 0;
     const insentif = num(c, "Insentif") ?? 0;
     const streak = num(c, "Streak") ?? 0;

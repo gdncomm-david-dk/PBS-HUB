@@ -1,6 +1,6 @@
 import * as React from "react";
 import { ModuleContext, UseActionResult } from "../../../shared/contract";
-import { Row, localDayKey, rowId, str } from "../../../shared/data";
+import { Row, localDayKey, NO_REPORT_LABEL, reportScheduleId, rowId, str } from "../../../shared/data";
 import { fmtDayMonth, fmtLongDate, fmtNumber } from "../../../shared/format";
 import { HostSession, buildHostSessions, hostOptions } from "../../../shared/hostApp";
 import {
@@ -53,7 +53,7 @@ export function absenPayload(s: HostSession, host: Row | undefined): Record<stri
   };
 }
 
-export const reportRef = (r: Row): Record<string, unknown> => ({ reportId: rowId(r), title: str(r, "Title"), scheduleId: str(r, "ScheduleID") });
+export const reportRef = (r: Row): Record<string, unknown> => ({ reportId: rowId(r), title: str(r, "Title"), scheduleId: reportScheduleId(r) });
 
 const STATE_ICON: Partial<Record<ScheduleState, IconName>> = {
   FINISHED: "check",
@@ -283,6 +283,11 @@ export function MyScheduleView(props: MyScheduleProps): React.ReactElement {
                   <span className="hide-s r pbs-num">{fmtHours(dur)}</span>
                   <span>
                     <StateBadge state={st} />
+                    {s.noReport && !s.report ? (
+                      <span className="pbs-muted" style={{ display: "block", fontSize: 11 }}>
+                        {NO_REPORT_LABEL[s.noReport]} · tanpa report
+                      </span>
+                    ) : null}
                   </span>
                 </div>
               );

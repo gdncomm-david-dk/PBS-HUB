@@ -2,7 +2,7 @@ import * as React from "react";
 import { ModuleContext, UseActionResult, configNumber, hasPermission } from "../../../shared/contract";
 import { ClockInModal, availableClockInDates } from "../../../shared/clockIn";
 import { AttendanceTab } from "../../../shared/attendance";
-import { Row, nameIndex } from "../../../shared/data";
+import { NO_REPORT_LABEL, Row, nameIndex } from "../../../shared/data";
 import { fmtDateShort, fmtDateTimeShort, fmtDayMonth, fmtNumber, fmtRupiah, fmtTime } from "../../../shared/format";
 import {
   AffectedPeriod,
@@ -71,7 +71,7 @@ export function HostDetailView(props: HostDetailProps): React.ReactElement {
 
   const brandNames = React.useMemo(() => nameIndex(props.brands, ["NamaBrand", "BrandName"]), [props.brands]);
   const studioNames = React.useMemo(() => nameIndex(props.studios, ["NamaStudio", "StudioName"]), [props.studios]);
-  const sessions = React.useMemo(() => buildSessions(props.schedules, props.clockIns, brandNames, studioNames, now), [props.schedules, props.clockIns, brandNames, studioNames, now]);
+  const sessions = React.useMemo(() => buildSessions(props.schedules, props.clockIns, brandNames, studioNames, now, props.reports), [props.schedules, props.clockIns, brandNames, studioNames, now, props.reports]);
   const reports = React.useMemo(() => buildHostReports(props.reports, brandNames, props.schedules), [props.reports, brandNames, props.schedules]);
   const runOpts = React.useMemo(() => ({ now, labelOffset: configNumber(ctx, "payrollLabelOffset", -1), assemblyMinutes: configNumber(ctx, "payrollAssemblyMinutes", 30) }), [ctx, now]);
   const runModels = React.useMemo(() => buildRuns(props.runs, props.lines, [], runOpts), [props.runs, props.lines, runOpts]);
@@ -537,11 +537,12 @@ function ScheduleTab(props: { sessions: HostSession[]; loading: boolean; haveClo
           <table className="pbs-table" aria-busy={props.loading}>
             <thead>
               <tr>
+                <th>Schedule ID</th>
                 <th>Tanggal</th>
                 <th>Waktu</th>
-                <th>Brand</th>
+                <th>Brand &amp; platform</th>
+                <th>Akun</th>
                 <th>Studio</th>
-                <th>Platform</th>
                 <th>Status</th>
                 <th>Clock in</th>
                 <th aria-label="Aksi" />
@@ -549,12 +550,13 @@ function ScheduleTab(props: { sessions: HostSession[]; loading: boolean; haveClo
             </thead>
             <tbody>
               {firstLoad ? (
-                <SkeletonRows rows={6} cols={8} />
+                <SkeletonRows rows={6} cols={9} />
               ) : (
                 rows.map((s) => {
                   const ss = SESSION_STATUS[s.status];
                   return (
                     <tr key={s.id || s.title} className={s.status === "CANCELLED" ? "muted" : undefined}>
+                      <td className="pbs-num" style={{ fontWeight: 600, whiteSpace: "nowrap" }}>{s.title || "—"}</td>
                       <td className="pbs-num" style={{ whiteSpace: "nowrap" }}>
                         {fmtDayMonth(s.day)}
                       </td>
@@ -562,11 +564,21 @@ function ScheduleTab(props: { sessions: HostSession[]; loading: boolean; haveClo
                         {s.start || "—"}
                         {s.end ? `–${s.end}` : ""}
                       </td>
-                      <td style={{ fontWeight: 600 }}>{s.brand}</td>
-                      <td>{s.studio}</td>
-                      <td className="pbs-muted">{s.platform || "—"}</td>
                       <td>
-                        <Badge tone={ss.tone}>{ss.label}</Badge>
+                        <span style={{ fontWeight: 600 }}>{s.brand}</span>
+                        <span className="pbs-muted" style={{ display: "block", fontSize: 12 }}>{s.platform || "—"}</span>
+                      </td>
+                      <td>{s.account || <span className="pbs-muted">—</span>}</td>
+                      <td>{s.studio}</td>
+                      <td>
+                        <span style={{ display: "inline-flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
+                          <Badge tone={ss.tone}>{ss.label}</Badge>
+                          {s.noReport ? (
+                            <Badge tone="neutral" small title="Tidak perlu report">
+                              {NO_REPORT_LABEL[s.noReport]}
+                            </Badge>
+                          ) : null}
+                        </span>
                       </td>
                       <td className="pbs-num">{s.clockIn ? fmtTime(s.clockIn) : <span className="pbs-muted">—</span>}</td>
                       <td className="r">

@@ -150,7 +150,7 @@ Revision` dan `Report Automation.Status = Unmatch` (hanya kolom itu) — lihat `
 
 | Properti | List | Field |
 |---|---|---|
-| `SchedulesJson` | `Schedule - PBS Hub` | `ID, Title, Date (yyyy-mm-dd), StartTime, EndTime, JamLive, BrandID, HostID, StudioID, Platform, Status` |
+| `SchedulesJson` | `Schedule - PBS Hub` | `ID, Title, Date (yyyy-mm-dd), StartTime, EndTime, JamLive, BrandID, HostID, StudioID, Platform, AccountID, AccountName, LiveBreak, Position, Status` — `LiveBreak = Yes` atau `Position = Co-Host` = tidak ada report yang ditunggu |
 | `ClockInJson` | `Clock In - PBS Hub` | `HostID, ClockInDate, CheckInTime, CheckOutTime, ClockOutTime, IsInsideGeofence, Streak` |
 | `HostsJson` | `Host - PBS Hub` | `Title, NamaHost, Status, HasRekening` (**bukan** NoRekening) |
 | `StudiosJson` | `Studio - PBS Hub` | `Title, NamaStudio, KapasitasHost, Status` |
@@ -196,7 +196,7 @@ Set(varDashLoading, false);
 ```powerfx
 Context      = varPbsCtx
 IsLoading    = varDashLoading
-SchedulesJson = JSON(ForAll(colDashSchedule, {ID: ID, Title: Title, Date: Text(Date, "yyyy-mm-dd"), StartTime: StartTime, EndTime: EndTime, JamLive: JamLive, BrandID: BrandID, HostID: HostID, StudioID: StudioID, Platform: Platform.Value, Status: Status.Value}), JSONFormat.Compact)
+SchedulesJson = JSON(ForAll(colDashSchedule, {ID: ID, Title: Title, Date: Text(Date, "yyyy-mm-dd"), StartTime: StartTime, EndTime: EndTime, JamLive: JamLive, BrandID: BrandID, HostID: HostID, StudioID: StudioID, Platform: Platform.Value, LiveBreak: LiveBreak, Position: Position.Value, Status: Status.Value}), JSONFormat.Compact)
 ReportsJson  = JSON(ForAll(colDashReport, {ID: ID, Title: Title, ScheduleID: ScheduleID, HostID: HostID, BrandID: BrandID, LiveDate: Text(LiveDate, "yyyy-mm-dd"), ApprovalStatus: ApprovalStatus.Value, ApprovalComment: ApprovalComment, Created: Created, Modified: Modified, Penjualan: Penjualan, Pesanan: Pesanan, ProdukTerjual: ProdukTerjual, JumlahPembeli: JumlahPembeli, CTR: CTR, CTOR: CTOR, PeakViewer: PeakViewer}), JSONFormat.Compact)
 EvidenceJson = JSON(ForAll(colDashEvidence, {ID: ID, Title: Title, HostID: HostID, ScheduleID: ScheduleID, Status: Status.Value, Created: Created, Penjualan: Penjualan, Pesanan: Pesanan, ProdukTerjual: ProdukTerjual, JumlahPembeli: JumlahPembeli, CTR: CTR, CTOR: CTOR, PeakViewer: PeakViewer}), JSONFormat.Compact)
 ClockInJson  = JSON(ForAll(colDashClockIn, {HostID: HostID, ClockInDate: ClockInDate, CheckInTime: CheckInTime, CheckOutTime: CheckOutTime, ClockOutTime: ClockOutTime, IsInsideGeofence: IsInsideGeofence, Streak: Streak}), JSONFormat.Compact)
@@ -852,7 +852,9 @@ IsLoading       = varHdLoading
 ActionResult    = varHdResult
 RevealedJson    = varHdReveal
 HostJson        = JSON(ForAll(Table(varHdHost), {ID: ID, Title: Title, HostCode: HostCode, NamaHost: NamaHost, Status: Status.Value, Package: Package.Value, Email: Email.Email, JoinDate: JoinDate, RegistrationDate: RegistrationDate, RegisteredBy: RegisteredBy, InitialScore: InitialScore, CurrentScore: CurrentScore, MinimumScore: MinimumScore, MaximumScore: MaximumScore, Modified: Modified, Bank: Bank, HasRekening: !IsBlank(NoRekening) && !IsBlank(Bank), NorekLast4: Right(NoRekening, 4), KtpLast4: Right(KTP, 4), PhoneLast4: Right(PhoneNumber, 4), HasAlamat: !IsBlank(Alamat), HasNamaRekening: !IsBlank(NamaRekening), HasPersonalEmail: !IsBlank(PersonalEmail)}), JSONFormat.Compact)
-SchedulesJson   = JSON(ForAll(colHdSched, {ID: ID, Title: Title, Date: Date, StartTime: StartTime, EndTime: EndTime, BrandID: BrandID, StudioID: StudioID, HostID: HostID, Platform: Platform.Value, Status: Status.Value}), JSONFormat.Compact)
+SchedulesJson   = JSON(ForAll(colHdSched, {ID: ID, Title: Title, Date: Text(Date, "yyyy-mm-dd"), StartTime: StartTime, EndTime: EndTime, BrandID: BrandID, StudioID: StudioID, HostID: HostID, Platform: Platform.Value, AccountID: AccountID, AccountName: AccountName, LiveBreak: LiveBreak, Position: Position.Value, Status: Status.Value}), JSONFormat.Compact)
+// LiveBreak: Yes/No -> kirim apa adanya (boolean) atau LiveBreak.Value kalau Choice. Position: Position.Value kalau Choice, Position kalau Text.
+// AccountName tampil di kolom Akun tab Jadwal (fallback ke AccountID kalau kosong).
 ReportsJson     = JSON(ForAll(colHdReport, {ID: ID, Title: Title, ScheduleID: ScheduleID, Playbook: Playbook.Value, LiveDate: LiveDate, BrandID: BrandID, HostID: HostID, Platform: Platform.Value, Penjualan: Penjualan, ApprovalStatus: ApprovalStatus.Value, ApprovalComment: ApprovalComment, Modified: Modified}), JSONFormat.Compact)
 ClockInJson     = JSON(ForAll(colHdClockIn, {ID: ID, Title: Title, HostID: HostID, ClockInDate: Text(ClockInDate, "yyyy-mm-dd"), CheckInTime: CheckInTime, CheckOutTime: CheckOutTime, ClockInTime: ClockInTime, ClockOutTime: ClockOutTime, IsInsideGeofence: IsInsideGeofence, StatusKehadiran: Status.Value, HKTugas: HKTugas, Tier: Tier.Value, Insentif: Insentif, Streak: Streak, AdjustedBy: AdjustedBy, AdjustedAt: AdjustedAt, AdjustReason: AdjustReason, Modified: Modified}), JSONFormat.Compact)
 // Tier: pakai Tier.Value kalau kolomnya Choice, Tier kalau Text. AdjustedBy/At/Reason opsional (lihat Kehadiran di bawah).
@@ -863,6 +865,22 @@ ThresholdsJson  = JSON(ForAll(colScoreBand, {ThresholdID: ThresholdID, Label: La
 BrandsJson      = JSON(ShowColumns('Brand - PBS Hub', Title, NamaBrand), JSONFormat.Compact)
 StudiosJson     = JSON(ShowColumns('Studio - PBS Hub', Title, NamaStudio), JSONFormat.Compact)
 ```
+
+**Tab Jadwal — status sesi**
+
+| Kondisi di Schedule | Status yang tampil |
+|---|---|
+| `LiveBreak = Yes` | *Finished* + badge *Live break* — tidak ada report yang ditunggu |
+| `Position = Co-Host` (walau `LiveBreak = No`) | *Finished* + badge *Co-Host* — sama, tidak ada report |
+| `Status = Waiting Report` dan report untuk `ScheduleID` itu sudah ada di `ReportsJson` | *Finished* |
+| `Status = Waiting Report` lainnya | *Waiting Report* |
+| lainnya | *Planned* / *Finished* / *Cancelled* sesuai `Status` |
+
+Kolom tab Jadwal: Schedule ID (`Title`), Tanggal, Waktu, Brand & platform, Akun (`AccountName`), Studio,
+Status, Clock in. Tab Kehadiran membaca jam dari `CheckInTime`/`CheckOutTime`, kalau kosong dari
+`ClockInTime`/`ClockOutTime` (date-time atau teks jam) — jadi keduanya harus ada di `ClockInJson`.
+Tab Report butuh `ScheduleID` dan `Playbook: Playbook.Value` di `ReportsJson`; kalau kolom *Schedule ID* /
+*Playbook* kosong, hampir selalu karena field itu tidak ikut di `ForAll`.
 
 **OnChange**
 
@@ -1027,7 +1045,7 @@ belum ada di v1, bulk approve tidak akan muncul — itu disengaja.
 
 1. Power Platform admin center → environment → **Settings → Product → Features** → aktifkan
    *Allow publishing of canvas apps with code components*.
-2. make.powerapps.com → **Solutions → Import solution** → `PBSHubOpsPCF_1_6_2_0_managed.zip`
+2. make.powerapps.com → **Solutions → Import solution** → `PBSHubOpsPCF_1_6_3_0_managed.zip`
    (sudah pernah import versi lama? Import ini meng-**upgrade** solusi yang sama — pilih *Upgrade*, bukan
    *Stage for upgrade* yang belum di-*Apply*).
 3. Di canvas app: **Insert → Get more components → Code** → pilih `PBS Ops Dashboard`,
@@ -1040,8 +1058,8 @@ belum ada di v1, bulk approve tidak akan muncul — itu disengaja.
 disisipkan. Setelah upgrade solusi: buka app di Studio → akan muncul banner *"Updated code components
 detected"* → **Update**. Kalau banner tidak muncul: tutup Studio, hard refresh browser (Ctrl+Shift+R), buka
 lagi. Lalu **Save + Publish** app. Pastikan juga di Solutions → PBS Hub Ops PCF → History bahwa versi
-1.6.2.0 benar-benar terpasang. Versi control di solusi ini: Dashboard 1.3.3, ReportReview / ReportDetail
-1.4.2, PayrollRuns 1.2.4, PayrollRunDetail 1.2.3, HostList 1.2.5, HostDetail 1.3.6. ReportReview dan
+1.6.3.0 benar-benar terpasang. Versi control di solusi ini: Dashboard 1.3.4, ReportReview / ReportDetail
+1.4.3, PayrollRuns 1.2.5, PayrollRunDetail 1.2.4, HostList 1.2.6, HostDetail 1.3.7. ReportReview dan
 ReportDetail 1.4.0 punya properti baru `SchedulesJson` — isi di canvas supaya kolom *Jam live* terisi.
 
 **Tampilan rusak di app (tabel tidak full, tombol tanpa border, checkbox hilang)?** Itu CSS global Power

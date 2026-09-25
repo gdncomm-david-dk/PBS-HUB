@@ -2,7 +2,7 @@ import * as React from "react";
 import { ModuleContext, UseActionResult, configNumber, hasPermission } from "../../../shared/contract";
 import { Row, bool, date, num, str } from "../../../shared/data";
 import { fmtDateTimeShort, fmtDayMonth, fmtNumber, fmtRupiah, fmtTime } from "../../../shared/format";
-import { LINE_FLAG, PayLine, RunDetail, SLIP_LABEL, buildRunDetail, clockInDay, fmtPeriod, samePeriod, slipState, tierOf } from "../../../shared/payroll";
+import { LINE_FLAG, PayLine, RunDetail, SLIP_LABEL, buildRunDetail, clockInAt, clockInDay, fmtPeriod, samePeriod, slipState, tierOf } from "../../../shared/payroll";
 import { ApprovalTimeline } from "../../../shared/payrollUi";
 import { Badge, Button, EmptyState, EndOfData, FilterSelect, Icon, InfoBanner, ModuleHeader, Pill, ResultBanner, Skeleton, SkeletonRows, Spinner } from "../../../shared/ui";
 
@@ -361,7 +361,7 @@ function SourceAttendance(props: { l: PayLine }): React.ReactElement {
               return (
                 <tr key={i}>
                   <td className="pbs-num">{fmtDayMonth(clockInDay(c))}</td>
-                  <td className="pbs-num">{fmtTime(date(c, "CheckInTime"))}</td>
+                  <td className="pbs-num">{fmtTime(clockInAt(c))}</td>
                   <td className="pbs-num">{out ? fmtTime(out) : <span style={{ color: "#7A5B00", fontWeight: 600 }}>belum</span>}</td>
                   <td>{inside === false ? <Badge tone="danger" small>Di luar</Badge> : inside ? "Di dalam" : "—"}</td>
                   <td>{t ? `Tier ${t}` : "—"}</td>

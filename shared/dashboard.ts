@@ -16,7 +16,7 @@
  *   Brand - PBS Hub             Title (BrandID), NamaBrand
  *   Payroll - PBS Hub           Title (PAY-<ID>), Periode, Status, Created
  */
-import { Row, bool, date, localDayKey, nameIndex, num, parseClock, rowId, startOfDay, str } from "./data";
+import { Row, bool, date, localDayKey, nameIndex, noReportReason, num, parseClock, reportScheduleId, rowId, startOfDay, str } from "./data";
 import { EvidenceIndex, ReasonCode, ReconcileOptions, indexEvidence, numericTail, reconcile, reviewState } from "./reconcile";
 import { monthName } from "./format";
 
@@ -100,7 +100,7 @@ function dayOf(row: Row, ...keys: string[]): Date | null {
 function reportedScheduleKeys(reports: Row[]): Set<string> {
   const s = new Set<string>();
   for (const r of reports) {
-    const sid = str(r, "ScheduleID");
+    const sid = reportScheduleId(r);
     if (!sid) continue;
     s.add(sid.toLowerCase());
     const tail = numericTail(sid);
@@ -198,6 +198,7 @@ export function buildDashboard(input: DashboardInput): DashboardModel {
     const d = dayOf(s, "Date");
     if (!d || d > missingCutoff) return false;
     if (CANCELLED.includes(str(s, "Status").toLowerCase())) return false;
+    if (noReportReason(s)) return false; // live break or Co-Host: nothing owed
     return !scheduleHasReport(s, reported);
   });
 

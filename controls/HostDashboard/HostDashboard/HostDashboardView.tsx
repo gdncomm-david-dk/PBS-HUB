@@ -1,6 +1,6 @@
 import * as React from "react";
 import { ModuleContext, UseActionResult } from "../../../shared/contract";
-import { Row, date, localDayKey, nameIndex, num, rowId, startOfDay, str } from "../../../shared/data";
+import { Row, date, localDayKey, nameIndex, num, reportScheduleId, rowId, startOfDay, str } from "../../../shared/data";
 import { fmtDayMonth, fmtLongDate, fmtNumber, fmtTime } from "../../../shared/format";
 import { bandOf, parseBands } from "../../../shared/host";
 import {
@@ -64,7 +64,7 @@ export function absenPayload(s: HostSession, host: Row | undefined): Record<stri
 }
 
 export const sessionRef = (s: HostSession): Record<string, unknown> => ({ scheduleId: s.title, scheduleItemId: s.id, liveDate: s.dayKey });
-export const reportRef = (r: Row): Record<string, unknown> => ({ reportId: rowId(r), title: str(r, "Title"), scheduleId: str(r, "ScheduleID") });
+export const reportRef = (r: Row): Record<string, unknown> => ({ reportId: rowId(r), title: str(r, "Title"), scheduleId: reportScheduleId(r) });
 
 export function HostDashboardView(props: HostDashboardProps): React.ReactElement {
   const { ctx, now, action } = props;
@@ -326,6 +326,9 @@ function SessionCard(props: { s: HostSession; now: Date; shift: Shift; pending: 
           </Button>
         </>
       );
+      break;
+    case "NO_REPORT":
+      right = <Badge tone="success">{s.noReport === "CO_HOST" ? "Co-Host · tanpa report" : "Live break · tanpa report"}</Badge>;
       break;
     case "REVISION":
       right = (

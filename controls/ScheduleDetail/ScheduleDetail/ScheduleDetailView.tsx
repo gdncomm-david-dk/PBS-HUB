@@ -1,6 +1,6 @@
 import * as React from "react";
 import { ModuleContext, UseActionResult } from "../../../shared/contract";
-import { Row, date, localDayKey, rowId, str } from "../../../shared/data";
+import { Row, date, localDayKey, reportPlaybook, reportScheduleId, rowId, str } from "../../../shared/data";
 import { fmtDayMonth, fmtLongDate, fmtRupiah, fmtNumber, fmtPercentValue, fmtTime } from "../../../shared/format";
 import { HOST_REPORT_STATE, HostSession, buildHostSessions, flaggedFromComment, hostOptions, reviewerNote } from "../../../shared/hostApp";
 import { SCHEDULE_STATE, SessionStep, StepState, clockInOf, durationMin, fmtHours, isLive, positionOf, scheduleState, sessionSteps } from "../../../shared/hostSchedule";
@@ -32,7 +32,7 @@ export interface ScheduleDetailProps {
 const WRITES = ["SUBMIT_REPORT", "RESUBMIT_REPORT", "DISPUTE_REVIEW"];
 
 const scheduleRef = (s: HostSession): Record<string, unknown> => ({ scheduleId: s.title, scheduleItemId: s.id, liveDate: s.dayKey });
-const reportRef = (r: Row): Record<string, unknown> => ({ reportId: rowId(r), title: str(r, "Title"), scheduleId: str(r, "ScheduleID") });
+const reportRef = (r: Row): Record<string, unknown> => ({ reportId: rowId(r), title: str(r, "Title"), scheduleId: reportScheduleId(r) });
 
 function absenPayload(s: HostSession, host: Row | undefined): Record<string, unknown> {
   return {
@@ -102,7 +102,8 @@ export function ScheduleDetailView(props: ScheduleDetailProps): React.ReactEleme
   const position = positionOf(s.row);
   const status = str(s.row, "Status");
   // Absen and the report both happen here: the form opens once the host clocked in on the session day.
-  const showForm = !s.report && s.clockedIn && s.phase !== "UPCOMING" && st !== "CANCELLED";
+  // Live break / Co-Host owe no report: no form.
+  const showForm = !s.report && !s.noReport && s.clockedIn && s.phase !== "UPCOMING" && st !== "CANCELLED";
   const showRevision = st === "REVISION" && !!s.report;
   const res = action.lastResult;
   const formProps = {
@@ -301,7 +302,7 @@ function NextStep(props: {
         tone = "now";
         icon = "checkSquare";
         title = isLive(s, now) ? "Sesi sedang live — absen sekarang" : "Absen sekarang";
-        text = "Absen menandai kamu hadir di sesi ini. Setelah itu report di bawah bisa dikirim.";
+        text = s.noReport ? "Absen menandai kamu hadir di sesi ini. Sesi ini tidak perlu report." : "Absen menandai kamu hadir di sesi ini. Setelah itu report di bawah bisa dikirim.";
         btn = (
           <Button size="sm" onClick={props.onAbsen} disabled={props.pending}>
             {props.busy ? <Spinner small /> : null} Absen
@@ -351,7 +352,11 @@ function NextStep(props: {
       tone = "ok";
       icon = "check";
       title = "Sesi selesai";
-      text = s.reportState ? `Report ${HOST_REPORT_STATE[s.reportState].label.toLowerCase()}.` : "Semua langkah sudah selesai.";
+      text = s.reportState
+        ? `Report ${HOST_REPORT_STATE[s.reportState].label.toLowerCase()}.`
+        : s.noReport
+          ? `Tidak perlu report — ${s.noReport === "CO_HOST" ? "kamu Co-Host di sesi ini" : "sesi ini live break"}.`
+          : "Semua langkah sudah selesai.";
   }
   return (
     <div className={`hc-todo${tone ? ` ${tone}` : ""}`}>
@@ -394,10 +399,10 @@ function ReportCard(props: { report: Row; revision: boolean; onOpen: () => void 
           <dt>Status</dt>
           <dd>{str(r, "ApprovalStatus") || "Belum ada status"}</dd>
         </div>
-        {str(r, "Playbook").trim() ? (
+        {reportPlaybook(r) ? (
           <div style={{ gridColumn: "span 2" }}>
             <dt>Playbook</dt>
-            <dd style={{ fontWeight: 400, whiteSpace: "pre-wrap" }}>{str(r, "Playbook").trim()}</dd>
+            <dd style={{ fontWeight: 400, whiteSpace: "pre-wrap" }}>{reportPlaybook(r)}</dd>
           </div>
         ) : null}
       </dl>

@@ -1,6 +1,6 @@
 import * as React from "react";
 import { ModuleContext, UseActionResult, configNumber } from "./contract";
-import { Row, date, nameIndex, person, rowId, str } from "./data";
+import { Row, date, nameIndex, person, reportPlaybook, reportScheduleId, rowId, str } from "./data";
 import { fmtDateTimeShort, fmtLongDate, fmtSignedPct, fmtTime } from "./format";
 import {
   hostReportBadge,
@@ -152,7 +152,7 @@ function SessionHeader(props: { title: string; platform: string; meta: string; r
 function sessionMeta(s: HostSession | undefined, report: Row | undefined): string {
   if (s) return [s.title, s.day ? fmtLongDate(s.day) : "", s.startText && `${s.startText}–${s.endText}`, s.studio !== "—" ? s.studio : "", s.account && `Akun ${s.account}`].filter(Boolean).join(" · ");
   const d = date(report, "LiveDate");
-  return [str(report, "ScheduleID"), d ? fmtLongDate(d) : "", str(report, "Account", "AccountID") && `Akun ${str(report, "Account", "AccountID")}`].filter(Boolean).join(" · ");
+  return [reportScheduleId(report), d ? fmtLongDate(d) : "", str(report, "Account", "AccountID") && `Akun ${str(report, "Account", "AccountID")}`].filter(Boolean).join(" · ");
 }
 
 /** Rep ID, Schedule ID, live window, the stored ApprovalStatus and the Playbook: the same facts the Ops list shows. */
@@ -169,7 +169,7 @@ export function ReportFacts(props: { report: Row; session: HostSession | undefin
         </div>
         <div>
           <dt>Schedule ID</dt>
-          <dd className="pbs-num">{str(report, "ScheduleID") || session?.title || "—"}</dd>
+          <dd className="pbs-num">{reportScheduleId(report) || session?.title || "—"}</dd>
         </div>
         <div>
           <dt>Jam live</dt>
@@ -186,7 +186,7 @@ export function ReportFacts(props: { report: Row; session: HostSession | undefin
         <div style={{ gridColumn: "span 2" }}>
           <dt>Playbook</dt>
           <dd>
-            <PlaybookValue value={str(report, "Playbook").trim()} onOpen={props.onLink} />
+            <PlaybookValue value={reportPlaybook(report)} onOpen={props.onLink} />
           </dd>
         </div>
       </dl>
@@ -599,7 +599,7 @@ export function Revision(props: Omit<MyReportDetailProps, "report"> & { report: 
     action.dispatch("RESUBMIT_REPORT", {
       reportId: rowId(report),
       title: str(report, "Title"),
-      scheduleId: str(report, "ScheduleID"),
+      scheduleId: reportScheduleId(report),
       expectedModified: str(report, "Modified"),
       // Report goes back to the reviewer as a second look; its Report Automation row (same Title) is
       // set to Unmatch so the reviewer compares again.

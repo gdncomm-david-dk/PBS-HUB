@@ -1,6 +1,6 @@
 import * as React from "react";
 import { ModuleContext, UseActionResult } from "../../../shared/contract";
-import { Row, date, nameIndex, rowId, str } from "../../../shared/data";
+import { Row, date, nameIndex, reportPlaybook, reportScheduleId, rowId, str } from "../../../shared/data";
 import { fmtDayMonth, fmtNumber, fmtRupiah } from "../../../shared/format";
 import { hostReportBadge } from "../../../shared/hostApp";
 import { liveWindow } from "../../../shared/reportItems";
@@ -71,7 +71,7 @@ export function MyReportsView(props: MyReportsProps): React.ReactElement {
         return !d || inPeriod(d, period);
       })
       .map((r) => {
-        const schedule = bySchedule.get(str(r, "ScheduleID").toLowerCase());
+        const schedule = bySchedule.get(reportScheduleId(r).toLowerCase());
         const brandId = str(r, "BrandID") || str(schedule, "BrandID");
         return {
           key: `r-${rowId(r) || str(r, "Title")}`,
@@ -98,7 +98,7 @@ export function MyReportsView(props: MyReportsProps): React.ReactElement {
     setFilter(f);
     action.fire("FILTER_CHANGED", { filter: f, period: periodKey(period) });
   };
-  const open = (i: Item) => action.fire("OPEN_REPORT", { reportId: rowId(i.report), title: str(i.report, "Title"), scheduleId: str(i.report, "ScheduleID") });
+  const open = (i: Item) => action.fire("OPEN_REPORT", { reportId: rowId(i.report), title: str(i.report, "Title"), scheduleId: reportScheduleId(i.report) });
 
   const firstLoad = props.loading && items.length === 0;
 
@@ -213,7 +213,7 @@ function ReportRow(props: { i: Item; onOpen: () => void }): React.ReactElement {
   const { i } = props;
   const st = hostReportBadge(i.report, i.state);
   const time = liveWindow(i.schedule, i.report);
-  const playbook = str(i.report, "Playbook").trim();
+  const playbook = reportPlaybook(i.report);
   return (
     <div className={`hc-row${i.state === "REVISION" ? " bad" : ""}`}>
       <span className="pbs-num">{fmtDayMonth(i.day)}</span>
@@ -221,7 +221,7 @@ function ReportRow(props: { i: Item; onOpen: () => void }): React.ReactElement {
         <b style={{ fontWeight: 600 }}>{i.brand}</b>
         {i.platform ? <span className="pbs-muted"> · {i.platform}</span> : null}
         <span className="pbs-muted" style={{ display: "block", fontSize: 11.5 }}>
-          {[str(i.report, "Title"), str(i.report, "ScheduleID"), time].filter(Boolean).map((t, n) => (
+          {[str(i.report, "Title"), reportScheduleId(i.report), time].filter(Boolean).map((t, n) => (
             <React.Fragment key={n}>
               {n ? " · " : ""}
               <span style={{ whiteSpace: "nowrap" }}>{t}</span>

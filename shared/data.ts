@@ -157,11 +157,11 @@ export function parseClock(v: string): number | null {
   const s = v.trim().toUpperCase();
   if (!s) return null;
   if (/^\d{4}-\d{2}-\d{2}[T ]\d{1,2}:\d{2}/.test(s)) {
-    const d = new Date(v.trim());
+    const d = new Date(v.trim().replace(" ", "T"));
     return Number.isNaN(d.getTime()) ? null : d.getHours() * 60 + d.getMinutes();
   }
   if (/^\d{1,2}$/.test(s)) return Number(s) <= 24 ? Number(s) * 60 : null;
-  const m = /^(\d{1,2})[:.]?(\d{2})(?::\d{2})?\s*(AM|PM)?$/.exec(s);
+  const m = /^(\d{1,2})[:.]?(\d{2})(?:[:.]\d{2})?\s*(AM|PM)?$/.exec(s);
   if (!m) return null;
   let h = Number(m[1]);
   const min = Number(m[2]);
@@ -204,3 +204,35 @@ export function clockText(v: string): string {
   if (m === null) return v.trim();
   return `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`;
 }
+
+/** Schedule.Position (Host / Co-Host). */
+export const schedulePosition = (row: Row | undefined): string => str(row, "Position", "HostPosition", "Posisi", "HostRole");
+
+/**
+ * Why a schedule needs no report: LiveBreak = Yes, or the host is Co-Host (a Co-Host never reports,
+ * whatever LiveBreak says). null when a report is expected.
+ */
+export function noReportReason(row: Row | undefined): "LIVE_BREAK" | "CO_HOST" | null {
+  if (bool(row, "LiveBreak", "Live Break", "IsLiveBreak") === true) return "LIVE_BREAK";
+  if (/^co[\s_-]*host$/i.test(schedulePosition(row))) return "CO_HOST";
+  return null;
+}
+
+export const NO_REPORT_LABEL: Record<"LIVE_BREAK" | "CO_HOST", string> = { LIVE_BREAK: "Live break", CO_HOST: "Co-Host" };
+
+/** A full date-time column value ("2026-09-14T02:40:00Z", "2026-09-14 09:40"); null for a bare clock or blank. */
+export function dateTime(row: Row | undefined, ...keys: string[]): Date | null {
+  for (const k of keys) {
+    const v = str(row, k);
+    if (!/^\d{4}-\d{2}-\d{2}[T ]\d{1,2}:\d{2}/.test(v)) continue;
+    const d = new Date(v.replace(" ", "T"));
+    if (!Number.isNaN(d.getTime())) return d;
+  }
+  return null;
+}
+
+/** Report.ScheduleID under the names canvas may send (field name, SharePoint internal name, lookup). */
+export const reportScheduleId = (r: Row | undefined): string => str(r, "ScheduleID", "Schedule ID", "Schedule_x0020_ID", "ScheduleId", "Schedule");
+
+/** Report.Playbook (Choice; multi-choice joined). */
+export const reportPlaybook = (r: Row | undefined): string => str(r, "Playbook", "PlayBook", "Play_x0020_Book");

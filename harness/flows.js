@@ -426,6 +426,19 @@ const assert = (c, m) => { if (!c) { console.log("FAIL", m); process.exitCode = 
   assert((await p.getByRole("tab", { name: "Kehadiran" }).count()) === 0, "no Kehadiran tab without HOST_CLOCKIN / PAYROLL_VIEW");
 
 
+  // ---- Live break / Co-Host: no report owed; Schedule ID + account name; ClockInTime-only rows -------
+  await go("c=HostDetail&h=HST-011&tab=Schedule");
+  await p.getByRole("button", { name: "Semua" }).click().catch(() => {});
+  const lb = p.locator("tbody tr", { hasText: "SCD-3227" });
+  const co = p.locator("tbody tr", { hasText: "SCD-3228" });
+  assert((await lb.getByText("Finished").isVisible()) && (await lb.getByText("Live break").isVisible()), "Waiting Report + LiveBreak Yes reads Finished · Live break");
+  assert((await co.getByText("Finished").isVisible()) && (await co.getByText("Co-Host").isVisible()), "Co-Host with LiveBreak No reads Finished · Co-Host");
+  assert(await lb.getByText("brand002.official").isVisible(), "Jadwal shows AccountName, not AccountID");
+  assert((await p.locator("thead th", { hasText: "Schedule ID" }).count()) === 1, "Jadwal has a Schedule ID column");
+  await shot("f-hd-nolive");
+  await go("c=HostDetail&h=HST-011&tab=Attendance");
+  assert((await p.getByText("08:05").first().isVisible()) && (await p.getByText("17:20").first().isVisible()), "ClockInTime / ClockOutTime (Date and Time) fill the attendance times");
+
   // ---- Host app: dashboard ---------------------------------------------------------------------
   await go("c=HostDashboard");
   assert(await p.getByText("Selamat siang, Dinda").isVisible(), "host dashboard greets the host");

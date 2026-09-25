@@ -1,4 +1,4 @@
-import { Row, clockText, date, nameIndex, rowId, str } from "./data";
+import { Row, clockText, date, nameIndex, reportPlaybook, reportScheduleId, rowId, str } from "./data";
 import { ReconcileOptions, Reconciliation, ReviewState, indexEvidence, numericTail, reconcile, reviewState, waitingSince } from "./reconcile";
 
 /** Schedule rows by Title (SCD-xxx), ID and numeric tail, so Report.ScheduleID finds its row either way. */
@@ -72,7 +72,7 @@ export function buildReportItems(reports: Row[], evidence: Row[], brands: Row[],
     const rec = reconcile(r, idx, opts);
     const brandId = str(r, "BrandID");
     const hostId = str(r, "HostID");
-    const scheduleId = str(r, "ScheduleID");
+    const scheduleId = reportScheduleId(r);
     const schedule = scheduleFor(sched, scheduleId);
     return {
       row: r,
@@ -82,7 +82,7 @@ export function buildReportItems(reports: Row[], evidence: Row[], brands: Row[],
       schedule,
       liveTime: liveWindow(schedule, r),
       approvalStatus: str(r, "ApprovalStatus").trim(),
-      playbook: str(r, "Playbook").trim(),
+      playbook: reportPlaybook(r),
       liveDate: date(r, "LiveDate"),
       brandId,
       brand: brandNames.get(brandId) ?? (str(r, "BrandName", "NamaBrand") || brandId || "—"),

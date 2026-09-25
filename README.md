@@ -34,9 +34,9 @@ Power Apps code components (PCF) untuk canvas app PBS Hub, dibuat dari design ha
 **Output:** tiga managed solution, dibangun dengan target MSBuild resmi Power Platform
 (`Microsoft.PowerApps.MSBuild.Solution`):
 
-- `dist/PBSHubOpsPCF_1_6_2_0_managed.zip` — Ops Console (7 control `pbs_Ops.*`)
-- `dist/PBSHubHostPCF_1_0_7_0_managed.zip` — Host app (3 control `pbs_Host.*`)
-- `dist/PBSHubHostSchedulePCF_1_1_4_0_managed.zip` — Host schedule (2 control `pbs_Host.*`)
+- `dist/PBSHubOpsPCF_1_6_3_0_managed.zip` — Ops Console (7 control `pbs_Ops.*`)
+- `dist/PBSHubHostPCF_1_0_8_0_managed.zip` — Host app (3 control `pbs_Host.*`)
+- `dist/PBSHubHostSchedulePCF_1_1_5_0_managed.zip` — Host schedule (2 control `pbs_Host.*`)
 
 Cara pasang dan formula Power Fx lengkap (properti, `OnChange`, Patch ke SharePoint):
 [`docs/CANVAS-INTEGRATION.md`](docs/CANVAS-INTEGRATION.md) (Ops) dan

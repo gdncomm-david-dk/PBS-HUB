@@ -1,4 +1,4 @@
-import { Row, bool, date, num, rowId, str } from "./data";
+import { Row, bool, date, dateTime, num, parseClock, rowId, str } from "./data";
 import { monthName } from "./format";
 import { reviewState, Tone } from "./reconcile";
 
@@ -463,6 +463,26 @@ export function tierOf(row: Row): 1 | 2 | 3 | null {
 }
 
 export const clockInDay = (c: Row): Date | null => date(c, "ClockInDate", "CheckInTime");
+
+const onDay = (day: Date | null, clock: string): Date | null => {
+  const m = parseClock(clock);
+  if (!day || m === null) return null;
+  const d = new Date(day.getFullYear(), day.getMonth(), day.getDate());
+  d.setMinutes(m);
+  return d;
+};
+
+/** Clock-in moment: CheckInTime (GPS), else ClockInTime (Date and Time, or a text clock on ClockInDate). */
+export const clockInAt = (c: Row | undefined): Date | null =>
+  !c ? null : dateTime(c, "CheckInTime", "ClockInTime") ?? date(c, "CheckInTime") ?? onDay(clockInDay(c), str(c, "ClockInTime", "JamMasuk"));
+
+/** Clock-out moment, same fallbacks; a text clock earlier than clock-in is read as past midnight. */
+export function clockOutAt(c: Row | undefined): Date | null {
+  if (!c) return null;
+  const out = dateTime(c, "CheckOutTime", "ClockOutTime") ?? date(c, "CheckOutTime") ?? onDay(date(c, "ClockOutDate") ?? clockInDay(c), str(c, "ClockOutTime", "JamKeluar"));
+  const inAt = clockInAt(c);
+  return out && inAt && out < inAt ? new Date(out.getTime() + 864e5) : out;
+}
 
 export function clockInValue(c: Row): number {
   return (num(c, "HKTugas") ?? 0) + (num(c, "Insentif") ?? 0) + (num(c, "Streak") ?? 0);

@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8" ?>
 <manifest>
-  <control namespace="Ops" constructor="HostDetail" version="1.3.6" display-name-key="PBS Ops Host Detail" description-key="PBS Hub Ops Console HD-2: one host with tabs Ringkasan, Jadwal, Kehadiran (edit clock in, tier, weekly), Report, Payroll and Data pribadi (masked, reveal is logged by canvas)." control-type="standard">
+  <control namespace="Ops" constructor="HostDetail" version="1.3.7" display-name-key="PBS Ops Host Detail" description-key="PBS Hub Ops Console HD-2: one host with tabs Ringkasan, Jadwal, Kehadiran (edit clock in, tier, weekly), Report, Payroll and Data pribadi (masked, reveal is logged by canvas)." control-type="standard">
     <external-service-usage enabled="false"></external-service-usage>
 
     <property name="Context" display-name-key="Context" description-key="JSON {userEmail,userName,roles,permissions,config}. config: scoreInitial, scoreMin, scoreMax, piiRevealSeconds (30), payrollLabelOffset (-1)." of-type="Multiple" usage="input" required="false" />

@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8" ?>
 <manifest>
-  <control namespace="Host" constructor="MyReports" version="1.0.5" display-name-key="PBS Host My Reports" description-key="PBS Hub host app H-4 Report saya: the host reports for one month with status chips (Belum dikirim, Perlu revisi, Menunggu review, Selesai, Otomatis disetujui)." control-type="standard">
+  <control namespace="Host" constructor="MyReports" version="1.0.6" display-name-key="PBS Host My Reports" description-key="PBS Hub host app H-4 Report saya: the host reports for one month with status chips (Belum dikirim, Perlu revisi, Menunggu review, Selesai, Otomatis disetujui)." control-type="standard">
     <external-service-usage enabled="false"></external-service-usage>
 
     <property name="Context" display-name-key="Context" description-key="JSON {userEmail,userName,roles,permissions,config}. config: absenLeadMin, reportDeadlineDays, requireAbsen." of-type="Multiple" usage="input" required="false" />

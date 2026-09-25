@@ -1,5 +1,5 @@
-import { Row, clockText, date, localDayKey, nameIndex, num, parseClock, rowId, startOfDay, str } from "./data";
-import { clockInDay } from "./payroll";
+import { Row, clockText, date, localDayKey, nameIndex, noReportReason, num, parseClock, reportScheduleId, rowId, startOfDay, str } from "./data";
+import { clockInAt, clockInDay } from "./payroll";
 import { sessionStatus } from "./host";
 import { ALL_METRICS, MetricDef, NO_STATUS, ReviewState, Tone, isResubmitted, readMetric, reviewState } from "./reconcile";
 
@@ -52,7 +52,7 @@ export interface Shift {
   row: Row | undefined;
 }
 
-const checkIn = (c: Row): Date | null => date(c, "CheckInTime") ?? withClock(clockInDay(c), str(c, "ClockInTime"));
+const checkIn = (c: Row): Date | null => clockInAt(c);
 const checkOut = (c: Row): Date | null => date(c, "CheckOutTime") ?? withClock(date(c, "ClockOutDate") ?? clockInDay(c), str(c, "ClockOutTime"));
 
 function withClock(day: Date | null, clock: string): Date | null {
@@ -133,6 +133,7 @@ export type SessionPhase =
   | "NEEDS_CLOCKIN" // session started/passed, no clock-in that day
   | "NEEDS_ABSEN" // clocked in, no absen for this session
   | "NEEDS_REPORT" // absen done, no report yet
+  | "NO_REPORT" // absen done, live break or Co-Host: no report owed
   | "REVISION" // report sent back to the host
   | "REPORTED" // report submitted: waiting or done
   | "CANCELLED";
@@ -143,6 +144,7 @@ export const PHASE_LABEL: Record<SessionPhase, { label: string; tone: Tone }> = 
   NEEDS_CLOCKIN: { label: "Belum clock in", tone: "warning" },
   NEEDS_ABSEN: { label: "Perlu absen", tone: "info" },
   NEEDS_REPORT: { label: "Belum dikirim", tone: "warning" },
+  NO_REPORT: { label: "Tanpa report", tone: "success" },
   REVISION: { label: "Perlu revisi", tone: "danger" },
   REPORTED: { label: "Report masuk", tone: "success" },
   CANCELLED: { label: "Dibatalkan", tone: "neutral" },
@@ -170,6 +172,8 @@ export interface HostSession {
   absence: Row | undefined;
   report: Row | undefined;
   reportState: ReviewState | null;
+  /** Live break or Co-Host: this schedule needs no report. */
+  noReport: "LIVE_BREAK" | "CO_HOST" | null;
   /** Report deadline (end of live day + reportDeadlineDays). */
   due: Date | null;
   late: boolean;
@@ -202,7 +206,7 @@ export function buildHostSessions(d: HostData, now: Date, opts: HostOptions = DE
   const absBySchedule = byKey(d.absences, (a) => str(a, "ScheduleID"));
   // Newest report per schedule: a resubmission replaces the old row in the host's eyes.
   const reports = [...d.reports].sort((a, b) => (date(b, "Created", "CreatedDate")?.getTime() ?? 0) - (date(a, "Created", "CreatedDate")?.getTime() ?? 0));
-  const repBySchedule = byKey(reports, (r) => str(r, "ScheduleID"));
+  const repBySchedule = byKey(reports, (r) => reportScheduleId(r));
   const t = now.getTime();
 
   return d.schedules
@@ -218,6 +222,7 @@ export function buildHostSessions(d: HostData, now: Date, opts: HostOptions = DE
       const absence = absBySchedule.get(title.toLowerCase());
       const report = repBySchedule.get(title.toLowerCase());
       const reportState = report ? reviewState(report) : null;
+      const noReport = noReportReason(s);
       const clockedIn = !!dayKey && days.has(dayKey);
       const brandId = str(s, "BrandID");
       const studioId = str(s, "StudioID");
@@ -230,7 +235,8 @@ export function buildHostSessions(d: HostData, now: Date, opts: HostOptions = DE
       if (sessionStatus(s) === "CANCELLED") phase = "CANCELLED";
       else if (report) phase = reportState === "REVISION" ? "REVISION" : "REPORTED";
       else if (t < opens) phase = "UPCOMING";
-      else if (hasAbsen && clockedIn) phase = "NEEDS_REPORT";
+      else if (noReport && sessionStatus(s) === "DONE") phase = "NO_REPORT"; // closed by ops, nothing owed
+      else if (hasAbsen && clockedIn) phase = noReport ? "NO_REPORT" : "NEEDS_REPORT";
       else if (!clockedIn) phase = t <= endT ? "NOW" : "NEEDS_CLOCKIN";
       else phase = t <= endT && !absence ? "NOW" : "NEEDS_ABSEN";
 
@@ -256,6 +262,7 @@ export function buildHostSessions(d: HostData, now: Date, opts: HostOptions = DE
         absence,
         report,
         reportState,
+        noReport,
         due,
         late: !!due && phase === "NEEDS_REPORT" && t > due.getTime(),
         canAbsen: opts.requireAbsen && !absence && !report && clockedIn && t >= opens && phase !== "CANCELLED",

@@ -40,6 +40,8 @@
   const sch = (day, start, end, brand, host, studio, status, platform) => ({
     ID: ++sid, Title: `SCD-${sid}`, Date: d(day), StartTime: start, EndTime: end, BrandID: brand, HostID: host, StudioID: studio,
     Status: { Value: status || "Planned" }, Platform: { Value: platform || "TikTok" }, JamLive: 2,
+    AccountID: `ACC-${brand.slice(-3)}`, AccountName: brand === "BRD-008" ? "wingsofficialstore" : brand.toLowerCase().replace("brd-", "brand") + ".official",
+    LiveBreak: { Value: "No" }, Position: { Value: "Host" },
   });
   const schedules = [
     // today
@@ -74,6 +76,9 @@
     sch(11, "10:00", "12:00", "BRD-007", "HST-003", "STD-02", "Finished"),
     // report with a blank ApprovalStatus -> not in the waiting queue
     sch(9, "13:00", "15:00", "BRD-005", "HST-003", "STD-03", "Finished"),
+    // no report owed although the flow left "Waiting Report": live break, and Co-Host with LiveBreak No
+    Object.assign(sch(14, "05:00", "07:00", "BRD-002", "HST-011", "STD-02", "Waiting Report"), { LiveBreak: { Value: "Yes" } }),
+    Object.assign(sch(13, "19:00", "21:00", "BRD-001", "HST-011", "STD-01", "Waiting Report"), { Position: { Value: "Co-Host" } }),
   ];
 
   const M = (Penjualan, Pesanan, ProdukTerjual, JumlahPembeli, CTR, CTOR, PeakViewer, extra) =>
@@ -133,6 +138,8 @@
   });
   clockIns.push({ ID: cid++, HostID: "HST-001", ClockInDate: d(14), CheckInTime: d(14, "06:55"), IsInsideGeofence: false });
   clockIns.push({ ID: cid++, HostID: "HST-007", ClockInDate: d(13), CheckInTime: d(13, "08:10"), IsInsideGeofence: true });
+  // Tenant rows that only fill ClockInTime / ClockOutTime (Date and Time), no CheckInTime.
+  clockIns.push({ ID: cid++, HostID: "HST-011", ClockInDate: d(7), ClockInTime: new Date(2026, 8, 7, 8, 5).toISOString(), ClockOutTime: new Date(2026, 8, 7, 17, 20).toISOString(), IsInsideGeofence: true, HKTugas: 180000 });
 
   // ---- payroll (Payroll - PBS Hub, Payroll Data) -------------------------------------------------
   // Periode is the RUN month (P8): "Sep 2026" holds August attendance.

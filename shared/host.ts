@@ -1,5 +1,5 @@
-import { Row, bool, clockText, date, num, rowId, startOfDay, str } from "./data";
-import { Period, RunModel, addMonths, clockInDay, hasBank, inPeriod, parsePeriod, periodKey, periodOf } from "./payroll";
+import { Row, bool, clockText, date, noReportReason, num, reportPlaybook, reportScheduleId, rowId, schedulePosition, startOfDay, str } from "./data";
+import { Period, RunModel, addMonths, clockInAt, clockInDay, hasBank, inPeriod, parsePeriod, periodKey, periodOf } from "./payroll";
 import { ReviewState, Tone, reviewState } from "./reconcile";
 import { indexSchedules, liveWindow, scheduleFor } from "./reportItems";
 
@@ -263,10 +263,11 @@ export function checkLedger(host: HostModel, txs: ScoreTx[]): LedgerCheck {
 export type SessionStatus = "PLANNED" | "DONE" | "WAITING_REPORT" | "CANCELLED" | "OTHER";
 
 export const SESSION_STATUS: Record<SessionStatus, { label: string; tone: Tone }> = {
-  PLANNED: { label: "Terjadwal", tone: "info" },
-  DONE: { label: "Selesai", tone: "success" },
-  WAITING_REPORT: { label: "Menunggu report", tone: "warning" },
-  CANCELLED: { label: "Dibatalkan", tone: "neutral" },
+  // Schedule.Status words, as the team reads them in the list.
+  PLANNED: { label: "Planned", tone: "info" },
+  DONE: { label: "Finished", tone: "success" },
+  WAITING_REPORT: { label: "Waiting Report", tone: "warning" },
+  CANCELLED: { label: "Cancelled", tone: "neutral" },
   OTHER: { label: "Lainnya", tone: "neutral" },
 };
 
@@ -287,6 +288,11 @@ export interface HostSession {
   day: Date | null;
   start: string;
   end: string;
+  /** Schedule.AccountName (the account the live runs on); AccountID only when no name is sent. */
+  account: string;
+  /** Live break or Co-Host: no report expected for this schedule. */
+  noReport: "LIVE_BREAK" | "CO_HOST" | null;
+  position: string;
   brandId: string;
   brand: string;
   studio: string;
@@ -296,12 +302,13 @@ export interface HostSession {
   clockIn: Date | null;
 }
 
-export function buildSessions(schedules: Row[], clockIns: Row[], brands: Map<string, string>, studios: Map<string, string>, now: Date): HostSession[] {
+export function buildSessions(schedules: Row[], clockIns: Row[], brands: Map<string, string>, studios: Map<string, string>, now: Date, reports: Row[] = []): HostSession[] {
   const today = startOfDay(now).getTime();
+  const reported = new Set(reports.map((r) => reportScheduleId(r).toLowerCase()).filter(Boolean));
   const firstIn = new Map<string, Date>();
   for (const c of clockIns) {
     const d = clockInDay(c);
-    const t = date(c, "CheckInTime") ?? d;
+    const t = clockInAt(c) ?? d;
     if (!d || !t) continue;
     const k = startOfDay(d).toDateString();
     const prev = firstIn.get(k);
@@ -312,12 +319,19 @@ export function buildSessions(schedules: Row[], clockIns: Row[], brands: Map<str
       const day = date(s, "Date", "Tanggal");
       const brandId = str(s, "BrandID");
       const studioId = str(s, "StudioID");
-      const status = sessionStatus(s);
+      const title = str(s, "Title");
+      const noReport = noReportReason(s);
+      let status = sessionStatus(s);
+      // "Waiting Report" is stale once nothing is owed: live break, Co-Host, or the report is in.
+      if (status === "WAITING_REPORT" && (noReport || reported.has(title.toLowerCase()))) status = "DONE";
       return {
         row: s,
         id: rowId(s),
-        title: str(s, "Title"),
+        title,
         day,
+        account: str(s, "AccountName", "NamaAkun", "Account") || str(s, "AccountID"),
+        noReport,
+        position: schedulePosition(s),
         start: clockText(str(s, "StartTime", "JamMulai")),
         end: clockText(str(s, "EndTime", "JamSelesai")),
         brandId,
@@ -354,7 +368,7 @@ export function buildHostReports(reports: Row[], brands: Map<string, string>, sc
   return reports
     .map((r) => {
       const brandId = str(r, "BrandID");
-      const scheduleId = str(r, "ScheduleID");
+      const scheduleId = reportScheduleId(r);
       return {
         row: r,
         id: rowId(r),
@@ -362,7 +376,7 @@ export function buildHostReports(reports: Row[], brands: Map<string, string>, sc
         scheduleId,
         liveTime: liveWindow(scheduleFor(sched, scheduleId), r),
         approvalStatus: str(r, "ApprovalStatus").trim(),
-        playbook: str(r, "Playbook").trim(),
+        playbook: reportPlaybook(r),
         liveDate: date(r, "LiveDate"),
         brand: brands.get(brandId) ?? (str(r, "BrandName", "NamaBrand") || brandId || "—"),
         platform: str(r, "Platform"),
