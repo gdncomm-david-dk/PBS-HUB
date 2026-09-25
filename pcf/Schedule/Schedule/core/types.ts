@@ -148,6 +148,7 @@ export type ActionName =
     | "OPEN_UPLOAD"
     | "REMIND_HOST"
     | "REVIEW_REPORT"
+    | "REFRESH"
     | "NAV_SESSION_DETAIL";
 
 export interface ActionResult {

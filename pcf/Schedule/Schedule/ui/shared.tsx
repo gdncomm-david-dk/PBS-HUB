@@ -64,3 +64,6 @@ export interface Env {
 }
 
 export const hostLabel = (lk: Lookups, id: string): string => lk.hosts.get(id.toLowerCase())?.name || id;
+
+/** Shown when an upload got no reply in time: the file usually did arrive, the canvas just never confirmed it. */
+export const UNCONFIRMED = "File sudah dikirim, tetapi aplikasi belum membalas. Cek folder SharePoint / list Schedule sebelum mengunggah ulang.";

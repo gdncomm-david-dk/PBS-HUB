@@ -1,14 +1,14 @@
 import * as React from "react";
 import { bytesToBase64, uploadName } from "../core/import";
 import { Badge, Bar, Button, cx, Icon, Modal } from "./components";
-import { Env } from "./shared";
+import { Env, UNCONFIRMED } from "./shared";
 import { fmtSize } from "./BulkUpload";
 
 interface Item {
     id: string;
     file: File;
     error?: string;
-    state: "ready" | "uploading" | "ok" | "error";
+    state: "ready" | "uploading" | "ok" | "unconfirmed" | "error";
     message?: string;
     storedAs?: string;
 }
@@ -78,7 +78,7 @@ export function AiUpload(props: { env: Env; onClose: () => void }): React.ReactE
             } catch {
                 r = { requestId: "", status: "error" as const, message: "File tidak bisa dibaca dari perangkat.", data: {} };
             }
-            patch(it.id, { state: r.status === "ok" ? "ok" : "error", storedAs: fileName, message: r.status === "ok" ? r.message || "Terunggah" : r.message || "Gagal mengunggah" });
+            patch(it.id, { state: r.status === "ok" ? "ok" : r.data.timeout ? "unconfirmed" : "error", storedAs: fileName, message: r.data.timeout ? UNCONFIRMED : r.status === "ok" ? r.message || "Terunggah" : r.message || "Gagal mengunggah" });
             setDone(i + 1);
         }
         setPhase("done");
@@ -86,6 +86,7 @@ export function AiUpload(props: { env: Env; onClose: () => void }): React.ReactE
 
     const ok = items.filter((i) => i.state === "ok").length;
     const failed = items.filter((i) => i.state === "error" && !i.error).length;
+    const unconfirmed = items.filter((i) => i.state === "unconfirmed").length;
 
     return (
         <Modal
@@ -160,9 +161,9 @@ export function AiUpload(props: { env: Env; onClose: () => void }): React.ReactE
             {phase !== "pick" && (
                 <div className="sc-progress">
                     <div className="sc-progress__head">
-                        <b>{phase === "uploading" ? `Mengunggah ${Math.min(done + 1, ready.length)} dari ${ready.length} file…` : failed ? `${ok} file terkirim, ${failed} gagal` : `${ok} file terkirim ke AI Schedule`}</b>
+                        <b>{phase === "uploading" ? `Mengunggah ${Math.min(done + 1, ready.length)} dari ${ready.length} file…` : failed || unconfirmed ? [`${ok} file terkirim`, unconfirmed && `${unconfirmed} belum dikonfirmasi`, failed && `${failed} gagal`].filter(Boolean).join(", ") : `${ok} file terkirim ke AI Schedule`}</b>
                     </div>
-                    <Bar ratio={done / Math.max(1, ready.length)} tone={failed ? "warning" : "primary"} height={6} />
+                    <Bar ratio={done / Math.max(1, ready.length)} tone={failed || unconfirmed ? "warning" : "primary"} height={6} />
                     {phase === "done" && ok > 0 && <p className="sc-muted">Flow AI berjalan di latar belakang. Jadwal baru akan terlihat setelah daftar dimuat ulang.</p>}
                 </div>
             )}
@@ -179,13 +180,15 @@ export function AiUpload(props: { env: Env; onClose: () => void }): React.ReactE
                                     {it.storedAs ? ` · disimpan sebagai ${it.storedAs}` : ""}
                                 </span>
                                 {it.error && <span className="sc-dangertext">{it.error}</span>}
-                                {it.message && <span className={it.state === "error" ? "sc-dangertext" : "sc-successtext"}>{it.message}</span>}
+                                {it.message && <span className={it.state === "error" ? "sc-dangertext" : it.state === "unconfirmed" ? "sc-warntext" : "sc-successtext"}>{it.message}</span>}
                             </div>
                             <div className="sc-file__state">
                                 {it.state === "uploading" ? (
                                     <span className="sc-muted">Mengunggah…</span>
                                 ) : it.state === "ok" ? (
                                     <Badge tone="success">{Icon.check(12)} Terkirim</Badge>
+                                ) : it.state === "unconfirmed" ? (
+                                    <Badge tone="warning">Belum dikonfirmasi</Badge>
                                 ) : it.state === "error" && !it.error ? (
                                     <Badge tone="danger">Gagal</Badge>
                                 ) : it.error ? (

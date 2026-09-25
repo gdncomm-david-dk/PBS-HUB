@@ -127,6 +127,7 @@ export const Icon = {
             </>,
             s,
         ),
+    refresh: (s?: number) => I(<><polyline points="23 4 23 10 17 10" /><path d="M20.5 15a9 9 0 1 1-2.1-9.4L23 10" /></>, s),
     upload: (s?: number) =>
         I(
             <>

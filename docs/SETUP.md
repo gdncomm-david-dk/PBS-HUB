@@ -6,7 +6,7 @@ for the Studio screens and part C for the Schedule screen.
 | Control | Display name | Solution (managed) | Version | Screens |
 |---|---|---|---|---|
 | `pbs_Ops.StudioHub` | PBS Studio Hub | `releases/PBSStudioHub_managed_1.6.1.zip` (`PBSStudioHub`) | 1.6.1 | Studio list, Studio detail |
-| `pbs_Ops.Schedule` | PBS Schedule | `releases/PBSSchedule_managed_1.3.1.zip` (`PBSSchedule`) | 1.3.1 | Schedule board, session detail, create/edit, bulk & AI upload |
+| `pbs_Ops.Schedule` | PBS Schedule | `releases/PBSSchedule_managed_1.3.2.zip` (`PBSSchedule`) | 1.3.2 | Schedule board, session detail, create/edit, bulk & AI upload |
 
 Neither control writes to SharePoint. Each one emits an `ActionPayload` `{ action, requestId, payload }`; the
 canvas app does the `Patch` and replies through `ActionResult` with the same `requestId`. Until that reply
@@ -237,7 +237,7 @@ These are display metrics. Nothing that money depends on is computed in the cont
 
 ---
 
-# C. PBS Schedule (`pbs_Ops.Schedule` 1.3.1)
+# C. PBS Schedule (`pbs_Ops.Schedule` 1.3.2)
 
 The control renders the **Schedule board (S-1)** as a calendar (week × brand lanes, or studio lanes) or a list, grouped by brand and sorted by start time,, and the
 **session detail (S-2)** with the seven-step evidence chain. It also provides three ways to create schedules:
@@ -405,12 +405,13 @@ If(rid <> varLastSchedRid,
                         "/root:/" & EncodeUrl(Text(p.folder)) & "/" & EncodeUrl(Text(p.fileName)) & ":/content",
                     "PUT",
                     "data:" & Text(p.mimeType) & ";base64," & Text(p.contentBase64));
-                If(Text(p.kind) = "BULK",
-                    // One run per file. v1 ran the flow for the FIRST file only.
-                    'PBS0001A-CreateAutomatedSchedule[AIPowered]'.Run(Text(p.fileName));
-                    Set(varSchedMsg, "Terunggah, PBS0001A berjalan"),
-                    Set(varSchedMsg, "Terunggah, AI Schedule berjalan")),
+                // PBS0001A runs AFTER the reply is sent (bottom of this formula), so the dialog never waits on the flow.
+                Set(varSchedMsg, If(Text(p.kind) = "BULK", "Terunggah, PBS0001A dijalankan", "Terunggah, AI Schedule berjalan")),
                 Set(varSchedOk, false); Set(varSchedErr, FirstError.Message)),
+
+        "REFRESH",
+            // "Muat ulang" button: reload every list the control is bound to.
+            Refresh('Schedule - PBS Hub'); Refresh('Report - PBS Hub'); Refresh('Report Automation - PBS Hub'),
 
         // Judgement on a host report after comparing it with Report Automation (Title = Report.Title).
         // revision: Report → Need Revision + Unmatch + comment + approver; Report Automation → Status Unmatch.
@@ -442,15 +443,47 @@ If(rid <> varLastSchedRid,
     If(action in ["CREATE_SCHEDULE", "EDIT_SCHEDULE", "DELETE_SCHEDULE", "UPLOAD_SCHEDULE_FILE", "REVIEW_REPORT", "REMIND_HOST"],
         Set(varSchedResult, JSON({
             requestId: rid, status: If(varSchedOk, "ok", "error"),
-            message: If(varSchedOk, varSchedMsg, varSchedErr), data: { scheduleId: varSchedId } }, JSONFormat.Compact)))
+            message: If(varSchedOk, varSchedMsg, varSchedErr), data: { scheduleId: varSchedId } }, JSONFormat.Compact)));
+    // The reply above is already set, so the dialog shows "Terunggah" while the flow is still running.
+    // One run per file. v1 ran the flow for the FIRST file only.
+    If(action = "UPLOAD_SCHEDULE_FILE" && varSchedOk && Text(p.kind) = "BULK",
+        IfError('PBS0001A-CreateAutomatedSchedule[AIPowered]'.Run(Text(p.fileName)); true,
+            Notify("PBS0001A gagal untuk " & Text(p.fileName) & ": " & FirstError.Message, NotificationType.Error)));
+    If(action = "UPLOAD_SCHEDULE_FILE" && varSchedOk, Refresh('Schedule - PBS Hub'))
 )))
 ```
 
-`'PBS0001A-CreateAutomatedSchedule[AIPowered]'.Run(...)` is the call your app already makes. If the flow
-returns the number of rows it created, add `created: <number>` to `data` and the dialog will show it.
+**The reply must be set before anything slow.** If the upload branch runs the flow before
+`Set(varSchedResult, …)`, a flow that ends with *Respond to a PowerApp* keeps the formula waiting until the
+flow finishes. The control then gives up after 3 minutes and shows *belum dikonfirmasi*, although the file
+and the flow are fine. That is why PBS0001A now runs at the bottom.
+
+### Auto update after a flow writes the list
+
+The control shows what its datasets hold. Canvas apps do not get pushed changes from SharePoint, so rows
+that PBS0001A / PBS0002A (or anyone else) create appear only after a `Refresh`. Three ways, from simple to
+automatic:
+
+1. **Muat ulang** button in the control header (action `REFRESH` above).
+2. The `Refresh('Schedule - PBS Hub')` at the end of an upload. It can come before the flow has finished.
+3. A hidden Timer on the Schedule screen that keeps refreshing while the screen is open:
+
+```powerfx
+// tmrSchedRefresh
+Duration:  30000            // 30 s; SharePoint throttles below ~15 s
+Repeat:    true
+AutoStart: true
+Visible:   false
+OnTimerEnd: Refresh('Schedule - PBS Hub')
+```
+
+A refresh does not reset the control: the filter, the open session and any open dialog stay as they are.
+
+`'PBS0001A-CreateAutomatedSchedule[AIPowered]'.Run(...)` is the call your app already makes.
 
 The control stays locked until its own `requestId` comes back. It waits 30 seconds for a save and
-3 minutes per uploaded file.
+3 minutes per uploaded file. An upload that gets no reply in time is marked *Terkirim, belum dikonfirmasi*
+(yellow), not *Gagal*: the file usually did arrive. A reply that comes later still shows as a banner.
 
 ### C4a. The upload body — test this first
 
@@ -604,4 +637,6 @@ file was uploaded.
 | Status shows `0`, `4`, `5`; Platform shows `1`; a Finished live break shows *Menunggu review* | The control is older than Studio Hub 1.6.0 / Schedule 1.2.2 and reads Choice option numbers | Import the current zips and accept **Update code components** |
 | Uploaded file is corrupt, or contains `data:` text | The tenant does not convert a data URI into bytes | Use the flow (C4a option B), or `uploadMode: "canvas"` (C4b) |
 | The control stays locked after an action | `ActionResult` is not set to the reply variable, or the reply's `requestId` differs | Check that `ActionResult` = `varStudioResult` / `varSchedResult`, and that the handler echoes `rid` |
+| Upload dialog: *Aplikasi tidak membalas dalam 180 detik* / *belum dikonfirmasi*, but the file and the flow are fine | The reply (`varSchedResult`) is set after something slow, usually `PBS0001A….Run()`, or never set for this action | Use the C4 handler: the upload branch only sets the message, the flow runs at the bottom after the reply. Check that `"UPLOAD_SCHEDULE_FILE"` is in the `If(action in [...])` list and that `ActionResult` = `varSchedResult` |
+| New schedules from a flow do not appear | Canvas apps are not pushed SharePoint changes | Press **Muat ulang**, or add the Timer in C4 *Auto update* |
 | Only the first bulk file creates schedules | The old button ran PBS0001A once | Use the `ForAll(colBulkFiles, …Run(Name))` in C4b |

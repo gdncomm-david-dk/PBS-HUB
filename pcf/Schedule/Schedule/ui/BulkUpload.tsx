@@ -3,7 +3,7 @@ import { readWorkbook } from "../core/xlsx";
 import { bytesToBase64, checkFile, errorCsv, FIELD_LABEL, FileCheck, ImportRow, timeText, uploadName } from "../core/import";
 import { formatDateShort } from "../core/time";
 import { Badge, Banner, Bar, Button, cx, Icon, Modal } from "./components";
-import { Env } from "./shared";
+import { Env, UNCONFIRMED } from "./shared";
 
 interface Item {
     id: string;
@@ -15,7 +15,7 @@ interface Item {
     error?: string;
     ackWarnings: boolean;
     ackUnchecked: boolean;
-    state: "reading" | "ready" | "uploading" | "ok" | "error" | "skipped";
+    state: "reading" | "ready" | "uploading" | "ok" | "unconfirmed" | "error" | "skipped";
     message?: string;
     storedAs?: string;
 }
@@ -134,9 +134,9 @@ export function BulkUpload(props: { env: Env; onClose: () => void }): React.Reac
             );
             const created = typeof r.data.created === "number" ? r.data.created : null;
             patch(it.id, {
-                state: r.status === "ok" ? "ok" : "error",
+                state: r.status === "ok" ? "ok" : r.data.timeout ? "unconfirmed" : "error",
                 storedAs: fileName,
-                message: r.status === "ok" ? (created !== null ? `${created} jadwal dibuat` : r.message || "Terunggah, flow berjalan") : r.message || "Gagal mengunggah",
+                message: r.data.timeout ? UNCONFIRMED : r.status === "ok" ? (created !== null ? `${created} jadwal dibuat` : r.message || "Terunggah, flow berjalan") : r.message || "Gagal mengunggah",
             });
             setProgress({ done: i + 1, total: queue.length });
         }
@@ -145,6 +145,7 @@ export function BulkUpload(props: { env: Env; onClose: () => void }): React.Reac
 
     const okCount = items.filter((i) => i.state === "ok").length;
     const failCount = items.filter((i) => i.state === "error").length;
+    const unconfirmed = items.filter((i) => i.state === "unconfirmed").length;
 
     const footer =
         phase === "done" ? (
@@ -227,10 +228,10 @@ export function BulkUpload(props: { env: Env; onClose: () => void }): React.Reac
             {phase !== "pick" && (
                 <div className="sc-progress">
                     <div className="sc-progress__head">
-                        <b>{phase === "uploading" ? `Mengunggah ${Math.min(progress.done + 1, progress.total)} dari ${progress.total} file…` : failCount ? `${okCount} file berhasil, ${failCount} gagal` : `${okCount} file berhasil diunggah`}</b>
+                        <b>{phase === "uploading" ? `Mengunggah ${Math.min(progress.done + 1, progress.total)} dari ${progress.total} file…` : failCount || unconfirmed ? [`${okCount} file berhasil`, unconfirmed && `${unconfirmed} belum dikonfirmasi`, failCount && `${failCount} gagal`].filter(Boolean).join(", ") : `${okCount} file berhasil diunggah`}</b>
                         <span className="sc-muted">{Math.round((progress.done / Math.max(1, progress.total)) * 100)}%</span>
                     </div>
-                    <Bar ratio={progress.done / Math.max(1, progress.total)} tone={failCount ? "warning" : "primary"} height={6} />
+                    <Bar ratio={progress.done / Math.max(1, progress.total)} tone={failCount || unconfirmed ? "warning" : "primary"} height={6} />
                     {phase === "done" && <p className="sc-muted">Jadwal baru muncul setelah flow selesai — biasanya beberapa detik per file. Muat ulang daftar bila belum terlihat.</p>}
                 </div>
             )}
@@ -267,7 +268,7 @@ export function BulkUpload(props: { env: Env; onClose: () => void }): React.Reac
                                             Tetap unggah dengan {c.counts.warning} peringatan
                                         </label>
                                     )}
-                                    {it.message && <span className={it.state === "error" ? "sc-dangertext" : "sc-successtext"}>{it.message}</span>}
+                                    {it.message && <span className={it.state === "error" ? "sc-dangertext" : it.state === "unconfirmed" ? "sc-warntext" : "sc-successtext"}>{it.message}</span>}
                                 </div>
                                 <div className="sc-file__counts">
                                     {c && (
@@ -285,6 +286,8 @@ export function BulkUpload(props: { env: Env; onClose: () => void }): React.Reac
                                         <span className="sc-muted">Mengunggah…</span>
                                     ) : it.state === "ok" ? (
                                         <Badge tone="success">{Icon.check(12)} Terunggah</Badge>
+                                    ) : it.state === "unconfirmed" ? (
+                                        <Badge tone="warning">Terkirim, belum dikonfirmasi</Badge>
                                     ) : it.state === "error" ? (
                                         <Badge tone="danger">Gagal</Badge>
                                     ) : it.state === "skipped" ? (

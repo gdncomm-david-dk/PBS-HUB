@@ -98,9 +98,15 @@ export function App(props: AppProps): React.ReactElement {
 
     // Replies are matched to the waiting promise by requestId; stale or foreign replies are ignored.
     const waiters = React.useRef(new Map<string, { resolve: (r: ActionResult) => void; timer: number }>());
+    // Requests that timed out; a reply that still arrives later is shown as a banner instead of being dropped.
+    const late = React.useRef(new Set<string>());
     React.useEffect(() => {
         const r = props.actionResult;
         if (!r) return;
+        if (late.current.delete(r.requestId)) {
+            setBanner({ tone: r.status === "ok" ? "success" : "danger", text: r.message || (r.status === "ok" ? "Aplikasi mengonfirmasi permintaan sebelumnya." : "Permintaan sebelumnya gagal.") });
+            return;
+        }
         const w = waiters.current.get(r.requestId);
         if (!w) return;
         window.clearTimeout(w.timer);
@@ -116,6 +122,7 @@ export function App(props: AppProps): React.ReactElement {
             return new Promise<ActionResult>((resolve) => {
                 const timer = window.setTimeout(() => {
                     waiters.current.delete(requestId);
+                    late.current.add(requestId);
                     resolve({
                         requestId,
                         status: "error",

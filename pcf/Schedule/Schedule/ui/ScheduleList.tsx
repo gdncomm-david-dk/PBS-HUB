@@ -112,19 +112,24 @@ export function ScheduleList(props: {
                         {env.loading ? "Memuat jadwal…" : `${inRange.length} sesi · ${rangeLabel(f.from, f.to)}`}
                     </div>
                 </div>
-                {env.canEdit && (
-                    <div className="sc-pagehead__actions">
-                        <Button variant="secondary" icon={Icon.sparkle()} onClick={props.onAi}>
-                            AI Schedule
-                        </Button>
-                        <Button variant="secondary" icon={Icon.upload()} onClick={props.onBulk}>
-                            Upload massal
-                        </Button>
-                        <Button variant="primary" icon={Icon.plus()} onClick={() => props.onCreate()}>
-                            Buat jadwal
-                        </Button>
-                    </div>
-                )}
+                <div className="sc-pagehead__actions">
+                    <Button variant="secondary" icon={Icon.refresh()} title="Ambil ulang data dari SharePoint" onClick={() => env.emit("REFRESH", {})}>
+                        Muat ulang
+                    </Button>
+                    {env.canEdit && (
+                        <>
+                            <Button variant="secondary" icon={Icon.sparkle()} onClick={props.onAi}>
+                                AI Schedule
+                            </Button>
+                            <Button variant="secondary" icon={Icon.upload()} onClick={props.onBulk}>
+                                Upload massal
+                            </Button>
+                            <Button variant="primary" icon={Icon.plus()} onClick={() => props.onCreate()}>
+                                Buat jadwal
+                            </Button>
+                        </>
+                    )}
+                </div>
             </div>
 
             <div className="sc-kpis">
