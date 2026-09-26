@@ -19,8 +19,9 @@ control **tidak pernah menulis ke SharePoint**, tombol mengirim `ActionPayload`,
 dan membalas lewat `ActionResult` dengan `requestId` yang sama. Aksi yang **mengunci** (wajib dibalas):
 `ABSEN`, `SUBMIT_REPORT`, `RESUBMIT_REPORT`, `DISPUTE_REVIEW`, `CLOCK_IN`, `CLOCK_OUT` (ClockIn). Sisanya navigasi, tidak perlu dibalas.
 
-> **Baru mulai memasang report?** Ikuti [`HOST-REPORT-GUIDE.md`](HOST-REPORT-GUIDE.md): alur, kolom SharePoint, flow
-> screenshot, properti lengkap tanpa `…`, skenario tes dan troubleshooting, langkah demi langkah.
+> **Baru mulai memasang?** Ikuti [`HOST-SETUP.md`](HOST-SETUP.md): Langkah 0–12 berurutan, setiap layar lengkap
+> (OnVisible, semua properti dengan formula utuh, OnChange), plus tes alur report dan troubleshooting. Dokumen ini
+> adalah rujukan per aksi.
 
 Control hanya merender isi layar. Header dan sidebar/tab bar tetap milik app. Layar clock in (GPS + selfie) sekarang juga control (`pbs_HostApp.ClockIn`, bagian 9); layar GeoAttendance lama boleh dipensiunkan.
 
@@ -143,7 +144,7 @@ Aksi:
 | `NEW_REPORT` | `{scheduleId, scheduleItemId, liveDate}` | `Set(varRptSchedule, Text(p.scheduleId)); Set(varRptId, Blank()); Navigate(scrMyReportDetail)` |
 | `OPEN_REPORT` | `{reportId, title, scheduleId}` | `Set(varRptId, Value(p.reportId)); Set(varRptSchedule, Text(p.scheduleId)); Navigate(scrMyReportDetail)` |
 | `OPEN_SCHEDULE` | `{scheduleId, scheduleItemId, liveDate}` | `Set(varSchId, Text(p.scheduleId)); Set(varSchDate, DateValue(Text(p.liveDate))); Navigate(scrScheduleDetail)` (nama brand di kartu sesi) |
-| `NAV` | `{target: "SCHEDULE" \| "REPORTS" \| "SCORE"}` | `Switch(Text(p.target), "REPORTS", Navigate(scrMyReports), "SCHEDULE", Navigate(scrMySchedule), "SCORE", Navigate(scrMyScore))` |
+| `NAV` | `{target: "SCHEDULE" \| "REPORTS" \| "SCORE"}` | `Switch(Text(p.target), "REPORTS", Navigate(scrMyReports), "SCHEDULE", Navigate(scrMySchedule))` (tambahkan `"SCORE"` kalau ada layar skor) |
 | `RELOAD` | `{}` | ulangi OnVisible |
 
 **ABSEN** (dipakai HostDashboard, MySchedule, ScheduleDetail dan MyReportDetail). Sebelum mengirim, control
@@ -611,7 +612,7 @@ ClearCollect(colPbsProcessed, {Id: ""});   // skema koleksi requestId yang sudah
 ```
 
 Nama yang dipakai: layar `scrHome` (Hari ini), `scrMyReports`, `scrMyReportDetail`, `scrMySchedule`,
-`scrScheduleDetail`, `scrClockIn`, `scrMyScore`; flow `'PBSHost-Uploadreportscreenshot'` (bagian 5). Ganti kalau
+`scrScheduleDetail`, `scrClockIn`; flow `'PBSHost-Uploadreportscreenshot'` (bagian 5). Ganti kalau
 nama di app berbeda. Schedule tidak punya kolom nama akun: `Schedule.Account` adalah `Title` di list Account, dan
 namanya diambil dari `colAccounts` (dimuat di App.OnStart). `AccountID` di Report diisi kode akun (`s.Account`).
 
@@ -682,7 +683,8 @@ If(!IsBlank(Self.ActionPayload),
                     "OPEN_SCHEDULE",
                         Set(varSchId, Text(p.scheduleId)); Set(varSchDate, DateValue(Text(p.liveDate))); Navigate(scrScheduleDetail),
                     "NAV",
-                        Switch(Text(p.target), "REPORTS", Navigate(scrMyReports), "SCHEDULE", Navigate(scrMySchedule), "SCORE", Navigate(scrMyScore)),
+                        // "SCORE": tambahkan Navigate(layar skor) kalau app punya layar skor sendiri.
+                        Switch(Text(p.target), "REPORTS", Navigate(scrMyReports), "SCHEDULE", Navigate(scrMySchedule)),
                     // aksi lain: tidak ada yang perlu dilakukan
                     false
                 )
