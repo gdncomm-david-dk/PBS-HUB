@@ -134,11 +134,11 @@ Aksi:
     ),
 ```
 
-Kerangka `OnChange` sama dengan Ops: `ParseJSON(Self.ActionPayload)` → cek `rid in colPbsProcessed.Id` →
-`Collect(colPbsProcessed, {Id: rid})` → `Switch(act, …)`. Di MyReportDetail ganti `varHdResult` dengan
-`varMrdResult`.
+`OnChange` lengkap untuk layar ini (dan semua layar host lain) ada di **bagian 10**, siap salin.
 
 ## 4. MyReports (layar *Report saya*)
+
+`OnChange` lengkap: bagian 10.
 
 ```powerfx
 // Screen.OnVisible  (varMrPeriod = "yyyy-mm", kosong = bulan ini)
@@ -270,7 +270,8 @@ evidenceTitle, evidenceStatus: "Unmatch", metrics, changed: ["Penjualan","CTOR"]
 ```powerfx
 "RESUBMIT_REPORT",
     With({cur: LookUp('Report - PBS Hub', ID = Value(p.reportId) && HostID = varMe.Title), m: p.metrics},
-        If(cur.ApprovalStatus.Value <> "Need Revision" || Text(cur.Modified, "yyyy-mm-ddThh:mm:ss") <> Left(Text(p.expectedModified), 19),
+        If(IsBlank(cur) || cur.ApprovalStatus.Value <> "Need Revision" ||
+           Abs(DateDiff(cur.Modified, DateTimeValue(Text(p.expectedModified)), TimeUnit.Seconds)) > 1,
             Set(varMrdResult, JSON({requestId: rid, status: "conflict", message: "Report ini sudah berubah. Muat ulang dulu."}, JSONFormat.Compact)),
             IfError(
                 Patch('Report - PBS Hub', cur, {
@@ -335,6 +336,8 @@ draft (terlalu besar); host memilihnya lagi saat submit. Draft dihapus setelah s
 
 ## 6. MySchedule (layar *Jadwal saya*) — `PBSHubHostSchedulePCF`
 
+`OnChange` lengkap: bagian 10.
+
 ```powerfx
 // Screen.OnVisible  (varMsPeriod = "yyyy-mm", kosong = bulan ini)
 Set(varMsLoading, true);
@@ -389,6 +392,8 @@ terjadwal), *Absen hari ini*, *Hari clock in* (hari berjadwal sampai hari ini ya
 Filter platform, status dan kotak cari (brand, akun, Schedule ID, studio) jalan di control, tanpa reload.
 
 ## 7. ScheduleDetail (layar *Detail sesi*) — `PBSHubHostSchedulePCF`
+
+`OnChange` lengkap: bagian 10.
 
 Kirim sesi itu **plus sesi lain host di hari yang sama** (untuk daftar *Sesi lain hari ini*):
 
@@ -600,3 +605,396 @@ Catatan:
   di Ops).
 - Izin lokasi: Power Apps mobile meminta izin lokasi saat pertama kali; di browser, situs `apps.powerapps.com` harus
   diizinkan. Kalau ditolak, control memakai `DeviceLocationJson` (sinyal `Location` canvas) bila terisi.
+
+## 10. OnChange lengkap (salin per layar)
+
+Formula di bawah bisa ditempel utuh ke properti **OnChange** control di tiap layar. Semuanya memakai kerangka yang
+sama: baca `ActionPayload`, abaikan `requestId` yang sudah diproses (`colPbsProcessed`), jalankan aksinya, lalu
+untuk aksi *terkunci* balas lewat variabel `ActionResult` layar itu. `ClockIn` sudah lengkap di bagian 9.
+
+Siapkan sekali di **App.OnStart** (selain `varHostCtx` dan `varMe` dari bagian 1):
+
+```powerfx
+ClearCollect(colPbsProcessed, {Id: ""});   // skema koleksi requestId yang sudah diproses
+```
+
+Nama yang dipakai: layar `scrHome` (Hari ini), `scrMyReports`, `scrMyReportDetail`, `scrMySchedule`,
+`scrScheduleDetail`, `scrClockIn`, `scrMyScore`; flow `'PBSHost-Uploadreportscreenshot'` (bagian 5). Ganti kalau
+nama di app berbeda. `Account: s.AccountName` mengambil nama akun dari Schedule; kalau kolom Account di
+Report/Host Absence berisi ID, pakai `s.AccountID`.
+
+| Layar | Variabel `ActionResult` | Koleksi yang diperbarui |
+|---|---|---|
+| Hari ini (HostDashboard) | `varHdResult` | `colMyAbs` |
+| Report saya (MyReports) | — (tidak ada aksi terkunci) | `colMrRep`, `colMrSch` |
+| Kirim / revisi report (MyReportDetail) | `varMrdResult` | `colMrdAbs`, `varMrdRep` |
+| Jadwal saya (MySchedule) | `varMsResult` | `colMsAbs`, koleksi `colMs…` saat ganti bulan |
+| Detail sesi (ScheduleDetail) | `varSdResult` | `colSdAbs`, `colSdRep` |
+
+### 10.1 HostDashboard — `OnChange`
+
+```powerfx
+If(!IsBlank(Self.ActionPayload),
+    With({req: ParseJSON(Self.ActionPayload)},
+        With({act: Text(req.action), rid: Text(req.requestId), p: req.payload},
+            If(!(rid in colPbsProcessed.Id),
+                Collect(colPbsProcessed, {Id: rid});
+                Switch(act,
+                    "CLOCK_IN", Navigate(scrClockIn),
+                    "CLOCK_OUT", Navigate(scrClockIn),
+                    "ABSEN",
+                        If(!IsBlank(LookUp('Host Absence - PBS Hub', ScheduleID = Text(p.scheduleId) && HostID = varMe.Title)),
+                            Set(varHdResult, JSON({requestId: rid, status: "conflict", message: "Absen sesi ini sudah tercatat."}, JSONFormat.Compact)),
+                            IfError(
+                                With({s: LookUp('Schedule - PBS Hub', Title = Text(p.scheduleId) && HostID = varMe.Title)},
+                                    With({row: Patch('Host Absence - PBS Hub', Defaults('Host Absence - PBS Hub'), {
+                                            ScheduleID: s.Title, HostID: varMe.Title, HostName: Text(p.hostName), LiveDate: s.Date,
+                                            BrandID: s.BrandID, Platform: s.Platform, Account: s.AccountName
+                                            // , Status: {Value: "Present"}   ← nilai Choice Status di Host Absence, kalau kolomnya ada
+                                        })},
+                                        Patch('Host Absence - PBS Hub', row, {Title: "ABS-" & row.ID});
+                                        Collect(colMyAbs, LookUp('Host Absence - PBS Hub', ID = row.ID))
+                                    )
+                                );
+                                Set(varHdResult, JSON({requestId: rid, status: "ok", message: "Absen tercatat untuk " & Text(p.scheduleId) & "."}, JSONFormat.Compact)),
+                                Set(varHdResult, JSON({requestId: rid, status: "error", message: "Gagal absen: " & FirstError.Message}, JSONFormat.Compact))
+                            )
+                        ),
+                    "NEW_REPORT",
+                        Set(varRptSchedule, Text(p.scheduleId)); Set(varRptId, Blank()); Navigate(scrMyReportDetail),
+                    "OPEN_REPORT",
+                        Set(varRptId, Value(p.reportId)); Set(varRptSchedule, Text(p.scheduleId)); Navigate(scrMyReportDetail),
+                    "OPEN_SCHEDULE",
+                        Set(varSchId, Text(p.scheduleId)); Set(varSchDate, DateValue(Text(p.liveDate))); Navigate(scrScheduleDetail),
+                    "NAV",
+                        Switch(Text(p.target), "REPORTS", Navigate(scrMyReports), "SCHEDULE", Navigate(scrMySchedule), "SCORE", Navigate(scrMyScore))
+                )
+            )
+        )
+    )
+)
+```
+
+### 10.2 MyReports — `OnChange`
+
+```powerfx
+If(!IsBlank(Self.ActionPayload),
+    With({req: ParseJSON(Self.ActionPayload)},
+        With({act: Text(req.action), rid: Text(req.requestId), p: req.payload},
+            If(!(rid in colPbsProcessed.Id),
+                Collect(colPbsProcessed, {Id: rid});
+                Switch(act,
+                    "PERIOD_CHANGED",
+                        Set(varMrPeriod, Text(p.period));
+                        Set(varMrLoading, true);
+                        With({from: If(IsBlank(varMrPeriod), Date(Year(Today()), Month(Today()), 1), DateValue(varMrPeriod & "-01"))},
+                            ClearCollect(colMrRep, Filter('Report - PBS Hub', HostID = varMe.Title, LiveDate >= from, LiveDate < DateAdd(from, 1, TimeUnit.Months)));
+                            ClearCollect(colMrSch, Filter('Schedule - PBS Hub', HostID = varMe.Title, Date >= from, Date < DateAdd(from, 1, TimeUnit.Months)))
+                        );
+                        Set(varMrLoading, false),
+                    "FILTER_CHANGED", Set(varMrFilter, Text(p.filter)),
+                    "NEW_REPORT",
+                        Set(varRptSchedule, Text(p.scheduleId)); Set(varRptId, Blank()); Navigate(scrMyReportDetail),
+                    "OPEN_REPORT",
+                        Set(varRptId, Value(p.reportId)); Set(varRptSchedule, Text(p.scheduleId)); Navigate(scrMyReportDetail)
+                )
+            )
+        )
+    )
+)
+```
+
+### 10.3 MyReportDetail — `OnChange`
+
+`data: Self.UploadData` dibaca sekali di awal: control mengisi `UploadData` (screenshot) bersamaan dengan
+`ActionPayload` dan mengosongkannya di aksi berikutnya.
+
+```powerfx
+If(!IsBlank(Self.ActionPayload),
+    With({req: ParseJSON(Self.ActionPayload)},
+        With({act: Text(req.action), rid: Text(req.requestId), p: req.payload, data: Self.UploadData},
+            If(!(rid in colPbsProcessed.Id),
+                Collect(colPbsProcessed, {Id: rid});
+                Switch(act,
+                    "ABSEN",
+                        If(!IsBlank(LookUp('Host Absence - PBS Hub', ScheduleID = Text(p.scheduleId) && HostID = varMe.Title)),
+                            Set(varMrdResult, JSON({requestId: rid, status: "conflict", message: "Absen sesi ini sudah tercatat."}, JSONFormat.Compact)),
+                            IfError(
+                                With({s: LookUp('Schedule - PBS Hub', Title = Text(p.scheduleId) && HostID = varMe.Title)},
+                                    With({row: Patch('Host Absence - PBS Hub', Defaults('Host Absence - PBS Hub'), {
+                                            ScheduleID: s.Title, HostID: varMe.Title, HostName: Text(p.hostName), LiveDate: s.Date,
+                                            BrandID: s.BrandID, Platform: s.Platform, Account: s.AccountName
+                                            // , Status: {Value: "Present"}   ← nilai Choice Status di Host Absence, kalau kolomnya ada
+                                        })},
+                                        Patch('Host Absence - PBS Hub', row, {Title: "ABS-" & row.ID});
+                                        Collect(colMrdAbs, LookUp('Host Absence - PBS Hub', ID = row.ID))
+                                    )
+                                );
+                                Set(varMrdResult, JSON({requestId: rid, status: "ok", message: "Absen tercatat untuk " & Text(p.scheduleId) & "."}, JSONFormat.Compact)),
+                                Set(varMrdResult, JSON({requestId: rid, status: "error", message: "Gagal absen: " & FirstError.Message}, JSONFormat.Compact))
+                            )
+                        ),
+                    "SUBMIT_REPORT",
+                        If(!IsBlank(LookUp('Report - PBS Hub', ScheduleID = Text(p.scheduleId) && HostID = varMe.Title)),
+                            Set(varMrdResult, JSON({requestId: rid, status: "conflict", message: "Report untuk sesi ini sudah ada."}, JSONFormat.Compact)),
+                        // Hapus cabang ini kalau config.requireAbsen = false.
+                        IsBlank(LookUp('Host Absence - PBS Hub', ScheduleID = Text(p.scheduleId) && HostID = varMe.Title)),
+                            Set(varMrdResult, JSON({requestId: rid, status: "error", message: "Absen sesi ini belum tercatat."}, JSONFormat.Compact)),
+                            IfError(
+                                With({m: p.metrics, s: LookUp('Schedule - PBS Hub', Title = Text(p.scheduleId) && HostID = varMe.Title)},
+                                    With({row: Patch('Report - PBS Hub', Defaults('Report - PBS Hub'), {
+                                            ScheduleID: s.Title, HostID: varMe.Title, BrandID: s.BrandID, Platform: s.Platform,
+                                            AccountID: s.AccountID, Account: s.AccountName, LiveDate: s.Date, AbsID: Text(p.absId),
+                                            Penjualan: Value(m.Penjualan), Pesanan: Value(m.Pesanan), ProdukTerjual: Value(m.ProdukTerjual),
+                                            JumlahPembeli: Value(m.JumlahPembeli), CTR: Value(m.CTR), CTOR: Value(m.CTOR), PeakViewer: Value(m.PeakViewer),
+                                            'Durasi(Min)': Value(m.'Durasi(Min)'), AddToCart: Value(m.AddToCart), TotalViewer: Value(m.TotalViewer),
+                                            Comment: Value(m.Comment), Share: Value(m.Share),
+                                            ApprovalStatus: {Value: "Waiting Approval"}
+                                        })},
+                                        With({title: "REP-" & row.ID},
+                                            // Nama file dari control: "REP-{ID}_Platform_AccountID.jpg" → {ID} diganti ID baris baru.
+                                            With({up: 'PBSHost-Uploadreportscreenshot'.Run(Substitute(Text(p.file.name), "REP-{ID}", title), data)},
+                                                Patch('Report - PBS Hub', row, {Title: title, Attachment: up.url})
+                                            );
+                                            Set(varRptId, row.ID);
+                                            Set(varMrdRep, LookUp('Report - PBS Hub', ID = row.ID));
+                                            Set(varMrdResult, JSON({requestId: rid, status: "ok", message: "Report " & title & " terkirim."}, JSONFormat.Compact))
+                                        )
+                                    )
+                                ),
+                                Set(varMrdResult, JSON({requestId: rid, status: "error", message: "Gagal mengirim report: " & FirstError.Message}, JSONFormat.Compact))
+                            )
+                        ),
+                    "RESUBMIT_REPORT",
+                        With({cur: LookUp('Report - PBS Hub', ID = Value(p.reportId) && HostID = varMe.Title), m: p.metrics},
+                            // Modified dari JSON berformat UTC ("…Z"); DateTimeValue mengubahnya ke jam lokal sebelum dibandingkan.
+                            If(IsBlank(cur) || cur.ApprovalStatus.Value <> "Need Revision" ||
+                               Abs(DateDiff(cur.Modified, DateTimeValue(Text(p.expectedModified)), TimeUnit.Seconds)) > 1,
+                                Set(varMrdResult, JSON({requestId: rid, status: "conflict", message: "Report ini sudah berubah. Muat ulang dulu."}, JSONFormat.Compact)),
+                                IfError(
+                                    Patch('Report - PBS Hub', cur, {
+                                        Penjualan: Value(m.Penjualan), Pesanan: Value(m.Pesanan), ProdukTerjual: Value(m.ProdukTerjual),
+                                        JumlahPembeli: Value(m.JumlahPembeli), CTR: Value(m.CTR), CTOR: Value(m.CTOR), PeakViewer: Value(m.PeakViewer),
+                                        'Durasi(Min)': Value(m.'Durasi(Min)'), AddToCart: Value(m.AddToCart), TotalViewer: Value(m.TotalViewer),
+                                        Comment: Value(m.Comment), Share: Value(m.Share),
+                                        ApprovalStatus: {Value: Text(p.approvalStatus)},   // "Waiting Approval Revision"
+                                        ApprovalComment: cur.ApprovalComment & Char(10) & "[Revisi host] " &
+                                            If(IsBlank(Text(p.note)), "angka diperbaiki: " & Concat(Table(p.changed), Text(ThisRecord.Value), ", "), Text(p.note))
+                                    });
+                                    // Report Automation dengan Title yang sama: hanya Status yang diubah (Unmatch → dibaca ulang).
+                                    With({ev: LookUp('Report Automation - PBS Hub', Title = cur.Title)},
+                                        If(!IsBlank(ev), Patch('Report Automation - PBS Hub', ev, {Status: {Value: Text(p.evidenceStatus)}}))
+                                    );
+                                    // Screenshot baru (opsional): nama file sama (Title_Platform_AccountID.jpg) → flow AI membaca ulang.
+                                    If(!IsBlank(p.file) && !IsBlank(data),
+                                        With({up: 'PBSHost-Uploadreportscreenshot'.Run(Text(p.file.name), data)},
+                                            Patch('Report - PBS Hub', LookUp('Report - PBS Hub', ID = cur.ID), {Attachment: up.url}))
+                                    );
+                                    Set(varMrdRep, LookUp('Report - PBS Hub', ID = cur.ID));
+                                    Set(varMrdResult, JSON({requestId: rid, status: "ok", message: "Revisi terkirim, menunggu review ulang."}, JSONFormat.Compact)),
+                                    Set(varMrdResult, JSON({requestId: rid, status: "error", message: "Gagal mengirim revisi: " & FirstError.Message}, JSONFormat.Compact))
+                                )
+                            )
+                        ),
+                    "DISPUTE_REVIEW",
+                        With({cur: LookUp('Report - PBS Hub', ID = Value(p.reportId) && HostID = varMe.Title)},
+                            If(IsBlank(cur) || cur.ApprovalStatus.Value <> "Need Revision",
+                                Set(varMrdResult, JSON({requestId: rid, status: "conflict", message: "Report ini sudah tidak menunggu revisi. Muat ulang dulu."}, JSONFormat.Compact)),
+                                IfError(
+                                    // Status tetap Need Revision; reviewer membaca sanggahan di ApprovalComment.
+                                    Patch('Report - PBS Hub', cur, {ApprovalComment: cur.ApprovalComment & Char(10) & "[Sanggahan host] " & Text(p.reason)});
+                                    Set(varMrdRep, LookUp('Report - PBS Hub', ID = cur.ID));
+                                    Set(varMrdResult, JSON({requestId: rid, status: "ok", message: "Sanggahan terkirim ke reviewer."}, JSONFormat.Compact)),
+                                    Set(varMrdResult, JSON({requestId: rid, status: "error", message: "Gagal mengirim sanggahan: " & FirstError.Message}, JSONFormat.Compact))
+                                )
+                            )
+                        ),
+                    "OPEN_EVIDENCE", Launch(Text(p.url)),
+                    "BACK", Back()
+                )
+            )
+        )
+    )
+)
+```
+
+### 10.4 MySchedule — `OnChange`
+
+```powerfx
+If(!IsBlank(Self.ActionPayload),
+    With({req: ParseJSON(Self.ActionPayload)},
+        With({act: Text(req.action), rid: Text(req.requestId), p: req.payload},
+            If(!(rid in colPbsProcessed.Id),
+                Collect(colPbsProcessed, {Id: rid});
+                Switch(act,
+                    "OPEN_SCHEDULE",
+                        Set(varSchId, Text(p.scheduleId)); Set(varSchDate, DateValue(Text(p.liveDate))); Navigate(scrScheduleDetail),
+                    "ABSEN",
+                        If(!IsBlank(LookUp('Host Absence - PBS Hub', ScheduleID = Text(p.scheduleId) && HostID = varMe.Title)),
+                            Set(varMsResult, JSON({requestId: rid, status: "conflict", message: "Absen sesi ini sudah tercatat."}, JSONFormat.Compact)),
+                            IfError(
+                                With({s: LookUp('Schedule - PBS Hub', Title = Text(p.scheduleId) && HostID = varMe.Title)},
+                                    With({row: Patch('Host Absence - PBS Hub', Defaults('Host Absence - PBS Hub'), {
+                                            ScheduleID: s.Title, HostID: varMe.Title, HostName: Text(p.hostName), LiveDate: s.Date,
+                                            BrandID: s.BrandID, Platform: s.Platform, Account: s.AccountName
+                                            // , Status: {Value: "Present"}   ← nilai Choice Status di Host Absence, kalau kolomnya ada
+                                        })},
+                                        Patch('Host Absence - PBS Hub', row, {Title: "ABS-" & row.ID});
+                                        Collect(colMsAbs, LookUp('Host Absence - PBS Hub', ID = row.ID))
+                                    )
+                                );
+                                Set(varMsResult, JSON({requestId: rid, status: "ok", message: "Absen tercatat untuk " & Text(p.scheduleId) & "."}, JSONFormat.Compact)),
+                                Set(varMsResult, JSON({requestId: rid, status: "error", message: "Gagal absen: " & FirstError.Message}, JSONFormat.Compact))
+                            )
+                        ),
+                    "CLOCK_IN", Navigate(scrClockIn),
+                    "NEW_REPORT",
+                        Set(varRptSchedule, Text(p.scheduleId)); Set(varRptId, Blank()); Navigate(scrMyReportDetail),
+                    "OPEN_REPORT",
+                        Set(varRptId, Value(p.reportId)); Set(varRptSchedule, Text(p.scheduleId)); Navigate(scrMyReportDetail),
+                    "PERIOD_CHANGED",
+                        Set(varMsPeriod, Text(p.period));
+                        Set(varMsLoading, true);
+                        With({from: If(IsBlank(varMsPeriod), Date(Year(Today()), Month(Today()), 1), DateValue(varMsPeriod & "-01"))},
+                            With({to: DateAdd(from, 1, TimeUnit.Months)},
+                                ClearCollect(colMsSch, Filter('Schedule - PBS Hub', HostID = varMe.Title, Date >= from, Date < to));
+                                ClearCollect(colMsClk, Filter('Clock In - PBS Hub', HostID = varMe.Title, ClockInDate >= from, ClockInDate < to));
+                                ClearCollect(colMsAbs, Filter('Host Absence - PBS Hub', HostID = varMe.Title, LiveDate >= from, LiveDate < to));
+                                ClearCollect(colMsRep, Filter('Report - PBS Hub', HostID = varMe.Title, LiveDate >= from, LiveDate < to))
+                            )
+                        );
+                        Set(varMsLoading, false),
+                    "FILTER_CHANGED", Set(varMsFilter, Text(p.status)),
+                    "VIEW_CHANGED", Set(varMsView, Text(p.view))
+                )
+            )
+        )
+    )
+)
+```
+
+### 10.5 ScheduleDetail — `OnChange`
+
+Handler report sama dengan MyReportDetail; bedanya hanya variabel balasan (`varSdResult`) dan koleksi yang
+dimuat ulang (`colSdRep`), supaya form tertutup dan ringkasan report langsung muncul di layar yang sama.
+
+```powerfx
+If(!IsBlank(Self.ActionPayload),
+    With({req: ParseJSON(Self.ActionPayload)},
+        With({act: Text(req.action), rid: Text(req.requestId), p: req.payload, data: Self.UploadData},
+            If(!(rid in colPbsProcessed.Id),
+                Collect(colPbsProcessed, {Id: rid});
+                Switch(act,
+                    "ABSEN",
+                        If(!IsBlank(LookUp('Host Absence - PBS Hub', ScheduleID = Text(p.scheduleId) && HostID = varMe.Title)),
+                            Set(varSdResult, JSON({requestId: rid, status: "conflict", message: "Absen sesi ini sudah tercatat."}, JSONFormat.Compact)),
+                            IfError(
+                                With({s: LookUp('Schedule - PBS Hub', Title = Text(p.scheduleId) && HostID = varMe.Title)},
+                                    With({row: Patch('Host Absence - PBS Hub', Defaults('Host Absence - PBS Hub'), {
+                                            ScheduleID: s.Title, HostID: varMe.Title, HostName: Text(p.hostName), LiveDate: s.Date,
+                                            BrandID: s.BrandID, Platform: s.Platform, Account: s.AccountName
+                                            // , Status: {Value: "Present"}   ← nilai Choice Status di Host Absence, kalau kolomnya ada
+                                        })},
+                                        Patch('Host Absence - PBS Hub', row, {Title: "ABS-" & row.ID});
+                                        Collect(colSdAbs, LookUp('Host Absence - PBS Hub', ID = row.ID))
+                                    )
+                                );
+                                Set(varSdResult, JSON({requestId: rid, status: "ok", message: "Absen tercatat untuk " & Text(p.scheduleId) & "."}, JSONFormat.Compact)),
+                                Set(varSdResult, JSON({requestId: rid, status: "error", message: "Gagal absen: " & FirstError.Message}, JSONFormat.Compact))
+                            )
+                        ),
+                    "SUBMIT_REPORT",
+                        If(!IsBlank(LookUp('Report - PBS Hub', ScheduleID = Text(p.scheduleId) && HostID = varMe.Title)),
+                            Set(varSdResult, JSON({requestId: rid, status: "conflict", message: "Report untuk sesi ini sudah ada."}, JSONFormat.Compact)),
+                        // Hapus cabang ini kalau config.requireAbsen = false.
+                        IsBlank(LookUp('Host Absence - PBS Hub', ScheduleID = Text(p.scheduleId) && HostID = varMe.Title)),
+                            Set(varSdResult, JSON({requestId: rid, status: "error", message: "Absen sesi ini belum tercatat."}, JSONFormat.Compact)),
+                            IfError(
+                                With({m: p.metrics, s: LookUp('Schedule - PBS Hub', Title = Text(p.scheduleId) && HostID = varMe.Title)},
+                                    With({row: Patch('Report - PBS Hub', Defaults('Report - PBS Hub'), {
+                                            ScheduleID: s.Title, HostID: varMe.Title, BrandID: s.BrandID, Platform: s.Platform,
+                                            AccountID: s.AccountID, Account: s.AccountName, LiveDate: s.Date, AbsID: Text(p.absId),
+                                            Penjualan: Value(m.Penjualan), Pesanan: Value(m.Pesanan), ProdukTerjual: Value(m.ProdukTerjual),
+                                            JumlahPembeli: Value(m.JumlahPembeli), CTR: Value(m.CTR), CTOR: Value(m.CTOR), PeakViewer: Value(m.PeakViewer),
+                                            'Durasi(Min)': Value(m.'Durasi(Min)'), AddToCart: Value(m.AddToCart), TotalViewer: Value(m.TotalViewer),
+                                            Comment: Value(m.Comment), Share: Value(m.Share),
+                                            ApprovalStatus: {Value: "Waiting Approval"}
+                                        })},
+                                        With({title: "REP-" & row.ID},
+                                            // Nama file dari control: "REP-{ID}_Platform_AccountID.jpg" → {ID} diganti ID baris baru.
+                                            With({up: 'PBSHost-Uploadreportscreenshot'.Run(Substitute(Text(p.file.name), "REP-{ID}", title), data)},
+                                                Patch('Report - PBS Hub', row, {Title: title, Attachment: up.url})
+                                            );
+                                            Collect(colSdRep, LookUp('Report - PBS Hub', ID = row.ID));
+                                            Set(varSdResult, JSON({requestId: rid, status: "ok", message: "Report " & title & " terkirim."}, JSONFormat.Compact))
+                                        )
+                                    )
+                                ),
+                                Set(varSdResult, JSON({requestId: rid, status: "error", message: "Gagal mengirim report: " & FirstError.Message}, JSONFormat.Compact))
+                            )
+                        ),
+                    "RESUBMIT_REPORT",
+                        With({cur: LookUp('Report - PBS Hub', ID = Value(p.reportId) && HostID = varMe.Title), m: p.metrics},
+                            // Modified dari JSON berformat UTC ("…Z"); DateTimeValue mengubahnya ke jam lokal sebelum dibandingkan.
+                            If(IsBlank(cur) || cur.ApprovalStatus.Value <> "Need Revision" ||
+                               Abs(DateDiff(cur.Modified, DateTimeValue(Text(p.expectedModified)), TimeUnit.Seconds)) > 1,
+                                Set(varSdResult, JSON({requestId: rid, status: "conflict", message: "Report ini sudah berubah. Muat ulang dulu."}, JSONFormat.Compact)),
+                                IfError(
+                                    Patch('Report - PBS Hub', cur, {
+                                        Penjualan: Value(m.Penjualan), Pesanan: Value(m.Pesanan), ProdukTerjual: Value(m.ProdukTerjual),
+                                        JumlahPembeli: Value(m.JumlahPembeli), CTR: Value(m.CTR), CTOR: Value(m.CTOR), PeakViewer: Value(m.PeakViewer),
+                                        'Durasi(Min)': Value(m.'Durasi(Min)'), AddToCart: Value(m.AddToCart), TotalViewer: Value(m.TotalViewer),
+                                        Comment: Value(m.Comment), Share: Value(m.Share),
+                                        ApprovalStatus: {Value: Text(p.approvalStatus)},   // "Waiting Approval Revision"
+                                        ApprovalComment: cur.ApprovalComment & Char(10) & "[Revisi host] " &
+                                            If(IsBlank(Text(p.note)), "angka diperbaiki: " & Concat(Table(p.changed), Text(ThisRecord.Value), ", "), Text(p.note))
+                                    });
+                                    // Report Automation dengan Title yang sama: hanya Status yang diubah (Unmatch → dibaca ulang).
+                                    With({ev: LookUp('Report Automation - PBS Hub', Title = cur.Title)},
+                                        If(!IsBlank(ev), Patch('Report Automation - PBS Hub', ev, {Status: {Value: Text(p.evidenceStatus)}}))
+                                    );
+                                    // Screenshot baru (opsional): nama file sama (Title_Platform_AccountID.jpg) → flow AI membaca ulang.
+                                    If(!IsBlank(p.file) && !IsBlank(data),
+                                        With({up: 'PBSHost-Uploadreportscreenshot'.Run(Text(p.file.name), data)},
+                                            Patch('Report - PBS Hub', LookUp('Report - PBS Hub', ID = cur.ID), {Attachment: up.url}))
+                                    );
+                                    ClearCollect(colSdRep, Filter('Report - PBS Hub', HostID = varMe.Title, LiveDate = varSchDate));
+                                    Set(varSdResult, JSON({requestId: rid, status: "ok", message: "Revisi terkirim, menunggu review ulang."}, JSONFormat.Compact)),
+                                    Set(varSdResult, JSON({requestId: rid, status: "error", message: "Gagal mengirim revisi: " & FirstError.Message}, JSONFormat.Compact))
+                                )
+                            )
+                        ),
+                    "DISPUTE_REVIEW",
+                        With({cur: LookUp('Report - PBS Hub', ID = Value(p.reportId) && HostID = varMe.Title)},
+                            If(IsBlank(cur) || cur.ApprovalStatus.Value <> "Need Revision",
+                                Set(varSdResult, JSON({requestId: rid, status: "conflict", message: "Report ini sudah tidak menunggu revisi. Muat ulang dulu."}, JSONFormat.Compact)),
+                                IfError(
+                                    // Status tetap Need Revision; reviewer membaca sanggahan di ApprovalComment.
+                                    Patch('Report - PBS Hub', cur, {ApprovalComment: cur.ApprovalComment & Char(10) & "[Sanggahan host] " & Text(p.reason)});
+                                    ClearCollect(colSdRep, Filter('Report - PBS Hub', HostID = varMe.Title, LiveDate = varSchDate));
+                                    Set(varSdResult, JSON({requestId: rid, status: "ok", message: "Sanggahan terkirim ke reviewer."}, JSONFormat.Compact)),
+                                    Set(varSdResult, JSON({requestId: rid, status: "error", message: "Gagal mengirim sanggahan: " & FirstError.Message}, JSONFormat.Compact))
+                                )
+                            )
+                        ),
+                    "CLOCK_IN", Navigate(scrClockIn),
+                    "NEW_REPORT",
+                        Set(varRptSchedule, Text(p.scheduleId)); Set(varRptId, Blank()); Navigate(scrMyReportDetail),
+                    "OPEN_REPORT",
+                        Set(varRptId, Value(p.reportId)); Set(varRptSchedule, Text(p.scheduleId)); Navigate(scrMyReportDetail),
+                    "OPEN_EVIDENCE", Launch(Text(p.url)),
+                    "OPEN_SCHEDULE", Set(varSchId, Text(p.scheduleId)),   // sesi lain di hari yang sama: data sudah ada
+                    "BACK", Back()
+                )
+            )
+        )
+    )
+)
+```
+
+Catatan:
+- Aksi yang tidak ada di `Switch` (mis. `LOAD_MORE`) tidak melakukan apa-apa.
+- `RESUBMIT_REPORT` membandingkan `Modified` dengan selisih detik, bukan teks: `Modified` di JSON berformat UTC
+  (`…Z`), sedangkan `Text(cur.Modified, …)` memakai jam lokal, jadi perbandingan teks selalu dianggap *conflict*
+  di zona WIB.
+- `LOAD_MORE` tidak ditangani karena `HasMore = false` (data per host per bulan kecil).
