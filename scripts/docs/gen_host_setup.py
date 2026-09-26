@@ -125,7 +125,7 @@ belum ada di list lama, cek dulu.
 - `Platform` — Choice (Shopee, TikTok, …)
 - `Account` — teks, isinya `Title` di list Account. **Tidak ada kolom nama akun**; nama diambil dari list Account
 - `LiveBreak` — Choice `Yes` / `No` (kosong dianggap `No`)
-- `Position` — Choice `Host` / `Co-Host`
+- `Position` — Choice `Host` (atau `Main Host`) / `Co-Host`. Tier menghitung semua selain `Co-Host` sebagai main host
 - `Status` — Choice. ⚠ harus punya pilihan **`Waiting Report`** dan **`Done`**
 
 **`Report - PBS Hub`**
@@ -146,7 +146,13 @@ belum ada di list lama, cek dulu.
 
 **`Report Automation - PBS Hub`** — bukti AI; `Title` sama dengan Title report; `Status` Choice (termasuk `Unmatch`)
 
-**`Clock In - PBS Hub`** — kolom yang ditulis ada di Langkah 10
+**`Clock In - PBS Hub`** — kolom clock in/out ada di Langkah 10. Kolom Tier (ditulis setiap report terkirim):
+`Tier` (Choice `Tier 1` / `Tier 2` / `Tier 3` / `No`), `Insentif` (Number), `TotalReports` (Number),
+`LastTierUpdate` (Date and time), `Reason` (Multiple lines), `Total_Jam_Live` (Number), `Schedule` (Multiple lines),
+`statusupdate` (teks)
+
+**`Performance Tier - PBS Hub`** — tiga baris `Title` = `Tier 1`, `Tier 2`, `Tier 3`, masing-masing `MinViews`,
+`CTR`, `AvgViewDur` (dipakai sebagai batas **Peak Viewer**) dan `Duration` (jam live minimum, mis. 8 / 6 / 4)
 
 **`Account - PBS Hub`** — `Title` (kode akun), `AccountName` (teks). Kalau nama list-nya lain, ganti di Langkah 3
 
@@ -162,25 +168,34 @@ belum ada di list lama, cek dulu.
 1. Power Apps → **Solutions → Import solution** → pilih `dist/PBSHubHostApp_1_0_0_0_managed.zip` → Import.
 2. Sekali per environment: Power Platform admin center → environment → **Settings → Product → Features** →
    *Allow publishing of canvas apps with code components* = **On**. Tanpa ini control tidak muncul di tab Code.
-3. Panel **Data → Add data → SharePoint** → site PBS Hub → centang semua list di Langkah 0.""")
+3. Panel **Data → Add data → SharePoint** → site PBS Hub → centang semua list di Langkah 0.
+4. **Add data → Office 365 Groups** (connector yang sama dengan app upload jadwal bulk/AI). Dipakai untuk
+   `Office365Groups.HttpRequest` yang mengunggah screenshot report ke Graph.""")
 
-    doc.append("""## Langkah 2 — Buat dua flow (screenshot report dan selfie)
+    doc.append("""## Langkah 2 — Upload screenshot (Graph) dan flow selfie
 
-**Flow A — `PBS Host - Upload report screenshot`**
+**Screenshot report — tanpa flow.** Caranya sama dengan app upload jadwal bulk/AI: `Office365Groups.HttpRequest`
+PUT ke Graph. File masuk ke
+
+```text
+Report Automation/<NamaBrand>/<yyyy>/<mmmm>/REP-<ID>/REP-<ID>_<Platform>_<AccountID>_Report.png
+```
+
+Yang perlu disiapkan hanya `varSiteID` dan `varDriveID` di Langkah 3 blok 5 — salin nilainya dari app upload jadwal.
+Control mengirim base64 JPEG tanpa prefix, jadi body-nya `"data:image/jpeg;base64," & data`. `webUrl` dari
+respons Graph disimpan ke `Report.Attachment`. Revisi dengan screenshot baru menimpa file yang sama (folder bulan
+diambil dari `Created` report), sehingga flow AI membacanya ulang.
+
+**Flow — `PBS Host - Upload selfie`** (untuk Clock in)
 
 1. Power Automate → **Create → Instant cloud flow** → trigger **Power Apps (V2)**.
 2. Di trigger tambahkan dua input **Text**, berurutan: `fileName`, lalu `fileBase64`.
-3. **+ New step → SharePoint → Create file**: Site = site PBS Hub; Folder Path = `/PBS Power Apps/Report Automation`;
+3. **+ New step → SharePoint → Create file**: Site = site PBS Hub; Folder Path = `/PBS Power Apps/Selfie Clock In`;
    File Name = `fileName` (dynamic content); File Content = expression `base64ToBinary(triggerBody()?['text_1'])`
    (`text_1` = input kedua; cek lewat *Peek code* di trigger kalau namanya lain).
 4. **+ New step → Power Apps → Respond to a PowerApp or flow** → output **Text** `url` = `Path` dari Create file.
-5. Save.
-
-**Flow B — `PBS Host - Upload selfie`**: sama persis, hanya Folder Path = `/PBS Power Apps/Selfie Clock In`.
-
-Di Power Apps Studio: panel **Power Automate → Add flow** → tambahkan kedua flow. Namanya di formula menjadi
-`'PBSHost-Uploadreportscreenshot'` dan `'PBSHost-Uploadselfie'`. Kalau Studio memberi nama lain, ganti di formula
-Langkah 6, 7 dan 10.""")
+5. Save. Di Power Apps Studio: panel **Power Automate → Add flow** → pilih flow ini. Namanya di formula menjadi
+   `'PBSHost-Uploadselfie'`; kalau Studio memberi nama lain, ganti di formula Langkah 10.""")
 
     doc.append("""## Langkah 3 — App.OnStart
 
@@ -229,8 +244,42 @@ Set(varMrdRep, LookUp('Report - PBS Hub', ID = -1));                     // reco
 Set(varMrdSch, LookUp('Schedule - PBS Hub', ID = -1));
 Set(varHdLoading, false); Set(varMrLoading, false); Set(varMrdLoading, false);
 Set(varMsLoading, false); Set(varSdLoading, false); Set(varCkLoading, false);
-Set(varHdResult, ""); Set(varMrdResult, ""); Set(varMsResult, ""); Set(varSdResult, ""); Set(varCkResult, "")
+Set(varHdResult, ""); Set(varMrdResult, ""); Set(varMsResult, ""); Set(varSdResult, ""); Set(varCkResult, "");
+
+// 5. Upload screenshot (Graph) dan Tier harian di Clock In.
+Set(varSiteID, "<site-id>");     // sama dengan app upload jadwal bulk/AI
+Set(varDriveID, "<drive-id>");
+ClearCollect(colTierConfig, 'Performance Tier - PBS Hub');          // Tier 1/2/3: MinViews, CTR, AvgViewDur (Peak), Duration (jam)
+Set(varSlotMin, 15);                                                // grid 15 menit
+Set(varT1MinInWindow, 120);                                         // ≥ 2 jam live di 00:00–06:00 → Tier 1
+Set(varT2MinInWindow, 120);                                         // ≥ 2 jam live di 21:00–24:00 → Tier 2
+Set(varHolidays, [                                                  // tanggal merah → Tier 1 (perbarui tiap tahun)
+    Date(2026,1,1), Date(2026,2,16), Date(2026,3,1), Date(2026,3,21), Date(2026,4,1), Date(2026,4,10),
+    Date(2026,4,11), Date(2026,5,1), Date(2026,5,14), Date(2026,5,21), Date(2026,6,1), Date(2026,6,17),
+    Date(2026,6,27), Date(2026,7,7), Date(2026,8,17), Date(2026,12,25)
+])
 """))
+
+    doc.append("""### Aturan Tier (dihitung setiap report terkirim)
+
+Setiap **Send Report**, **Kirim revisi** dan **Absen → Live Break**, OnChange menghitung Tier host itu untuk tanggal
+live tersebut dan menulisnya ke baris `Clock In - PBS Hub` (`HostID` + `ClockInDate`). Belum clock in = belum ada
+baris = dilewati; hitung ulang bulanan yang sudah kamu punya tetap bisa dijalankan dan hasilnya sama.
+
+| Urutan | Syarat | Hasil |
+|---|---|---|
+| 1 | Menit Main Host ≤ menit Co-Host hari itu | **No**, insentif 0 |
+| 2 | Tanggal ada di `varHolidays` | **Tier 1** |
+| 3 | Metrik T1 (TotalViewer ≥ MinViews, CTR ≥ CTR, Peak ≥ AvgViewDur), **atau** live ≥ Duration T1 (8 jam), **atau** ≥ 2 jam di 00:00–06:00 | **Tier 1** |
+| 4 | Metrik T2, **atau** live ≥ 6 jam, **atau** ≥ 2 jam di 21:00–24:00 | **Tier 2** |
+| 5 | Metrik T3, **atau** live ≥ 4 jam | **Tier 3** |
+| 6 | Sabtu / Minggu dan hasil 3–5 bukan Tier 1 | naik ke **Tier 2** |
+| — | tidak ada yang cocok | **No** |
+
+Jam live = gabungan jadwal Main Host (bukan Cancelled) di grid 15 menit, jadi jadwal yang tumpang tindih tidak
+dihitung dua kali. Contoh: 4 jadwal total 8 jam → Tier 1; total 4 jam tapi live sampai 03:00 (≥ 2 jam setelah
+00:00) → Tier 1. Metrik memakai akun terbaik hari itu (TotalViewer dijumlah, Peak dan CTR maksimum). Insentif:
+Tier 1 = 75.000, Tier 2 = 65.000, Tier 3 = 55.000, No = 0.""")
 
     doc.append("""## Langkah 4 — Buat enam layar
 
@@ -455,7 +504,9 @@ Pakai satu jadwal milik akunmu (`HostID = varMe.Title`), hari ini, **sudah mulai
 | 8 | Jadwal lain → Absen → *Ya, Live Break* | *Live Break · tanpa report* | Schedule `Done`, `LiveBreak = Yes`; Report semua 0, `ApprovalStatus = LiveBreak` |
 | 9 | Jadwal `Position = Co-Host` → Absen | tanpa pop-up, tanpa Send Report | Schedule `Done`, tidak ada Report |
 | 10 | Ops set report #4 ke `Need Revision` → buka sesi | form revisi (angka, Live ID, Playbook, Durasi) | — |
-| 11 | Durasi jadi `50` → Kirim revisi | *Revisi terkirim* | Report `Waiting Approval Revision`; Schedule kembali `Waiting Report` (110 < 120) |""")
+| 11 | Durasi jadi `50` → Kirim revisi | *Revisi terkirim* | Report `Waiting Approval Revision`; Schedule kembali `Waiting Report` (110 < 120) |
+| 12 | Setelah langkah 4 buka baris Clock In hari ini | — | `Tier`, `Insentif`, `Reason`, `Total_Jam_Live`, `Schedule`, `LastTierUpdate` terisi |
+| 13 | Buka folder `Report Automation/<Brand>/<tahun>/<bulan>/REP-…` | — | file `REP-…_Shopee_<Account>_Report.png` bisa dibuka sebagai gambar |""")
 
     doc.append("""## Langkah 12 — Kalau ada yang tidak jalan
 
@@ -470,7 +521,11 @@ Pakai satu jadwal milik akunmu (`HostID = varMe.Title`), hari ini, **sudah mulai
 | Send Report nonaktif *Status jadwal masih Planned* | absen dicatat sebelum OnChange baru terpasang | ubah Status jadwal itu ke `Waiting Report` sekali secara manual |
 | *Status jadwal Done, report tidak bisa dikirim* | durasi sudah terpenuhi, atau ejaan Choice beda | cek ejaan Choice = `scheduleWaitingStatus` di Langkah 3 dan teks `"Waiting Report"` di OnChange |
 | Error di `Playbook` | pilihan dropdown tidak ada di Choice | `PlaybooksJson` = `JSON(Choices([@'Report - PBS Hub'].Playbook), …)` |
-| Report terbuat tapi `Attachment` kosong | flow gagal / belum di-*Add flow* / input terbalik | cek run history; input kedua `fileBase64` = `text_1` |
+| Report terbuat tapi `Attachment` kosong / error *HttpRequest* | `varSiteID` / `varDriveID` salah, Office 365 Groups belum ditambahkan, atau folder brand belum ada | salin ID dari app upload jadwal; cek `NamaBrand` di list Brand |
+| File screenshot ada tapi tidak bisa dibuka (isinya teks) | body data URI tidak diubah jadi binary oleh connector | ganti body jadi hasil flow: buat flow Create file (seperti flow selfie) dengan path yang sama, lalu panggil flow itu sebagai pengganti `HttpRequest` |
+| `up.webUrl` error (*untyped / record*) | respons HttpRequest bertipe lain di versi kamu | pakai `Attachment: "Report Automation/…/" & title & "_Report.png"` (path yang sama) |
+| Tier tidak berubah setelah report | belum clock in hari itu, atau `ClockInDate` ≠ tanggal live | clock in dulu; jalankan hitung ulang bulanan |
+| Notifikasi *Tier belum terhitung* | kolom Tier di Clock In / list `Performance Tier - PBS Hub` belum ada, atau Choice `Tier` tidak punya pilihannya | lihat Langkah 0; report tetap tersimpan |
 | *Report ini sudah berubah. Muat ulang dulu* saat revisi | data di layar lama | keluar-masuk layar (OnVisible memuat ulang) |
 | Form revisi tidak muncul | `ApprovalStatus` bukan persis `Need Revision` | cek ejaan Choice |
 | Kolom tidak ditemukan di sebuah formula | nama kolom di list kamu berbeda / tidak ada | ganti nama, atau hapus field itu dari record (control mengabaikan field yang kosong) |""")

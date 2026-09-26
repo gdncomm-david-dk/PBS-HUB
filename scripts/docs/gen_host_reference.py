@@ -16,10 +16,15 @@ Siapkan sekali di **App.OnStart** (selain `varHostCtx` dan `varMe` dari bagian 1
 
 ```powerfx
 ClearCollect(colPbsProcessed, {Id: ""});   // skema koleksi requestId yang sudah diproses
+// Upload screenshot (Graph) dan Tier harian — lengkapnya di HOST-SETUP.md Langkah 3 blok 5.
+Set(varSiteID, "<site-id>"); Set(varDriveID, "<drive-id>");
+ClearCollect(colTierConfig, 'Performance Tier - PBS Hub');
+Set(varSlotMin, 15); Set(varT1MinInWindow, 120); Set(varT2MinInWindow, 120);
+Set(varHolidays, [Date(2026,1,1), Date(2026,2,16) /* … */]);
 ```
 
 Nama yang dipakai: layar `scrHome` (Hari ini), `scrMyReports`, `scrMyReportDetail`, `scrMySchedule`,
-`scrScheduleDetail`, `scrClockIn`; flow `'PBSHost-Uploadreportscreenshot'` (bagian 5). Ganti kalau
+`scrScheduleDetail`, `scrClockIn`; upload screenshot Graph dengan `varSiteID` / `varDriveID` (bagian 5). Ganti kalau
 nama di app berbeda. Schedule tidak punya kolom nama akun: `Schedule.Account` adalah `Title` di list Account, dan
 namanya diambil dari `colAccounts` (dimuat di App.OnStart). `AccountID` di Report diisi kode akun (`s.Account`).
 
