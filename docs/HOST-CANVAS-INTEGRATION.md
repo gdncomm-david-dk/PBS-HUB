@@ -52,8 +52,11 @@ ClearCollect(colAccounts, ShowColumns('Account - PBS Hub', Title, AccountName));
 Set(varMrPeriod, "");  Set(varMrFilter, "");                 // Report saya: bulan "yyyy-mm" (kosong = bulan ini), filter
 Set(varMsPeriod, "");  Set(varMsFilter, "");  Set(varMsView, "List");   // Jadwal saya
 Set(varSchId, "");     Set(varSchDate, Today());             // Detail sesi yang dibuka
-Set(varRptId, Blank()); Set(varRptSchedule, "");             // Kirim / revisi report
-Set(varMrdRep, Blank()); Set(varMrdSch, Blank());
+Set(varRptId, Value(Blank())); Set(varRptSchedule, "");      // Kirim / revisi report (Value(Blank()) = angka kosong)
+// Record kosong yang sudah bertipe: LookUp ke ID yang tidak ada. Set(var, Blank()) saja ditolak
+// ("No type found for variable 'varMrdRep'") karena Power Apps tidak tahu bentuk recordnya.
+Set(varMrdRep, LookUp('Report - PBS Hub', ID = -1));
+Set(varMrdSch, LookUp('Schedule - PBS Hub', ID = -1));
 Set(varHdLoading, false); Set(varMrLoading, false); Set(varMrdLoading, false);
 Set(varMsLoading, false); Set(varSdLoading, false); Set(varCkLoading, false);
 Set(varHdResult, "");  Set(varMrdResult, ""); Set(varMsResult, ""); Set(varSdResult, ""); Set(varCkResult, "");
