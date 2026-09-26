@@ -748,7 +748,8 @@ If(!IsBlank(Self.ActionPayload),
                                                             "Not Eligible - Main Host " & Round(mainMin / 60, 2) & " jam vs Co-Host " & Round(coMin / 60, 2) & " jam"),
                                                         statusupdate: If(clk.Tier.Value = tier, "Tier tetap " & tier & " (tidak ada perubahan)",
                                                             "Berhasil update dari " & Coalesce(clk.Tier.Value, "-") & " → " & tier)
-                                                    })
+                                                    });
+                                                    true   // IfError butuh tipe yang sama dengan Notify (Boolean), bukan record hasil Patch
                                                 )))))))))),
                                                 // Report tetap tersimpan kalau hitung Tier gagal; hitung ulang bulanan akan membetulkannya.
                                                 Notify("Report tersimpan, tapi Tier belum terhitung: " & FirstError.Message, NotificationType.Warning)
@@ -923,7 +924,8 @@ If(!IsBlank(Self.ActionPayload),
                                                             "Not Eligible - Main Host " & Round(mainMin / 60, 2) & " jam vs Co-Host " & Round(coMin / 60, 2) & " jam"),
                                                         statusupdate: If(clk.Tier.Value = tier, "Tier tetap " & tier & " (tidak ada perubahan)",
                                                             "Berhasil update dari " & Coalesce(clk.Tier.Value, "-") & " → " & tier)
-                                                    })
+                                                    });
+                                                    true   // IfError butuh tipe yang sama dengan Notify (Boolean), bukan record hasil Patch
                                                 )))))))))),
                                                 // Report tetap tersimpan kalau hitung Tier gagal; hitung ulang bulanan akan membetulkannya.
                                                 Notify("Report tersimpan, tapi Tier belum terhitung: " & FirstError.Message, NotificationType.Warning)
@@ -1050,7 +1052,8 @@ If(!IsBlank(Self.ActionPayload),
                                                             "Not Eligible - Main Host " & Round(mainMin / 60, 2) & " jam vs Co-Host " & Round(coMin / 60, 2) & " jam"),
                                                         statusupdate: If(clk.Tier.Value = tier, "Tier tetap " & tier & " (tidak ada perubahan)",
                                                             "Berhasil update dari " & Coalesce(clk.Tier.Value, "-") & " → " & tier)
-                                                    })
+                                                    });
+                                                    true   // IfError butuh tipe yang sama dengan Notify (Boolean), bukan record hasil Patch
                                                 )))))))))),
                                                 // Report tetap tersimpan kalau hitung Tier gagal; hitung ulang bulanan akan membetulkannya.
                                                 Notify("Report tersimpan, tapi Tier belum terhitung: " & FirstError.Message, NotificationType.Warning)
@@ -1175,7 +1178,8 @@ If(!IsBlank(Self.ActionPayload),
                                                     "Not Eligible - Main Host " & Round(mainMin / 60, 2) & " jam vs Co-Host " & Round(coMin / 60, 2) & " jam"),
                                                 statusupdate: If(clk.Tier.Value = tier, "Tier tetap " & tier & " (tidak ada perubahan)",
                                                     "Berhasil update dari " & Coalesce(clk.Tier.Value, "-") & " → " & tier)
-                                            })
+                                            });
+                                            true   // IfError butuh tipe yang sama dengan Notify (Boolean), bukan record hasil Patch
                                         )))))))))),
                                         // Report tetap tersimpan kalau hitung Tier gagal; hitung ulang bulanan akan membetulkannya.
                                         Notify("Report tersimpan, tapi Tier belum terhitung: " & FirstError.Message, NotificationType.Warning)
@@ -1324,7 +1328,8 @@ If(!IsBlank(Self.ActionPayload),
                                                             "Not Eligible - Main Host " & Round(mainMin / 60, 2) & " jam vs Co-Host " & Round(coMin / 60, 2) & " jam"),
                                                         statusupdate: If(clk.Tier.Value = tier, "Tier tetap " & tier & " (tidak ada perubahan)",
                                                             "Berhasil update dari " & Coalesce(clk.Tier.Value, "-") & " → " & tier)
-                                                    })
+                                                    });
+                                                    true   // IfError butuh tipe yang sama dengan Notify (Boolean), bukan record hasil Patch
                                                 )))))))))),
                                                 // Report tetap tersimpan kalau hitung Tier gagal; hitung ulang bulanan akan membetulkannya.
                                                 Notify("Report tersimpan, tapi Tier belum terhitung: " & FirstError.Message, NotificationType.Warning)
@@ -1479,7 +1484,8 @@ If(!IsBlank(Self.ActionPayload),
                                                             "Not Eligible - Main Host " & Round(mainMin / 60, 2) & " jam vs Co-Host " & Round(coMin / 60, 2) & " jam"),
                                                         statusupdate: If(clk.Tier.Value = tier, "Tier tetap " & tier & " (tidak ada perubahan)",
                                                             "Berhasil update dari " & Coalesce(clk.Tier.Value, "-") & " → " & tier)
-                                                    })
+                                                    });
+                                                    true   // IfError butuh tipe yang sama dengan Notify (Boolean), bukan record hasil Patch
                                                 )))))))))),
                                                 // Report tetap tersimpan kalau hitung Tier gagal; hitung ulang bulanan akan membetulkannya.
                                                 Notify("Report tersimpan, tapi Tier belum terhitung: " & FirstError.Message, NotificationType.Warning)
@@ -1606,7 +1612,8 @@ If(!IsBlank(Self.ActionPayload),
                                                             "Not Eligible - Main Host " & Round(mainMin / 60, 2) & " jam vs Co-Host " & Round(coMin / 60, 2) & " jam"),
                                                         statusupdate: If(clk.Tier.Value = tier, "Tier tetap " & tier & " (tidak ada perubahan)",
                                                             "Berhasil update dari " & Coalesce(clk.Tier.Value, "-") & " → " & tier)
-                                                    })
+                                                    });
+                                                    true   // IfError butuh tipe yang sama dengan Notify (Boolean), bukan record hasil Patch
                                                 )))))))))),
                                                 // Report tetap tersimpan kalau hitung Tier gagal; hitung ulang bulanan akan membetulkannya.
                                                 Notify("Report tersimpan, tapi Tier belum terhitung: " & FirstError.Message, NotificationType.Warning)
@@ -1730,7 +1737,8 @@ If(!IsBlank(Self.ActionPayload),
                                                     "Not Eligible - Main Host " & Round(mainMin / 60, 2) & " jam vs Co-Host " & Round(coMin / 60, 2) & " jam"),
                                                 statusupdate: If(clk.Tier.Value = tier, "Tier tetap " & tier & " (tidak ada perubahan)",
                                                     "Berhasil update dari " & Coalesce(clk.Tier.Value, "-") & " → " & tier)
-                                            })
+                                            });
+                                            true   // IfError butuh tipe yang sama dengan Notify (Boolean), bukan record hasil Patch
                                         )))))))))),
                                         // Report tetap tersimpan kalau hitung Tier gagal; hitung ulang bulanan akan membetulkannya.
                                         Notify("Report tersimpan, tapi Tier belum terhitung: " & FirstError.Message, NotificationType.Warning)
