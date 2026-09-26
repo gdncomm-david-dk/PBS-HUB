@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8" ?>
 <manifest>
-  <control namespace="Host" constructor="HostDashboard" version="1.0.7" display-name-key="PBS Host Dashboard" description-key="PBS Hub host app H-1 Hari ini: shift state, today sessions with the next step (absen, kirim report, perbaiki), open reports and the credit score." control-type="standard">
+  <control namespace="Host" constructor="HostDashboard" version="1.1.0" display-name-key="PBS Host Dashboard" description-key="PBS Hub host app H-1 Hari ini: shift state, today sessions with the next step (absen, kirim report, perbaiki), open reports and the credit score." control-type="standard">
     <external-service-usage enabled="false"></external-service-usage>
 
     <property name="Context" display-name-key="Context" description-key="JSON {userEmail,userName,roles,permissions,config}. config: absenLeadMin (30), reportDeadlineDays (2), maxShiftHours (12), requireAbsen (true)." of-type="Multiple" usage="input" required="false" />

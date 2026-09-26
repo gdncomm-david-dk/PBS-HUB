@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8" ?>
 <manifest>
-  <control namespace="Host" constructor="ClockIn" version="1.0.1" display-name-key="PBS Host Clock In" description-key="PBS Hub host app H-0 Clock in and clock out: GPS position against Studio Location - PBS radius, selfie in and out, reason when outside the radius." control-type="standard">
+  <control namespace="Host" constructor="ClockIn" version="1.1.0" display-name-key="PBS Host Clock In" description-key="PBS Hub host app H-0 Clock in and clock out: GPS position against Studio Location - PBS radius, selfie in and out, reason when outside the radius." control-type="standard">
     <external-service-usage enabled="false"></external-service-usage>
 
     <property name="Context" display-name-key="Context" description-key="JSON {userEmail,userName,roles,permissions,config}. config: clockInStatus (Hadir - Tugas), hkTugas (180000), statusAbsence (blank), defaultRadiusM (100), weakAccuracyM (100), minReasonChars (10), selfieMaxPx (960), selfieMaxKb (350), maxShiftHours (12)." of-type="Multiple" usage="input" required="false" />

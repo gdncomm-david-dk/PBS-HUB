@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8" ?>
 <manifest>
-  <control namespace="Host" constructor="MyReportDetail" version="1.0.7" display-name-key="PBS Host My Report Detail" description-key="PBS Hub host app H-5 and H-6: submit a report for a session (metrics plus screenshot, named by the app), fix a report sent back for revision, or view a submitted report." control-type="standard">
+  <control namespace="Host" constructor="MyReportDetail" version="1.1.0" display-name-key="PBS Host My Report Detail" description-key="PBS Hub host app H-5 and H-6: submit a report for a session (metrics plus screenshot, named by the app), fix a report sent back for revision, or view a submitted report." control-type="standard">
     <external-service-usage enabled="false"></external-service-usage>
 
     <property name="Context" display-name-key="Context" description-key="JSON {userEmail,userName,roles,permissions,config}. config: tolerancePct (5), requireAbsen (true), absenLeadMin (30), reportDeadlineDays (2), imageMaxPx (2000), imageMaxKb (1200)." of-type="Multiple" usage="input" required="false" />
@@ -13,6 +13,8 @@
     <property name="HistoryJson" display-name-key="HistoryJson" description-key="Optional JSON rows of the last 20 reports of this host (metrics only), for the far-from-your-average warning." of-type="Multiple" usage="input" required="false" />
     <property name="BrandsJson" display-name-key="BrandsJson" description-key="JSON rows Title, NamaBrand." of-type="Multiple" usage="input" required="false" />
     <property name="StudiosJson" display-name-key="StudiosJson" description-key="JSON rows Title, NamaStudio." of-type="Multiple" usage="input" required="false" />
+    <property name="SessionReportsJson" display-name-key="SessionReportsJson" description-key="Optional JSON rows of every [Report - PBS Hub] of this schedule (the parts of a split live): Title, LiveID, Durasi(Min), ApprovalStatus, Created. Used to sum Durasi; empty uses ReportJson." of-type="Multiple" usage="input" required="false" />
+    <property name="PlaybooksJson" display-name-key="PlaybooksJson" description-key="Optional JSON of the Report.Playbook choices for the dropdown, e.g. Choices([@Report - PBS Hub].Playbook). Empty uses Context config.playbooks, else Flash Sale, Payday, Launching Produk, Reguler." of-type="Multiple" usage="input" required="false" />
     <property name="IsLoading" display-name-key="IsLoading" description-key="true while canvas is loading: renders skeletons." of-type="TwoOptions" usage="input" required="false" />
     <property name="ReferenceDate" display-name-key="ReferenceDate" description-key="Optional ISO date-time used as now (testing)." of-type="SingleLine.Text" usage="input" required="false" />
     <property name="ActionResult" display-name-key="ActionResult" description-key="Canvas reply {requestId,status,message} for SUBMIT_REPORT, RESUBMIT_REPORT, DISPUTE_REVIEW and ABSEN." of-type="SingleLine.Text" usage="input" required="false" />

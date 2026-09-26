@@ -1,11 +1,26 @@
 import * as React from "react";
 import { ModuleContext, UseActionResult } from "../../../shared/contract";
-import { Row, date, localDayKey, reportPlaybook, reportScheduleId, rowId, str } from "../../../shared/data";
-import { fmtDayMonth, fmtLongDate, fmtRupiah, fmtNumber, fmtPercentValue, fmtTime } from "../../../shared/format";
-import { HOST_REPORT_STATE, HostSession, buildHostSessions, flaggedFromComment, hostOptions, reviewerNote } from "../../../shared/hostApp";
+import { NO_REPORT_LABEL, Row, date, localDayKey, reportPlaybook, reportScheduleId, rowId, str } from "../../../shared/data";
+import { fmtDayMonth, fmtLongDate, fmtRupiah, fmtTime } from "../../../shared/format";
+import {
+  BLOCKER_TEXT,
+  HOST_REPORT_STATE,
+  HostOptions,
+  HostSession,
+  ReportBlocker,
+  buildHostSessions,
+  fmtMinutes,
+  hostOptions,
+  hostReportBadge,
+  reportBlocker,
+  reportLiveId,
+  reportMinutes,
+  reviewerNote,
+} from "../../../shared/hostApp";
 import { SCHEDULE_STATE, SessionStep, StepState, clockInOf, durationMin, fmtHours, isLive, positionOf, scheduleState, sessionSteps } from "../../../shared/hostSchedule";
-import { ALL_METRICS, readMetric } from "../../../shared/reconcile";
-import { Revision, SubmitReport } from "../../../shared/hostReport";
+import { ALL_METRICS, readMetric, reviewState } from "../../../shared/reconcile";
+import { Coverage, PageHead, Revision, SubmitReport } from "../../../shared/hostReport";
+import { useAbsen } from "../../../shared/hostAbsen";
 import { Badge, Button, EmptyState, Icon, IconName, InfoBanner, ResultBanner, Skeleton, Spinner } from "../../../shared/ui";
 
 export interface ScheduleDetailProps {
@@ -27,26 +42,22 @@ export interface ScheduleDetailProps {
   action: UseActionResult;
   /** Screenshot for the next SUBMIT_REPORT / RESUBMIT_REPORT, sent on UploadData. */
   setUpload: (data: string) => void;
+  /** Report.Playbook choices; empty = Context config.playbooks, else the defaults. */
+  playbooks?: string[];
 }
 
 const WRITES = ["SUBMIT_REPORT", "RESUBMIT_REPORT", "DISPUTE_REVIEW"];
 
-const scheduleRef = (s: HostSession): Record<string, unknown> => ({ scheduleId: s.title, scheduleItemId: s.id, liveDate: s.dayKey });
-const reportRef = (r: Row): Record<string, unknown> => ({ reportId: rowId(r), title: str(r, "Title"), scheduleId: reportScheduleId(r) });
-
-function absenPayload(s: HostSession, host: Row | undefined): Record<string, unknown> {
-  return {
-    scheduleId: s.title,
-    scheduleItemId: s.id,
-    hostId: str(host, "Title") || str(s.row, "HostID"),
-    hostName: str(host, "NamaHost", "HostName"),
-    liveDate: s.dayKey,
-    brandId: s.brandId,
-    studioId: s.studioId,
-    platform: s.platform,
-    account: s.accountId,
-  };
-}
+const scheduleRef = (s: HostSession): Record<string, unknown> => ({
+  scheduleId: s.title,
+  scheduleItemId: s.id,
+  liveDate: s.dayKey,
+});
+const reportRef = (r: Row): Record<string, unknown> => ({
+  reportId: rowId(r),
+  title: str(r, "Title"),
+  scheduleId: reportScheduleId(r),
+});
 
 function until(from: Date, to: Date): string {
   const m = Math.round((to.getTime() - from.getTime()) / 60000);
@@ -61,25 +72,51 @@ function until(from: Date, to: Date): string {
 
 const dayText = (d: Date | null): string => (d ? `${fmtLongDate(d).split(",")[0]} ${fmtDayMonth(d)}` : "—");
 
-const STEP_ICON: Record<StepState, IconName> = { done: "check", now: "clock", todo: "clock", missing: "alert", bad: "alert", skip: "x" };
+const STEP_ICON: Record<StepState, IconName> = {
+  done: "check",
+  now: "clock",
+  todo: "clock",
+  missing: "alert",
+  bad: "alert",
+  skip: "x",
+};
 
 export function ScheduleDetailView(props: ScheduleDetailProps): React.ReactElement {
   const { ctx, now, action } = props;
   const opts = React.useMemo(() => hostOptions(ctx.config), [ctx]);
   const host = props.host[0];
   const sessions = React.useMemo(
-    () => buildHostSessions({ schedules: props.schedules, clockIns: props.clockIns, absences: props.absences, reports: props.reports, brands: props.brands, studios: props.studios }, now, opts),
+    () =>
+      buildHostSessions(
+        {
+          schedules: props.schedules,
+          clockIns: props.clockIns,
+          absences: props.absences,
+          reports: props.reports,
+          brands: props.brands,
+          studios: props.studios,
+        },
+        now,
+        opts,
+      ),
     [props.schedules, props.clockIns, props.absences, props.reports, props.brands, props.studios, now, opts],
   );
   const want = props.scheduleId.trim().toLowerCase();
   const s = want ? sessions.find((x) => x.title.toLowerCase() === want || x.id === props.scheduleId.trim()) : sessions[0];
   const back = () => action.fire("BACK", {});
+  const absen = useAbsen(action, host, opts);
+  const [formOpen, setFormOpen] = React.useState(false);
   const formRef = React.useRef<HTMLElement>(null);
-  const toForm = () => {
+  const [scrollTo, setScrollTo] = React.useState(0);
+  React.useEffect(() => {
     const el = formRef.current;
-    if (!el) return;
-    el.scrollIntoView({ behavior: "smooth", block: "start" });
-    el.querySelector<HTMLElement>("input:not([disabled]), button:not([disabled])")?.focus({ preventScroll: true });
+    if (!scrollTo || !el) return;
+    el.scrollIntoView?.({ behavior: "smooth", block: "start" });
+    el.querySelector<HTMLElement>("input:not([disabled]), select:not([disabled]), button:not([disabled])")?.focus({ preventScroll: true });
+  }, [scrollTo]);
+  const toForm = () => {
+    setFormOpen(true);
+    setScrollTo((n) => n + 1);
   };
 
   if (props.loading && !s) return <Loading onBack={back} />;
@@ -87,25 +124,41 @@ export function ScheduleDetailView(props: ScheduleDetailProps): React.ReactEleme
     return (
       <div className="hc-col">
         <Crumb onBack={back} />
-        <EmptyState icon="calendar" title="Jadwal tidak ditemukan" text={props.scheduleId ? `${props.scheduleId} tidak ada di jadwalmu, atau sudah dihapus tim PBS.` : "Pilih sesi dari Jadwal saya."} action={<Button variant="secondary" size="sm" onClick={back}>Kembali ke Jadwal saya</Button>} />
+        <EmptyState
+          icon="calendar"
+          title="Jadwal tidak ditemukan"
+          text={props.scheduleId ? `${props.scheduleId} tidak ada di jadwalmu, atau sudah dihapus tim PBS.` : "Pilih sesi dari Jadwal saya."}
+          action={
+            <Button variant="secondary" size="sm" onClick={back}>
+              Kembali ke Jadwal saya
+            </Button>
+          }
+        />
       </div>
     );
   }
 
   const st = scheduleState(s, now);
   const clockIn = clockInOf(s, props.clockIns);
-  const steps = sessionSteps(s, clockIn, now, opts, { time: fmtTime, day: dayText });
+  const steps = sessionSteps(s, clockIn, now, opts, {
+    time: fmtTime,
+    day: dayText,
+  });
   const dur = durationMin(s);
   const sameDay = sessions.filter((x) => x.dayKey === s.dayKey && x.title !== s.title && x.phase !== "CANCELLED");
   const today = s.dayKey === localDayKey(now);
   const busy = action.pending?.action === "ABSEN";
   const position = positionOf(s.row);
   const status = str(s.row, "Status");
-  // Absen and the report both happen here: the form opens once the host clocked in on the session day.
-  // Live break / Co-Host owe no report: no form.
-  const showForm = !s.report && !s.noReport && s.clockedIn && s.phase !== "UPCOMING" && st !== "CANCELLED";
-  const showRevision = st === "REVISION" && !!s.report;
   const res = action.lastResult;
+  const blocker = st === "CANCELLED" ? "NO_REPORT" : reportBlocker(s, opts);
+  const justSent = res?.action === "SUBMIT_REPORT" && res.status === "ok";
+  // Send Report: only while Schedule.Status is Waiting Report and minutes are still owed. Gone once
+  // the parts cover the session, for a live break and for a Co-Host.
+  const sendVisible = blocker !== "NO_REPORT" && blocker !== "COMPLETE";
+  const canSend = blocker === null;
+  const showForm = (formOpen && canSend) || (justSent && formOpen);
+  const showRevision = st === "REVISION" && !!s.report;
   const formProps = {
     ctx,
     host: props.host,
@@ -123,93 +176,189 @@ export function ScheduleDetailView(props: ScheduleDetailProps): React.ReactEleme
     setUpload: props.setUpload,
     session: s,
     embedded: true,
+    playbooks: props.playbooks,
   };
+  const sendTitle = blocker === "STATUS" ? `Status jadwal masih ${status || "Planned"}. Report hanya bisa dikirim saat status ${opts.waitingStatus}.` : blocker ? BLOCKER_TEXT[blocker] : undefined;
 
   return (
     <div className="hc-col">
-      <Crumb onBack={back} />
-      <div className="hc-hi">
-        <div style={{ minWidth: 0 }}>
-          <h1 style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-            {s.brand} {s.platform ? <span className="hc-plat">{s.platform}</span> : null}
-          </h1>
-          <p>
-            <span className="hc-id">{s.title}</span> · {s.day ? fmtLongDate(s.day) : "—"} · {s.startText || "—"}–{s.endText || "—"}
-          </p>
-        </div>
-        <Badge tone={SCHEDULE_STATE[st].tone}>{SCHEDULE_STATE[st].label}</Badge>
+      <PageHead
+        crumb={
+          <>
+            <button type="button" className="pbs-link" onClick={back}>
+              Jadwal saya
+            </button>{" "}
+            / <span className="hc-id">{s.title}</span>
+          </>
+        }
+        title={
+          <>
+            {s.brand} · {dayText(s.day)}
+          </>
+        }
+        sub={[`${s.startText || "—"}–${s.endText || "—"}`, s.studio !== "—" ? (/^studio\b/i.test(s.studio) ? s.studio : `Studio ${s.studio}`) : "", s.platform].filter(Boolean).join(" · ")}
+        right={
+          <>
+            {s.canAbsen && s.clockedIn ? (
+              <Button variant="secondary" onClick={() => absen.start(s)} disabled={!!action.pending}>
+                {busy ? <Spinner small /> : null} Absen
+              </Button>
+            ) : today && !s.clockedIn && st !== "CANCELLED" && s.phase !== "REPORTED" ? (
+              <Button variant="secondary" onClick={() => action.fire("CLOCK_IN", {})}>
+                <Icon name="mapPin" size={14} /> Clock in
+              </Button>
+            ) : null}
+            {sendVisible ? (
+              <Button onClick={toForm} disabled={!canSend || showForm} title={sendTitle}>
+                <Icon name="file" size={14} /> {s.partial ? "Send Report berikutnya" : "Send Report"}
+              </Button>
+            ) : s.noReport ? (
+              <Badge tone="success">{NO_REPORT_LABEL[s.noReport]} · tanpa report</Badge>
+            ) : null}
+          </>
+        }
+      />
+
+      <div className="hc-rec">
+        <Rec k="Schedule ID" v={s.title || "—"} mono />
+        <Rec k="Brand" v={s.brand} />
+        <Rec k="Akun" v={s.account || "—"} />
+        <Rec k="Platform" v={s.platform || "—"} />
+        <Rec k="Studio" v={s.studio} />
+        <Rec k="Durasi" v={fmtHours(dur)} />
+        {position ? <Rec k="Posisi" v={position} /> : null}
+        <span className="hc-rec-r">
+          <Badge tone={SCHEDULE_STATE[st].tone}>{s.partial && st !== "REVISION" ? `Kurang ${s.remainingMin} menit` : SCHEDULE_STATE[st].label}</Badge>
+        </span>
       </div>
 
-      <ResultBanner result={res && WRITES.includes(res.action) && res.status !== "ok" ? null : res} okText={action.lastResult?.action === "ABSEN" ? "Absen tercatat. Sekarang kamu bisa kirim report sesi ini." : undefined} onClose={action.clearResult} />
+      <ResultBanner
+        result={res && WRITES.includes(res.action) && res.status !== "ok" ? null : res}
+        okText={res?.action === "ABSEN" ? (s.noReport || s.reports.length ? "Absen tercatat. Sesi ini tidak perlu report." : "Absen tercatat. Sekarang kamu bisa kirim report sesi ini.") : undefined}
+        onClose={action.clearResult}
+      />
 
-      <div className="hc-stack">
-        <NextStep s={s} now={now} busy={busy} pending={!!action.pending} onAbsen={() => action.dispatch("ABSEN", absenPayload(s, host))} action={action} absenLeadMin={opts.absenLeadMin} today={today} onForm={showForm || showRevision ? toForm : null} />
+      <div className="hc-split">
+        <div className="hc-main">
+          <NextStep
+            s={s}
+            now={now}
+            busy={busy}
+            pending={!!action.pending}
+            onAbsen={() => absen.start(s)}
+            action={action}
+            opts={opts}
+            today={today}
+            onForm={canSend ? toForm : null}
+            blocker={blocker}
+          />
 
-        {showForm || showRevision ? (
-          <section ref={formRef} className="hc-form" id="hc-report" aria-label="Report sesi ini">
-            <div className="pbs-sec" style={{ marginTop: 4 }}>
-              <span className="pbs-sec-l">{showRevision ? "Revisi report" : "Report sesi ini"}</span>
-              <span className="pbs-sec-r">{showRevision ? str(s.report, "Title") : s.absence || !opts.requireAbsen ? "isi angka + screenshot" : "absen dulu, angka bisa diisi sekarang"}</span>
-            </div>
-            {showRevision && s.report ? <Revision key={s.title} {...formProps} report={s.report} /> : <SubmitReport key={s.title} {...formProps} />}
-          </section>
-        ) : null}
+          {showForm ? (
+            <section ref={formRef} className="hc-form" id="hc-report" aria-label="Report sesi ini">
+              <div className="pbs-sec" style={{ marginTop: 4 }}>
+                <span className="pbs-sec-l">{s.reports.length ? `Report ke-${s.reports.length + 1}` : "Send Report"}</span>
+                <span className="pbs-sec-r">Live ID · durasi · angka · screenshot</span>
+              </div>
+              <SubmitReport key={s.title} {...formProps} />
+              {!justSent ? (
+                <div style={{ marginTop: 8 }}>
+                  <Button variant="ghost" size="sm" onClick={() => setFormOpen(false)}>
+                    Tutup form
+                  </Button>
+                </div>
+              ) : null}
+            </section>
+          ) : null}
 
-        <div className="hc-card">
-          <div className="pbs-sec-l" style={{ marginBottom: 4 }}>
-            Langkah sesi
-          </div>
-          <ol className="hc-steps">
-            {steps.map((x, i) => (
-              <Step key={x.key} n={i + 1} step={x} />
-            ))}
-          </ol>
-        </div>
+          {showRevision && s.report ? (
+            <section className="hc-form" id="hc-revision" aria-label="Revisi report">
+              <div className="pbs-sec" style={{ marginTop: 4 }}>
+                <span className="pbs-sec-l">Revisi report</span>
+                <span className="pbs-sec-r">{str(s.report, "Title")}</span>
+              </div>
+              <Revision key={str(s.report, "Title")} {...formProps} report={s.report} />
+            </section>
+          ) : null}
 
-        <div className="hc-card">
-          <div className="pbs-sec-l" style={{ marginBottom: 12 }}>
-            Detail jadwal
-          </div>
-          <dl className="hc-dl">
-            <Fact k="Tanggal" v={s.day ? fmtLongDate(s.day) : "—"} />
-            <Fact k="Waktu" v={`${s.startText || "—"}–${s.endText || "—"}`} />
-            <Fact k="Durasi" v={fmtHours(dur)} />
-            <Fact k="Studio" v={s.studio} />
-            <Fact k="Platform" v={s.platform || "—"} />
-            <Fact k="Akun" v={s.account || "—"} />
-            {position ? <Fact k="Posisi" v={position} /> : null}
-            <Fact k="Schedule ID" v={s.title || "—"} mono />
-            <Fact k="Status jadwal" v={status || "Planned"} />
-          </dl>
-        </div>
+          {s.reports.length ? <ReportsCard s={s} revising={showRevision ? s.report : undefined} onOpen={(r) => action.fire("OPEN_REPORT", reportRef(r))} /> : null}
 
-        {s.report && !showRevision ? <ReportCard report={s.report} onOpen={() => s.report && action.fire("OPEN_REPORT", reportRef(s.report))} revision={st === "REVISION"} /> : null}
-
-        {sameDay.length ? (
           <div className="hc-card">
-            <div className="pbs-sec-l" style={{ marginBottom: 8 }}>
-              Sesi lain {today ? "hari ini" : `di ${dayText(s.day)}`}
+            <div className="pbs-sec">
+              <span className="pbs-sec-l">Waktu &amp; tempat</span>
             </div>
-            <div className="hc-stack" style={{ gap: 0 }}>
-              {sameDay.map((x) => {
-                const xs = scheduleState(x, now);
-                return (
-                  <button key={x.title || x.id} type="button" className="hc-other" onClick={() => action.fire("OPEN_SCHEDULE", scheduleRef(x))}>
-                    <span className="pbs-num hc-b">
-                      {x.startText}–{x.endText}
-                    </span>
-                    <span className="hc-ell">
-                      {x.brand}
-                      <span className="pbs-muted"> · {[x.platform, x.studio !== "—" ? x.studio : ""].filter(Boolean).join(" · ")}</span>
-                    </span>
-                    <Badge tone={SCHEDULE_STATE[xs].tone}>{SCHEDULE_STATE[xs].label}</Badge>
-                  </button>
-                );
-              })}
-            </div>
+            <dl className="hc-kv two">
+              <Fact k="Tanggal" v={s.day ? fmtLongDate(s.day) : "—"} />
+              <Fact k="Studio" v={s.studio} />
+              <Fact k="Jam live" v={`${s.startText || "—"}–${s.endText || "—"}`} />
+              <Fact k="Akun" v={s.account || "—"} />
+              <Fact k="Absen dibuka" v={s.start ? `${fmtTime(new Date(s.start.getTime() - opts.absenLeadMin * 60000))} (${opts.absenLeadMin} menit sebelum)` : "—"} />
+              <Fact k="Status jadwal" v={status || "Planned"} />
+              <Fact k="Batas report" v={s.noReport ? "Tidak perlu report" : dayText(s.due)} />
+              {position ? <Fact k="Posisi" v={position} /> : null}
+            </dl>
           </div>
-        ) : null}
+        </div>
+
+        <aside className="hc-aside">
+          {!s.noReport && st !== "CANCELLED" && s.requiredMin && (s.reports.length || st === "NEEDS_REPORT" || st === "LATE") ? (
+            <div className="hc-card">
+              <div className="pbs-sec">
+                <span className="pbs-sec-l">Durasi report</span>
+              </div>
+              <Coverage session={s} />
+              <p className="pbs-muted" style={{ fontSize: 12, margin: "10px 0 0" }}>
+                Live terputus? Kirim satu report per Live ID. Status jadwal tetap {opts.waitingStatus} sampai total durasi mencapai {s.requiredMin} menit, lalu menjadi {opts.doneStatus}.
+              </p>
+            </div>
+          ) : null}
+
+          <div className="hc-card">
+            <div className="pbs-sec">
+              <span className="pbs-sec-l">Langkah sesi</span>
+            </div>
+            <ol className="hc-steps">
+              {steps.map((x, i) => (
+                <Step key={x.key} n={i + 1} step={x} />
+              ))}
+            </ol>
+          </div>
+
+          {sameDay.length ? (
+            <div className="hc-card">
+              <div className="pbs-sec">
+                <span className="pbs-sec-l">Sesi lain {today ? "hari ini" : `di ${dayText(s.day)}`}</span>
+              </div>
+              <div className="hc-stack" style={{ gap: 0 }}>
+                {sameDay.map((x) => {
+                  const xs = scheduleState(x, now);
+                  return (
+                    <button key={x.title || x.id} type="button" className="hc-other" onClick={() => action.fire("OPEN_SCHEDULE", scheduleRef(x))}>
+                      <span className="pbs-num hc-b">
+                        {x.startText}–{x.endText}
+                      </span>
+                      <span className="hc-ell">
+                        {x.brand}
+                        <span className="pbs-muted"> · {[x.platform, x.studio !== "—" ? x.studio : ""].filter(Boolean).join(" · ")}</span>
+                      </span>
+                      <Badge tone={SCHEDULE_STATE[xs].tone}>{SCHEDULE_STATE[xs].label}</Badge>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          ) : null}
+        </aside>
       </div>
+      {absen.dialog}
+    </div>
+  );
+}
+
+function Rec(props: { k: string; v: string; mono?: boolean }): React.ReactElement {
+  return (
+    <div className="hc-rec-i">
+      <span className="k">{props.k}</span>
+      <span className={`v${props.mono ? " hc-id" : ""}`}>{props.v}</span>
     </div>
   );
 }
@@ -242,7 +391,18 @@ function Step(props: { n: number; step: SessionStep }): React.ReactElement {
         <div className="hc-step-t">{step.label}</div>
         <div className="hc-step-x">{step.text}</div>
       </div>
-      <span className="pbs-sr">{{ done: "selesai", now: "sekarang", todo: "belum", missing: "tidak ada", bad: "perlu perhatian", skip: "tidak dipakai" }[step.state]}</span>
+      <span className="pbs-sr">
+        {
+          {
+            done: "selesai",
+            now: "sekarang",
+            todo: "belum",
+            missing: "tidak ada",
+            bad: "perlu perhatian",
+            skip: "tidak dipakai",
+          }[step.state]
+        }
+      </span>
     </li>
   );
 }
@@ -255,12 +415,13 @@ function NextStep(props: {
   pending: boolean;
   onAbsen: () => void;
   action: UseActionResult;
-  absenLeadMin: number;
+  opts: HostOptions;
   today: boolean;
-  /** Scrolls to the report form on this screen; null when there is none. */
+  /** Opens the report form on this screen; null while a report cannot be sent. */
   onForm: (() => void) | null;
+  blocker: ReportBlocker | null;
 }): React.ReactElement | null {
-  const { s, now, action } = props;
+  const { s, now, action, opts } = props;
   const st = scheduleState(s, now);
   let tone = "";
   let icon: IconName = "clock";
@@ -276,7 +437,7 @@ function NextStep(props: {
       );
     case "PLANNED":
       title = s.start ? `Mulai ${until(now, s.start)}` : "Belum dimulai";
-      text = `Absen dibuka ${props.absenLeadMin} menit sebelum sesi mulai${s.clockedIn ? "." : props.today ? " — clock in dulu di studio." : ". Clock in di studio pada hari live."}`;
+      text = `Absen dibuka ${opts.absenLeadMin} menit sebelum sesi mulai${s.clockedIn ? "." : props.today ? " — clock in dulu di studio." : ". Clock in di studio pada hari live."}`;
       icon = "calendar";
       if (props.today && !s.clockedIn)
         btn = (
@@ -302,7 +463,9 @@ function NextStep(props: {
         tone = "now";
         icon = "checkSquare";
         title = isLive(s, now) ? "Sesi sedang live — absen sekarang" : "Absen sekarang";
-        text = s.noReport ? "Absen menandai kamu hadir di sesi ini. Sesi ini tidak perlu report." : "Absen menandai kamu hadir di sesi ini. Setelah itu report di bawah bisa dikirim.";
+        text = s.noReport
+          ? "Absen menandai kamu hadir di sesi ini. Sesi ini tidak perlu report."
+          : "Absen menandai kamu hadir di sesi ini. Kamu akan ditanya apakah sesi ini Live Break; kalau bukan, kirim report lewat Send Report.";
         btn = (
           <Button size="sm" onClick={props.onAbsen} disabled={props.pending}>
             {props.busy ? <Spinner small /> : null} Absen
@@ -323,14 +486,24 @@ function NextStep(props: {
     case "LATE":
       tone = st === "LATE" ? "bad" : "warn";
       icon = "file";
-      title = st === "LATE" ? "Report terlambat" : "Kirim report sesi ini";
-      text = st === "LATE" ? `Batasnya ${dayText(s.due)}. Kirim sekarang dan jelaskan di catatan.` : `Kirim sebelum ${dayText(s.due)}.`;
-      text += " Isi angka dan screenshot di bawah.";
-      btn = (
-        <Button size="sm" onClick={() => (props.onForm ? props.onForm() : action.fire("NEW_REPORT", scheduleRef(s)))}>
-          Isi report
+      if (s.partial) {
+        title = `Report belum lengkap — kurang ${fmtMinutes(s.remainingMin)}`;
+        text = `Sudah dilaporkan ${s.reportedMin} dari ${s.requiredMin} menit dalam ${s.reports.length} report. Silakan kirim report berikutnya untuk sisa live (Live ID berikutnya).`;
+      } else {
+        title = st === "LATE" ? "Report terlambat" : "Kirim report sesi ini";
+        text = st === "LATE" ? `Batasnya ${dayText(s.due)}. Kirim sekarang dan jelaskan di catatan.` : `Kirim sebelum ${dayText(s.due)}.`;
+        text += " Tekan Send Report, isi Live ID, durasi, angka, dan screenshot.";
+      }
+      if (props.blocker === "STATUS") {
+        tone = "warn";
+        title = `Menunggu status ${opts.waitingStatus}`;
+        text = `Status jadwal masih ${str(s.row, "Status") || "Planned"}. Send Report terbuka saat status ${opts.waitingStatus} — biasanya langsung setelah absen. Kalau sudah absen tapi status belum berubah, hubungi tim PBS.`;
+      }
+      btn = props.onForm ? (
+        <Button size="sm" onClick={props.onForm}>
+          {s.partial ? "Send Report berikutnya" : "Send Report"}
         </Button>
-      );
+      ) : null;
       break;
     case "REVISION":
       tone = "bad";
@@ -338,7 +511,7 @@ function NextStep(props: {
       title = "Report perlu revisi";
       text = "Reviewer mengembalikan report ini. Perbaiki angka yang ditandai atau kirim sanggahan.";
       btn = (
-        <Button size="sm" onClick={() => (props.onForm ? props.onForm() : s.report && action.fire("OPEN_REPORT", reportRef(s.report)))}>
+        <Button size="sm" onClick={() => document.getElementById("hc-revision")?.scrollIntoView?.({ behavior: "smooth", block: "start" })}>
           Lihat revisi
         </Button>
       );
@@ -372,52 +545,59 @@ function NextStep(props: {
   );
 }
 
-const SUMMARY = ["Penjualan", "Pesanan", "CTR", "CTOR"];
-
-function ReportCard(props: { report: Row; revision: boolean; onOpen: () => void }): React.ReactElement {
-  const r = props.report;
-  const flagged = props.revision ? flaggedFromComment(str(r, "ApprovalComment")) : [];
-  const note = reviewerNote(str(r, "ApprovalComment"));
-  const defs = SUMMARY.map((k) => ALL_METRICS.find((d) => d.key === k)).filter((d): d is (typeof ALL_METRICS)[number] => !!d);
-  const fmt = (v: number | null, f: string) => (v === null ? "—" : f === "idr" ? fmtRupiah(v) : f === "pct" ? fmtPercentValue(v) : fmtNumber(v));
+/** Every report of the session: a live that dropped has one per Live ID. */
+function ReportsCard(props: { s: HostSession; revising: Row | undefined; onOpen: (r: Row) => void }): React.ReactElement {
+  const { s } = props;
+  const pen = ALL_METRICS.find((d) => d.key === "Penjualan");
   return (
-    <div className={`hc-card${props.revision ? " hc-bad" : ""}`}>
-      <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "center", marginBottom: 12, flexWrap: "wrap" }}>
-        <div className="pbs-sec-l">Report {str(r, "Title")}</div>
-        <button type="button" className="pbs-link" onClick={props.onOpen}>
-          {props.revision ? "Perbaiki report" : "Lihat report"}
-        </button>
+    <div className="hc-card">
+      <div className="pbs-sec">
+        <span className="pbs-sec-l">Report sesi ini · {s.reports.length}</span>
+        <span className="pbs-sec-r">{s.requiredMin ? `${s.reportedMin} dari ${s.requiredMin} menit` : ""}</span>
       </div>
-      <dl className="hc-dl">
-        {defs.map((d) => (
-          <div key={d.key} className={flagged.some((f) => f.key === d.key) ? "flag" : undefined}>
-            <dt>{d.label}</dt>
-            <dd className="pbs-num">{fmt(readMetric(r, d), d.format)}</dd>
-          </div>
-        ))}
-        <div>
-          <dt>Status</dt>
-          <dd>{str(r, "ApprovalStatus") || "Belum ada status"}</dd>
-        </div>
-        {reportPlaybook(r) ? (
-          <div style={{ gridColumn: "span 2" }}>
-            <dt>Playbook</dt>
-            <dd style={{ fontWeight: 400, whiteSpace: "pre-wrap" }}>{reportPlaybook(r)}</dd>
-          </div>
-        ) : null}
-      </dl>
-      {note ? (
-        <div className="hc-quote" style={{ marginTop: 12 }}>
-          <Icon name="info" size={16} />
-          <span>“{note}”</span>
-        </div>
-      ) : null}
-      <div className="pbs-muted" style={{ fontSize: 12, marginTop: 10 }}>
-        Dikirim {fmtDayMonth(date(r, "Created", "CreatedDate"))} {fmtTime(date(r, "Created", "CreatedDate"))}
+      <div className="hc-stack" style={{ gap: 0 }}>
+        {s.reports.map((r, i) => {
+          const rs = reviewState(r);
+          const b = hostReportBadge(r, rs);
+          const note = rs === "REVISION" ? reviewerNote(str(r, "ApprovalComment")) : "";
+          const min = reportMinutes(r);
+          return (
+            <div key={str(r, "Title") || i} className={`hc-part${rs === "REVISION" ? " bad" : ""}`}>
+              <span className="n">{i + 1}</span>
+              <span style={{ minWidth: 0 }}>
+                <b className="pbs-num">{str(r, "Title") || "Report baru"}</b>
+                <span className="pbs-muted" style={{ display: "block", fontSize: 12, marginTop: 2 }}>
+                  {[
+                    reportLiveId(r) ? `Live ID ${reportLiveId(r)}` : "",
+                    min !== null ? `${min} menit` : "durasi kosong",
+                    pen ? fmtRp(readMetric(r, pen)) : "",
+                    reportPlaybook(r),
+                    `dikirim ${fmtDayMonth(date(r, "Created", "CreatedDate"))} ${fmtTime(date(r, "Created", "CreatedDate"))}`,
+                  ]
+                    .filter(Boolean)
+                    .join(" · ")}
+                </span>
+                {note ? (
+                  <span className="pbs-t-bad" style={{ display: "block", fontSize: 12, marginTop: 2 }}>
+                    “{note}”
+                  </span>
+                ) : null}
+              </span>
+              <Badge tone={b.tone} title={str(r, "ApprovalStatus")}>
+                {b.label}
+              </Badge>
+              <button type="button" className="pbs-link" onClick={() => props.onOpen(r)}>
+                {rs === "REVISION" && props.revising !== r ? "Perbaiki" : "Lihat"}
+              </button>
+            </div>
+          );
+        })}
       </div>
     </div>
   );
 }
+
+const fmtRp = (v: number | null): string => (v === null ? "" : fmtRupiah(v));
 
 function Loading(props: { onBack: () => void }): React.ReactElement {
   return (

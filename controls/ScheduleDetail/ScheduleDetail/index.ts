@@ -4,6 +4,7 @@ import { ReactHost, flag, referenceNow } from "../../../shared/mount";
 import { RowsCache } from "../../../shared/cache";
 import { parseContext, useAction } from "../../../shared/contract";
 import { Row } from "../../../shared/data";
+import { parsePlaybooks } from "../../../shared/hostApp";
 import { ScheduleDetailView } from "./ScheduleDetailView";
 
 interface ShellProps {
@@ -18,6 +19,7 @@ interface ShellProps {
   history: Row[];
   brands: Row[];
   studios: Row[];
+  playbooks: string[];
   loading: boolean;
   referenceDate: string | null;
   minute: number;
@@ -73,6 +75,7 @@ export class ScheduleDetail implements ComponentFramework.StandardControl<IInput
         history: this.cache.get("hi", p.HistoryJson?.raw),
         brands: this.cache.get("b", p.BrandsJson?.raw),
         studios: this.cache.get("st", p.StudiosJson?.raw),
+        playbooks: parsePlaybooks(p.PlaybooksJson?.raw),
         loading: flag(p.IsLoading),
         referenceDate: p.ReferenceDate?.raw ?? null,
         minute: Math.floor(Date.now() / 60000),

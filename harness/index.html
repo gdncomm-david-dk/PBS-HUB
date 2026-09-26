@@ -139,6 +139,7 @@
         ScheduleId: id, SchedulesJson: J(s === "loading" ? [] : day), ReportsJson: J(s === "loading" ? [] : dayReps),
         EvidenceJson: J(all.evidence.filter((e) => dayReps.some((r) => r.Title === e.Title))),
         HistoryJson: J(all.reports.filter((x) => sch && x.Platform && x.Platform.Value === (sch.Platform || {}).Value && x.ScheduleID !== id)),
+        PlaybooksJson: J(["Flash Sale", "Payday", "Launching Produk", "Live Reguler"].map((Value) => ({ Value }))),
       });
     }
     if (c === "ClockIn") {
@@ -159,6 +160,7 @@
       const sch = all.schedules.find((x) => x.Title === schId);
       Object.assign(params, base, {
         ReportJson: J(rep ? [rep] : []), ScheduleJson: J(sch ? [sch] : []), EvidenceJson: J(rep ? all.evidence.filter((e) => e.Title === rep.Title) : []),
+        SessionReportsJson: J(all.reports.filter((x) => x.ScheduleID === schId)),
         HistoryJson: J(all.reports.filter((x) => x !== rep && x.Platform && sch && x.Platform.Value === (sch.Platform || {}).Value)),
       });
     }
@@ -266,24 +268,37 @@
       setTimeout(() => {
         const fail = q.get("reply") === "error";
         let message = "";
+        // Schedule.Status (and LiveBreak) follow the payload, as canvas patches them.
+        const patchSchedule = (id, patch) => { if (!params.SchedulesJson) return; params.SchedulesJson = J(JSON.parse(params.SchedulesJson).map((x) => (x.Title === id ? Object.assign({}, x, patch) : x))); };
+        const repKey = c === "ScheduleDetail" || c === "MySchedule" || c === "HostDashboard" ? "ReportsJson" : "ReportJson";
+        window.__rid = (window.__rid || 20950) + 1;
         if (!fail && p.action === "ABSEN") {
           const rows = JSON.parse(params.AbsenceJson || "[]");
           rows.push({ ID: 8899, Title: "ABS-8899", HostID: p.payload.hostId, ScheduleID: p.payload.scheduleId, AbsenceDate: p.payload.liveDate, CheckInTime: S.REF, Created: S.REF });
           params.AbsenceJson = J(rows);
-          message = `Absen tercatat untuk ${p.payload.scheduleId}.`;
+          patchSchedule(p.payload.scheduleId, Object.assign({ Status: { Value: p.payload.scheduleStatus } }, p.payload.liveBreak ? { LiveBreak: { Value: "Yes" } } : {}));
+          if (p.payload.liveBreak && p.payload.report) {
+            const lb = Object.assign({ ID: window.__rid, Title: "REP-" + window.__rid, ScheduleID: p.payload.scheduleId, HostID: p.payload.hostId, BrandID: p.payload.brandId, Platform: { Value: p.payload.platform }, LiveDate: p.payload.liveDate, ApprovalStatus: { Value: "LiveBreak" }, Created: S.REF, Modified: S.REF }, p.payload.report.metrics);
+            params[repKey] = J(JSON.parse(params[repKey] || "[]").concat([lb]));
+          }
+          message = p.payload.liveBreak ? `Absen tercatat untuk ${p.payload.scheduleId}. Live break: report 0 dibuat otomatis.` : `Absen tercatat untuk ${p.payload.scheduleId}.`;
         }
         if (!fail && p.action === "SUBMIT_REPORT") {
-          const row = Object.assign({ ID: 20950, Title: "REP-20950", ScheduleID: p.payload.scheduleId, HostID: p.payload.hostId, BrandID: p.payload.brandId, Platform: { Value: p.payload.platform }, LiveDate: p.payload.liveDate, ApprovalStatus: { Value: "Waiting Approval" }, Created: S.REF, Modified: S.REF, Attachment: "REP-20950_" + p.payload.file.name.split("_").slice(1).join("_") }, p.payload.metrics);
+          const t = "REP-" + window.__rid;
+          const row = Object.assign({ ID: window.__rid, Title: t, ScheduleID: p.payload.scheduleId, HostID: p.payload.hostId, BrandID: p.payload.brandId, Platform: { Value: p.payload.platform }, LiveDate: p.payload.liveDate, LiveID: p.payload.liveId, Playbook: { Value: p.payload.playbook }, ApprovalStatus: { Value: "Waiting Approval" }, Created: S.REF, Modified: S.REF, Attachment: t + "_" + p.payload.file.name.split("_").slice(1).join("_") }, p.payload.metrics);
           if (c === "ScheduleDetail") params.ReportsJson = J(JSON.parse(params.ReportsJson || "[]").concat([row]));
-          else params.ReportJson = J([row]);
-          message = "Report REP-20950 terkirim.";
+          else { params.SessionReportsJson = J(JSON.parse(params.SessionReportsJson || "[]").concat([row])); params.ReportJson = J([row]); }
+          patchSchedule(p.payload.scheduleId, { Status: { Value: p.payload.scheduleStatus } });
+          if (params.ScheduleJson) params.ScheduleJson = J(JSON.parse(params.ScheduleJson).map((x) => Object.assign({}, x, { Status: { Value: p.payload.scheduleStatus } })));
+          message = `Report ${t} terkirim.`;
         }
         if (!fail && (p.action === "RESUBMIT_REPORT" || p.action === "DISPUTE_REVIEW")) {
           const key = c === "ScheduleDetail" ? "ReportsJson" : "ReportJson";
           const rows = JSON.parse(params[key]);
           const at = Math.max(0, rows.findIndex((x) => String(x.ID) === String(p.payload.reportId)));
           const row = Object.assign({}, rows[at]);
-          if (p.action === "RESUBMIT_REPORT") Object.assign(row, p.payload.metrics, { ApprovalStatus: { Value: p.payload.approvalStatus }, Modified: S.REF });
+          if (p.action === "RESUBMIT_REPORT") Object.assign(row, p.payload.metrics, { LiveID: p.payload.liveId, Playbook: { Value: p.payload.playbook }, ApprovalStatus: { Value: p.payload.approvalStatus }, Modified: S.REF });
+          if (p.action === "RESUBMIT_REPORT" && p.payload.scheduleStatus) patchSchedule(p.payload.scheduleId, { Status: { Value: p.payload.scheduleStatus } });
           else row.ApprovalComment = (row.ApprovalComment || "") + "\n[Sanggahan host] " + p.payload.reason;
           rows[at] = row;
           params[key] = J(rows);

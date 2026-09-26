@@ -21,9 +21,41 @@ export interface HostOptions {
   maxShiftHours: number;
   /** false when the tenant does not use Host Absence: clock-in alone unlocks the report. */
   requireAbsen: boolean;
+  /** Report opens only while Schedule.Status is Waiting Report (canvas sets it on absen). */
+  requireWaitingStatus: boolean;
+  /** Schedule.Status written while report parts are still owed, and once the session is complete. */
+  waitingStatus: string;
+  doneStatus: string;
+  /** Report.Playbook choices for the dropdown (canvas may send Choices(...) instead). */
+  playbooks: string[];
 }
 
-export const DEFAULT_HOST_OPTIONS: HostOptions = { absenLeadMin: 30, reportDeadlineDays: 2, maxShiftHours: 12, requireAbsen: true };
+export const DEFAULT_PLAYBOOKS = ["Flash Sale", "Payday", "Launching Produk", "Reguler"];
+
+export const DEFAULT_HOST_OPTIONS: HostOptions = {
+  absenLeadMin: 30,
+  reportDeadlineDays: 2,
+  maxShiftHours: 12,
+  requireAbsen: true,
+  requireWaitingStatus: true,
+  waitingStatus: "Waiting Report",
+  doneStatus: "Done",
+  playbooks: DEFAULT_PLAYBOOKS,
+};
+
+const off = (v: unknown) => v === false || v === "false";
+const text = (v: unknown, d: string) => (typeof v === "string" && v.trim() ? v.trim() : d);
+
+/** A list from config: an array of strings / {Value} rows, or "a, b, c". */
+export function choiceList(v: unknown): string[] {
+  const raw = Array.isArray(v) ? v : typeof v === "string" ? v.split(/[,;\n]/) : [];
+  const out: string[] = [];
+  for (const x of raw) {
+    const t = (x && typeof x === "object" ? String((x as Record<string, unknown>).Value ?? (x as Record<string, unknown>).Title ?? "") : String(x ?? "")).trim();
+    if (t && !out.includes(t)) out.push(t);
+  }
+  return out;
+}
 
 export function hostOptions(config: Record<string, unknown>): HostOptions {
   const n = (k: string, d: number) => {
@@ -34,7 +66,11 @@ export function hostOptions(config: Record<string, unknown>): HostOptions {
     absenLeadMin: n("absenLeadMin", DEFAULT_HOST_OPTIONS.absenLeadMin),
     reportDeadlineDays: n("reportDeadlineDays", DEFAULT_HOST_OPTIONS.reportDeadlineDays),
     maxShiftHours: n("maxShiftHours", DEFAULT_HOST_OPTIONS.maxShiftHours),
-    requireAbsen: config.requireAbsen === false || config.requireAbsen === "false" ? false : true,
+    requireAbsen: !off(config.requireAbsen),
+    requireWaitingStatus: !off(config.requireWaitingStatus),
+    waitingStatus: text(config.scheduleWaitingStatus, DEFAULT_HOST_OPTIONS.waitingStatus),
+    doneStatus: text(config.scheduleDoneStatus, DEFAULT_HOST_OPTIONS.doneStatus),
+    playbooks: choiceList(config.playbooks).length ? choiceList(config.playbooks) : DEFAULT_PLAYBOOKS,
   };
 }
 
@@ -82,13 +118,30 @@ export function shiftToday(clockIns: Row[], now: Date, opts: HostOptions = DEFAU
   // A shift still open from yesterday counts too: that is the forgotten clock-out case.
   const open = clockIns.find((c) => checkIn(c) && !checkOut(c) && (now.getTime() - (checkIn(c)?.getTime() ?? 0)) / 36e5 < 36);
   const row = open ?? rows.sort((a, b) => (checkIn(b)?.getTime() ?? 0) - (checkIn(a)?.getTime() ?? 0))[0];
-  if (!row) return { state: "NOT_IN", since: null, until: null, minutes: 0, overdue: false, office: "", row: undefined };
+  if (!row)
+    return {
+      state: "NOT_IN",
+      since: null,
+      until: null,
+      minutes: 0,
+      overdue: false,
+      office: "",
+      row: undefined,
+    };
   const since = checkIn(row);
   const until = checkOut(row);
   const office = str(row, "CheckInOffice", "Office", "StudioName");
   if (!until) {
     const minutes = since ? Math.max(0, Math.round((now.getTime() - since.getTime()) / 60000)) : 0;
-    return { state: "IN", since, until: null, minutes, overdue: minutes >= opts.maxShiftHours * 60, office, row };
+    return {
+      state: "IN",
+      since,
+      until: null,
+      minutes,
+      overdue: minutes >= opts.maxShiftHours * 60,
+      office,
+      row,
+    };
   }
   const minutes = since ? Math.max(0, Math.round((until.getTime() - since.getTime()) / 60000)) : 0;
   return { state: "OUT", since, until, minutes, overdue: false, office, row };
@@ -132,7 +185,7 @@ export type SessionPhase =
   | "NOW" // absen window open or live now, nothing done yet
   | "NEEDS_CLOCKIN" // session started/passed, no clock-in that day
   | "NEEDS_ABSEN" // clocked in, no absen for this session
-  | "NEEDS_REPORT" // absen done, no report yet
+  | "NEEDS_REPORT" // absen done, no report yet (or the parts sent so far do not cover the session)
   | "NO_REPORT" // absen done, live break or Co-Host: no report owed
   | "REVISION" // report sent back to the host
   | "REPORTED" // report submitted: waiting or done
@@ -170,8 +223,19 @@ export interface HostSession {
   phase: SessionPhase;
   clockedIn: boolean;
   absence: Row | undefined;
+  /** The report the host acts on: the one sent back for revision, else the newest. */
   report: Row | undefined;
   reportState: ReviewState | null;
+  /** Every report of this session, oldest first. A live that dropped is reported in parts. */
+  reports: Row[];
+  /** Scheduled minutes (EndTime − StartTime, else JamLive); null when unknown. */
+  requiredMin: number | null;
+  /** Durasi(Min) summed over the reports. */
+  reportedMin: number;
+  /** Minutes still to report; 0 once the parts cover the session (or it ended as live break). */
+  remainingMin: number;
+  /** Some parts are in, but not enough minutes yet: another report is owed. */
+  partial: boolean;
   /** Live break or Co-Host: this schedule needs no report. */
   noReport: "LIVE_BREAK" | "CO_HOST" | null;
   /** Report deadline (end of live day + reportDeadlineDays). */
@@ -204,9 +268,7 @@ export function buildHostSessions(d: HostData, now: Date, opts: HostOptions = DE
   const studios = nameIndex(d.studios, ["NamaStudio", "StudioName"]);
   const days = clockedDays(d.clockIns);
   const absBySchedule = byKey(d.absences, (a) => str(a, "ScheduleID"));
-  // Newest report per schedule: a resubmission replaces the old row in the host's eyes.
-  const reports = [...d.reports].sort((a, b) => (date(b, "Created", "CreatedDate")?.getTime() ?? 0) - (date(a, "Created", "CreatedDate")?.getTime() ?? 0));
-  const repBySchedule = byKey(reports, (r) => reportScheduleId(r));
+  const repBySchedule = reportsBySchedule(d.reports);
   const t = now.getTime();
 
   return d.schedules
@@ -220,8 +282,10 @@ export function buildHostSessions(d: HostData, now: Date, opts: HostOptions = DE
       if (start && end && end <= start) end = new Date(end.getTime() + 864e5); // past midnight
       const title = str(s, "Title");
       const absence = absBySchedule.get(title.toLowerCase());
-      const report = repBySchedule.get(title.toLowerCase());
+      const reports = repBySchedule.get(title.toLowerCase()) ?? [];
+      const report = reports.find((r) => reviewState(r) === "REVISION") ?? reports[reports.length - 1];
       const reportState = report ? reviewState(report) : null;
+      const cover = reportCoverage(reports, scheduledMin(start, end, s));
       const noReport = noReportReason(s);
       const clockedIn = !!dayKey && days.has(dayKey);
       const brandId = str(s, "BrandID");
@@ -233,9 +297,13 @@ export function buildHostSessions(d: HostData, now: Date, opts: HostOptions = DE
       let phase: SessionPhase;
       const hasAbsen = !!absence || !opts.requireAbsen;
       if (sessionStatus(s) === "CANCELLED") phase = "CANCELLED";
-      else if (report) phase = reportState === "REVISION" ? "REVISION" : "REPORTED";
+      else if (report && reportState === "REVISION") phase = "REVISION";
+      else if (report && !cover.partial) phase = "REPORTED";
+      else if (report)
+        phase = "NEEDS_REPORT"; // a part is in; the rest of the minutes are owed
       else if (t < opens) phase = "UPCOMING";
-      else if (noReport && sessionStatus(s) === "DONE") phase = "NO_REPORT"; // closed by ops, nothing owed
+      else if (noReport && sessionStatus(s) === "DONE")
+        phase = "NO_REPORT"; // closed by ops, nothing owed
       else if (hasAbsen && clockedIn) phase = noReport ? "NO_REPORT" : "NEEDS_REPORT";
       else if (!clockedIn) phase = t <= endT ? "NOW" : "NEEDS_CLOCKIN";
       else phase = t <= endT && !absence ? "NOW" : "NEEDS_ABSEN";
@@ -262,6 +330,8 @@ export function buildHostSessions(d: HostData, now: Date, opts: HostOptions = DE
         absence,
         report,
         reportState,
+        reports,
+        ...cover,
         noReport,
         due,
         late: !!due && phase === "NEEDS_REPORT" && t > due.getTime(),
@@ -271,12 +341,149 @@ export function buildHostSessions(d: HostData, now: Date, opts: HostOptions = DE
     .sort((a, b) => (a.start?.getTime() ?? a.day?.getTime() ?? 0) - (b.start?.getTime() ?? b.day?.getTime() ?? 0));
 }
 
-/** What blocks a report for this session, in the order the host has to fix it. */
-export function reportBlocker(s: HostSession, opts: HostOptions = DEFAULT_HOST_OPTIONS): "CLOCKIN" | "ABSEN" | "NOT_STARTED" | null {
+const created = (r: Row) => date(r, "Created", "CreatedDate")?.getTime() ?? 0;
+
+/** Reports per schedule (lower-case Title), oldest first. */
+export function reportsBySchedule(reports: Row[]): Map<string, Row[]> {
+  const m = new Map<string, Row[]>();
+  for (const r of [...reports].sort((a, b) => created(a) - created(b))) {
+    const k = reportScheduleId(r).toLowerCase();
+    if (!k) continue;
+    const list = m.get(k);
+    if (list) list.push(r);
+    else m.set(k, [r]);
+  }
+  return m;
+}
+
+function scheduledMin(start: Date | null, end: Date | null, s: Row): number | null {
+  if (start && end) return Math.round((end.getTime() - start.getTime()) / 60000);
+  const h = num(s, "JamLive", "TotalLiveTime");
+  return h === null || h <= 0 ? null : Math.round(h * 60);
+}
+
+const DURASI = ALL_METRICS.find((d) => d.key === "Durasi");
+/** Durasi(Min) of one report; null when blank. */
+export const reportMinutes = (r: Row): number | null => (DURASI ? readMetric(r, DURASI) : null);
+
+/**
+ * How far the reports cover the scheduled minutes. A live that dropped halfway is reported in
+ * parts: 120 scheduled, 60 reported → 60 still owed and the schedule stays Waiting Report. A live
+ * break report closes the session whatever its minutes; without a scheduled duration one report does.
+ */
+export function reportCoverage(
+  reports: Row[],
+  requiredMin: number | null,
+): {
+  requiredMin: number | null;
+  reportedMin: number;
+  remainingMin: number;
+  partial: boolean;
+} {
+  const reportedMin = reports.reduce((a, r) => a + (reportMinutes(r) ?? 0), 0);
+  // Live break closes the session; so does an older report sent before Durasi was required.
+  const closed = reports.some((r) => reviewState(r) === "LIVE_BREAK" || reportMinutes(r) === null);
+  const remainingMin = !reports.length ? (requiredMin ?? 0) : closed || requiredMin === null ? 0 : Math.max(0, requiredMin - reportedMin);
+  return {
+    requiredMin,
+    reportedMin,
+    remainingMin,
+    partial: reports.length > 0 && remainingMin > 0,
+  };
+}
+
+/** Schedule.Status after a report of `minutes` (Durasi) is added to the ones already in. */
+export function statusAfterReport(
+  s: HostSession,
+  minutes: number,
+  opts: HostOptions,
+  replacing?: Row,
+): {
+  status: string;
+  complete: boolean;
+  totalMin: number;
+  remainingMin: number;
+} {
+  const others = replacing ? s.reports.filter((r) => r !== replacing) : s.reports;
+  const totalMin = others.reduce((a, r) => a + (reportMinutes(r) ?? 0), 0) + minutes;
+  const remainingMin = s.requiredMin === null ? 0 : Math.max(0, s.requiredMin - totalMin);
+  const complete = remainingMin === 0;
+  return {
+    status: complete ? opts.doneStatus : opts.waitingStatus,
+    complete,
+    totalMin,
+    remainingMin,
+  };
+}
+
+/** Schedule.Status allows a report: Waiting Report (or the check is off in config). */
+export const statusAllowsReport = (s: HostSession, opts: HostOptions): boolean => !opts.requireWaitingStatus || sessionStatus(s.row) === "WAITING_REPORT";
+
+export type ReportBlocker = "CLOCKIN" | "ABSEN" | "NOT_STARTED" | "STATUS" | "NO_REPORT" | "COMPLETE";
+
+/** What blocks a (next) report for this session, in the order the host has to fix it. */
+export function reportBlocker(s: HostSession, opts: HostOptions = DEFAULT_HOST_OPTIONS): ReportBlocker | null {
+  if (s.noReport) return "NO_REPORT";
   if (s.phase === "UPCOMING") return "NOT_STARTED";
   if (!s.clockedIn) return "CLOCKIN";
   if (opts.requireAbsen && !s.absence) return "ABSEN";
+  if (s.reports.length && !s.partial) return "COMPLETE";
+  if (!statusAllowsReport(s, opts)) return "STATUS";
   return null;
+}
+
+export const BLOCKER_TEXT: Record<ReportBlocker, string> = {
+  CLOCKIN: "Belum ada clock in di hari sesi ini",
+  ABSEN: "Absen sesi ini belum tercatat",
+  NOT_STARTED: "Sesi belum dimulai",
+  STATUS: "Status jadwal belum Waiting Report",
+  NO_REPORT: "Sesi ini tidak perlu report",
+  COMPLETE: "Durasi sesi sudah terpenuhi",
+};
+
+export const fmtMinutes = (m: number): string => {
+  const h = Math.floor(m / 60);
+  const r = Math.round(m % 60);
+  return h && r ? `${h} jam ${r} menit` : h ? `${h} jam` : `${r} menit`;
+};
+
+// ---- Absen --------------------------------------------------------------------------------------
+
+/**
+ * ABSEN payload. `liveBreak` comes from the popup: a live break owes no report, but canvas still
+ * creates a Report row with every metric 0 and ApprovalStatus LiveBreak so the list stays complete.
+ * `scheduleStatus` is what canvas writes to Schedule.Status: Waiting Report when a report is owed,
+ * Done for a live break or a Co-Host.
+ */
+export function absenPayload(s: HostSession, host: Row | undefined, liveBreak = false, opts: HostOptions = DEFAULT_HOST_OPTIONS): Record<string, unknown> {
+  const coHost = noReportReason(s.row) === "CO_HOST";
+  const hostId = str(host, "Title") || str(s.row, "HostID");
+  const zeros = metricColumns(Object.fromEntries(ALL_METRICS.map((d) => [d.key, 0])));
+  return {
+    scheduleId: s.title,
+    scheduleItemId: s.id,
+    hostId,
+    hostName: str(host, "NamaHost", "HostName"),
+    liveDate: s.dayKey,
+    brandId: s.brandId,
+    studioId: s.studioId,
+    platform: s.platform,
+    account: s.accountId,
+    accountName: s.account,
+    position: str(s.row, "Position"),
+    liveBreak,
+    scheduleStatus: liveBreak || coHost ? opts.doneStatus : opts.waitingStatus,
+    report: liveBreak
+      ? {
+          approvalStatus: "LiveBreak",
+          metrics: zeros,
+          liveId: "",
+          playbook: "",
+          durationMin: 0,
+          fileName: "",
+        }
+      : null,
+  };
 }
 
 // ---- Revision: which numbers the reviewer flagged -----------------------------------------------
@@ -290,7 +497,10 @@ const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, "");
 export function flaggedFromComment(comment: string): MetricDef[] {
   const m = /metrik yang perlu dibetulkan\s*:\s*([^\n]+)/i.exec(comment);
   if (!m?.[1]) return [];
-  const names = m[1].split(/[,;]/).map((x) => norm(x)).filter(Boolean);
+  const names = m[1]
+    .split(/[,;]/)
+    .map((x) => norm(x))
+    .filter(Boolean);
   return ALL_METRICS.filter((d) => names.includes(norm(d.label)) || names.includes(norm(d.key)) || d.fields.some((f) => names.includes(norm(f))));
 }
 
@@ -341,16 +551,32 @@ export function sanityWarnings(v: MetricValues, history: MetricValues[]): Sanity
   const g = (k: string) => v[k] ?? null;
   for (const k of ["CTR", "CTOR"]) {
     const x = g(k);
-    if (x !== null && (x < 0 || x > 100)) out.push({ key: k, text: `${k} ${x}% di luar 0–100%. Periksa lagi, mungkin salah ketik koma.` });
+    if (x !== null && (x < 0 || x > 100))
+      out.push({
+        key: k,
+        text: `${k} ${x}% di luar 0–100%. Periksa lagi, mungkin salah ketik koma.`,
+      });
   }
   const orders = g("Pesanan");
   const buyers = g("JumlahPembeli");
   const sold = g("ProdukTerjual");
-  if (orders !== null && buyers !== null && buyers > orders) out.push({ key: "JumlahPembeli", text: "Jumlah pembeli lebih besar dari pesanan — biasanya satu pembeli membuat minimal satu pesanan." });
-  if (orders !== null && sold !== null && sold < orders) out.push({ key: "ProdukTerjual", text: "Produk terjual lebih kecil dari pesanan — setiap pesanan berisi minimal satu produk." });
+  if (orders !== null && buyers !== null && buyers > orders)
+    out.push({
+      key: "JumlahPembeli",
+      text: "Jumlah pembeli lebih besar dari pesanan — biasanya satu pembeli membuat minimal satu pesanan.",
+    });
+  if (orders !== null && sold !== null && sold < orders)
+    out.push({
+      key: "ProdukTerjual",
+      text: "Produk terjual lebih kecil dari pesanan — setiap pesanan berisi minimal satu produk.",
+    });
   const peak = g("PeakViewer");
   const total = g("TotalViewer");
-  if (peak !== null && total !== null && total > 0 && peak > total) out.push({ key: "PeakViewer", text: "Peak viewer lebih besar dari total viewer." });
+  if (peak !== null && total !== null && total > 0 && peak > total)
+    out.push({
+      key: "PeakViewer",
+      text: "Peak viewer lebih besar dari total viewer.",
+    });
   const sales = g("Penjualan");
   if (sales !== null && sales > 0 && orders === 0) out.push({ key: "Pesanan", text: "Ada penjualan tapi pesanan 0." });
   // Far from the host's own average (last reports) — the design's "Rata-rata kamu 1,8% — cek lagi".
@@ -359,14 +585,17 @@ export function sanityWarnings(v: MetricValues, history: MetricValues[]): Sanity
     const past = history.map((h) => h[k]).filter((n): n is number => n !== null && n !== undefined && n > 0);
     if (x === null || x <= 0 || past.length < 3) continue;
     const avg = past.reduce((a, b) => a + b, 0) / past.length;
-    if (x > avg * 3) out.push({ key: k, text: `${labelOf(k)} jauh di atas rata-rata kamu (${fmtAvg(avg, k)}). Peringatan ini tidak memblokir submit — periksa dulu screenshot-nya.` });
+    if (x > avg * 3)
+      out.push({
+        key: k,
+        text: `${labelOf(k)} jauh di atas rata-rata kamu (${fmtAvg(avg, k)}). Peringatan ini tidak memblokir submit — periksa dulu screenshot-nya.`,
+      });
   }
   return out;
 }
 
 const labelOf = (k: string) => ALL_METRICS.find((d) => d.key === k)?.label ?? k;
-const fmtAvg = (n: number, k: string) =>
-  k === "Penjualan" ? `Rp${Math.round(n).toLocaleString("id-ID")}` : `${n.toLocaleString("id-ID", { maximumFractionDigits: 1 })}%`;
+const fmtAvg = (n: number, k: string) => (k === "Penjualan" ? `Rp${Math.round(n).toLocaleString("id-ID")}` : `${n.toLocaleString("id-ID", { maximumFractionDigits: 1 })}%`);
 
 /** Filled metrics, missing required ones. Durasi … Share may stay empty. */
 export function missingMetrics(v: MetricValues, required: MetricDef[]): MetricDef[] {
@@ -406,3 +635,42 @@ export function greeting(now: Date): string {
 }
 
 export const scoreOf = (host: Row | undefined): number | null => num(host, "CurrentScore", "Score", "InitialScore");
+
+// ---- Report form fields -------------------------------------------------------------------------
+
+export const isShopee = (platform: string): boolean => /shopee/i.test(platform);
+
+/** The order of the report form (Seller Center). AddToCart only exists on Shopee; Share is not asked. */
+const FORM_ORDER = ["AddToCart", "Pesanan", "Penjualan", "ProdukTerjual", "JumlahPembeli", "CTR", "PeakViewer", "TotalViewer", "CTOR", "Comment"];
+
+/** Metric inputs of the report form for this platform, Durasi excluded (it sits with Live ID). */
+export function reportMetricDefs(platform: string): MetricDef[] {
+  return FORM_ORDER.filter((k) => k !== "AddToCart" || isShopee(platform))
+    .map((k) => ALL_METRICS.find((d) => d.key === k))
+    .filter((d): d is MetricDef => !!d);
+}
+
+/** Every metric the host must fill: Durasi plus the platform's inputs. */
+export function requiredReportDefs(platform: string): MetricDef[] {
+  const durasi = ALL_METRICS.find((d) => d.key === "Durasi");
+  return [...(durasi ? [durasi] : []), ...reportMetricDefs(platform)];
+}
+
+/** Report.LiveID (text). */
+export const reportLiveId = (r: Row | undefined): string => str(r, "LiveID", "LiveId", "Live ID", "Live_x0020_ID");
+
+let lastPlaybooks: { raw: string; list: string[] } = { raw: "", list: [] };
+/** PlaybooksJson: Choices(...) rows, a JSON string array, or "a, b". Stable array per input. */
+export function parsePlaybooks(raw: string | null | undefined): string[] {
+  const s = raw ?? "";
+  if (s === lastPlaybooks.raw) return lastPlaybooks.list;
+  let v: unknown = s;
+  try {
+    v = JSON.parse(s);
+  } catch {
+    /* plain text list */
+  }
+  const list = choiceList(Array.isArray(v) ? v : v && typeof v === "object" ? (v as Record<string, unknown>).value : v);
+  lastPlaybooks = { raw: s, list };
+  return list;
+}

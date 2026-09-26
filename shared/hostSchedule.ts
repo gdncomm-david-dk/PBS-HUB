@@ -229,7 +229,11 @@ export function sessionSteps(s: HostSession, clockIn: Row | undefined, now: Date
       : s.report
         ? st === "REVISION"
           ? "bad"
-          : "done"
+          : s.partial
+            ? st === "LATE"
+              ? "bad"
+              : "now"
+            : "done"
         : st === "LATE"
           ? "bad"
           : st === "NEEDS_REPORT"
@@ -239,8 +243,10 @@ export function sessionSteps(s: HostSession, clockIn: Row | undefined, now: Date
               : "todo",
     text: exempt
       ? `Tidak perlu report · ${exempt}.`
+      : s.partial
+      ? `${s.reports.length} report · ${s.reportedMin} dari ${s.requiredMin} menit. Kirim report berikutnya untuk ${s.remainingMin} menit sisanya.`
       : s.report
-      ? `${str(s.report, "Title") || "Report"} dikirim ${fmt.day(date(s.report, "Created", "CreatedDate"))}${st === "REVISION" ? " · dikembalikan untuk revisi" : ""}`
+      ? `${s.reports.length > 1 ? `${s.reports.length} report, terakhir ` : ""}${str(s.report, "Title") || "Report"} dikirim ${fmt.day(date(s.report, "Created", "CreatedDate"))}${st === "REVISION" ? " · dikembalikan untuk revisi" : ""}`
       : st === "LATE"
         ? `Lewat batas ${fmt.day(s.due)}. Kirim sekarang dan jelaskan di catatan.`
         : st === "NEEDS_REPORT"

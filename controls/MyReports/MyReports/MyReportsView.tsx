@@ -2,11 +2,11 @@ import * as React from "react";
 import { ModuleContext, UseActionResult } from "../../../shared/contract";
 import { Row, date, nameIndex, reportPlaybook, reportScheduleId, rowId, str } from "../../../shared/data";
 import { fmtDayMonth, fmtNumber, fmtRupiah } from "../../../shared/format";
-import { hostReportBadge } from "../../../shared/hostApp";
+import { buildHostSessions, hostOptions, hostReportBadge } from "../../../shared/hostApp";
 import { liveWindow } from "../../../shared/reportItems";
 import { Period, addMonths, fmtPeriod, inPeriod, parsePeriod, periodKey, periodOf } from "../../../shared/payroll";
 import { ALL_METRICS, ReviewState, readMetric, reviewState } from "../../../shared/reconcile";
-import { Badge, Button, EmptyState, EndOfData, Icon, ResultBanner, Skeleton, Spinner } from "../../../shared/ui";
+import { Badge, Button, EmptyState, EndOfData, Icon, IconName, ResultBanner, Skeleton, Spinner } from "../../../shared/ui";
 
 export interface MyReportsProps {
   ctx: ModuleContext;
@@ -93,6 +93,18 @@ export function MyReportsView(props: MyReportsProps): React.ReactElement {
   // Every loaded row is rendered: a partial list was read as the whole total.
   const visible = filtered;
   const revision = items.filter((i) => i.state === "REVISION").length;
+  const waiting = items.filter((i) => i.state === "WAITING").length;
+  const approved = items.filter((i) => i.state === "DONE_AUTO" || i.state === "DONE_MANUAL").length;
+  // Sessions of the month that still owe a report (none sent, or a split live still short of minutes).
+  const opts = React.useMemo(() => hostOptions(props.ctx.config), [props.ctx]);
+  const owed = React.useMemo(
+    () =>
+      buildHostSessions({ schedules: props.schedules, clockIns: props.clockIns, absences: props.absences, reports: props.reports, brands: props.brands, studios: [] }, now, opts).filter(
+        (s) => s.phase === "NEEDS_REPORT" && inPeriod(s.day, period),
+      ),
+    [props.schedules, props.clockIns, props.absences, props.reports, props.brands, now, opts, period],
+  );
+  const lateOwed = owed.filter((s) => s.late).length;
 
   const choose = (f: Filter) => {
     setFilter(f);
@@ -107,11 +119,7 @@ export function MyReportsView(props: MyReportsProps): React.ReactElement {
       <div className="hc-hi">
         <div>
           <h1>Report saya</h1>
-          <p>
-            {firstLoad
-              ? "Memuat report…"
-              : `${fmtNumber(items.length)}${props.hasMore ? "+" : ""} report pada ${fmtPeriod(period)}${revision ? ` · ${revision} perlu revisi` : ""}`}
-          </p>
+          <p>{firstLoad ? "Memuat report…" : `${fmtNumber(items.length)}${props.hasMore ? "+" : ""} report pada ${fmtPeriod(period)}${revision ? ` · ${revision} perlu revisi` : ""}`}</p>
         </div>
         <label className="pbs-chip">
           <span className="pbs-sr">Bulan</span>
@@ -133,6 +141,28 @@ export function MyReportsView(props: MyReportsProps): React.ReactElement {
       </div>
 
       <ResultBanner result={action.lastResult} onClose={action.clearResult} />
+
+      <div className="hc-kpis">
+        <SumCard
+          icon="file"
+          tone="bad"
+          label="Belum dikirim"
+          value={owed.length}
+          sub={lateOwed ? `${lateOwed} lewat batas` : owed.some((s) => s.partial) ? "termasuk report belum lengkap" : "sesi"}
+          loading={firstLoad}
+          onClick={
+            owed[0]
+              ? () => {
+                  const s = owed[0];
+                  if (s) action.fire("NEW_REPORT", { scheduleId: s.title, scheduleItemId: s.id, liveDate: s.dayKey });
+                }
+              : undefined
+          }
+        />
+        <SumCard icon="alert" tone="warn" label="Perlu revisi" value={revision} sub="perbaiki atau sanggah" loading={firstLoad} onClick={() => choose("Revision")} />
+        <SumCard icon="clock" tone="" label="Menunggu review" value={waiting} sub="oleh tim PBS" loading={firstLoad} onClick={() => choose("Waiting")} />
+        <SumCard icon="check" tone="ok" label="Disetujui" value={approved} sub={fmtPeriod(period)} loading={firstLoad} onClick={() => choose("Done")} />
+      </div>
 
       <div className="hc-chips" role="tablist" aria-label="Status">
         {FILTERS.map((f) => {
@@ -183,16 +213,9 @@ export function MyReportsView(props: MyReportsProps): React.ReactElement {
         />
       ) : props.hasMore ? (
         <div className="pbs-foot">
-          <span>
-            Total {fmtNumber(filtered.length)} report dimuat · masih ada data lain di server
-          </span>
+          <span>Total {fmtNumber(filtered.length)} report dimuat · masih ada data lain di server</span>
           <span className="line" />
-          <Button
-            variant="secondary"
-            size="sm"
-            disabled={props.loading}
-            onClick={() => action.fire("LOAD_MORE", { period: periodKey(period), loaded: props.reports.length })}
-          >
+          <Button variant="secondary" size="sm" disabled={props.loading} onClick={() => action.fire("LOAD_MORE", { period: periodKey(period), loaded: props.reports.length })}>
             {props.loading ? (
               <>
                 <Spinner small /> Memuat…
@@ -246,5 +269,33 @@ function ReportRow(props: { i: Item; onOpen: () => void }): React.ReactElement {
         </button>
       </span>
     </div>
+  );
+}
+
+function SumCard(props: { icon: IconName; tone: "" | "ok" | "warn" | "bad"; label: string; value: number; sub: string; loading: boolean; onClick?: () => void }): React.ReactElement {
+  const body = (
+    <>
+      <span className={`hc-ic${props.tone ? ` ${props.tone}` : ""}`}>
+        <Icon name={props.icon} size={18} />
+      </span>
+      <div style={{ minWidth: 0 }}>
+        <div className="l">{props.label}</div>
+        {props.loading ? (
+          <Skeleton w={60} h={20} style={{ marginTop: 4 }} />
+        ) : (
+          <div className="v">
+            {fmtNumber(props.value)}
+            <small>{props.sub}</small>
+          </div>
+        )}
+      </div>
+    </>
+  );
+  return props.onClick && props.value > 0 ? (
+    <button type="button" className="hc-kpi click" onClick={props.onClick}>
+      {body}
+    </button>
+  ) : (
+    <div className="hc-kpi">{body}</div>
   );
 }

@@ -3,6 +3,7 @@ import { ModuleContext, UseActionResult } from "../../../shared/contract";
 import { Row, localDayKey, NO_REPORT_LABEL, reportScheduleId, rowId, str } from "../../../shared/data";
 import { fmtDayMonth, fmtLongDate, fmtNumber } from "../../../shared/format";
 import { HostSession, buildHostSessions, hostOptions } from "../../../shared/hostApp";
+import { useAbsen } from "../../../shared/hostAbsen";
 import {
   STATUS_FILTERS,
   SCHEDULE_STATE,
@@ -41,20 +42,6 @@ export interface MyScheduleProps {
 
 /** Payloads shared with HostDashboard (same canvas handlers). */
 export const scheduleRef = (s: HostSession): Record<string, unknown> => ({ scheduleId: s.title, scheduleItemId: s.id, liveDate: s.dayKey });
-
-export function absenPayload(s: HostSession, host: Row | undefined): Record<string, unknown> {
-  return {
-    scheduleId: s.title,
-    scheduleItemId: s.id,
-    hostId: str(host, "Title") || str(s.row, "HostID"),
-    hostName: str(host, "NamaHost", "HostName"),
-    liveDate: s.dayKey,
-    brandId: s.brandId,
-    studioId: s.studioId,
-    platform: s.platform,
-    account: s.accountId,
-  };
-}
 
 export const reportRef = (r: Row): Record<string, unknown> => ({ reportId: rowId(r), title: str(r, "Title"), scheduleId: reportScheduleId(r) });
 
@@ -101,6 +88,7 @@ export function MyScheduleView(props: MyScheduleProps): React.ReactElement {
   const months = Array.from({ length: 7 }, (_, i) => addMonths(periodOf(now), 1 - i));
   if (!months.some((m) => periodKey(m) === periodKey(period))) months.push(period);
   const host = props.host[0];
+  const absen = useAbsen(action, host, opts);
 
   const initial = (STATUS_FILTERS.find((f) => f.value === props.defaultFilter)?.value ?? "") as StatusFilter;
   const [status, setStatus] = React.useState<StatusFilter>(initial);
@@ -195,7 +183,7 @@ export function MyScheduleView(props: MyScheduleProps): React.ReactElement {
         <Kpi icon="mapPin" label="Hari clock in" loading={firstLoad} value={fmtNumber(kpi.clockDays)} sub={`dari ${fmtNumber(kpi.workDays)} hari berjadwal`} />
       </div>
 
-      {focus && periodKey(period) === periodKey(periodOf(now)) ? <TodayStrip s={focus} now={now} host={host} action={action} onOpen={() => open(focus)} /> : null}
+      {focus && periodKey(period) === periodKey(periodOf(now)) ? <TodayStrip s={focus} now={now} onAbsen={() => absen.start(focus)} action={action} onOpen={() => open(focus)} /> : null}
 
       <div className="pbs-filters">
         <FilterSelect
@@ -351,6 +339,7 @@ export function MyScheduleView(props: MyScheduleProps): React.ReactElement {
       ) : (
         <EndOfData text={`Total ${fmtNumber(filtered.length)} sesi${filtering ? " sesuai filter" : ""} pada ${fmtPeriod(period)}`} />
       )}
+      {absen.dialog}
     </div>
   );
 }
@@ -376,7 +365,7 @@ function Kpi(props: { icon: IconName; label: string; value: string; sub: string;
   );
 }
 
-function TodayStrip(props: { s: HostSession; now: Date; host: Row | undefined; action: UseActionResult; onOpen: () => void }): React.ReactElement {
+function TodayStrip(props: { s: HostSession; now: Date; onAbsen: () => void; action: UseActionResult; onOpen: () => void }): React.ReactElement {
   const { s, now, action } = props;
   const st = scheduleState(s, now);
   const busy = action.pending?.action === "ABSEN";
@@ -409,7 +398,7 @@ function TodayStrip(props: { s: HostSession; now: Date; host: Row | undefined; a
           </Button>
         ) : null}
         {s.canAbsen ? (
-          <Button variant={s.phase === "NEEDS_REPORT" ? "secondary" : "primary"} size="sm" onClick={() => action.dispatch("ABSEN", absenPayload(s, props.host))} disabled={!!action.pending}>
+          <Button variant={s.phase === "NEEDS_REPORT" ? "secondary" : "primary"} size="sm" onClick={props.onAbsen} disabled={!!action.pending}>
             {busy ? <Spinner small /> : null} Absen
           </Button>
         ) : null}

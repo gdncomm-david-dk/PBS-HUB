@@ -10,6 +10,13 @@ import {
   reportBlocker,
   reviewerNote,
   sanityWarnings,
+  absenPayload,
+  hostOptions,
+  parsePlaybooks,
+  reportCoverage,
+  reportMetricDefs,
+  requiredReportDefs,
+  statusAfterReport,
   shiftToday,
   streakDays,
   DEFAULT_HOST_OPTIONS,
@@ -55,9 +62,15 @@ describe("buildHostSessions", () => {
   });
   it("requireAbsen=false unlocks the report on clock-in alone", () => {
     const opts = { ...DEFAULT_HOST_OPTIONS, requireAbsen: false };
-    const s = buildHostSessions({ ...empty, schedules: [sch(5, "2026-09-12", "10:00", "12:00")], clockIns }, now, opts)[0]!;
+    const s = buildHostSessions({ ...empty, schedules: [sch(5, "2026-09-12", "10:00", "12:00", { Status: { Value: "Waiting Report" } })], clockIns }, now, opts)[0]!;
     expect(s.phase).toBe("NEEDS_REPORT");
     expect(reportBlocker(s, opts)).toBeNull();
+  });
+  it("opens the report only while Schedule.Status is Waiting Report", () => {
+    const opts = { ...DEFAULT_HOST_OPTIONS, requireAbsen: false };
+    const planned = buildHostSessions({ ...empty, schedules: [sch(5, "2026-09-12", "10:00", "12:00")], clockIns }, now, opts)[0]!;
+    expect(reportBlocker(planned, opts)).toBe("STATUS");
+    expect(reportBlocker(planned, { ...opts, requireWaitingStatus: false })).toBeNull();
   });
   it("names the blocker in the order the host fixes it", () => {
     const [noClock, noAbsen, upcoming] = buildHostSessions({ ...empty, schedules: [sch(4, "2026-09-10", "10:00", "12:00"), sch(5, "2026-09-12", "10:00", "12:00"), sch(1, "2026-09-14", "16:00", "18:00")], clockIns }, now);
@@ -145,5 +158,74 @@ describe("image sizing", () => {
     expect(base64Bytes(Buffer.from("hello").toString("base64"))).toBe(5);
     expect(base64Bytes(Buffer.from("hell").toString("base64"))).toBe(4);
     expect(base64Bytes(Buffer.from("hel").toString("base64"))).toBe(3);
+  });
+});
+
+describe("split live: reports in parts until Durasi covers the session", () => {
+  const clockIns = [{ HostID: "H1", ClockInDate: "2026-09-12", CheckInTime: "2026-09-12T08:00:00" }];
+  const four = sch(9, "2026-09-12", "19:00", "23:00", { Status: { Value: "Waiting Report" }, Platform: { Value: "Shopee" } });
+  const part = (t: string, min: number | null, status = "Waiting Approval", created = "2026-09-12T21:00:00") => ({ Title: t, ScheduleID: "SCD-9", ApprovalStatus: { Value: status }, "Durasi(Min)": min, Created: created });
+  const build = (reports: Record<string, unknown>[]) => buildHostSessions({ ...empty, schedules: [four], clockIns, absences: [{ ScheduleID: "SCD-9" }], reports }, now)[0]!;
+
+  it("60 of 240 minutes: still owed, the schedule stays Waiting Report", () => {
+    const s = build([part("R1", 60)]);
+    expect(s).toMatchObject({ phase: "NEEDS_REPORT", requiredMin: 240, reportedMin: 60, remainingMin: 180, partial: true });
+    expect(reportBlocker(s)).toBeNull();
+    expect(statusAfterReport(s, 120, DEFAULT_HOST_OPTIONS)).toEqual({ status: "Waiting Report", complete: false, totalMin: 180, remainingMin: 60 });
+    expect(statusAfterReport(s, 200, DEFAULT_HOST_OPTIONS)).toMatchObject({ status: "Done", complete: true, remainingMin: 0 });
+  });
+  it("covered (or more): reported, no more Send Report", () => {
+    const s = build([part("R1", 120, "Waiting Approval", "2026-09-12T21:00:00"), part("R2", 130, "Done", "2026-09-12T23:10:00")]);
+    expect(s).toMatchObject({ phase: "REPORTED", remainingMin: 0, partial: false });
+    expect(s.report?.Title).toBe("R2");
+    expect(reportBlocker(s)).toBe("COMPLETE");
+  });
+  it("a part sent back for revision is the one the host acts on", () => {
+    const s = build([part("R1", 120, "Need Revision"), part("R2", 60, "Waiting Approval", "2026-09-12T23:10:00")]);
+    expect(s.phase).toBe("REVISION");
+    expect(s.report?.Title).toBe("R1");
+    expect(s.partial).toBe(true);
+    // Revising R1 to 180 minutes covers the session.
+    expect(statusAfterReport(s, 180, DEFAULT_HOST_OPTIONS, s.report)).toMatchObject({ complete: true, totalMin: 240 });
+  });
+  it("live break and old reports without Durasi close the session", () => {
+    expect(reportCoverage([part("R1", 0, "LiveBreak")], 240)).toMatchObject({ remainingMin: 0, partial: false });
+    expect(reportCoverage([part("R1", null)], 240)).toMatchObject({ remainingMin: 0, partial: false });
+    expect(reportCoverage([], 240)).toMatchObject({ remainingMin: 240, partial: false });
+    expect(reportCoverage([part("R1", 30)], null)).toMatchObject({ remainingMin: 0, partial: false });
+  });
+});
+
+describe("absen payload", () => {
+  const s = buildHostSessions({ ...empty, schedules: [sch(2, "2026-09-14", "10:00", "12:00", { Platform: { Value: "TikTok" }, AccountName: "brand.official" })] }, now)[0]!;
+  it("normal live: Waiting Report, no report row", () => {
+    expect(absenPayload(s, { Title: "H1", NamaHost: "Dinda" })).toMatchObject({ scheduleId: "SCD-2", hostId: "H1", liveBreak: false, scheduleStatus: "Waiting Report", report: null, accountName: "brand.official" });
+  });
+  it("live break: Done plus a Report row of zeros with ApprovalStatus LiveBreak", () => {
+    const p = absenPayload(s, undefined, true);
+    expect(p).toMatchObject({ liveBreak: true, scheduleStatus: "Done", report: { approvalStatus: "LiveBreak" } });
+    const metrics = (p.report as { metrics: Record<string, number> }).metrics;
+    expect(Object.values(metrics).every((v) => v === 0)).toBe(true);
+    expect(metrics["Durasi(Min)"]).toBe(0);
+  });
+  it("Co-Host: Done, never a report", () => {
+    const co = buildHostSessions({ ...empty, schedules: [sch(2, "2026-09-14", "10:00", "12:00", { Position: { Value: "Co-Host" } })] }, now)[0]!;
+    expect(absenPayload(co, undefined, false, hostOptions({ scheduleDoneStatus: "Finished" }))).toMatchObject({ scheduleStatus: "Finished", report: null });
+  });
+});
+
+describe("report form fields", () => {
+  it("AddToCart only on Shopee; Share is not asked; Durasi is required", () => {
+    expect(reportMetricDefs("Shopee").map((d) => d.key)).toEqual(["AddToCart", "Pesanan", "Penjualan", "ProdukTerjual", "JumlahPembeli", "CTR", "PeakViewer", "TotalViewer", "CTOR", "Comment"]);
+    expect(reportMetricDefs("TikTok").map((d) => d.key)).not.toContain("AddToCart");
+    expect(requiredReportDefs("TikTok")[0]?.key).toBe("Durasi");
+  });
+  it("playbook choices from Choices(), strings or text", () => {
+    expect(parsePlaybooks(JSON.stringify([{ Value: "Flash Sale" }, { Value: "Payday" }]))).toEqual(["Flash Sale", "Payday"]);
+    expect(parsePlaybooks('["A","B","A"]')).toEqual(["A", "B"]);
+    expect(parsePlaybooks("Reguler, Payday")).toEqual(["Reguler", "Payday"]);
+    expect(parsePlaybooks("")).toEqual([]);
+    expect(hostOptions({}).playbooks.length).toBeGreaterThan(0);
+    expect(hostOptions({ playbooks: "X;Y" }).playbooks).toEqual(["X", "Y"]);
   });
 });

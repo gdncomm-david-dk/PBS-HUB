@@ -10,6 +10,7 @@ import {
   Shift,
   buildHostSessions,
   flaggedFromComment,
+  fmtMinutes,
   greeting,
   hostName,
   hostOptions,
@@ -19,6 +20,8 @@ import {
   streakDays,
 } from "../../../shared/hostApp";
 import { reviewState } from "../../../shared/reconcile";
+import { useAbsen } from "../../../shared/hostAbsen";
+import { SCHEDULE_STATE, scheduleKpis, scheduleState } from "../../../shared/hostSchedule";
 import { MASCOT_CHEER } from "../../../shared/assets.generated";
 import { Badge, Button, Icon, InfoBanner, ResultBanner, Skeleton, Spinner } from "../../../shared/ui";
 
@@ -48,30 +51,35 @@ function until(from: Date, to: Date): string {
   return m % 60 ? `${h} jam ${m % 60} menit lagi` : `${h} jam lagi`;
 }
 
-/** Payload canvas needs to write Host Absence for a session. */
-export function absenPayload(s: HostSession, host: Row | undefined): Record<string, unknown> {
-  return {
-    scheduleId: s.title,
-    scheduleItemId: s.id,
-    hostId: str(host, "Title") || str(s.row, "HostID"),
-    hostName: str(host, "NamaHost", "HostName"),
-    liveDate: s.dayKey,
-    brandId: s.brandId,
-    studioId: s.studioId,
-    platform: s.platform,
-    account: s.accountId,
-  };
-}
-
-export const sessionRef = (s: HostSession): Record<string, unknown> => ({ scheduleId: s.title, scheduleItemId: s.id, liveDate: s.dayKey });
-export const reportRef = (r: Row): Record<string, unknown> => ({ reportId: rowId(r), title: str(r, "Title"), scheduleId: reportScheduleId(r) });
+export const sessionRef = (s: HostSession): Record<string, unknown> => ({
+  scheduleId: s.title,
+  scheduleItemId: s.id,
+  liveDate: s.dayKey,
+});
+export const reportRef = (r: Row): Record<string, unknown> => ({
+  reportId: rowId(r),
+  title: str(r, "Title"),
+  scheduleId: reportScheduleId(r),
+});
 
 export function HostDashboardView(props: HostDashboardProps): React.ReactElement {
   const { ctx, now, action } = props;
   const opts = React.useMemo(() => hostOptions(ctx.config), [ctx]);
   const host = props.host[0];
   const sessions = React.useMemo(
-    () => buildHostSessions({ schedules: props.schedules, clockIns: props.clockIns, absences: props.absences, reports: props.reports, brands: props.brands, studios: props.studios }, now, opts),
+    () =>
+      buildHostSessions(
+        {
+          schedules: props.schedules,
+          clockIns: props.clockIns,
+          absences: props.absences,
+          reports: props.reports,
+          brands: props.brands,
+          studios: props.studios,
+        },
+        now,
+        opts,
+      ),
     [props.schedules, props.clockIns, props.absences, props.reports, props.brands, props.studios, now, opts],
   );
   const shift = shiftToday(props.clockIns, now, opts);
@@ -90,7 +98,8 @@ export function HostDashboardView(props: HostDashboardProps): React.ReactElement
   const next = sessions.find((s) => s.day && startOfDay(s.day) > startOfDay(now) && s.phase !== "CANCELLED");
 
   const busy = action.pending?.action === "ABSEN";
-  const absen = (s: HostSession) => action.dispatch("ABSEN", absenPayload(s, host));
+  const absenFlow = useAbsen(action, host, opts);
+  const absen = (s: HostSession) => absenFlow.start(s);
 
   if (props.loading && sessions.length === 0 && !host) return <Loading />;
 
@@ -114,111 +123,143 @@ export function HostDashboardView(props: HostDashboardProps): React.ReactElement
 
       <ResultBanner result={action.lastResult} okText={action.lastResult?.action === "ABSEN" ? "Absen tercatat. Sekarang kamu bisa kirim report sesi ini." : undefined} onClose={action.clearResult} />
 
-      <div className="hc-stack">
-        <ShiftCard shift={shift} hasToday={today.length > 0} maxHours={opts.maxShiftHours} onIn={() => action.fire("CLOCK_IN", {})} onOut={() => action.fire("CLOCK_OUT", { clockInId: rowId(shift.row) })} />
+      <div className="hc-split">
+        <div className="hc-main">
+          <div className="hc-duo">
+            <ShiftCard
+              shift={shift}
+              hasToday={today.length > 0}
+              maxHours={opts.maxShiftHours}
+              onIn={() => action.fire("CLOCK_IN", {})}
+              onOut={() => action.fire("CLOCK_OUT", { clockInId: rowId(shift.row) })}
+            />
 
-        {revisions.map((r) => {
-          const flagged = flaggedFromComment(str(r, "ApprovalComment"));
-          const note = reviewerNote(str(r, "ApprovalComment"));
-          return (
-            <div key={rowId(r) || str(r, "Title")} className="hc-todo bad">
-              <span className="hc-ic bad">
-                <Icon name="alert" size={18} />
-              </span>
-              <div className="hc-todo-b">
-                <p className="hc-todo-t">Report {brandName(str(r, "BrandID"))} perlu revisi</p>
-                <p className="hc-todo-x">
-                  {flagged.length ? `${flagged.map((m) => m.label).join(" dan ")} perlu kamu cek. ` : ""}
-                  {note ? `“${note.length > 120 ? note.slice(0, 117) + "…" : note}”` : ""}
-                </p>
-                <div style={{ display: "flex", gap: 8, alignItems: "center", marginTop: 8, flexWrap: "wrap" }}>
-                  <span className="pbs-muted" style={{ fontSize: 12 }}>
-                    {str(r, "Title")} · {fmtDayMonth(date(r, "LiveDate"))}
+            {revisions.map((r) => {
+              const flagged = flaggedFromComment(str(r, "ApprovalComment"));
+              const note = reviewerNote(str(r, "ApprovalComment"));
+              return (
+                <div key={rowId(r) || str(r, "Title")} className="hc-todo bad">
+                  <span className="hc-ic bad">
+                    <Icon name="alert" size={18} />
                   </span>
+                  <div className="hc-todo-b">
+                    <p className="hc-todo-t">Report {brandName(str(r, "BrandID"))} perlu revisi</p>
+                    <p className="hc-todo-x">
+                      {flagged.length ? `${flagged.map((m) => m.label).join(" dan ")} perlu kamu cek. ` : ""}
+                      {note ? `“${note.length > 120 ? note.slice(0, 117) + "…" : note}”` : ""}
+                    </p>
+                    <div
+                      style={{
+                        display: "flex",
+                        gap: 8,
+                        alignItems: "center",
+                        marginTop: 8,
+                        flexWrap: "wrap",
+                      }}
+                    >
+                      <span className="pbs-muted" style={{ fontSize: 12 }}>
+                        {str(r, "Title")} · {fmtDayMonth(date(r, "LiveDate"))}
+                      </span>
+                    </div>
+                  </div>
+                  <Button variant="secondary" size="sm" onClick={() => action.fire("OPEN_REPORT", reportRef(r))}>
+                    Perbaiki report
+                  </Button>
+                </div>
+              );
+            })}
+
+            {toSend.map((s) => (
+              <div key={s.title} className={`hc-todo${s.late ? " bad" : " warn"}`}>
+                <span className={`hc-ic ${s.late ? "bad" : "warn"}`}>
+                  <Icon name="file" size={18} />
+                </span>
+                <div className="hc-todo-b">
+                  <p className="hc-todo-t">{s.partial ? `Report ${s.brand} belum lengkap — kurang ${fmtMinutes(s.remainingMin)}` : `Report ${s.brand} belum dikirim`}</p>
+                  <p className="hc-todo-x">
+                    Sesi {fmtDayMonth(s.day)} {s.startText}–{s.endText}. {s.partial ? `${s.reportedMin} dari ${s.requiredMin} menit sudah dilaporkan. ` : ""}
+                    {s.late ? "Sudah lewat batas waktu — kirim sekarang dan jelaskan di catatan." : s.due ? `Kirim sebelum ${fmtLongDate(s.due).split(",")[0]} ${fmtDayMonth(s.due)}.` : ""}
+                  </p>
+                </div>
+                <Button size="sm" onClick={() => action.fire("NEW_REPORT", sessionRef(s))}>
+                  {s.partial ? "Report berikutnya" : "Kirim report"}
+                </Button>
+              </div>
+            ))}
+
+            {toAbsen.map((s) => (
+              <div key={s.title} className="hc-todo warn">
+                <span className="hc-ic warn">
+                  <Icon name="checkSquare" size={18} />
+                </span>
+                <div className="hc-todo-b">
+                  <p className="hc-todo-t">Absen {s.brand} belum tercatat</p>
+                  <p className="hc-todo-x">
+                    Sesi {fmtDayMonth(s.day)} {s.startText}–{s.endText}. Absen dulu supaya report sesi ini bisa dikirim.
+                  </p>
+                </div>
+                <Button size="sm" onClick={() => absen(s)} disabled={!!action.pending}>
+                  {busy && action.pending ? <Spinner small /> : null} Absen
+                </Button>
+              </div>
+            ))}
+
+            {noClock.map((s) => (
+              <div key={s.title} className="hc-todo">
+                <span className="hc-ic">
+                  <Icon name="clock" size={18} />
+                </span>
+                <div className="hc-todo-b">
+                  <p className="hc-todo-t">Sesi {s.brand} tanpa clock in</p>
+                  <p className="hc-todo-x">
+                    {fmtDayMonth(s.day)} {s.startText}–{s.endText}. Report tidak bisa dikirim tanpa clock in di hari itu. Kalau kamu memang live, minta tim PBS menambahkan clock in manual.
+                  </p>
                 </div>
               </div>
-              <Button variant="secondary" size="sm" onClick={() => action.fire("OPEN_REPORT", reportRef(r))}>
-                Perbaiki report
-              </Button>
-            </div>
-          );
-        })}
-
-        {toSend.map((s) => (
-          <div key={s.title} className={`hc-todo${s.late ? " bad" : " warn"}`}>
-            <span className={`hc-ic ${s.late ? "bad" : "warn"}`}>
-              <Icon name="file" size={18} />
-            </span>
-            <div className="hc-todo-b">
-              <p className="hc-todo-t">Report {s.brand} belum dikirim</p>
-              <p className="hc-todo-x">
-                Sesi {fmtDayMonth(s.day)} {s.startText}–{s.endText}.{" "}
-                {s.late ? "Sudah lewat batas waktu — kirim sekarang dan jelaskan di catatan." : s.due ? `Kirim sebelum ${fmtLongDate(s.due).split(",")[0]} ${fmtDayMonth(s.due)}.` : ""}
-              </p>
-            </div>
-            <Button size="sm" onClick={() => action.fire("NEW_REPORT", sessionRef(s))}>
-              Kirim report
-            </Button>
+            ))}
           </div>
-        ))}
 
-        {toAbsen.map((s) => (
-          <div key={s.title} className="hc-todo warn">
-            <span className="hc-ic warn">
-              <Icon name="checkSquare" size={18} />
-            </span>
-            <div className="hc-todo-b">
-              <p className="hc-todo-t">Absen {s.brand} belum tercatat</p>
-              <p className="hc-todo-x">
-                Sesi {fmtDayMonth(s.day)} {s.startText}–{s.endText}. Absen dulu supaya report sesi ini bisa dikirim.
-              </p>
-            </div>
-            <Button size="sm" onClick={() => absen(s)} disabled={!!action.pending}>
-              {busy && action.pending ? <Spinner small /> : null} Absen
-            </Button>
+          <WeekStrip sessions={sessions} now={now} onOpen={(s) => action.fire("OPEN_SCHEDULE", sessionRef(s))} onAll={() => action.fire("NAV", { target: "SCHEDULE" })} />
+
+          <div className="pbs-sec" style={{ marginBottom: 0 }}>
+            <span className="pbs-sec-l">Jadwal hari ini</span>
+            <button type="button" className="pbs-link" onClick={() => action.fire("NAV", { target: "SCHEDULE" })}>
+              Jadwal saya
+            </button>
           </div>
-        ))}
 
-        {noClock.map((s) => (
-          <div key={s.title} className="hc-todo">
-            <span className="hc-ic">
-              <Icon name="clock" size={18} />
-            </span>
-            <div className="hc-todo-b">
-              <p className="hc-todo-t">Sesi {s.brand} tanpa clock in</p>
-              <p className="hc-todo-x">
-                {fmtDayMonth(s.day)} {s.startText}–{s.endText}. Report tidak bisa dikirim tanpa clock in di hari itu. Kalau kamu memang live, minta tim PBS menambahkan clock in manual.
-              </p>
+          {today.length === 0 ? (
+            <div className="hc-card" style={{ textAlign: "center", padding: "28px 18px" }}>
+              <div style={{ fontWeight: 700, fontSize: 15 }}>Tidak ada jadwal hari ini</div>
+              <div className="pbs-muted" style={{ marginTop: 4 }}>
+                {next?.day ? `Jadwal berikutnya ${fmtLongDate(next.day)}${next.startText ? ` · ${next.startText}` : ""} · ${next.brand}.` : "Belum ada jadwal berikutnya."}
+              </div>
             </div>
-          </div>
-        ))}
+          ) : (
+            today.map((s) => <SessionCard key={s.title || s.id} s={s} now={now} shift={shift} pending={!!action.pending} busy={busy} onAbsen={() => absen(s)} action={action} />)
+          )}
 
-        <div className="pbs-sec" style={{ marginTop: 12, marginBottom: 0 }}>
-          <span className="pbs-sec-l">Jadwal hari ini</span>
-          <button type="button" className="pbs-link" onClick={() => action.fire("NAV", { target: "SCHEDULE" })}>
-            Jadwal saya
-          </button>
         </div>
 
-        {today.length === 0 ? (
-          <div className="hc-card" style={{ textAlign: "center", padding: "28px 18px" }}>
-            <div style={{ fontWeight: 700, fontSize: 15 }}>Tidak ada jadwal hari ini</div>
-            <div className="pbs-muted" style={{ marginTop: 4 }}>
-              {next?.day ? `Jadwal berikutnya ${fmtLongDate(next.day)}${next.startText ? ` · ${next.startText}` : ""} · ${next.brand}.` : "Belum ada jadwal berikutnya."}
-            </div>
+        <aside className="hc-aside">
+          <ScoreCard
+            host={host}
+            thresholds={props.thresholds}
+            scoreTx={props.scoreTx}
+            clockIns={props.clockIns}
+            revisions={revisions.length}
+            now={now}
+            onOpen={() => action.fire("NAV", { target: "SCORE" })}
+          />
+          <MonthCard sessions={sessions} clockIns={props.clockIns} now={now} />
+          <div style={{ textAlign: "center" }}>
+            <button type="button" className="pbs-link" onClick={() => action.fire("NAV", { target: "REPORTS" })}>
+              Lihat semua report saya
+            </button>
           </div>
-        ) : (
-          today.map((s) => <SessionCard key={s.title || s.id} s={s} now={now} shift={shift} pending={!!action.pending} busy={busy} onAbsen={() => absen(s)} action={action} />)
-        )}
-
-        <ScoreCard host={host} thresholds={props.thresholds} scoreTx={props.scoreTx} clockIns={props.clockIns} revisions={revisions.length} now={now} onOpen={() => action.fire("NAV", { target: "SCORE" })} />
-
-        <div style={{ textAlign: "center" }}>
-          <button type="button" className="pbs-link" onClick={() => action.fire("NAV", { target: "REPORTS" })}>
-            Lihat semua report saya
-          </button>
-        </div>
+        </aside>
       </div>
+      {absenFlow.dialog}
     </div>
   );
 }
@@ -241,11 +282,7 @@ function ShiftCard(props: { shift: Shift; hasToday: boolean; maxHours: number; o
           </div>
           <Badge tone="success">Aktif</Badge>
         </div>
-        {shift.overdue ? (
-          <InfoBanner tone="warn">
-            Shift sudah lebih dari {props.maxHours} jam. Lupa clock out? Clock out sekarang supaya jam kerjamu tercatat benar.
-          </InfoBanner>
-        ) : null}
+        {shift.overdue ? <InfoBanner tone="warn">Shift sudah lebih dari {props.maxHours} jam. Lupa clock out? Clock out sekarang supaya jam kerjamu tercatat benar.</InfoBanner> : null}
         <button type="button" className="pbs-btn secondary hc-big" onClick={props.onOut}>
           Clock out
         </button>
@@ -366,9 +403,7 @@ function SessionCard(props: { s: HostSession; now: Date; shift: Shift; pending: 
           </button>{" "}
           {s.platform ? <span className="hc-plat">{s.platform}</span> : null}
         </div>
-        <div className="hc-sess-m">
-          {[s.studio !== "—" ? s.studio : "", s.account ? `Akun ${s.account}` : "", s.title].filter(Boolean).join(" · ")}
-        </div>
+        <div className="hc-sess-m">{[s.studio !== "—" ? s.studio : "", s.account ? `Akun ${s.account}` : "", s.title].filter(Boolean).join(" · ")}</div>
       </div>
       <div className="hc-sess-a">{right}</div>
     </div>
@@ -386,31 +421,131 @@ function ScoreCard(props: { host: Row | undefined; thresholds: Row[]; scoreTx: R
   const streak = streakDays(props.clockIns, props.now);
   if (score === null && streak === 0) return null;
   return (
-    <div className="hc-card hc-score">
-      <div>
-        <div className="pbs-sec-l" style={{ color: "var(--tx2)", marginBottom: 6 }}>
-          Skor kamu
-        </div>
-        <span className="hc-score-n pbs-num">{score === null ? "—" : fmtNumber(score)}</span>{" "}
-        {band ? (
-          <Badge tone={band.tone} small>
-            {band.label}
-          </Badge>
-        ) : null}
-        {delta !== 0 ? (
-          <div className={`hc-score-d ${delta > 0 ? "pbs-t-ok" : "pbs-t-bad"}`}>
-            {delta > 0 ? "▲ +" : "▼ "}
-            {fmtNumber(delta)} minggu ini
-          </div>
-        ) : null}
+    <div className="hc-card hc-scorec">
+      <div className="pbs-sec">
+        <span className="pbs-sec-l">Skor saya</span>
+        <button type="button" className="pbs-link" onClick={props.onOpen}>
+          Lihat rincian
+        </button>
       </div>
-      <div className="hc-score-x">
+      <div className="hc-scorec-n">
+        <span className="pbs-num">{score === null ? "—" : fmtNumber(score)}</span>
+        {band ? <Badge tone={band.tone}>{band.label}</Badge> : null}
+      </div>
+      {delta !== 0 ? (
+        <div className={`hc-score-d ${delta > 0 ? "pbs-t-ok" : "pbs-t-bad"}`}>
+          {delta > 0 ? "▲ +" : "▼ "}
+          {fmtNumber(delta)} minggu ini
+        </div>
+      ) : null}
+      <div className="pbs-muted" style={{ fontSize: 12.5, marginTop: 6 }}>
         {streak > 0 ? `Streak ${streak} hari berturut` : "Belum ada streak"}
         {props.revisions > 0 ? ` · ${props.revisions} report perlu revisi` : ""}
       </div>
-      <Button variant="secondary" size="sm" onClick={props.onOpen}>
-        Lihat rincian
-      </Button>
+    </div>
+  );
+}
+
+const WEEKDAY = ["Min", "Sen", "Sel", "Rab", "Kam", "Jum", "Sab"];
+
+/** This week (Mon–Sun) as seven days: the brand of the day and where its report stands (design 10a). */
+function WeekStrip(props: { sessions: HostSession[]; now: Date; onOpen: (s: HostSession) => void; onAll: () => void }): React.ReactElement {
+  const { now } = props;
+  const mon = startOfDay(now);
+  mon.setDate(mon.getDate() - ((mon.getDay() + 6) % 7));
+  const days = Array.from({ length: 7 }, (_, i) => new Date(mon.getFullYear(), mon.getMonth(), mon.getDate() + i));
+  const todayKey = localDayKey(now);
+  const last = days[6] ?? mon;
+  return (
+    <div className="hc-card">
+      <div className="pbs-sec">
+        <span className="pbs-sec-l">
+          Minggu ini · {mon.getDate()}–{fmtDayMonth(last)}
+        </span>
+        <button type="button" className="pbs-link" onClick={props.onAll}>
+          Jadwal saya
+        </button>
+      </div>
+      <div className="hc-wk">
+        {days.map((d) => {
+          const key = localDayKey(d);
+          const list = props.sessions.filter((s) => s.dayKey === key && s.phase !== "CANCELLED");
+          const first = list[0];
+          const st = first ? scheduleState(first, now) : null;
+          const label = `${WEEKDAY[d.getDay()]} ${d.getDate()}${key === todayKey ? " · hari ini" : ""}`;
+          if (!first || !st) {
+            return (
+              <div key={key} className={`hc-wk-d off${key === todayKey ? " today" : ""}`}>
+                <span className="dn">{label}</span>
+                <span className="s">{key === todayKey ? "Tidak ada sesi" : "Libur"}</span>
+              </div>
+            );
+          }
+          const tone = SCHEDULE_STATE[st].tone;
+          return (
+            <button
+              key={key}
+              type="button"
+              className={`hc-wk-d${key === todayKey ? " today" : ""}`}
+              onClick={() => props.onOpen(first)}
+              title={list.map((x) => `${x.startText} ${x.brand}`).join(" · ")}
+            >
+              <span className="dn">{label}</span>
+              <span className="b">
+                {first.brand}
+                {list.length > 1 ? <span className="pbs-muted"> +{list.length - 1}</span> : null}
+              </span>
+              <span className={`s ${tone === "success" ? "pbs-t-ok" : tone === "danger" ? "pbs-t-bad" : tone === "warning" ? "pbs-t-warn" : "pbs-muted"}`}>
+                {st === "FINISHED" ? "Report ✓" : SCHEDULE_STATE[st].label}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+/** This month: sessions finished, live hours, clock-in days and reports still owed (design 10a). */
+function MonthCard(props: { sessions: HostSession[]; clockIns: Row[]; now: Date }): React.ReactElement {
+  const { now } = props;
+  const inMonth = (d: Date | null) => !!d && d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth();
+  const k = scheduleKpis(props.sessions, props.clockIns, now, inMonth);
+  const month = props.sessions.filter((s) => s.phase !== "CANCELLED" && inMonth(s.day));
+  const finished = month.filter((s) => scheduleState(s, now) === "FINISHED" || s.phase === "REPORTED").length;
+  const owed = month.filter((s) => s.phase === "NEEDS_REPORT").length;
+  return (
+    <div className="hc-card">
+      <div className="pbs-sec">
+        <span className="pbs-sec-l">{now.toLocaleDateString("id-ID", { month: "long", year: "numeric" })}</span>
+      </div>
+      <div className="hc-sum">
+        <div>
+          <div className="l">Sesi selesai</div>
+          <div className="v">
+            {finished}
+            <small>dari {k.sessions}</small>
+          </div>
+        </div>
+        <div>
+          <div className="l">Jam live</div>
+          <div className="v">
+            {Math.round(k.doneMin / 60)}
+            <small>jam</small>
+          </div>
+        </div>
+        <div>
+          <div className="l">Hari clock in</div>
+          <div className="v">
+            {k.clockDays}
+            <small>dari {k.workDays}</small>
+          </div>
+        </div>
+        <div>
+          <div className="l">Report tertunda</div>
+          <div className={`v${owed ? " pbs-t-bad" : ""}`}>{owed}</div>
+        </div>
+      </div>
     </div>
   );
 }

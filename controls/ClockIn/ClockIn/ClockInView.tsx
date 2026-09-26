@@ -97,7 +97,11 @@ export function ClockInView(props: ClockInViewProps): React.ReactElement {
     const g = typeof navigator !== "undefined" ? navigator.geolocation : undefined;
     if (!g) return fallback(2);
     g.getCurrentPosition(
-      (pos) => setGeo({ kind: "ok", fix: { lat: pos.coords.latitude, lng: pos.coords.longitude, accuracy: Number.isFinite(pos.coords.accuracy) ? pos.coords.accuracy : null, source: "device", at: props.clock() } }),
+      (pos) =>
+        setGeo({
+          kind: "ok",
+          fix: { lat: pos.coords.latitude, lng: pos.coords.longitude, accuracy: Number.isFinite(pos.coords.accuracy) ? pos.coords.accuracy : null, source: "device", at: props.clock() },
+        }),
       (e) => fallback(e.code),
       { enableHighAccuracy: true, timeout: 20000, maximumAge: 0 },
     );
@@ -168,18 +172,31 @@ export function ClockInView(props: ClockInViewProps): React.ReactElement {
 
       <ResultBanner result={last} okText={okText} onClose={action.clearResult} />
 
-      <div className="hc-stack">
-        <ShiftSummary dir={dir} since={shift.since} until={shift.until} minutes={shift.minutes} office={shift.office} overdue={shift.overdue} maxHours={hopts.maxShiftHours} sessions={sessions.length} reports={reportsToday.length} />
-
-        {dir === "DONE" ? (
-          <Button variant="secondary" onClick={() => action.fire("NAV", { target: "HOME" })}>
-            Kembali ke Hari ini
-          </Button>
-        ) : (
-          <>
-            {locations.length === 0 ? (
-              <InfoBanner tone="err">Lokasi studio belum diatur (Studio Location - PBS kosong atau tidak aktif). Hubungi tim PBS.</InfoBanner>
-            ) : null}
+      {dir === "DONE" ? (
+        <div className="hc-split">
+          <div className="hc-main">
+            <ShiftSummary
+              dir={dir}
+              since={shift.since}
+              until={shift.until}
+              minutes={shift.minutes}
+              office={shift.office}
+              overdue={shift.overdue}
+              maxHours={hopts.maxShiftHours}
+              sessions={sessions.length}
+              reports={reportsToday.length}
+            />
+            <div>
+              <Button variant="secondary" onClick={() => action.fire("NAV", { target: "HOME" })}>
+                Kembali ke Hari ini
+              </Button>
+            </div>
+          </div>
+        </div>
+      ) : (
+        <div className="hc-split">
+          <div className="hc-main">
+            {locations.length === 0 ? <InfoBanner tone="err">Lokasi studio belum diatur (Studio Location - PBS kosong atau tidak aktif). Hubungi tim PBS.</InfoBanner> : null}
 
             <div className="hc-card hc-shift">
               <StepHead n={1} done={!!fix} title="Lokasi" text="Posisi HP dicek terhadap radius studio." />
@@ -188,18 +205,16 @@ export function ClockInView(props: ClockInViewProps): React.ReactElement {
 
             <div className="hc-card hc-shift">
               <StepHead n={2} done={!!selfie} title="Selfie" text={dir === "OUT" ? "Foto wajah saat clock out." : "Foto wajah saat clock in."} />
-              <input
-                ref={fileRef}
-                type="file"
-                accept="image/*"
-                capture="user"
-                style={{ display: "none" }}
-                aria-label="Ambil selfie"
-                onChange={(e) => void pick(e.target.files?.[0])}
-              />
+              <input ref={fileRef} type="file" accept="image/*" capture="user" style={{ display: "none" }} aria-label="Ambil selfie" onChange={(e) => void pick(e.target.files?.[0])} />
               <div className="hc-drop" style={{ flexWrap: "wrap" }}>
                 <div className="hc-thumb" style={{ width: 72, height: 72, borderRadius: 36 }}>
-                  {selfie ? <img src={selfie.img.dataUrl} alt="Pratinjau selfie" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : selfieBusy ? <Spinner /> : <Icon name="camera" size={22} />}
+                  {selfie ? (
+                    <img src={selfie.img.dataUrl} alt="Pratinjau selfie" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                  ) : selfieBusy ? (
+                    <Spinner />
+                  ) : (
+                    <Icon name="camera" size={22} />
+                  )}
                 </div>
                 <div style={{ flex: 1, minWidth: 150 }}>
                   <div style={{ fontWeight: 600 }}>{selfieBusy ? "Menyiapkan foto…" : selfie ? "Selfie siap" : "Belum ada selfie"}</div>
@@ -236,7 +251,19 @@ export function ClockInView(props: ClockInViewProps): React.ReactElement {
                 </div>
               </div>
             ) : null}
-
+          </div>
+          <aside className="hc-aside">
+            <ShiftSummary
+              dir={dir}
+              since={shift.since}
+              until={shift.until}
+              minutes={shift.minutes}
+              office={shift.office}
+              overdue={shift.overdue}
+              maxHours={hopts.maxShiftHours}
+              sessions={sessions.length}
+              reports={reportsToday.length}
+            />
             {dir === "OUT" && sessions.length > reportsToday.length ? (
               <InfoBanner tone="warn">
                 {sessions.length - reportsToday.length} dari {sessions.length} sesi hari ini belum ada report. Clock out tetap bisa; kirim report sebelum batas waktu.
@@ -247,9 +274,28 @@ export function ClockInView(props: ClockInViewProps): React.ReactElement {
               {pending ? <Spinner small /> : <Icon name="clock" size={18} />} {pending ? "Menyimpan…" : dir === "OUT" ? "Clock out sekarang" : "Clock in sekarang"}
             </button>
             <p className="hc-note">{blockers.length ? blockers.join(" · ") : "Waktu dicatat saat tombol ditekan."}</p>
-          </>
-        )}
-      </div>
+            <div className="hc-card">
+              <div className="pbs-sec">
+                <span className="pbs-sec-l">Kalau lokasi bermasalah</span>
+              </div>
+              <dl className="hc-kv">
+                <div>
+                  <dt>Di luar radius</dt>
+                  <dd>Tetap bisa, wajib alasan</dd>
+                </div>
+                <div>
+                  <dt>GPS lemah</dt>
+                  <dd>Cek ulang di area terbuka</dd>
+                </div>
+                <div>
+                  <dt>Izin lokasi ditolak</dt>
+                  <dd>Izinkan lokasi di browser</dd>
+                </div>
+              </dl>
+            </div>
+          </aside>
+        </div>
+      )}
     </div>
   );
 }
@@ -348,4 +394,3 @@ function ShiftSummary(props: {
     </div>
   );
 }
-
