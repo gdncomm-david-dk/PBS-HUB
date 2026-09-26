@@ -45,6 +45,8 @@ Set(varHostCtx, JSON({
     }
 }, JSONFormat.Compact));
 Set(varMe, LookUp('Host - PBS Hub', Email.Email = User().Email));
+// Schedule tidak punya AccountName: Schedule.Account = Title di list Account → AccountName (teks).
+ClearCollect(colAccounts, ShowColumns('Account - PBS Hub', Title, AccountName));
 ```
 
 **Hanya baris milik host yang dikirim** (filter `HostID = varMe.Title` di canvas). Jangan kirim `KTP`,
@@ -55,7 +57,7 @@ Set(varMe, LookUp('Host - PBS Hub', Email.Email = User().Email));
 | Properti | List | Field (bentuk lewat `ForAll`) |
 |---|---|---|
 | `HostJson` | `Host - PBS Hub` | `Title, HostCode, NamaHost, Package, CurrentScore, InitialScore` |
-| `SchedulesJson` / `ScheduleJson` | `Schedule - PBS Hub` | `ID, Title, Date (yyyy-mm-dd), StartTime, EndTime, BrandID, StudioID, HostID, Platform, AccountID, AccountName, LiveBreak, Position (Position.Value), Status (Status.Value)`. Sesi dengan `LiveBreak = Yes` atau `Position = Co-Host` **tidak perlu report**: tampil *Tanpa report* / *Finished*, tanpa tombol Send Report. Report hanya bisa dikirim saat `Status = Waiting Report` (lihat *Report per sesi* di bawah) |
+| `SchedulesJson` / `ScheduleJson` | `Schedule - PBS Hub` | `ID, Title, Date (yyyy-mm-dd), StartTime, EndTime, BrandID, StudioID, HostID, Platform, Account` (dikirim sebagai `AccountID`), `AccountName` (lookup `Schedule.Account` → `Title` list Account, ambil `AccountName`), `LiveBreak` (Choice Yes/No, kosong = No), `Position (Position.Value), Status (Status.Value)`. Sesi dengan `LiveBreak = Yes` atau `Position = Co-Host` **tidak perlu report**: tampil *Tanpa report* / *Finished*, tanpa tombol Send Report. Report hanya bisa dikirim saat `Status = Waiting Report` (lihat *Report per sesi* di bawah) |
 | `ClockInJson` | `Clock In - PBS Hub` | `ID, ClockInDate, CheckInTime, CheckOutTime, ClockInTime, ClockOutTime, CheckInOffice` |
 | `AbsenceJson` | `Host Absence - PBS Hub` | `Title, ScheduleID, LiveDate, Status, Created` |
 | `ReportsJson` / `ReportJson` / `HistoryJson` | `Report - PBS Hub` | sama dengan Ops (`ID, Title, ScheduleID, HostID, BrandID, AccountID, Account, Platform, LiveDate`, `LiveID`, `Playbook: Playbook.Value` (Choice), 12 metrik, `ApprovalStatus, Match, ApprovalComment, Approver, ApproverEmail, Attachment, Created, Modified`). List dan detail menampilkan Rep ID (`Title`), Schedule ID, jam live (dari `SchedulesJson`), kolom *Status* = `ApprovalStatus` apa adanya, dan `Playbook`. `ApprovalStatus` kosong tampil *Belum ada status* (bukan menunggu review) |
@@ -110,7 +112,7 @@ Set(varHdLoading, false);
 |---|---|
 | `Context` | `varHostCtx` |
 | `HostJson` | `JSON(ForAll(Filter('Host - PBS Hub', Title = varMe.Title), {Title: Title, HostCode: HostCode, NamaHost: NamaHost, Package: Package.Value, CurrentScore: CurrentScore, InitialScore: InitialScore}), JSONFormat.Compact)` |
-| `SchedulesJson` | `JSON(ForAll(colMySch, {ID: ID, Title: Title, Date: Text(Date, "yyyy-mm-dd"), StartTime: StartTime, EndTime: EndTime, BrandID: BrandID, StudioID: StudioID, HostID: HostID, Platform: Platform.Value, AccountID: AccountID, AccountName: AccountName, LiveBreak: LiveBreak, Position: Position.Value, Status: Status.Value}), JSONFormat.Compact)` |
+| `SchedulesJson` | `JSON(ForAll(colMySch, {ID: ID, Title: Title, Date: Text(Date, "yyyy-mm-dd"), StartTime: StartTime, EndTime: EndTime, BrandID: BrandID, StudioID: StudioID, HostID: HostID, Platform: Platform.Value, AccountID: Account, AccountName: With({a: Account}, LookUp(colAccounts, Title = a).AccountName), LiveBreak: Coalesce(LiveBreak.Value, "No"), Position: Position.Value, Status: Status.Value}), JSONFormat.Compact)` |
 | `ClockInJson` | `JSON(ForAll(colMyClk, {ID: ID, ClockInDate: Text(ClockInDate, "yyyy-mm-dd"), CheckInTime: CheckInTime, CheckOutTime: CheckOutTime, ClockInTime: ClockInTime, ClockOutTime: ClockOutTime, CheckInOffice: CheckInOffice}), JSONFormat.Compact)` |
 | `AbsenceJson` | `JSON(ForAll(colMyAbs, {Title: Title, ScheduleID: ScheduleID, LiveDate: Text(LiveDate, "yyyy-mm-dd"), Status: Status.Value, Created: Created}), JSONFormat.Compact)` |
 | `ReportsJson` | `JSON(ForAll(colMyRep, {ID: ID, Title: Title, ScheduleID: ScheduleID, HostID: HostID, BrandID: BrandID, AccountID: AccountID, Account: Account, Platform: Platform.Value, LiveDate: Text(LiveDate, "yyyy-mm-dd"), LiveID: LiveID, Playbook: Playbook.Value, Penjualan: Penjualan, Pesanan: Pesanan, ProdukTerjual: ProdukTerjual, JumlahPembeli: JumlahPembeli, CTR: CTR, CTOR: CTOR, PeakViewer: PeakViewer, DurasiMin: 'Durasi(Min)', AddToCart: AddToCart, TotalViewer: TotalViewer, Comment: Comment, ApprovalStatus: ApprovalStatus.Value, ApprovalComment: ApprovalComment, Approver: Approver.DisplayName, ApproverEmail: ApproverEmail, Attachment: Attachment, Created: Created, Modified: Modified}), JSONFormat.Compact)` |
@@ -206,7 +208,7 @@ Set(varMrdLoading, false);
 |---|---|
 | `HostJson` | `{Title, NamaHost}` host sendiri |
 | `ReportJson` | `If(IsBlank(varMrdRep), "[]", JSON(ForAll(Table(varMrdRep), {ID: ID, Title: Title, ScheduleID: ScheduleID, HostID: HostID, BrandID: BrandID, AccountID: AccountID, Account: Account, Platform: Platform.Value, LiveDate: Text(LiveDate, "yyyy-mm-dd"), LiveID: LiveID, Playbook: Playbook.Value, Penjualan: Penjualan, Pesanan: Pesanan, ProdukTerjual: ProdukTerjual, JumlahPembeli: JumlahPembeli, CTR: CTR, CTOR: CTOR, PeakViewer: PeakViewer, DurasiMin: 'Durasi(Min)', AddToCart: AddToCart, TotalViewer: TotalViewer, Comment: Comment, ApprovalStatus: ApprovalStatus.Value, ApprovalComment: ApprovalComment, Approver: Approver.DisplayName, ApproverEmail: ApproverEmail, Attachment: Attachment, Created: Created, Modified: Modified}), JSONFormat.Compact))` |
-| `ScheduleJson` | `If(IsBlank(varMrdSch), "[]", JSON(ForAll(Table(varMrdSch), {ID: ID, Title: Title, Date: Text(Date, "yyyy-mm-dd"), StartTime: StartTime, EndTime: EndTime, BrandID: BrandID, StudioID: StudioID, HostID: HostID, Platform: Platform.Value, AccountID: AccountID, AccountName: AccountName, LiveBreak: LiveBreak, Position: Position.Value, Status: Status.Value}), JSONFormat.Compact))` |
+| `ScheduleJson` | `If(IsBlank(varMrdSch), "[]", JSON(ForAll(Table(varMrdSch), {ID: ID, Title: Title, Date: Text(Date, "yyyy-mm-dd"), StartTime: StartTime, EndTime: EndTime, BrandID: BrandID, StudioID: StudioID, HostID: HostID, Platform: Platform.Value, AccountID: Account, AccountName: With({a: Account}, LookUp(colAccounts, Title = a).AccountName), LiveBreak: Coalesce(LiveBreak.Value, "No"), Position: Position.Value, Status: Status.Value}), JSONFormat.Compact))` |
 | `EvidenceJson`, `ClockInJson`, `AbsenceJson`, `HistoryJson` | dari `colMrdEvi`, `colMrdClk`, `colMrdAbs`, `colMrdHist` |
 | `SessionReportsJson` | semua report sesi ini (live terputus): `JSON(ForAll(colMrdSesRep, {ID: ID, Title: Title, ScheduleID: ScheduleID, HostID: HostID, BrandID: BrandID, AccountID: AccountID, Account: Account, Platform: Platform.Value, LiveDate: Text(LiveDate, "yyyy-mm-dd"), LiveID: LiveID, Playbook: Playbook.Value, Penjualan: Penjualan, Pesanan: Pesanan, ProdukTerjual: ProdukTerjual, JumlahPembeli: JumlahPembeli, CTR: CTR, CTOR: CTOR, PeakViewer: PeakViewer, DurasiMin: 'Durasi(Min)', AddToCart: AddToCart, TotalViewer: TotalViewer, Comment: Comment, ApprovalStatus: ApprovalStatus.Value, ApprovalComment: ApprovalComment, Approver: Approver.DisplayName, ApproverEmail: ApproverEmail, Attachment: Attachment, Created: Created, Modified: Modified}), JSONFormat.Compact)` |
 | `PlaybooksJson` | `JSON(Choices([@'Report - PBS Hub'].Playbook), JSONFormat.Compact)` (opsional) |
@@ -597,8 +599,8 @@ ClearCollect(colPbsProcessed, {Id: ""});   // skema koleksi requestId yang sudah
 
 Nama yang dipakai: layar `scrHome` (Hari ini), `scrMyReports`, `scrMyReportDetail`, `scrMySchedule`,
 `scrScheduleDetail`, `scrClockIn`, `scrMyScore`; flow `'PBSHost-Uploadreportscreenshot'` (bagian 5). Ganti kalau
-nama di app berbeda. `Account: s.AccountName` mengambil nama akun dari Schedule; kalau kolom Account di
-Report/Host Absence berisi ID, pakai `s.AccountID`.
+nama di app berbeda. `Account: LookUp(colAccounts, Title = s.Account).AccountName` mengambil nama akun dari Schedule; kalau kolom Account di
+Report/Host Absence berisi ID, pakai `s.Account`.
 
 | Layar | Variabel `ActionResult` | Koleksi yang diperbarui |
 |---|---|---|
@@ -626,7 +628,7 @@ If(!IsBlank(Self.ActionPayload),
                                 With({s: LookUp('Schedule - PBS Hub', Title = Text(p.scheduleId) && HostID = varMe.Title), lb: Boolean(p.liveBreak)},
                                     With({row: Patch('Host Absence - PBS Hub', Defaults('Host Absence - PBS Hub'), {
                                             ScheduleID: s.Title, HostID: varMe.Title, HostName: Text(p.hostName), LiveDate: s.Date,
-                                            BrandID: s.BrandID, Platform: s.Platform, Account: s.AccountName
+                                            BrandID: s.BrandID, Platform: s.Platform, Account: LookUp(colAccounts, Title = s.Account).AccountName
                                             // , Status: {Value: "Present"}   ← nilai Choice Status di Host Absence, kalau kolomnya ada
                                         })},
                                         Patch('Host Absence - PBS Hub', row, {Title: "ABS-" & row.ID});
@@ -635,10 +637,10 @@ If(!IsBlank(Self.ActionPayload),
                                         Patch('Schedule - PBS Hub', s, {Status: {Value: Text(p.scheduleStatus)}});
                                         // Live Break: host tidak perlu report, tapi baris Report tetap dibuat, semua angka 0.
                                         If(lb,
-                                            Patch('Schedule - PBS Hub', LookUp('Schedule - PBS Hub', ID = s.ID), {LiveBreak: true});   // kolom Choice: {Value: "Yes"}
+                                            Patch('Schedule - PBS Hub', LookUp('Schedule - PBS Hub', ID = s.ID), {LiveBreak: {Value: "Yes"}});   // Choice Yes/No
                                             With({rep: Patch('Report - PBS Hub', Defaults('Report - PBS Hub'), {
                                                     ScheduleID: s.Title, HostID: varMe.Title, BrandID: s.BrandID, Platform: s.Platform,
-                                                    AccountID: s.AccountID, Account: s.AccountName, LiveDate: s.Date, AbsID: "ABS-" & row.ID,
+                                                    AccountID: s.Account, Account: LookUp(colAccounts, Title = s.Account).AccountName, LiveDate: s.Date, AbsID: "ABS-" & row.ID,
                                                     Penjualan: 0, Pesanan: 0, ProdukTerjual: 0, JumlahPembeli: 0, CTR: 0, CTOR: 0, PeakViewer: 0,
                                                     'Durasi(Min)': 0, AddToCart: 0, TotalViewer: 0, Comment: 0,
                                                     ApprovalStatus: {Value: "LiveBreak"}
@@ -722,7 +724,7 @@ If(!IsBlank(Self.ActionPayload),
                                 With({s: LookUp('Schedule - PBS Hub', Title = Text(p.scheduleId) && HostID = varMe.Title), lb: Boolean(p.liveBreak)},
                                     With({row: Patch('Host Absence - PBS Hub', Defaults('Host Absence - PBS Hub'), {
                                             ScheduleID: s.Title, HostID: varMe.Title, HostName: Text(p.hostName), LiveDate: s.Date,
-                                            BrandID: s.BrandID, Platform: s.Platform, Account: s.AccountName
+                                            BrandID: s.BrandID, Platform: s.Platform, Account: LookUp(colAccounts, Title = s.Account).AccountName
                                             // , Status: {Value: "Present"}   ← nilai Choice Status di Host Absence, kalau kolomnya ada
                                         })},
                                         Patch('Host Absence - PBS Hub', row, {Title: "ABS-" & row.ID});
@@ -731,10 +733,10 @@ If(!IsBlank(Self.ActionPayload),
                                         Patch('Schedule - PBS Hub', s, {Status: {Value: Text(p.scheduleStatus)}});
                                         // Live Break: host tidak perlu report, tapi baris Report tetap dibuat, semua angka 0.
                                         If(lb,
-                                            Patch('Schedule - PBS Hub', LookUp('Schedule - PBS Hub', ID = s.ID), {LiveBreak: true});   // kolom Choice: {Value: "Yes"}
+                                            Patch('Schedule - PBS Hub', LookUp('Schedule - PBS Hub', ID = s.ID), {LiveBreak: {Value: "Yes"}});   // Choice Yes/No
                                             With({rep: Patch('Report - PBS Hub', Defaults('Report - PBS Hub'), {
                                                     ScheduleID: s.Title, HostID: varMe.Title, BrandID: s.BrandID, Platform: s.Platform,
-                                                    AccountID: s.AccountID, Account: s.AccountName, LiveDate: s.Date, AbsID: "ABS-" & row.ID,
+                                                    AccountID: s.Account, Account: LookUp(colAccounts, Title = s.Account).AccountName, LiveDate: s.Date, AbsID: "ABS-" & row.ID,
                                                     Penjualan: 0, Pesanan: 0, ProdukTerjual: 0, JumlahPembeli: 0, CTR: 0, CTOR: 0, PeakViewer: 0,
                                                     'Durasi(Min)': 0, AddToCart: 0, TotalViewer: 0, Comment: 0,
                                                     ApprovalStatus: {Value: "LiveBreak"}
@@ -765,7 +767,7 @@ If(!IsBlank(Self.ActionPayload),
                                 IfError(
                                     With({row: Patch('Report - PBS Hub', Defaults('Report - PBS Hub'), {
                                             ScheduleID: s.Title, HostID: varMe.Title, BrandID: s.BrandID, Platform: s.Platform,
-                                            AccountID: s.AccountID, Account: s.AccountName, LiveDate: s.Date, AbsID: Text(p.absId),
+                                            AccountID: s.Account, Account: LookUp(colAccounts, Title = s.Account).AccountName, LiveDate: s.Date, AbsID: Text(p.absId),
                                             Penjualan: Value(m.Penjualan), Pesanan: Value(m.Pesanan), ProdukTerjual: Value(m.ProdukTerjual),
                                             JumlahPembeli: Value(m.JumlahPembeli), CTR: Value(m.CTR), CTOR: Value(m.CTOR), PeakViewer: Value(m.PeakViewer),
                                             'Durasi(Min)': Value(m.'Durasi(Min)'), AddToCart: Value(m.AddToCart), TotalViewer: Value(m.TotalViewer),
@@ -871,7 +873,7 @@ If(!IsBlank(Self.ActionPayload),
                                 With({s: LookUp('Schedule - PBS Hub', Title = Text(p.scheduleId) && HostID = varMe.Title), lb: Boolean(p.liveBreak)},
                                     With({row: Patch('Host Absence - PBS Hub', Defaults('Host Absence - PBS Hub'), {
                                             ScheduleID: s.Title, HostID: varMe.Title, HostName: Text(p.hostName), LiveDate: s.Date,
-                                            BrandID: s.BrandID, Platform: s.Platform, Account: s.AccountName
+                                            BrandID: s.BrandID, Platform: s.Platform, Account: LookUp(colAccounts, Title = s.Account).AccountName
                                             // , Status: {Value: "Present"}   ← nilai Choice Status di Host Absence, kalau kolomnya ada
                                         })},
                                         Patch('Host Absence - PBS Hub', row, {Title: "ABS-" & row.ID});
@@ -880,10 +882,10 @@ If(!IsBlank(Self.ActionPayload),
                                         Patch('Schedule - PBS Hub', s, {Status: {Value: Text(p.scheduleStatus)}});
                                         // Live Break: host tidak perlu report, tapi baris Report tetap dibuat, semua angka 0.
                                         If(lb,
-                                            Patch('Schedule - PBS Hub', LookUp('Schedule - PBS Hub', ID = s.ID), {LiveBreak: true});   // kolom Choice: {Value: "Yes"}
+                                            Patch('Schedule - PBS Hub', LookUp('Schedule - PBS Hub', ID = s.ID), {LiveBreak: {Value: "Yes"}});   // Choice Yes/No
                                             With({rep: Patch('Report - PBS Hub', Defaults('Report - PBS Hub'), {
                                                     ScheduleID: s.Title, HostID: varMe.Title, BrandID: s.BrandID, Platform: s.Platform,
-                                                    AccountID: s.AccountID, Account: s.AccountName, LiveDate: s.Date, AbsID: "ABS-" & row.ID,
+                                                    AccountID: s.Account, Account: LookUp(colAccounts, Title = s.Account).AccountName, LiveDate: s.Date, AbsID: "ABS-" & row.ID,
                                                     Penjualan: 0, Pesanan: 0, ProdukTerjual: 0, JumlahPembeli: 0, CTR: 0, CTOR: 0, PeakViewer: 0,
                                                     'Durasi(Min)': 0, AddToCart: 0, TotalViewer: 0, Comment: 0,
                                                     ApprovalStatus: {Value: "LiveBreak"}
@@ -948,7 +950,7 @@ If(!IsBlank(Self.ActionPayload),
                                 With({s: LookUp('Schedule - PBS Hub', Title = Text(p.scheduleId) && HostID = varMe.Title), lb: Boolean(p.liveBreak)},
                                     With({row: Patch('Host Absence - PBS Hub', Defaults('Host Absence - PBS Hub'), {
                                             ScheduleID: s.Title, HostID: varMe.Title, HostName: Text(p.hostName), LiveDate: s.Date,
-                                            BrandID: s.BrandID, Platform: s.Platform, Account: s.AccountName
+                                            BrandID: s.BrandID, Platform: s.Platform, Account: LookUp(colAccounts, Title = s.Account).AccountName
                                             // , Status: {Value: "Present"}   ← nilai Choice Status di Host Absence, kalau kolomnya ada
                                         })},
                                         Patch('Host Absence - PBS Hub', row, {Title: "ABS-" & row.ID});
@@ -957,10 +959,10 @@ If(!IsBlank(Self.ActionPayload),
                                         Patch('Schedule - PBS Hub', s, {Status: {Value: Text(p.scheduleStatus)}});
                                         // Live Break: host tidak perlu report, tapi baris Report tetap dibuat, semua angka 0.
                                         If(lb,
-                                            Patch('Schedule - PBS Hub', LookUp('Schedule - PBS Hub', ID = s.ID), {LiveBreak: true});   // kolom Choice: {Value: "Yes"}
+                                            Patch('Schedule - PBS Hub', LookUp('Schedule - PBS Hub', ID = s.ID), {LiveBreak: {Value: "Yes"}});   // Choice Yes/No
                                             With({rep: Patch('Report - PBS Hub', Defaults('Report - PBS Hub'), {
                                                     ScheduleID: s.Title, HostID: varMe.Title, BrandID: s.BrandID, Platform: s.Platform,
-                                                    AccountID: s.AccountID, Account: s.AccountName, LiveDate: s.Date, AbsID: "ABS-" & row.ID,
+                                                    AccountID: s.Account, Account: LookUp(colAccounts, Title = s.Account).AccountName, LiveDate: s.Date, AbsID: "ABS-" & row.ID,
                                                     Penjualan: 0, Pesanan: 0, ProdukTerjual: 0, JumlahPembeli: 0, CTR: 0, CTOR: 0, PeakViewer: 0,
                                                     'Durasi(Min)': 0, AddToCart: 0, TotalViewer: 0, Comment: 0,
                                                     ApprovalStatus: {Value: "LiveBreak"}
@@ -991,7 +993,7 @@ If(!IsBlank(Self.ActionPayload),
                                 IfError(
                                     With({row: Patch('Report - PBS Hub', Defaults('Report - PBS Hub'), {
                                             ScheduleID: s.Title, HostID: varMe.Title, BrandID: s.BrandID, Platform: s.Platform,
-                                            AccountID: s.AccountID, Account: s.AccountName, LiveDate: s.Date, AbsID: Text(p.absId),
+                                            AccountID: s.Account, Account: LookUp(colAccounts, Title = s.Account).AccountName, LiveDate: s.Date, AbsID: Text(p.absId),
                                             Penjualan: Value(m.Penjualan), Pesanan: Value(m.Pesanan), ProdukTerjual: Value(m.ProdukTerjual),
                                             JumlahPembeli: Value(m.JumlahPembeli), CTR: Value(m.CTR), CTOR: Value(m.CTOR), PeakViewer: Value(m.PeakViewer),
                                             'Durasi(Min)': Value(m.'Durasi(Min)'), AddToCart: Value(m.AddToCart), TotalViewer: Value(m.TotalViewer),
@@ -1088,5 +1090,5 @@ Catatan:
   (`…Z`), sedangkan `Text(cur.Modified, …)` memakai jam lokal, jadi perbandingan teks selalu dianggap *conflict*
   di zona WIB.
 - `Boolean(p.liveBreak)` / `Boolean(p.complete)`: `p` hasil `ParseJSON`, jadi nilai true/false perlu dikonversi.
-- Kolom `LiveBreak` di Schedule ditulis `true` (Yes/No). Kalau kolomnya Choice, ganti dengan `{Value: "Yes"}`.
+- Kolom `LiveBreak` di Schedule adalah Choice Yes/No: ditulis `{Value: "Yes"}`; kosong dibaca sebagai `No`.
 - `LOAD_MORE` tidak ditangani karena `HasMore = false` (data per host per bulan kecil).

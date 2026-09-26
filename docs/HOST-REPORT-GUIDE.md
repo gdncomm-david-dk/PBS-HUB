@@ -50,7 +50,8 @@ Cek dulu list berikut. Kolom bertanda **baru** mungkin belum ada di list v1.
 | Kolom | Tipe | Isi |
 |---|---|---|
 | `Status` | Choice | minimal: `Planned`, `Waiting Report`, `Done` (plus nilai lain yang sudah dipakai, mis. `Cancelled`) — **tambahkan `Waiting Report` kalau belum ada** |
-| `LiveBreak` | Yes/No | `Yes` kalau sesi Live Break (kalau kolomnya Choice, lihat R9) |
+| `LiveBreak` | Choice `Yes` / `No` | `Yes` kalau sesi Live Break; kosong dianggap `No` |
+| `Account` | teks | kode akun = `Title` di list Account. Schedule **tidak** punya AccountName: nama akun di-lookup dari list Account (kolom `AccountName`) |
 | `Position` | Choice | `Host`, `Co-Host` |
 | `StartTime`, `EndTime` | teks `HH:mm` atau Date and Time | dipakai menghitung durasi jadwal (menit) |
 
@@ -118,6 +119,8 @@ Set(varHostCtx, JSON({
 }, JSONFormat.Compact));
 Set(varMe, LookUp('Host - PBS Hub', Email.Email = User().Email));
 ClearCollect(colPbsProcessed, {Id: ""});        // requestId yang sudah diproses (anti dobel)
+// Nama akun: Schedule.Account = Title di list Account → ambil AccountName (teks). Sesuaikan nama list kalau beda.
+ClearCollect(colAccounts, ShowColumns('Account - PBS Hub', Title, AccountName));
 ```
 
 Kalau nilai Choice di list kamu bukan `Waiting Report` / `Done`, ganti `scheduleWaitingStatus` /
@@ -140,8 +143,8 @@ Semua properti `…Json` di bawah memakai bentuk record ini. Salin apa adanya.
 **Schedule**
 ```powerfx
 {ID: ID, Title: Title, Date: Text(Date, "yyyy-mm-dd"), StartTime: StartTime, EndTime: EndTime,
- BrandID: BrandID, StudioID: StudioID, HostID: HostID, Platform: Platform.Value, AccountID: AccountID,
- AccountName: AccountName, LiveBreak: LiveBreak, Position: Position.Value, Status: Status.Value}
+ BrandID: BrandID, StudioID: StudioID, HostID: HostID, Platform: Platform.Value, AccountID: Account,
+ AccountName: With({a: Account}, LookUp(colAccounts, Title = a).AccountName), LiveBreak: Coalesce(LiveBreak.Value, "No"), Position: Position.Value, Status: Status.Value}
 ```
 
 **Report**
@@ -168,6 +171,10 @@ Semua properti `…Json` di bawah memakai bentuk record ini. Salin apa adanya.
 **Host Absence**: `{Title: Title, ScheduleID: ScheduleID, LiveDate: Text(LiveDate, "yyyy-mm-dd"), Status: Status.Value, Created: Created}`
 
 Kolom yang tidak ada di list kamu (mis. `Approver`) hapus saja dari record — control mengabaikan field yang kosong.
+
+Dua catatan untuk record Schedule: `AccountID` diisi dari kolom `Account`, dan `AccountName` di-lookup dari list
+Account (`colAccounts`, dimuat di App.OnStart). `LiveBreak` adalah Choice, jadi dikirim `LiveBreak.Value`; kosong
+dikirim `"No"`.
 
 ## R6. Layar Detail sesi (`scrScheduleDetail`)
 
@@ -215,8 +222,8 @@ Contoh `SchedulesJson` yang sudah diisi (supaya tidak salah tempel):
 
 ```powerfx
 JSON(ForAll(colSdSch, {ID: ID, Title: Title, Date: Text(Date, "yyyy-mm-dd"), StartTime: StartTime, EndTime: EndTime,
-    BrandID: BrandID, StudioID: StudioID, HostID: HostID, Platform: Platform.Value, AccountID: AccountID,
-    AccountName: AccountName, LiveBreak: LiveBreak, Position: Position.Value, Status: Status.Value}), JSONFormat.Compact)
+    BrandID: BrandID, StudioID: StudioID, HostID: HostID, Platform: Platform.Value, AccountID: Account,
+    AccountName: With({a: Account}, LookUp(colAccounts, Title = a).AccountName), LiveBreak: Coalesce(LiveBreak.Value, "No"), Position: Position.Value, Status: Status.Value}), JSONFormat.Compact)
 ```
 
 **Apa yang terjadi di OnChange per tombol** (sudah ada di formula 10.5, ini penjelasannya):
@@ -301,7 +308,7 @@ Clock in dulu lewat layar Clock in.
 | Send Report nonaktif *Status jadwal masih Planned — report dibuka saat status Waiting Report* | Absen dibuat sebelum OnChange baru terpasang, jadi Status tidak diubah | ubah `Status` jadwal itu ke `Waiting Report` manual sekali; atau `requireWaitingStatus: false` |
 | Pesan *Status jadwal Done, report tidak bisa dikirim* | durasi sudah terpenuhi, atau Choice Status beda ejaan | cek ejaan Choice di list = `scheduleWaitingStatus` di config dan teks di formula |
 | Send Report gagal dengan error di kolom Playbook | pilihan dropdown tidak ada di Choice `Playbook` | pakai `PlaybooksJson = JSON(Choices(...))` supaya dropdown = Choice list |
-| Error di `LiveBreak: true` | kolom `LiveBreak` bertipe Choice | ganti jadi `LiveBreak: {Value: "Yes"}` |
+| Nama akun kosong di layar | `colAccounts` belum dimuat, atau `Schedule.Account` tidak sama dengan `Title` di list Account | jalankan App.OnStart; cek isi kedua kolom |
 | Report terbuat tapi `Attachment` kosong | flow gagal / belum di-add ke app / urutan input flow terbalik | cek run history flow; input kedua harus `fileBase64` (`text_1`) |
 | Durasi report lama tidak terhitung | `ReportsJson` tidak mengirim `DurasiMin` | pakai record Report di R5 persis |
 | Pesan *Report ini sudah berubah. Muat ulang dulu* saat revisi | data di layar lama (`Modified` beda) | keluar-masuk layar (OnVisible memuat ulang) |
