@@ -47,6 +47,16 @@ Set(varHostCtx, JSON({
 Set(varMe, LookUp('Host - PBS Hub', Email.Email = User().Email));
 // Schedule tidak punya AccountName: Schedule.Account = Title di list Account → AccountName (teks).
 ClearCollect(colAccounts, ShowColumns('Account - PBS Hub', Title, AccountName));
+// Inisialisasi semua variabel host. Power Apps menolak variabel yang belum pernah di-Set di mana pun
+// ("Name isn't valid. 'varMrPeriod' isn't recognized"), jadi deklarasikan semuanya di sini sekali.
+Set(varMrPeriod, "");  Set(varMrFilter, "");                 // Report saya: bulan "yyyy-mm" (kosong = bulan ini), filter
+Set(varMsPeriod, "");  Set(varMsFilter, "");  Set(varMsView, "List");   // Jadwal saya
+Set(varSchId, "");     Set(varSchDate, Today());             // Detail sesi yang dibuka
+Set(varRptId, Blank()); Set(varRptSchedule, "");             // Kirim / revisi report
+Set(varMrdRep, Blank()); Set(varMrdSch, Blank());
+Set(varHdLoading, false); Set(varMrLoading, false); Set(varMrdLoading, false);
+Set(varMsLoading, false); Set(varSdLoading, false); Set(varCkLoading, false);
+Set(varHdResult, "");  Set(varMrdResult, ""); Set(varMsResult, ""); Set(varSdResult, ""); Set(varCkResult, "");
 ```
 
 **Hanya baris milik host yang dikirim** (filter `HostID = varMe.Title` di canvas). Jangan kirim `KTP`,

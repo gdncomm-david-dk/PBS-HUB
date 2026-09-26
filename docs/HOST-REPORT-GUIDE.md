@@ -122,6 +122,16 @@ Set(varMe, LookUp('Host - PBS Hub', Email.Email = User().Email));
 ClearCollect(colPbsProcessed, {Id: ""});        // requestId yang sudah diproses (anti dobel)
 // Nama akun: Schedule.Account = Title di list Account → ambil AccountName (teks). Sesuaikan nama list kalau beda.
 ClearCollect(colAccounts, ShowColumns('Account - PBS Hub', Title, AccountName));
+// Inisialisasi semua variabel host. Power Apps menolak variabel yang belum pernah di-Set di mana pun
+// ("Name isn't valid. 'varMrPeriod' isn't recognized"), jadi deklarasikan semuanya di sini sekali.
+Set(varMrPeriod, "");  Set(varMrFilter, "");                 // Report saya: bulan "yyyy-mm" (kosong = bulan ini), filter
+Set(varMsPeriod, "");  Set(varMsFilter, "");  Set(varMsView, "List");   // Jadwal saya
+Set(varSchId, "");     Set(varSchDate, Today());             // Detail sesi yang dibuka
+Set(varRptId, Blank()); Set(varRptSchedule, "");             // Kirim / revisi report
+Set(varMrdRep, Blank()); Set(varMrdSch, Blank());
+Set(varHdLoading, false); Set(varMrLoading, false); Set(varMrdLoading, false);
+Set(varMsLoading, false); Set(varSdLoading, false); Set(varCkLoading, false);
+Set(varHdResult, "");  Set(varMrdResult, ""); Set(varMsResult, ""); Set(varSdResult, ""); Set(varCkResult, "");
 ```
 
 Kalau nilai Choice di list kamu bukan `Waiting Report` / `Done`, ganti `scheduleWaitingStatus` /
@@ -305,6 +315,7 @@ Clock in dulu lewat layar Clock in.
 | Gejala | Penyebab paling sering | Perbaikan |
 |---|---|---|
 | Klik tombol, spinner berputar terus | OnChange belum dipasang, atau `ActionResult` tidak diisi `varSdResult` | pasang OnChange 10.5 utuh; cek properti `ActionResult` |
+| *Name isn't valid. 'varMrPeriod' isn't recognized* (atau variabel `var…` lain) | variabel belum pernah di-`Set` di app | tempel blok inisialisasi variabel di App.OnStart (R4), lalu *Run OnStart* |
 | Klik tombol, tidak terjadi apa-apa sama sekali | `colPbsProcessed` belum dibuat | jalankan App.OnStart (R4) atau *Run OnStart* di Studio |
 | Send Report nonaktif *Status jadwal masih Planned — report dibuka saat status Waiting Report* | Absen dibuat sebelum OnChange baru terpasang, jadi Status tidak diubah | ubah `Status` jadwal itu ke `Waiting Report` manual sekali; atau `requireWaitingStatus: false` |
 | Pesan *Status jadwal Done, report tidak bisa dikirim* | durasi sudah terpenuhi, atau Choice Status beda ejaan | cek ejaan Choice di list = `scheduleWaitingStatus` di config dan teks di formula |
