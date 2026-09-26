@@ -10,6 +10,7 @@ interface ShellProps {
   contextJson: string | null;
   period: string;
   defaultFilter: string;
+  defaultView: string;
   host: Row[];
   schedules: Row[];
   clockIns: Row[];
@@ -52,6 +53,7 @@ export class MySchedule implements ComponentFramework.StandardControl<IInputs, I
         contextJson: p.Context?.raw ?? null,
         period: p.Period?.raw ?? "",
         defaultFilter: p.DefaultFilter?.raw ?? "",
+        defaultView: p.DefaultView?.raw ?? "",
         host: this.cache.get("h", p.HostJson?.raw),
         schedules: this.cache.get("s", p.SchedulesJson?.raw),
         clockIns: this.cache.get("c", p.ClockInJson?.raw),

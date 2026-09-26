@@ -117,3 +117,25 @@ describe("sessionSteps", () => {
     expect(sessionSteps(s, undefined, now, { ...DEFAULT_HOST_OPTIONS, requireAbsen: false }, fmt)[1]?.state).toBe("skip");
   });
 });
+
+describe("calendar grid", () => {
+  const { monthGrid, initialCalendarDay } = jest.requireActual("../shared/hostSchedule") as typeof import("../shared/hostSchedule");
+  test("September 2026 starts on Tuesday: Monday-first, 5 weeks", () => {
+    const w = monthGrid(2026, 8);
+    expect(w.length).toBe(5);
+    expect(w[0]?.[0]?.key).toBe("2026-08-31");
+    expect(w[0]?.[0]?.inMonth).toBe(false);
+    expect(w[0]?.[1]?.key).toBe("2026-09-01");
+    expect(w[4]?.[6]?.key).toBe("2026-10-04");
+    expect(w.flat().filter((d) => d.inMonth).length).toBe(30);
+  });
+  test("February 2027 (starts Monday) fits 4 weeks; March 2026 needs 6", () => {
+    expect(monthGrid(2027, 1).length).toBe(4);
+    expect(monthGrid(2026, 2).length).toBe(6);
+  });
+  test("opens on today, else the first day with a session", () => {
+    expect(initialCalendarDay(2026, 8, new Date(2026, 8, 14), [])).toBe("2026-09-14");
+    expect(initialCalendarDay(2026, 7, new Date(2026, 8, 14), ["2026-08-12", "2026-08-05", "2026-09-01"])).toBe("2026-08-05");
+    expect(initialCalendarDay(2026, 6, new Date(2026, 8, 14), [])).toBe("2026-07-01");
+  });
+});

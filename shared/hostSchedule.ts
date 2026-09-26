@@ -265,3 +265,48 @@ export function sessionSteps(s: HostSession, clockIn: Row | undefined, now: Date
   };
   return [clock, absen, report, review];
 }
+
+// ---- calendar ------------------------------------------------------------------------------------
+
+export interface CalendarDay {
+  key: string; // yyyy-mm-dd, local
+  date: Date;
+  inMonth: boolean;
+}
+
+/** Monday-first weeks that cover the month: 4–6 rows of 7 days. */
+export function monthGrid(year: number, month: number): CalendarDay[][] {
+  const first = new Date(year, month, 1);
+  const lead = (first.getDay() + 6) % 7; // Monday = 0
+  const start = new Date(year, month, 1 - lead);
+  const last = new Date(year, month + 1, 0);
+  const cells = Math.ceil((lead + last.getDate()) / 7) * 7;
+  const weeks: CalendarDay[][] = [];
+  for (let i = 0; i < cells; i++) {
+    const date = new Date(start.getFullYear(), start.getMonth(), start.getDate() + i);
+    if (i % 7 === 0) weeks.push([]);
+    weeks[weeks.length - 1]?.push({ key: localDayKey(date), date, inMonth: date.getMonth() === month });
+  }
+  return weeks;
+}
+
+/** Sessions per local day, in start-time order. */
+export function sessionsByDay<T extends { s: HostSession }>(rows: T[]): Map<string, T[]> {
+  const m = new Map<string, T[]>();
+  for (const r of rows) {
+    if (!r.s.dayKey) continue;
+    const list = m.get(r.s.dayKey) ?? [];
+    list.push(r);
+    m.set(r.s.dayKey, list);
+  }
+  for (const list of m.values()) list.sort((a, b) => (a.s.start?.getTime() ?? 0) - (b.s.start?.getTime() ?? 0));
+  return m;
+}
+
+/** The day the calendar opens on: today in the current month, else the first day with a session, else the 1st. */
+export function initialCalendarDay(year: number, month: number, now: Date, days: Iterable<string>): string {
+  if (now.getFullYear() === year && now.getMonth() === month) return localDayKey(now);
+  const prefix = `${year}-${String(month + 1).padStart(2, "0")}-`;
+  const first = [...days].filter((k) => k.startsWith(prefix)).sort()[0];
+  return first ?? `${prefix}01`;
+}

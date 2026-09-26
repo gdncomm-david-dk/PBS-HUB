@@ -16,6 +16,7 @@ import {
   scheduleState,
   todayFocus,
 } from "../../../shared/hostSchedule";
+import { ScheduleCalendar } from "./ScheduleCalendar";
 import { Period, addMonths, fmtPeriod, inPeriod, parsePeriod, periodKey, periodOf } from "../../../shared/payroll";
 import { Badge, Button, EmptyState, EndOfData, FilterSelect, Icon, IconName, ResultBanner, Skeleton, Spinner } from "../../../shared/ui";
 
@@ -23,6 +24,8 @@ export interface MyScheduleProps {
   ctx: ModuleContext;
   period: string;
   defaultFilter: string;
+  /** "List" (default) or "Calendar". */
+  defaultView: string;
   host: Row[];
   schedules: Row[];
   clockIns: Row[];
@@ -104,6 +107,13 @@ export function MyScheduleView(props: MyScheduleProps): React.ReactElement {
   React.useEffect(() => setStatus(initial), [initial]);
   const [platform, setPlatform] = React.useState("");
   const [search, setSearch] = React.useState("");
+  const initialView = props.defaultView === "Calendar" ? "Calendar" : "List";
+  const [view, setView] = React.useState<"List" | "Calendar">(initialView);
+  React.useEffect(() => setView(initialView), [initialView]);
+  const pickView = (v: "List" | "Calendar") => {
+    setView(v);
+    action.fire("VIEW_CHANGED", { view: v });
+  };
 
   const sessions = React.useMemo(
     () => buildHostSessions({ schedules: props.schedules, clockIns: props.clockIns, absences: props.absences, reports: props.reports, brands: props.brands, studios: props.studios }, now, opts),
@@ -223,9 +233,19 @@ export function MyScheduleView(props: MyScheduleProps): React.ReactElement {
             Reset
           </button>
         ) : null}
+        <div className="hc-seg" role="group" aria-label="Tampilan">
+          <button type="button" aria-pressed={view === "List"} onClick={() => pickView("List")}>
+            <Icon name="file" size={13} /> Daftar
+          </button>
+          <button type="button" aria-pressed={view === "Calendar"} onClick={() => pickView("Calendar")}>
+            <Icon name="calendar" size={13} /> Kalender
+          </button>
+        </div>
       </div>
 
-      <div className="hc-list" aria-busy={props.loading} role="table" aria-label="Jadwal saya">
+      {view === "Calendar" && !firstLoad ? <ScheduleCalendar period={period} rows={filtered} now={now} onOpen={open} /> : null}
+
+      <div className="hc-list" hidden={view === "Calendar" && !firstLoad} aria-busy={props.loading} role="table" aria-label="Jadwal saya">
         <div className="hc-row sch head" style={grid} role="row">
           {cols.map((c) => (
             <span key={c.key} className={cls(c)} role="columnheader">
@@ -294,7 +314,7 @@ export function MyScheduleView(props: MyScheduleProps): React.ReactElement {
             })}
       </div>
 
-      {firstLoad ? null : filtered.length === 0 ? (
+      {firstLoad ? null : filtered.length === 0 && view === "List" ? (
         <EmptyState
           icon={filtering ? "filterX" : "calendar"}
           title={filtering ? "Tidak ada jadwal yang cocok" : `Belum ada jadwal di ${fmtPeriod(period)}`}

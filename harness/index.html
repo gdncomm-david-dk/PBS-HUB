@@ -125,6 +125,7 @@
       Object.assign(params, base, { Period: q.get("period") || "", DefaultFilter: q.get("f") || "", SchedulesJson: J(empty2 ? [] : all.schedules), ReportsJson: J(empty2 ? [] : all.reports) });
     }
     if (c === "MySchedule") {
+      if (q.get("view")) params.DefaultView = q.get("view");
       const empty3 = s === "loading" || s === "empty";
       Object.assign(params, base, { Period: q.get("period") || "", DefaultFilter: q.get("f") || "", SchedulesJson: J(empty3 ? [] : all.schedules), ReportsJson: J(empty3 ? [] : all.reports) });
     }

@@ -612,6 +612,24 @@ const assert = (c, m) => { if (!c) { console.log("FAIL", m); process.exitCode = 
   await go("c=ScheduleDetail&sch=SCD-3309");
   assert(await p.getByText("Co Host").isVisible() && (await p.getByText(/Mulai .* lagi/).isVisible()), "planned session shows position and countdown");
 
+  // MySchedule calendar view: toggle, day cells, day list opens the session.
+  await go("c=MySchedule");
+  await p.getByRole("button", { name: "Kalender" }).click();
+  await p.waitForTimeout(200);
+  pl = await payloads();
+  assert(pl.some((x) => x.action === "VIEW_CHANGED" && x.payload.view === "Calendar"), "VIEW_CHANGED on toggle");
+  assert((await p.locator(".hc-cal-d").count()) === 35 && (await p.locator(".hc-cal-d.today .n").textContent()) === "14", "month grid with today marked");
+  assert((await p.getByText(/Hari ini · Senin, 14 September 2026/).isVisible()) && (await p.locator(".hc-cal-day .hc-cal-item").count()) === 3, "today selected with its sessions");
+  await p.getByRole("gridcell", { name: /Sabtu, 12 September 2026/ }).click();
+  assert((await p.locator(".hc-cal-day .hc-cal-item").count()) === 1 && (await p.locator(".hc-cal-day").getByText("Y.O.U Beauty").isVisible()), "picking a day lists its sessions");
+  await p.locator(".hc-cal-day .hc-cal-item").first().click();
+  pl = await payloads();
+  assert(pl.some((x) => x.action === "OPEN_SCHEDULE" && x.payload.scheduleId === "SCD-3302"), "calendar item opens the session");
+  await go("c=MySchedule&view=Calendar&w=390");
+  assert(await p.locator(".hc-cal-d .dots i").first().isVisible() && !(await p.locator(".hc-cal-ev").first().isVisible()), "phone shows dots instead of chips");
+  await p.getByRole("button", { name: "Daftar" }).click();
+  assert(await p.locator(".hc-list").isVisible(), "back to list view");
+
   // Host Clock In: position + selfie, reason only outside the radius, selfie on UploadData.
   const selfiePng = await p.screenshot({ clip: { x: 0, y: 0, width: 300, height: 400 } });
   await go("c=ClockIn&shift=none&w=390");

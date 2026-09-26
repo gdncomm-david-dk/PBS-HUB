@@ -1,7 +1,7 @@
 # Integrasi canvas — PBS Hub Host PCF
 
 Solusi terpisah dari Ops Console: **`PBSHubHostPCF`** (managed, `dist/PBSHubHostPCF_1_0_10_0_managed.zip`)
-dan, untuk layar jadwal, **`PBSHubHostSchedulePCF`** (managed, `dist/PBSHubHostSchedulePCF_1_1_5_0_managed.zip`).
+dan, untuk layar jadwal, **`PBSHubHostSchedulePCF`** (managed, `dist/PBSHubHostSchedulePCF_1_1_6_0_managed.zip`).
 Publisher dan prefix sama (`PBSHub` / `pbs`), jadi ketiga solusi bisa dipasang berdampingan di environment yang
 sama, tapi bisa di-upgrade sendiri-sendiri.
 
@@ -11,7 +11,7 @@ sama, tapi bisa di-upgrade sendiri-sendiri.
 | `pbs_Host.MyReports` | *Report saya* | Report sebulan + sesi yang belum dilaporkan, filter status, pilih bulan. |
 | `pbs_Host.ClockIn` | *Clock in* (dibuka dari kartu shift *Hari ini*) | Clock in / clock out: GPS dicek terhadap radius `Studio Location - PBS`, selfie wajib saat in **dan** out, alasan wajib kalau di luar radius. Lihat bagian 9. |
 | `pbs_Host.MyReportDetail` | *Kirim report*, *Revisi*, *Detail report* | Satu control, tiga mode: form submit (metrik + screenshot), layar revisi (angka yang ditandai, perbaiki / sanggah), tampilan read-only. |
-| `pbs_Host.MySchedule` *(PBSHubHostSchedulePCF)* | *Jadwal saya* (5a) | Tabel sesi sebulan, 4 KPI, strip *Hari ini* dengan tombol clock in / absen / kirim report, filter platform + status + cari. |
+| `pbs_Host.MySchedule` *(PBSHubHostSchedulePCF)* | *Jadwal saya* (5a) | Tabel **atau kalender bulan** (toggle Daftar / Kalender), 4 KPI, strip *Hari ini* dengan tombol clock in / absen / kirim report, filter platform + status + cari. |
 | `pbs_Host.ScheduleDetail` *(PBSHubHostSchedulePCF)* | *Detail sesi* (dibuka dari 4b / 5a / Hari ini) | Langkah berikutnya, **absen dan kirim report (metrik + screenshot) atau revisi langsung di layar ini**, 4 langkah sesi, detail jadwal, sesi lain di hari yang sama. |
 
 Aturan kontrak sama dengan Ops (lihat [`CANVAS-INTEGRATION.md` §1](CANVAS-INTEGRATION.md#1-aturan-kontrak-berlaku-untuk-semua-control)):
@@ -356,6 +356,7 @@ Set(varMsLoading, false);
 | `HostJson` | seperti HostDashboard (dipakai untuk payload `ABSEN`) |
 | `SchedulesJson` | seperti HostDashboard dari `colMsSch`, **plus** `JamLive: JamLive` (`Position`, `LiveBreak`, `AccountName` sudah ikut dari HostDashboard). Kolom *Posisi* hanya tampil kalau ada baris yang mengisinya. |
 | `ClockInJson`, `AbsenceJson`, `ReportsJson`, `BrandsJson`, `StudiosJson` | seperti HostDashboard, dari koleksi `colMs…` |
+| `DefaultView` | `Coalesce(varMsView, "List")` — `"List"` (tabel) atau `"Calendar"` (kalender bulan). Tombol *Daftar / Kalender* mengirim `VIEW_CHANGED {view}`; simpan di `OnChange`: `"VIEW_CHANGED", Set(varMsView, Text(p.view))` supaya pilihan host bertahan saat kembali ke layar. |
 | `HasMore` | `false` (per host per bulan kecil) |
 | `IsLoading` | `varMsLoading` |
 | `ActionResult` | `varMsResult` |
@@ -382,6 +383,7 @@ terjadwal), *Absen hari ini*, *Hari clock in* (hari berjadwal sampai hari ini ya
 | `CLOCK_IN`, `NEW_REPORT`, `OPEN_REPORT` | sama dengan HostDashboard |
 | `PERIOD_CHANGED` `{period}` | `Set(varMsPeriod, Text(p.period))` lalu ulangi OnVisible |
 | `FILTER_CHANGED` `{status, platform, period}` | opsional: `Set(varMsFilter, Text(p.status))` supaya filter bertahan saat kembali |
+| `VIEW_CHANGED` `{view: "List" \| "Calendar"}` | opsional: `Set(varMsView, Text(p.view))`, lalu `DefaultView = Coalesce(varMsView, "List")` |
 | `LOAD_MORE` `{period, loaded}` | hanya kalau `HasMore` dipakai |
 
 Filter platform, status dan kotak cari (brand, akun, Schedule ID, studio) jalan di control, tanpa reload.
@@ -435,7 +437,7 @@ tim PBS, sesi batal hanya diberi keterangan.
 
 ## 8. Pemasangan
 
-1. Import `dist/PBSHubHostPCF_1_0_10_0_managed.zip` dan `dist/PBSHubHostSchedulePCF_1_1_5_0_managed.zip`
+1. Import `dist/PBSHubHostPCF_1_0_10_0_managed.zip` dan `dist/PBSHubHostSchedulePCF_1_1_6_0_managed.zip`
    (Solutions → Import). Bisa di environment yang sama dengan `PBSHubOpsPCF`; urutan bebas, tidak saling bergantung.
 2. Di canvas app host: **Insert → Get more components → Code** → `PBS Host Dashboard`, `PBS Host My Reports`,
    `PBS Host My Report Detail`, `PBS Host Clock In`, `PBS Host My Schedule`, `PBS Host Schedule Detail`.
