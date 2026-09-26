@@ -165,7 +165,7 @@
       });
     }
   }
-  const Ctor = window.__registry[(isHostApp ? "Host." : "Ops.") + c];
+  const Ctor = window.__registry[(isHostApp ? "HostApp." : "Ops.") + c];
   const log = (m) => { document.getElementById("log").textContent = m + "\n" + document.getElementById("log").textContent; };
   const context = () => ({
     parameters: Object.fromEntries(Object.entries(params).map(([k, v]) => [k, { raw: v }])),
