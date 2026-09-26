@@ -60,7 +60,8 @@ Cek dulu list berikut. Kolom bertanda **baru** mungkin belum ada di list v1.
 | Kolom | Tipe | Isi |
 |---|---|---|
 | `Title` | teks | `REP-{ID}` (diisi canvas setelah baris dibuat) |
-| `ScheduleID`, `HostID`, `BrandID`, `AccountID`, `Account`, `AbsID` | teks | dari jadwal / absen |
+| `ScheduleID`, `HostID`, `BrandID`, `AccountID`, `AbsID` | teks | dari jadwal / absen; `AccountID` = kode akun (`Schedule.Account`) |
+| `Account` | Lookup ke list Account (atau Choice) | ditulis sebagai record: `LookUp(Choices([@'Report - PBS Hub'].Account), Value = kode \|\| Value = nama)`; dibaca `Account.Value`. Sama untuk `Account` di Host Absence |
 | `Platform` | Choice | disalin dari Schedule |
 | `LiveDate` | Date | tanggal sesi |
 | `LiveID` **baru** | Single line of text | ID live dari Seller Center; unik per sesi |
@@ -150,7 +151,7 @@ Semua properti `…Json` di bawah memakai bentuk record ini. Salin apa adanya.
 **Report**
 ```powerfx
 {ID: ID, Title: Title, ScheduleID: ScheduleID, HostID: HostID, BrandID: BrandID, AccountID: AccountID,
- Account: Account, Platform: Platform.Value, LiveDate: Text(LiveDate, "yyyy-mm-dd"), LiveID: LiveID,
+ Account: Account.Value, Platform: Platform.Value, LiveDate: Text(LiveDate, "yyyy-mm-dd"), LiveID: LiveID,
  Playbook: Playbook.Value, Penjualan: Penjualan, Pesanan: Pesanan, ProdukTerjual: ProdukTerjual,
  JumlahPembeli: JumlahPembeli, CTR: CTR, CTOR: CTOR, PeakViewer: PeakViewer, DurasiMin: 'Durasi(Min)',
  AddToCart: AddToCart, TotalViewer: TotalViewer, Comment: Comment, ApprovalStatus: ApprovalStatus.Value,
@@ -308,6 +309,7 @@ Clock in dulu lewat layar Clock in.
 | Send Report nonaktif *Status jadwal masih Planned — report dibuka saat status Waiting Report* | Absen dibuat sebelum OnChange baru terpasang, jadi Status tidak diubah | ubah `Status` jadwal itu ke `Waiting Report` manual sekali; atau `requireWaitingStatus: false` |
 | Pesan *Status jadwal Done, report tidak bisa dikirim* | durasi sudah terpenuhi, atau Choice Status beda ejaan | cek ejaan Choice di list = `scheduleWaitingStatus` di config dan teks di formula |
 | Send Report gagal dengan error di kolom Playbook | pilihan dropdown tidak ada di Choice `Playbook` | pakai `PlaybooksJson = JSON(Choices(...))` supaya dropdown = Choice list |
+| *The type of this argument 'Account' does not match the expected type 'Record'* | kolom `Account` di Report / Host Absence adalah Lookup/Choice, tidak bisa diisi teks | pakai formula `Choices(...)` di OnChange bagian 10 (sudah diperbarui); kalau kolomnya teks biasa, sebaliknya pakai `LookUp(colAccounts, Title = s.Account).AccountName` |
 | Nama akun kosong di layar | `colAccounts` belum dimuat, atau `Schedule.Account` tidak sama dengan `Title` di list Account | jalankan App.OnStart; cek isi kedua kolom |
 | Report terbuat tapi `Attachment` kosong | flow gagal / belum di-add ke app / urutan input flow terbalik | cek run history flow; input kedua harus `fileBase64` (`text_1`) |
 | Durasi report lama tidak terhitung | `ReportsJson` tidak mengirim `DurasiMin` | pakai record Report di R5 persis |
