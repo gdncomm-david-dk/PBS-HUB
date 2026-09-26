@@ -1,25 +1,25 @@
-# Integrasi canvas — PBS Hub Host PCF
+# Integrasi canvas — PBS Hub Host App
 
-Solusi terpisah dari Ops Console: **`PBSHubHostPCF`** (managed, `dist/PBSHubHostPCF_1_1_0_0_managed.zip`)
-dan, untuk layar jadwal, **`PBSHubHostSchedulePCF`** (managed, `dist/PBSHubHostSchedulePCF_1_2_0_0_managed.zip`).
-Publisher dan prefix sama (`PBSHub` / `pbs`), jadi ketiga solusi bisa dipasang berdampingan di environment yang
-sama, tapi bisa di-upgrade sendiri-sendiri.
+Solusi terpisah dari Ops Console: **`PBSHubHostApp`** (managed, `dist/PBSHubHostApp_1_0_0_0_managed.zip`), berisi
+keenam control host dengan identifier baru `pbs_HostApp.*`. Solusi ini menggantikan `PBSHubHostPCF` +
+`PBSHubHostSchedulePCF` (control lama `pbs_Host.*`). Karena nama solusi dan namespace control berbeda, solusi baru
+bisa diimport berdampingan dengan yang lama tanpa bentrok. Publisher dan prefix tetap sama (`PBSHub` / `pbs`).
 
 | Control | Layar desain (PBS Host App) | Fungsi |
 |---|---|---|
-| `pbs_Host.HostDashboard` | *Hari ini* | Sapaan, kartu shift (clock in / clock out), to-do (revisi, report belum dikirim, absen), jadwal hari ini, skor. |
-| `pbs_Host.MyReports` | *Report saya* | Report sebulan + sesi yang belum dilaporkan, filter status, pilih bulan. |
-| `pbs_Host.ClockIn` | *Clock in* (dibuka dari kartu shift *Hari ini*) | Clock in / clock out: GPS dicek terhadap radius `Studio Location - PBS`, selfie wajib saat in **dan** out, alasan wajib kalau di luar radius. Lihat bagian 9. |
-| `pbs_Host.MyReportDetail` | *Kirim report*, *Revisi*, *Detail report* | Satu control, tiga mode: form submit (metrik + screenshot), layar revisi (angka yang ditandai, perbaiki / sanggah), tampilan read-only. |
-| `pbs_Host.MySchedule` *(PBSHubHostSchedulePCF)* | *Jadwal saya* (5a) | Tabel **atau kalender bulan** (toggle Daftar / Kalender), 4 KPI, strip *Hari ini* dengan tombol clock in / absen / kirim report, filter platform + status + cari. |
-| `pbs_Host.ScheduleDetail` *(PBSHubHostSchedulePCF)* | *Detail sesi* (dibuka dari 4b / 5a / Hari ini) | Langkah berikutnya, **absen dan kirim report (metrik + screenshot) atau revisi langsung di layar ini**, 4 langkah sesi, detail jadwal, sesi lain di hari yang sama. |
+| `pbs_HostApp.HostDashboard` | *Hari ini* | Sapaan, kartu shift (clock in / clock out), to-do (revisi, report belum dikirim, absen), jadwal hari ini, skor. |
+| `pbs_HostApp.MyReports` | *Report saya* | Report sebulan + sesi yang belum dilaporkan, filter status, pilih bulan. |
+| `pbs_HostApp.ClockIn` | *Clock in* (dibuka dari kartu shift *Hari ini*) | Clock in / clock out: GPS dicek terhadap radius `Studio Location - PBS`, selfie wajib saat in **dan** out, alasan wajib kalau di luar radius. Lihat bagian 9. |
+| `pbs_HostApp.MyReportDetail` | *Kirim report*, *Revisi*, *Detail report* | Satu control, tiga mode: form submit (metrik + screenshot), layar revisi (angka yang ditandai, perbaiki / sanggah), tampilan read-only. |
+| `pbs_HostApp.MySchedule` | *Jadwal saya* (5a) | Tabel **atau kalender bulan** (toggle Daftar / Kalender), 4 KPI, strip *Hari ini* dengan tombol clock in / absen / kirim report, filter platform + status + cari. |
+| `pbs_HostApp.ScheduleDetail` | *Detail sesi* (dibuka dari 4b / 5a / Hari ini) | Langkah berikutnya, **absen dan kirim report (metrik + screenshot) atau revisi langsung di layar ini**, 4 langkah sesi, detail jadwal, sesi lain di hari yang sama. |
 
 Aturan kontrak sama dengan Ops (lihat [`CANVAS-INTEGRATION.md` §1](CANVAS-INTEGRATION.md#1-aturan-kontrak-berlaku-untuk-semua-control)):
 control **tidak pernah menulis ke SharePoint**, tombol mengirim `ActionPayload`, canvas menulis di `OnChange`
 dan membalas lewat `ActionResult` dengan `requestId` yang sama. Aksi yang **mengunci** (wajib dibalas):
 `ABSEN`, `SUBMIT_REPORT`, `RESUBMIT_REPORT`, `DISPUTE_REVIEW`, `CLOCK_IN`, `CLOCK_OUT` (ClockIn). Sisanya navigasi, tidak perlu dibalas.
 
-Control hanya merender isi layar. Header dan sidebar/tab bar tetap milik app. Layar clock in (GPS + selfie) sekarang juga control (`pbs_Host.ClockIn`, bagian 9); layar GeoAttendance lama boleh dipensiunkan.
+Control hanya merender isi layar. Header dan sidebar/tab bar tetap milik app. Layar clock in (GPS + selfie) sekarang juga control (`pbs_HostApp.ClockIn`, bagian 9); layar GeoAttendance lama boleh dipensiunkan.
 
 ## 1. Context
 
@@ -119,7 +119,7 @@ Aksi:
 
 | Aksi | Payload | Canvas |
 |---|---|---|
-| `CLOCK_IN` | `{}` | `Navigate(scrClockIn)` — layar dengan control `pbs_Host.ClockIn` (bagian 9) |
+| `CLOCK_IN` | `{}` | `Navigate(scrClockIn)` — layar dengan control `pbs_HostApp.ClockIn` (bagian 9) |
 | `CLOCK_OUT` | `{clockInId}` | `Navigate(scrClockIn)` — control yang sama membuka mode clock out kalau shift masih terbuka |
 | `ABSEN` 🔒 | `{scheduleId, scheduleItemId, hostId, hostName, liveDate, brandId, studioId, platform, account, accountName, position, liveBreak, scheduleStatus, report}` | Patch Host Absence + `Schedule.Status`; kalau `liveBreak` buat Report 0 (di bawah) |
 | `NEW_REPORT` | `{scheduleId, scheduleItemId, liveDate}` | `Set(varRptSchedule, Text(p.scheduleId)); Set(varRptId, Blank()); Navigate(scrMyReportDetail)` |
@@ -297,7 +297,7 @@ sanggahan di ApprovalComment.
 kunci `pbs-host-draft:{HostID}:{ScheduleID}`). Tidak ada status baru di list Report. Screenshot tidak ikut
 draft (terlalu besar); host memilihnya lagi saat submit. Draft dihapus setelah submit berhasil.
 
-## 6. MySchedule (layar *Jadwal saya*) — `PBSHubHostSchedulePCF`
+## 6. MySchedule (layar *Jadwal saya*)
 
 `OnChange` lengkap: bagian 10.
 
@@ -354,7 +354,7 @@ terjadwal), *Absen hari ini*, *Hari clock in* (hari berjadwal sampai hari ini ya
 
 Filter platform, status dan kotak cari (brand, akun, Schedule ID, studio) jalan di control, tanpa reload.
 
-## 7. ScheduleDetail (layar *Detail sesi*) — `PBSHubHostSchedulePCF`
+## 7. ScheduleDetail (layar *Detail sesi*)
 
 `OnChange` lengkap: bagian 10.
 
@@ -412,10 +412,14 @@ Sesi tanpa clock in diarahkan minta clock in manual ke tim PBS, sesi batal hanya
 
 ## 8. Pemasangan
 
-1. Import `dist/PBSHubHostPCF_1_1_0_0_managed.zip` dan `dist/PBSHubHostSchedulePCF_1_2_0_0_managed.zip`
-   (Solutions → Import). Bisa di environment yang sama dengan `PBSHubOpsPCF`; urutan bebas, tidak saling bergantung.
-2. Di canvas app host: **Insert → Get more components → Code** → `PBS Host Dashboard`, `PBS Host My Reports`,
-   `PBS Host My Report Detail`, `PBS Host Clock In`, `PBS Host My Schedule`, `PBS Host Schedule Detail`.
+1. Import `dist/PBSHubHostApp_1_0_0_0_managed.zip` (Solutions → Import). Bisa di environment yang sama dengan
+   `PBSHubOpsPCF` dan dengan solusi host lama.
+   **Pindah dari solusi lama** (`PBSHubHostPCF` / `PBSHubHostSchedulePCF`, control `pbs_Host.*`): control baru tidak
+   otomatis menggantikan yang lama di canvas. Di tiap layar hapus control lama, tambahkan control `pbs_HostApp.*`
+   dengan nama yang sama (mis. `ScheduleDetail1`) supaya formula tetap cocok, isi ulang propertinya dan salin
+   `OnChange` dari bagian 10. Setelah semua layar pindah dan app dipublish, solusi lama boleh dihapus.
+2. Di canvas app host: **Insert → Get more components → Code** → `PBS Host App Dashboard`, `PBS Host App My Reports`,
+   `PBS Host App My Report Detail`, `PBS Host App Clock In`, `PBS Host App My Schedule`, `PBS Host App Schedule Detail`.
 3. Buat flow *PBS Host – Upload report screenshot* (bagian 5) dan *PBS Host – Upload selfie* (bagian 9), lalu
    tambahkan keduanya ke app (**Power Automate** pane).
 4. Satu control per layar, ukuran = area konten. Layout menyesuaikan lebar sendiri (container query): di HP
@@ -423,10 +427,10 @@ Sesi tanpa clock in diarahkan minta clock in manual ke tim PBS, sesi batal hanya
    (sampai 1160 px) dan menyembunyikan kolom Akun / Posisi / Studio di bawah 900 px.
 
 Update: naikkan `version` di `ControlManifest.Input.xml` yang berubah **dan** `Version` di
-`solution/<Solusi>/src/Other/Solution.xml` milik control itu (`PBSHubHostPCF` atau `PBSHubHostSchedulePCF`),
-lalu `npm run release` (membangun semua solusi; hanya satu: `SOLUTIONS=PBSHubHostSchedulePCF ./scripts/package-solution.sh`).
+`solution/PBSHubHostApp/src/Other/Solution.xml`, lalu `npm run release` (membangun semua solusi; hanya host:
+`SOLUTIONS=PBSHubHostApp ./scripts/package-solution.sh`).
 
-## 9. ClockIn (layar *Clock in*) — `PBSHubHostPCF`
+## 9. ClockIn (layar *Clock in*)
 
 Satu layar untuk clock in **dan** clock out. Control membaca shift hari ini dari `ClockInJson`: belum ada baris →
 mode *Clock in*; baris dengan `CheckOutTime` kosong (termasuk shift semalam yang belum ditutup) → mode *Clock out*;

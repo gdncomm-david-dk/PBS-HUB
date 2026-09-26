@@ -8,7 +8,7 @@
   <Import Project="$(PowerAppsTargetsPath)\Microsoft.PowerApps.VisualStudio.Solution.props" Condition="Exists('$(PowerAppsTargetsPath)\Microsoft.PowerApps.VisualStudio.Solution.props')" />
 
   <PropertyGroup>
-    <ProjectGuid>41e0ea0c-b0e4-436a-b3b8-2c0c9f9bd948</ProjectGuid>
+    <ProjectGuid>405a2353-4f8b-4eeb-93a4-ad41cafcf53f</ProjectGuid>
     <TargetFrameworkVersion>v4.6.2</TargetFrameworkVersion>
     <!--Remove TargetFramework when this is available in 16.1-->
     <TargetFramework>net462</TargetFramework>
@@ -51,6 +51,8 @@
     <ProjectReference Include="../../controls/MyReports/PbsHostMyReports.pcfproj" />
     <ProjectReference Include="../../controls/MyReportDetail/PbsHostMyReportDetail.pcfproj" />
     <ProjectReference Include="../../controls/ClockIn/PbsHostClockIn.pcfproj" />
+    <ProjectReference Include="../../controls/MySchedule/PbsHostMySchedule.pcfproj" />
+    <ProjectReference Include="../../controls/ScheduleDetail/PbsHostScheduleDetail.pcfproj" />
   </ItemGroup>
 
   <Import Project="$(MSBuildToolsPath)\Microsoft.Common.targets" />

@@ -4,7 +4,7 @@ import { sessionStatus } from "./host";
 import { ALL_METRICS, MetricDef, NO_STATUS, ReviewState, Tone, isResubmitted, readMetric, reviewState } from "./reconcile";
 
 /**
- * Host self-service (pbs_Host.*): what a host has to do right now. Everything here is derived from
+ * Host self-service (pbs_HostApp.*): what a host has to do right now. Everything here is derived from
  * the host's own rows — Schedule, Clock In, Host Absence and Report — which canvas filters to the
  * signed-in host before sending.
  *

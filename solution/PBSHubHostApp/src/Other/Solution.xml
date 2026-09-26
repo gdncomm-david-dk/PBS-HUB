@@ -2,15 +2,15 @@
 <ImportExportXml version="9.1.0.643" SolutionPackageVersion="9.1" languagecode="1033" generatedBy="CrmLive" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
   <SolutionManifest>
     <!-- Unique Name of Cds Solution-->
-    <UniqueName>PBSHubHostSchedulePCF</UniqueName>
+    <UniqueName>PBSHubHostApp</UniqueName>
     <LocalizedNames>
       <!-- Localized Solution Name in language code -->
-      <LocalizedName description="PBS Hub Host Schedule PCF" languagecode="1033" />
+      <LocalizedName description="PBS Hub Host App" languagecode="1033" />
     </LocalizedNames>
     <Descriptions>
-      <Description description="PBS Hub Host app schedule code components: My schedule (pbs_Host.MySchedule) and Schedule detail (pbs_Host.ScheduleDetail). Ships separately from PBSHubHostPCF." languagecode="1033" />
+      <Description description="PBS Hub Host app, all six code components (pbs_HostApp.*): Hari ini (HostDashboard), Report saya (MyReports), kirim / revisi report (MyReportDetail), Clock in (ClockIn), Jadwal saya (MySchedule), Detail sesi (ScheduleDetail). Replaces PBSHubHostPCF and PBSHubHostSchedulePCF." languagecode="1033" />
     </Descriptions>
-    <Version>1.2.0.0</Version>
+    <Version>1.0.0.0</Version>
     <!-- Solution Package Type: Unmanaged(0)/Managed(1)/Both(2)-->
     <Managed>2</Managed>
     <Publisher>

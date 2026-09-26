@@ -211,7 +211,7 @@ font-family:"Blibli","Helvetica Neue",Arial,sans-serif;font-size:13px;line-heigh
 .pbs-rev-row{display:flex;align-items:center;gap:12px;padding:10px;border-top:1px solid var(--row);cursor:pointer}
 .pbs-rev-row.off{cursor:default;color:var(--dis)}
 .pbs-sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
-/* ---- Host app (pbs_Host.*): full-width 12-column desktop (content 8/12 + context 4/12, padding 32px),
+/* ---- Host app (pbs_HostApp.*): full-width 12-column desktop (content 8/12 + context 4/12, padding 32px),
    one column below 900px; layout follows the control width, not the window ---- */
 .pbs-root.hc{container-type:inline-size;background:#FAFAF8}
 .hc-col{padding:32px 32px 48px}

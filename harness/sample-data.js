@@ -257,7 +257,7 @@
   });
 
 
-  // ---- host app (pbs_Host.*): Dinda Maharani (HST-001) sees only her own rows -------------------
+  // ---- host app (pbs_HostApp.*): Dinda Maharani (HST-001) sees only her own rows -------------------
   // Today (14 Sep): 07:00 session reported, 10:00 session live now (no absen yet), 16:00 upcoming.
   // Past: a revision with flagged metrics, one unsent (on time), one unsent (late), one without clock-in.
   const hs = (id, day, start, end, brand, studio, status, platform) => ({

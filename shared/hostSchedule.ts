@@ -5,7 +5,7 @@ import { HostOptions, HostSession, clockedDays, hostReportBadge } from "./hostAp
 import { Tone } from "./reconcile";
 
 /**
- * Host schedule (pbs_Host.MySchedule / pbs_Host.ScheduleDetail). Built on the same session phases as
+ * Host schedule (pbs_HostApp.MySchedule / pbs_HostApp.ScheduleDetail). Built on the same session phases as
  * the dashboard, with the words the host already knows from the v1 schedule screen: Planned and
  * Finished (Schedule.Status), plus the one step still missing.
  */

@@ -16,28 +16,24 @@ Power Apps code components (PCF) untuk canvas app PBS Hub, dibuat dari design ha
 | `pbs_Ops.HostList` | Host — direktori, skor + band, peringatan tanpa data bank (HD-1) | `controls/HostList` |
 | `pbs_Ops.HostDetail` | Detail host — ringkasan skor/ledger, jadwal, kehadiran (edit jam, tier, weekly), report, payroll, data pribadi tersamar (HD-2) | `controls/HostDetail` |
 
-**Host app** (solusi terpisah `PBSHubHostPCF`, dari desain *PBS Host App*):
+**Host app** (solusi terpisah `PBSHubHostApp`, dari desain *PBS Host App*; keenam control host dalam satu solusi):
 
 | Control | Layar | Folder |
 |---|---|---|
-| `pbs_Host.HostDashboard` | Hari ini — shift clock in/out, to-do, jadwal hari ini, skor | `controls/HostDashboard` |
-| `pbs_Host.MyReports` | Report saya — report sebulan + sesi belum dikirim, filter status | `controls/MyReports` |
-| `pbs_Host.MyReportDetail` | Kirim report (metrik + screenshot), revisi / sanggahan, detail | `controls/MyReportDetail` |
-| `pbs_Host.ClockIn` | Clock in / clock out — GPS vs radius *Studio Location - PBS*, selfie in & out, alasan wajib di luar radius | `controls/ClockIn` |
+| `pbs_HostApp.HostDashboard` | Hari ini — shift clock in/out, to-do, jadwal hari ini, skor | `controls/HostDashboard` |
+| `pbs_HostApp.MyReports` | Report saya — report sebulan + sesi belum dikirim, filter status | `controls/MyReports` |
+| `pbs_HostApp.MyReportDetail` | Kirim report (metrik + screenshot), revisi / sanggahan, detail | `controls/MyReportDetail` |
+| `pbs_HostApp.ClockIn` | Clock in / clock out — GPS vs radius *Studio Location - PBS*, selfie in & out, alasan wajib di luar radius | `controls/ClockIn` |
+| `pbs_HostApp.MySchedule` | Jadwal saya — tabel atau kalender sesi sebulan, KPI, strip *Hari ini* (clock in / absen / kirim report), filter platform + status + cari | `controls/MySchedule` |
+| `pbs_HostApp.ScheduleDetail` | Detail sesi — langkah berikutnya, absen + kirim report (metrik + screenshot) / revisi di tempat, 4 langkah sesi, detail jadwal, sesi lain hari itu | `controls/ScheduleDetail` |
 
-**Host schedule** (solusi terpisah lagi `PBSHubHostSchedulePCF`, bisa di-upgrade tanpa menyentuh Host app):
-
-| Control | Layar | Folder |
-|---|---|---|
-| `pbs_Host.MySchedule` | Jadwal saya — tabel atau kalender sesi sebulan, KPI, strip *Hari ini* (clock in / absen / kirim report), filter platform + status + cari | `controls/MySchedule` |
-| `pbs_Host.ScheduleDetail` | Detail sesi — langkah berikutnya, absen + kirim report (metrik + screenshot) / revisi di tempat, 4 langkah sesi, detail jadwal, sesi lain hari itu | `controls/ScheduleDetail` |
-
-**Output:** tiga managed solution, dibangun dengan target MSBuild resmi Power Platform
+**Output:** dua managed solution, dibangun dengan target MSBuild resmi Power Platform
 (`Microsoft.PowerApps.MSBuild.Solution`):
 
 - `dist/PBSHubOpsPCF_1_6_3_0_managed.zip` — Ops Console (7 control `pbs_Ops.*`)
-- `dist/PBSHubHostPCF_1_1_0_0_managed.zip` — Host app (4 control `pbs_Host.*`)
-- `dist/PBSHubHostSchedulePCF_1_2_0_0_managed.zip` — Host schedule (2 control `pbs_Host.*`)
+- `dist/PBSHubHostApp_1_0_0_0_managed.zip` — Host app (6 control `pbs_HostApp.*`). Menggantikan `PBSHubHostPCF` dan
+  `PBSHubHostSchedulePCF` (control lama `pbs_Host.*`); nama solusi dan control baru, jadi bisa diimport berdampingan
+  dengan yang lama tanpa bentrok
 
 Cara pasang dan formula Power Fx lengkap (properti, `OnChange`, Patch ke SharePoint):
 [`docs/CANVAS-INTEGRATION.md`](docs/CANVAS-INTEGRATION.md) (Ops) dan
@@ -58,7 +54,7 @@ shared/            logika + UI bersama (dipakai semua control)
   contract.ts      Context, ActionPayload/ActionResult, useAction (requestId lock)
   ui.tsx styles.ts token Blu Basic internal-app, badge, tombol pill, 4 state tabel
 controls/<Name>/   project PCF (ControlManifest.Input.xml, index.ts, *View.tsx, .pcfproj)
-solution/          PBSHubOpsPCF + PBSHubHostPCF + PBSHubHostSchedulePCF (cdsproj, SolutionPackageType = Managed)
+solution/          PBSHubOpsPCF + PBSHubHostApp (cdsproj, SolutionPackageType = Managed)
 harness/           halaman uji lokal + data contoh v1 + skrip Playwright
 tests/             unit test Jest untuk logika data
 ```
