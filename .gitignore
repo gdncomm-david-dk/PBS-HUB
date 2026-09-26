@@ -7,3 +7,4 @@ obj/
 .DS_Store
 # v1 solution export — local reference only (contains employee e-mails and tenant ids).
 export/
+__pycache__/

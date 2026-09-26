@@ -131,7 +131,7 @@ def absen(R, col, after=''):
                             }})}},
                             Patch('Report - PBS Hub', rep, {{Title: "REP-" & rep.ID}})
                         );
-{ind(tier("s.Date").rstrip(';'), 24).replace('{', '{{').replace('}', '}}')}
+{ind(tier("s.Date").rstrip(';'), 24)}
                     )
                 )
             );
@@ -171,13 +171,13 @@ def submit(R, after):
                         // Screenshot → Report Automation/<Brand>/<yyyy>/<mmmm>/REP-<ID>/REP-<ID>_<Platform>_<Account>_Report.png
                         // (Graph PUT, sama dengan app upload jadwal bulk/AI). webUrl dari respons Graph → Attachment.
                         If(!IsBlank(data),
-                            With({{up: {ind(graph_put("s.BrandID", "Today()", "title", "s.Platform.Value", "s.Account"), 32).strip().replace('{', '{{').replace('}', '}}')}}},
+                            With({{up: {ind(graph_put("s.BrandID", "Today()", "title", "s.Platform.Value", "s.Account"), 32).strip()}}},
                                 Patch('Report - PBS Hub', row, {{Attachment: Text(up.webUrl)}})
                             )
                         );
                         // Total Durasi(Min) semua report sesi ini ≥ durasi jadwal → "Done", kalau belum tetap "Waiting Report".
                         Patch('Schedule - PBS Hub', s, {{Status: {{Value: Text(p.scheduleStatus)}}}});
-{ind(tier("s.Date"), 24).replace('{', '{{').replace('}', '}}')}
+{ind(tier("s.Date"), 24)}
 {ind(after, 24)}
                         {res(R, "ok", 'If(Boolean(p.complete), "Report " & title & " terkirim. Durasi sesi terpenuhi.", "Report " & title & " terkirim. Kurang " & Text(p.remainingMin) & " menit, kirim report berikutnya.")')}
                     )
@@ -212,14 +212,14 @@ def resubmit(R, after):
                 // Screenshot baru (opsional): path dan nama file sama dengan upload pertama (folder bulan dari Created)
                 // → file lama ditimpa, flow AI membaca ulang.
                 If(!IsBlank(p.file) && !IsBlank(data),
-                    With({{up: {ind(graph_put("cur.BrandID", "cur.Created", "cur.Title", "cur.Platform.Value", "cur.AccountID"), 24).strip().replace('{', '{{').replace('}', '}}')}}},
+                    With({{up: {ind(graph_put("cur.BrandID", "cur.Created", "cur.Title", "cur.Platform.Value", "cur.AccountID"), 24).strip()}}},
                         Patch('Report - PBS Hub', LookUp('Report - PBS Hub', ID = cur.ID), {{Attachment: Text(up.webUrl)}}))
                 );
                 // Durasi bisa ikut direvisi: status jadwal dihitung ulang oleh control (Waiting Report / Done).
                 If(!IsBlank(Text(p.scheduleStatus)),
                     Patch('Schedule - PBS Hub', LookUp('Schedule - PBS Hub', Title = cur.ScheduleID && HostID = varMe.Title), {{Status: {{Value: Text(p.scheduleStatus)}}}}));
                 // Angka berubah → Tier hari itu dihitung ulang.
-{ind(tier("cur.LiveDate"), 16).replace('{', '{{').replace('}', '}}')}
+{ind(tier("cur.LiveDate"), 16)}
 {ind(after, 16)}
                 {res(R, "ok", '"Revisi terkirim, menunggu review ulang."')},
                 {res(R, "error", '"Gagal mengirim revisi: " & FirstError.Message')}
