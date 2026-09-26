@@ -37,7 +37,7 @@ Power Apps code components (PCF) untuk canvas app PBS Hub, dibuat dari design ha
 
 Cara pasang dan formula Power Fx lengkap (properti, `OnChange`, Patch ke SharePoint):
 [`docs/CANVAS-INTEGRATION.md`](docs/CANVAS-INTEGRATION.md) (Ops) dan
-[`docs/HOST-CANVAS-INTEGRATION.md`](docs/HOST-CANVAS-INTEGRATION.md) (Host app).
+[`docs/HOST-CANVAS-INTEGRATION.md`](docs/HOST-CANVAS-INTEGRATION.md) (Host app); khusus alur report, langkah demi langkah: [`docs/HOST-REPORT-GUIDE.md`](docs/HOST-REPORT-GUIDE.md).
 
 ## Struktur
 
