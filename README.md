@@ -31,7 +31,7 @@ Power Apps code components (PCF) untuk canvas app PBS Hub, dibuat dari design ha
 (`Microsoft.PowerApps.MSBuild.Solution`):
 
 - `dist/PBSHubOpsPCF_1_6_3_0_managed.zip` — Ops Console (7 control `pbs_Ops.*`)
-- `dist/PBSHubHostApp_1_0_0_0_managed.zip` — Host app (6 control `pbs_HostApp.*`). Menggantikan `PBSHubHostPCF` dan
+- `dist/PBSHubHostApp_1_0_1_0_managed.zip` — Host app (6 control `pbs_HostApp.*`). Menggantikan `PBSHubHostPCF` dan
   `PBSHubHostSchedulePCF` (control lama `pbs_Host.*`); nama solusi dan control baru, jadi bisa diimport berdampingan
   dengan yang lama tanpa bentrok
 

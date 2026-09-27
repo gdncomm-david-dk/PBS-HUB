@@ -71,7 +71,7 @@ belum ada di list lama, cek dulu.
 
 ## Langkah 1 — Import solusi dan tambahkan data source
 
-1. Power Apps → **Solutions → Import solution** → pilih `dist/PBSHubHostApp_1_0_0_0_managed.zip` → Import.
+1. Power Apps → **Solutions → Import solution** → pilih `dist/PBSHubHostApp_1_0_1_0_managed.zip` → Import.
 2. Sekali per environment: Power Platform admin center → environment → **Settings → Product → Features** →
    *Allow publishing of canvas apps with code components* = **On**. Tanpa ini control tidak muncul di tab Code.
 3. Panel **Data → Add data → SharePoint** → site PBS Hub → centang semua list di Langkah 0.
