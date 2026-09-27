@@ -313,6 +313,13 @@
     { Title: "Studio BSD", LocationID: "LOC-02", Latitude: -6.3015, Longitude: 106.6527, RadiusMeter: 100, IsActive: true },
     { Title: "Studio Kemang (tutup)", LocationID: "LOC-03", Latitude: -6.2607, Longitude: 106.8132, RadiusMeter: 100, IsActive: false },
   ];
-  const scoreRules = RULES.map(([RuleID, RuleName, RuleType, Point]) => ({ RuleID, RuleName, RuleType: { Value: RuleType }, Point, Active: true }));
+  // Category / Severity are read by the Ops score screen (pbs_Ops.HostScore); the host app ignores them.
+  const RULE_META = { "RULE-01": ["Kedisiplinan", "Ringan"], "RULE-02": ["Kedisiplinan", "Sedang"], "RULE-03": ["Performa", "Ringan"], "RULE-04": ["Kedisiplinan", "Berat"], "RULE-05": ["Performa", "Ringan"] };
+  const scoreRules = RULES.map(([RuleID, RuleName, RuleType, Point]) => ({ RuleID, RuleName, RuleType: { Value: RuleType }, Point, Category: RULE_META[RuleID][0], Severity: { Value: RULE_META[RuleID][1] }, Active: true }))
+    .concat([
+      { RuleID: "RULE-06", RuleName: "Apresiasi manual", RuleType: { Value: "Reward" }, Point: 4, Category: "Inisiatif", Severity: { Value: "Ringan" }, Description: "Menggantikan host lain mendadak", Active: true },
+      { RuleID: "RULE-07", RuleName: "Clock in di luar radius", RuleType: { Value: "Penalty" }, Point: 2, Category: "Kedisiplinan", Severity: { Value: "Ringan" }, Active: true },
+      { RuleID: "RULE-08", RuleName: "Rule lama", RuleType: { Value: "Reward" }, Point: 1, Category: "Performa", Active: false },
+    ]);
   window.PBS_SAMPLE = { REF, hostApp, studioLocations, thresholds, scoreTx, scoreRules, hostExtraClockIns, hostExtraSchedules, piiValues, brands, hosts, studios, schedules, reports, evidence, clockIns, payrolls, context, clockInsAug, clockInsAugBlocked, payrollRuns, payrollHistory, payrollLines, payslips };
 })();

@@ -19,7 +19,7 @@ export const TX_FILTERS: { key: TxFilter; label: string }[] = [
 
 export function matchesFilter(t: ScoreTx, f: TxFilter): boolean {
   if (f === "All") return true;
-  if (f === "Void") return !t.active;
+  if (f === "Void") return !t.active && !t.reversal;
   return t.active && (f === "Reward" ? t.type === "REWARD" : t.type === "PENALTY");
 }
 
@@ -39,6 +39,7 @@ export interface ScoreSummary {
 export function summarize(txs: ScoreTx[]): ScoreSummary {
   const s: ScoreSummary = { reward: 0, rewardCount: 0, penalty: 0, penaltyCount: 0, net: 0, voidCount: 0 };
   for (const t of txs) {
+    if (t.reversal) continue;
     if (!t.active) {
       s.voidCount++;
       continue;
@@ -129,8 +130,11 @@ export function scoreRules(rules: Row[], txs: ScoreTx[]): ScoreRule[] {
       .map((r) => {
         const id = str(r, "RuleID", "Title");
         const name = str(r, "RuleName", "Name", "Reason") || id;
-        const point = num(r, "Point", "Points", "DefaultPoint");
-        return { id, name, type: ruleType(str(r, "RuleType", "TransactionType", "Type"), point), point, description: str(r, "Description", "Deskripsi"), count: counts.get(key(id, name)) ?? counts.get(name.toLowerCase()) ?? 0 };
+        const raw = num(r, "Point", "Points", "DefaultPoint");
+        const type = ruleType(str(r, "RuleType", "TransactionType", "Type"), raw);
+        // A rule list may keep penalties as positive numbers; the sign follows the type.
+        const point = raw === null ? null : type === "PENALTY" ? -Math.abs(raw) : type === "REWARD" ? Math.abs(raw) : raw;
+        return { id, name, type, point, description: str(r, "Description", "Deskripsi"), count: counts.get(key(id, name)) ?? counts.get(name.toLowerCase()) ?? 0 };
       });
   } else {
     const seen = new Map<string, ScoreRule>();

@@ -318,7 +318,7 @@ function TxRow(props: { t: ScoreTx }): React.ReactElement {
   const { t } = props;
   const up = (t.point ?? 0) >= 0;
   return (
-    <div className={`hc-row tx${t.active ? "" : " void"}`}>
+    <div className={`hc-row tx${t.active || t.reversal ? "" : " void"}`}>
       <span className="pbs-num">
         {fmtDayMonth(t.when)}
         <span className="pbs-muted" style={{ display: "block", fontSize: 11.5 }}>
@@ -327,7 +327,11 @@ function TxRow(props: { t: ScoreTx }): React.ReactElement {
       </span>
       <span style={{ minWidth: 0 }}>
         <b className="hc-tx-r">{t.rule}</b>
-        {!t.active ? (
+        {t.reversal ? (
+          <Badge tone="info" small title="Pembatalan transaksi lain; skor kembali seperti sebelum transaksi itu">
+            Koreksi
+          </Badge>
+        ) : !t.active ? (
           <Badge tone="neutral" small title={t.statusText ? `Status: ${t.statusText}` : undefined}>
             Dibatalkan
           </Badge>
@@ -337,9 +341,9 @@ function TxRow(props: { t: ScoreTx }): React.ReactElement {
           {[t.txId, t.by ? `oleh ${t.by}` : ""].filter(Boolean).join(" · ")}
         </span>
       </span>
-      <span className={`r pbs-num hc-tx-p ${t.active ? (up ? "pbs-t-ok" : "pbs-t-bad") : ""}`}>{signed(t.point)}</span>
+      <span className={`r pbs-num hc-tx-p ${t.active || t.reversal ? (up ? "pbs-t-ok" : "pbs-t-bad") : ""}`}>{signed(t.point)}</span>
       <span className="r pbs-num hide-s">
-        {t.active && t.after !== null ? (
+        {(t.active || t.reversal) && t.after !== null ? (
           <>
             <span className="pbs-muted">{fmtNumber(t.before)} → </span>
             <b>{fmtNumber(t.after)}</b>

@@ -443,11 +443,15 @@ function SummaryTab(props: {
                 <SkeletonRows rows={4} cols={8} />
               ) : (
                 recent.map((t) => (
-                  <tr key={t.id || t.txId} className={t.active ? undefined : "void"}>
+                  <tr key={t.id || t.txId} className={t.active || t.reversal ? undefined : "void"}>
                     <td className="pbs-num">{fmtDateTimeShort(t.when)}</td>
                     <td style={{ whiteSpace: "normal", minWidth: 160 }}>{t.rule}</td>
                     <td>
-                      {!t.active ? (
+                      {t.reversal ? (
+                        <Badge tone="info" small title="Pembatalan transaksi lain (tidak dihitung)">
+                          Koreksi
+                        </Badge>
+                      ) : !t.active ? (
                         <Badge tone="neutral" small title={t.statusText ? `Status: ${t.statusText}` : undefined}>
                           Dibatalkan
                         </Badge>
@@ -465,7 +469,7 @@ function SummaryTab(props: {
                         </Badge>
                       )}
                     </td>
-                    <td className={`r pbs-num ${t.active ? ((t.point ?? 0) >= 0 ? "pbs-t-ok" : "pbs-t-bad") : ""}`} style={{ fontWeight: 600 }}>
+                    <td className={`r pbs-num ${t.active || t.reversal ? ((t.point ?? 0) >= 0 ? "pbs-t-ok" : "pbs-t-bad") : ""}`} style={{ fontWeight: 600 }}>
                       {signed(t.point)}
                     </td>
                     <td className="r pbs-num">{fmtNumber(t.before)}</td>

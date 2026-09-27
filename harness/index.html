@@ -22,6 +22,7 @@
 <script src="../controls/PayrollRunDetail/out/controls/PayrollRunDetail/bundle.js"></script>
 <script src="../controls/HostList/out/controls/HostList/bundle.js"></script>
 <script src="../controls/HostDetail/out/controls/HostDetail/bundle.js"></script>
+<script src="../controls/HostScore/out/controls/HostScore/bundle.js"></script>
 <script src="../controls/HostDashboard/out/controls/HostDashboard/bundle.js"></script>
 <script src="../controls/MyReports/out/controls/MyReports/bundle.js"></script>
 <script src="../controls/MySchedule/out/controls/MySchedule/bundle.js"></script>
@@ -52,6 +53,7 @@
   <a href="?c=ScheduleDetail&sch=SCD-3201">ScheduleDetail live</a> <a href="?c=ScheduleDetail&sch=SCD-3301">revisi</a> <a href="?c=ScheduleDetail&sch=SCD-3302">belum report</a> <a href="?c=ScheduleDetail&sch=SCD-3304">tanpa clock in</a> <a href="?c=ScheduleDetail&sch=SCD-3305">finished</a> <a href="?c=ScheduleDetail&sch=SCD-3309">planned</a> <a href="?c=ScheduleDetail&sch=SCD-3307">batal</a> <a href="?c=ScheduleDetail&sch=SCD-9999">tidak ada</a> <a href="?c=ScheduleDetail&sch=SCD-3201&w=390">mobile</a> |
   <a href="?c=MyReports">MyReports</a> <a href="?c=MyReports&f=Revision">revisi</a> <a href="?c=MyReports&period=2026-07">bulan kosong</a> <a href="?c=MyReports&s=loading">loading</a> <a href="?c=MyReports&w=390">mobile</a> |
   <a href="?c=MyReportDetail&sch=SCD-3302">submit</a> <a href="?c=MyReportDetail&sch=SCD-3201">belum absen</a> <a href="?c=MyReportDetail&sch=SCD-3304">tanpa clock in</a> <a href="?c=MyReportDetail&sch=SCD-3203">belum mulai</a> <a href="?c=MyReportDetail&r=REP-20901">revisi</a> <a href="?c=MyReportDetail&r=REP-20863">menunggu</a> <a href="?c=MyReportDetail&r=REP-20902">selesai</a> <a href="?c=MyReportDetail&r=REP-20903">otomatis</a> <a href="?c=MyReportDetail&r=REP-20901&w=390">revisi mobile</a>
+  | <a href="?c=HostScore">HostScore</a> <a href="?c=HostScore&h=HST-001">ledger</a> <a href="?c=HostScore&h=HST-003">ledger drift</a> <a href="?c=HostScore&s=loading">loading</a>
   | <a href="?c=CreditScore">CreditScore</a> <a href="?c=CreditScore&period=2026-08">Agustus</a> <a href="?c=CreditScore&period=All&f=Penalty">penalty</a> <a href="?c=CreditScore&rules=1">dengan RulesJson</a> <a href="?c=CreditScore&s=empty">tanpa transaksi</a> <a href="?c=CreditScore&s=loading">loading</a> <a href="?c=CreditScore&w=390">mobile</a>
   | <a href="?c=ClockIn">ClockIn (clock out)</a> <a href="?c=ClockIn&shift=none">clock in</a> <a href="?c=ClockIn&shift=none&geo=-6.2300,106.8031,35">luar radius</a> <a href="?c=ClockIn&shift=none&geo=deny">izin ditolak</a> <a href="?c=ClockIn&shift=out">selesai</a> <a href="?c=ClockIn&shift=none&w=390">mobile</a>
   <label><input type="checkbox" id="auto" checked> auto-reply ok</label>
@@ -97,6 +99,25 @@
   if (q.get("role")) params.Context = J(Object.assign({}, S.context, { roles: q.get("role") }));
   if (c === "HostList") Object.assign(params, { HostsJson: J(empty ? [] : S.hosts), ThresholdsJson: J(S.thresholds), SchedulesJson: J(S.schedules.concat(S.hostExtraSchedules)), ClockInJson: J(S.clockIns.concat(S.clockInsAug, S.hostExtraClockIns)) });
   const hostId = q.get("h") || "HST-001";
+  // Skor host: ?h=… opens the ledger (?h= alone: the list) · ?reply=error|conflict · ?norules=1 · ?cfg=min (scheduleMinScore 60)
+  if (c === "HostScore") {
+    const hostRows = S.hosts.map((x, i) => Object.assign({ ID: 101 + i }, x));
+    // HST-001: the voided TX of 2 Sep has its reversal row (the host app sample keeps v1 rows only).
+    const withReversal = (id) => {
+      const rows = (S.scoreTx[id] || []).slice();
+      if (id !== "HST-001") return rows;
+      const v = rows.find((x) => x.Status.Value === "Void");
+      return rows.concat([{ ID: 7999, TransactionID: "TX-20260903-091500-R7QK", HostID: id, RuleID: "VOID", TransactionType: { Value: v.Point > 0 ? "Penalty" : "Reward" }, Point: -v.Point,
+        ScoreBefore: v.ScoreAfter, ScoreAfter: v.ScoreBefore, Reason: "Pembatalan transaksi", Notes: `Membatalkan ${v.TransactionID}: salah host, seharusnya HST-002`, Status: { Value: "Reversal" },
+        CreatedDate: "2026-09-03T09:15:00", CreatedBy: { DisplayName: "Annisa Hanifah" } }]);
+    };
+    if (q.get("cfg") === "min") params.Context = J(Object.assign({}, S.context, { config: Object.assign({}, S.context.config, { scheduleMinScore: 60 }) }));
+    const sel = q.get("h") || "";
+    Object.assign(params, {
+      HostsJson: J(empty ? [] : hostRows), ThresholdsJson: J(S.thresholds), RulesJson: J(q.get("norules") ? [] : S.scoreRules), HostId: sel,
+      ScoreTxJson: J(empty ? [] : Object.keys(S.scoreTx).flatMap(withReversal)), LedgerJson: J(sel && s !== "loading" ? withReversal(sel) : []), HasMore: !!q.get("more"),
+    });
+  }
   if (c === "HostDetail") {
     const hRow = Object.assign({}, S.hosts.find((x) => x.Title === hostId), q.get("leak") ? { KTP: "3174051203900001" } : {});
     delete hRow.LedgerScore;
@@ -217,6 +238,40 @@
         const i = S.hosts.findIndex((x) => x.Title === p.payload.hostId);
         params.RevealedJson = J({ hostId: p.payload.hostId, field: p.payload.field, value: S.piiValues(S.hosts[i], i)[p.payload.field] });
         params.ActionResult = J({ requestId: p.requestId, status: q.get("reply") || "ok", message: q.get("reply") === "error" ? "Akses ditolak: izin HOST_PII_VIEW tidak ada." : "" });
+        ctl.updateView(context());
+      }, Number(q.get("delay") || 400));
+      return;
+    }
+    if (c === "HostScore" && (p.action === "OPEN_LEDGER" || p.action === "BACK")) {
+      // Canvas stand-in: HostId drives list vs ledger; the ledger rows of the host come with it.
+      const id = p.action === "BACK" ? "" : p.payload.hostId;
+      const all = JSON.parse(params.ScoreTxJson || "[]");
+      params.HostId = id; params.LedgerJson = J(all.filter((x) => x.HostID === id));
+      ctl.updateView(context());
+      return;
+    }
+    if (c === "HostScore" && (p.action === "ADD_SCORE" || p.action === "VOID_SCORE") && document.getElementById("auto").checked) {
+      // Canvas stand-in: compare the fresh score, append the row(s), move Host.CurrentScore (clamped).
+      setTimeout(() => {
+        const hostsNow = JSON.parse(params.HostsJson);
+        const h = hostsNow.find((x) => x.Title === p.payload.hostId);
+        const cur = h.CurrentScore ?? h.InitialScore;
+        const all = JSON.parse(params.ScoreTxJson || "[]");
+        const orig = p.action === "VOID_SCORE" ? all.find((x) => String(x.ID) === String(p.payload.txItemId)) : null;
+        const reply = q.get("reply");
+        const conflict = reply === "conflict" || cur !== p.payload.expectedScore || (orig && orig.Status.Value !== "Active");
+        if (!conflict && reply !== "error") {
+          const after = Math.max(h.MinimumScore ?? 0, Math.min(h.MaximumScore ?? 200, cur + p.payload.point));
+          if (orig) orig.Status = { Value: "Void" };
+          all.push({ ID: 8000 + all.length, TransactionID: p.action === "VOID_SCORE" ? p.payload.reversalId : p.payload.transactionId, HostID: h.Title, RuleID: p.payload.ruleId,
+            TransactionType: { Value: p.payload.transactionType }, Point: p.payload.point, ScoreBefore: cur, ScoreAfter: after, Reason: p.payload.ruleName, Notes: p.payload.notesText,
+            Status: { Value: p.action === "VOID_SCORE" ? "Reversal" : "Active" }, CreatedDate: S.REF, CreatedBy: { DisplayName: S.context.userName } });
+          h.CurrentScore = after;
+          params.HostsJson = J(hostsNow); params.ScoreTxJson = J(all); params.LedgerJson = J(all.filter((x) => x.HostID === params.HostId));
+          params.ActionResult = J({ requestId: p.requestId, status: "ok", message: p.action === "VOID_SCORE" ? `${p.payload.transactionId} dibatalkan · skor ${cur} → ${after}` : `${p.payload.transactionId} tersimpan · skor ${cur} → ${after}` });
+        } else {
+          params.ActionResult = J({ requestId: p.requestId, status: conflict ? "conflict" : "error", message: conflict ? `Skor host sudah berubah jadi ${cur} (atau transaksi sudah dibatalkan). Muat ulang lalu coba lagi.` : "Gagal menyimpan: akses ditolak." });
+        }
         ctl.updateView(context());
       }, Number(q.get("delay") || 400));
       return;

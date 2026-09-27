@@ -476,6 +476,78 @@ const assert = (c, m) => { if (!c) { console.log("FAIL", m); process.exitCode = 
   await p.getByRole("button", { name: "Clock in" }).click();
   assert((await payloads()).some((x) => x.action === "CLOCK_IN"), "CLOCK_IN fired");
 
+  // ---- Ops: Skor host (SL-1 list, SL-2 ledger, add / deduct / void) -----------------------------
+  await go("c=HostScore");
+  assert(await p.getByText("12 host · skor rata-rata 92 · 1 skor tidak sinkron dengan ledger").isVisible(), "SL-1 subtitle: hosts, average, drift count");
+  assert((await p.locator(".pbs-sc-kpi", { hasText: "Baik · 85–114" }).locator(".v").textContent()) === "7", "band KPI counts hosts per band");
+  assert(await p.locator("tr.pbs-sc-drift").getByText("Jumlah ledger 90, tersimpan 92").isVisible(), "drift row names ledger sum vs stored score");
+  assert((await p.locator(".pbs-sc-list tbody tr").first().locator("td").nth(2).textContent()) === "118", "sorted by score, highest first");
+  await p.locator(".pbs-sc-kpi", { hasText: "Kritis" }).click();
+  assert((await p.locator(".pbs-sc-list tbody tr").count()) === 1, "band KPI filters the list");
+  await p.locator(".pbs-sc-kpi", { hasText: "Kritis" }).click();
+  await p.locator("tr", { hasText: "PBSH-001" }).getByRole("button", { name: "Ledger" }).click();
+  await p.waitForTimeout(200);
+  pl = await payloads();
+  assert(pl.some((x) => x.action === "OPEN_LEDGER" && x.payload.hostId === "HST-001"), "OPEN_LEDGER with hostId");
+  assert(await p.getByText("112 · sinkron · 9 transaksi").isVisible(), "ledger header: sum in sync");
+  assert(await p.locator("tr.pbs-sc-rev").getByText("Koreksi").isVisible() && (await p.locator("tr.void").getByText(/dibatalkan 3 Sep oleh Annisa H/).isVisible()), "reversal row Koreksi; voided row says when and by whom");
+  assert((await p.locator("tr.pbs-sc-rev").getByRole("button", { name: "Batalkan" }).count()) === 0 && (await p.locator("tr.void").getByRole("button", { name: "Batalkan" }).count()) === 0, "void / reversal rows cannot be voided");
+  // Add: rule prefills points; changing them asks for an override reason.
+  await p.getByRole("button", { name: "Tambah poin" }).click();
+  await p.selectOption("#pbs-sc-rule", "RULE-06");
+  assert((await p.inputValue("#pbs-sc-pt")) === "+4", "rule fills its default points");
+  assert(await p.locator(".pbs-sc-prev").getByText("116").isVisible() && (await p.locator(".pbs-sc-prev").getByText("naik dari Baik").isVisible()), "preview 112 → 116, band up");
+  await p.fill("#pbs-sc-pt", "6");
+  assert(await p.getByText("Poin diubah dari default rule (+4)").isVisible() && (await p.getByRole("button", { name: "Simpan transaksi" }).isDisabled()), "override needs a reason before saving");
+  await p.fill("#pbs-sc-ovr", "Menggantikan dua sesi sekaligus");
+  await p.fill("#pbs-sc-notes", "Gantikan host lain mendadak di sesi Hanasui");
+  await p.getByRole("button", { name: "Simpan transaksi" }).click();
+  await p.waitForTimeout(700);
+  pl = await payloads();
+  const scAdd = pl.find((x) => x.action === "ADD_SCORE");
+  assert(scAdd && scAdd.payload.point === 6 && scAdd.payload.defaultPoint === 4 && scAdd.payload.overridden && scAdd.payload.expectedScore === 112 && scAdd.payload.scoreAfter === 118 && scAdd.payload.transactionType === "Reward" && /^TX-\d{8}-\d{6}-/.test(scAdd.payload.transactionId) && scAdd.payload.notesText.includes("Poin diubah dari default +4: Menggantikan"), "ADD_SCORE payload: points, default, override, expected score, notes");
+  assert((await p.getByRole("dialog").count()) === 0 && (await p.getByText("118 · sinkron · 10 transaksi").isVisible()), "dialog closes on ok, ledger refreshed and still in sync");
+  // Void: reversal row, score back, still in sync.
+  await p.locator("tbody tr", { hasText: "Live tepat waktu" }).first().getByRole("button", { name: "Batalkan" }).click();
+  assert(await p.getByText("Pembatalan masuk ledger sebagai baris baru").isVisible() && (await p.getByRole("button", { name: "Batalkan transaksi" }).isDisabled()), "void asks for a reason");
+  await p.fill("#pbs-sc-vr", "Salah input, sesi dipindah");
+  await p.getByRole("button", { name: "Batalkan transaksi" }).click();
+  await p.waitForTimeout(700);
+  pl = await payloads();
+  const vo = pl.find((x) => x.action === "VOID_SCORE");
+  assert(vo && vo.payload.point === -2 && vo.payload.originalPoint === 2 && vo.payload.scoreAfter === 116 && vo.payload.notesText.startsWith("Membatalkan TX-20260905") && vo.payload.transactionType === "Penalty", "VOID_SCORE payload: opposite points, note names the voided TX");
+  assert(await p.getByText("116 · sinkron · 11 transaksi").isVisible() && (await p.locator("tr.pbs-sc-rev").count()) === 2, "after void: reversal appended, ledger in sync");
+  await shot("f-host-score-ledger");
+  await p.getByRole("button", { name: "Skor host" }).click();
+  await p.waitForTimeout(200);
+  assert((await payloads()).some((x) => x.action === "BACK") && (await p.getByText("Skor host", { exact: true }).nth(1).isVisible()), "BACK returns to the list");
+  // Deduct: big penalty needs the confirmation and notes (severity berat).
+  await go("c=HostScore&h=HST-003&cfg=min");
+  assert(await p.getByText("Skor tersimpan tidak cocok dengan ledger.").isVisible(), "ledger drift banner");
+  await p.getByRole("button", { name: "Kurangi poin" }).click();
+  await p.selectOption("#pbs-sc-rule", "RULE-04");
+  await p.fill("#pbs-sc-pt", "35");
+  assert(await p.getByText("turun ke band").isVisible() && (await p.getByText("Di bawah 60, host tidak bisa dijadwalkan").isVisible()), "band drop and scheduleMinScore warning");
+  assert(await p.getByText("Belum lengkap: alasan override, konfirmasi, catatan").isVisible(), "footer lists what is missing");
+  await shot("f-host-score-deduct");
+  await p.keyboard.press("Escape");
+  // Conflict stays in the dialog.
+  await go("c=HostScore&h=HST-001&reply=conflict");
+  await p.getByRole("button", { name: "Tambah poin" }).click();
+  await p.selectOption("#pbs-sc-rule", "RULE-01");
+  await p.getByRole("button", { name: "Simpan transaksi" }).click();
+  await p.waitForTimeout(700);
+  assert(await p.getByRole("dialog").getByText(/Skor host sudah berubah/).isVisible(), "conflict reply shown in the dialog");
+  // Add from the list: host picker; FAS_Team may edit, a viewer may not.
+  await go("c=HostScore");
+  await p.getByRole("button", { name: "Tambah transaksi" }).click();
+  assert(await p.locator("#pbs-sc-host").isVisible() && (await p.getByRole("button", { name: "Simpan transaksi" }).isDisabled()), "list add asks for the host first");
+  await p.keyboard.press("Escape");
+  await go("c=HostScore&h=HST-001&role=Viewer");
+  assert((await p.getByRole("button", { name: "Tambah poin" }).count()) === 0 && (await p.getByRole("button", { name: "Batalkan" }).count()) === 0, "without SCORE_EDIT: read only");
+  await go("c=HostScore&s=loading");
+  assert((await p.locator(".pbs-skel").count()) > 0 || (await p.getByText("Memuat host…").isVisible()), "loading state");
+
   // ---- Host app: credit score (Skor saya) -------------------------------------------------------
   await go("c=CreditScore");
   assert(await p.locator(".hc-scorec-n").getByText("112", { exact: true }).isVisible() && (await p.locator(".hc-scorec-n").getByText("Baik", { exact: true }).isVisible()), "score 112 with its level Baik");

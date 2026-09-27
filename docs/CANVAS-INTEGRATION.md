@@ -706,7 +706,8 @@ hanya muncul untuk `PAYROLL_RUN` dan hanya aktif kalau ada slip Gagal/Bounce di 
 | `PhoneNumber` | `PhoneLast4` | Hanya di HostDetail |
 | `Alamat`, `NamaRekening`, `PersonalEmail` | `HasAlamat`, `HasNamaRekening`, `HasPersonalEmail` | Boolean saja |
 | (belum ada) | `DeactivatedDate` | Opsional. Tanpa kolom ini, "periode terdampak" = bulan berjalan + bulan lalu |
-| `[FAS STUDIO] HostScoreTransactions` | `ScoreTxJson` | Hanya `Status = Active` (atau kosong) yang dihitung |
+| `[FAS STUDIO] HostScoreTransactions` | `ScoreTxJson` / `LedgerJson` | Hanya `Status = Active` (atau kosong) yang dihitung; `Void` dan `Reversal` (baris koreksi) tidak |
+| `[FAS STUDIO] HostScoreRule` | `RulesJson` | Rule aktif untuk form Tambah / Kurangi poin (HostScore) |
 | `[FAS STUDIO] HostScoreThreshold` | `ThresholdsJson` | `Tone` boleh `Success/Warning/Danger/Info` atau hijau/kuning/merah/biru |
 
 Kalau `HostJson`/`HostsJson` ternyata memuat `KTP`, `NoRekening`, `Alamat`, `PhoneNumber`, `PersonalEmail`,
@@ -897,7 +898,7 @@ If(!IsBlank(Self.ActionPayload),
                     "RELOAD", Refresh('Host - PBS Hub'); Set(varHdHost, LookUp('Host - PBS Hub', Title = varSelectedHostId)),
                     "NAV", Switch(Text(p.target),
                         "EDIT_HOST", Navigate(scrHostForm),
-                        "SCORE_LEDGER", Navigate(scrCreditScore),
+                        "SCORE_LEDGER", Set(varScHostId, varSelectedHostId); Navigate(scrCreditScore),
                         "SCHEDULE", Navigate(scrSchedule)),
                     "OPEN_SCHEDULE", Set(varSelectedScheduleId, Value(p.scheduleId)); Navigate(scrScheduleDetail),
                     "OPEN_REPORT", Set(varSelectedReportId, Value(p.reportId)); Navigate(scrReportDetail),
@@ -1026,6 +1027,202 @@ Tab *Payroll* hanya untuk `PAYROLL_VIEW`, tab *Data pribadi* hanya untuk `HOST_P
 *Nonaktifkan* hanya untuk `HOST_EDIT`, tombol *Clock in* dan *Edit* di tab Kehadiran hanya untuk `HOST_CLOCKIN`. Tab Kehadiran tampil untuk `HOST_CLOCKIN`
 atau `PAYROLL_VIEW`.
 
+### HostScore (Skor host: SL-1 daftar, SL-2 ledger)
+
+Control `pbs_Ops.HostScore` di layar `scrCreditScore`. `HostId` kosong → daftar host per band (KPI per band,
+cari, filter band/status, kolom *Transaksi terakhir*). `HostId` terisi → ledger satu host: skor sekarang + band,
+jumlah ledger (sinkron / tidak sinkron), semua transaksi, tombol **Tambah poin**, **Kurangi poin**, dan
+**Batalkan** per baris. Tombol tulis hanya untuk izin `SCORE_EDIT` (tanpa daftar izin: PBS_Team dan FAS_Team).
+
+**Model ledger (append-only).** Transaksi tidak pernah disunting atau dihapus:
+
+| Kejadian | Tulis ke `[FAS STUDIO] HostScoreTransactions` | `Host.CurrentScore` |
+|---|---|---|
+| Tambah / kurangi poin | 1 baris baru `Status = Active`, `Point` bertanda (+ reward, − penalty), `ScoreBefore`, `ScoreAfter` | `clamp(skor + Point, Min, Max)` |
+| Batalkan transaksi | baris asli → `Status = Void`; 1 baris baru `Status = Reversal`, `RuleID = VOID`, `Point` = kebalikan, `Notes = "Membatalkan TX-…: alasan"` | `clamp(skor − Point asli, Min, Max)` |
+
+Baris `Void` **dan** baris `Reversal` sama-sama tidak dihitung, jadi `clamp(InitialScore + Σ Active)` tetap sama
+dengan `CurrentScore`. Yang perlu disiapkan di SharePoint:
+
+- `HostScoreTransactions.Status` (Choice): tambahkan nilai **`Reversal`** (nilai `Active` dan `Void` sudah ada).
+- List rule — kalau belum ada, buat **`[FAS STUDIO] HostScoreRule`**: `Title` (= RuleID, mis. `SR-014`),
+  `RuleName` (Text), `RuleType` (Choice `Reward`/`Penalty`), `Point` (Number, boleh positif untuk penalty — tandanya
+  mengikuti `RuleType`), `Category` (Text/Choice, mis. *Kedisiplinan*, *Performa*, *Inisiatif*), `Severity` (Choice
+  `Ringan`/`Sedang`/`Berat`), `Description` (Text), `Active` (Yes/No). Hanya rule aktif yang ditawarkan di form.
+- Opsional di Context `config`: `bigPenaltyPoints` (default 10 — pengurangan lebih dari ini, atau yang membuat host
+  turun band, wajib dicentang *Saya sudah memberi tahu host dan atasannya*) dan `scheduleMinScore` (kalau diisi,
+  form memperingatkan bahwa host di bawah skor itu tidak bisa dijadwalkan).
+
+Aturan form (dijaga control, canvas tetap memeriksa ulang skor): rule wajib; poin terisi dari rule dan boleh
+diubah, tapi **alasan override wajib**; severity *berat* wajib catatan; konfirmasi untuk pengurangan besar;
+pembatalan wajib alasan (tampil di aplikasi host). Pratinjau skor sebelum → sesudah memakai clamp Min/Max host.
+
+**Screen.OnVisible**
+
+```powerfx
+Set(varScLoading, true);
+Set(varScCfg, First('[FAS STUDIO] ScoreConfig'));
+Concurrent(
+    ClearCollect(colScHost, 'Host - PBS Hub'),
+    // Kolom Transaksi terakhir: cukup transaksi 60 hari terakhir semua host.
+    ClearCollect(colScRecent, Filter('[FAS STUDIO] HostScoreTransactions', CreatedDate >= DateAdd(Today(), -60, TimeUnit.Days))),
+    ClearCollect(colScRule, Filter('[FAS STUDIO] HostScoreRule', Active)),
+    ClearCollect(colScoreBand, Filter('[FAS STUDIO] HostScoreThreshold', Active))
+);
+// varScHostId diisi sebelum Navigate (dari HostDetail) atau kosong (dari sidebar).
+If(IsBlank(varScHostId), Clear(colScLedger),
+    ClearCollect(colScLedger, Filter('[FAS STUDIO] HostScoreTransactions', HostID = varScHostId)));
+Set(varScLoading, false);
+Clear(colPbsProcessed)
+```
+
+Sidebar *Skor host*: `Set(varScHostId, ""); Navigate(scrCreditScore)`. Di HostDetail, aksi `NAV` target
+`SCORE_LEDGER` menjadi `Set(varScHostId, varSelectedHostId); Navigate(scrCreditScore)` (lihat di atas).
+
+**Properti**
+
+```powerfx
+Context        = varPbsCtx          // config: scoreInitial/scoreMin/scoreMax (+ opsional bigPenaltyPoints, scheduleMinScore)
+HostId         = varScHostId
+IsLoading      = varScLoading
+ActionResult   = varScResult
+HostsJson      = JSON(ForAll(colScHost, {ID: ID, Title: Title, HostCode: HostCode, NamaHost: NamaHost, Status: Status.Value, Package: Package.Value, InitialScore: InitialScore, CurrentScore: CurrentScore, MinimumScore: MinimumScore, MaximumScore: MaximumScore}), JSONFormat.Compact)
+ScoreTxJson    = JSON(ForAll(colScRecent, {ID: ID, TransactionID: TransactionID, HostID: HostID, RuleID: RuleID, TransactionType: TransactionType.Value, Point: Point, Reason: Reason, Status: Status.Value, CreatedDate: CreatedDate}), JSONFormat.Compact)
+LedgerJson     = JSON(ForAll(colScLedger, {ID: ID, TransactionID: TransactionID, HostID: HostID, RuleID: RuleID, TransactionType: TransactionType.Value, Point: Point, ScoreBefore: ScoreBefore, ScoreAfter: ScoreAfter, Reason: Reason, Notes: Notes, Status: Status.Value, CreatedDate: CreatedDate, CreatedBy: CreatedBy.DisplayName}), JSONFormat.Compact)
+RulesJson      = JSON(ForAll(colScRule, {RuleID: Title, RuleName: RuleName, RuleType: RuleType.Value, Point: Point, Category: Category, Severity: Severity.Value, Description: Description, Active: Active}), JSONFormat.Compact)
+ThresholdsJson = JSON(ForAll(colScoreBand, {ThresholdID: ThresholdID, Label: Label, Description: Description, MinimumScore: MinimumScore, MaximumScore: MaximumScore, Tone: Tone.Value, Active: Active, SortOrder: SortOrder}), JSONFormat.Compact)
+// Category Choice → Category.Value. LedgerJson harus berisi SEMUA transaksi host itu: jumlah ledger dihitung dari sini.
+```
+
+`LedgerScore` di `HostsJson` opsional, sama seperti HostList: kalau dikirim, host yang `CurrentScore`-nya berbeda
+ditandai *Tidak sinkron* di daftar. Di ledger, selisih selalu dihitung dari `LedgerJson`.
+
+**OnChange**
+
+```powerfx
+If(!IsBlank(Self.ActionPayload),
+    With({req: ParseJSON(Self.ActionPayload)},
+        With({act: Text(req.action), rid: Text(req.requestId), p: req.payload},
+            If(!(rid in colPbsProcessed.Id),
+                Collect(colPbsProcessed, {Id: rid});
+                Switch(act,
+                    "OPEN_LEDGER",
+                        Set(varScHostId, Text(p.hostId));
+                        Set(varScLoading, true);
+                        ClearCollect(colScLedger, Filter('[FAS STUDIO] HostScoreTransactions', HostID = varScHostId));
+                        Set(varScLoading, false),
+                    "BACK", Set(varScHostId, ""); Clear(colScLedger),
+                    "NAV", If(Text(p.target) = "RULES", Launch("https://<tenant>.sharepoint.com/sites/<site>/Lists/HostScoreRule")),
+                    "ADD_SCORE",
+                        With({h: LookUp('Host - PBS Hub', Title = Text(p.hostId))},
+                        With({cur: Coalesce(h.CurrentScore, h.InitialScore, varScCfg.InitialScore),
+                              lo: Coalesce(h.MinimumScore, varScCfg.MinimumScore, 0),
+                              hi: Coalesce(h.MaximumScore, varScCfg.MaximumScore, 100)},
+                            If(!(userRole.Value in ["PBS_Team", "FAS_Team"]),
+                                Set(varScResult, JSON({requestId: rid, status: "error", message: "Tidak punya izin mengubah skor."}, JSONFormat.Compact)),
+                            // Skor berubah sejak halaman dibuka (admin lain / flow): jangan tulis dari angka lama.
+                            If(IsBlank(h) || cur <> Value(p.expectedScore),
+                                Set(varScResult, JSON({requestId: rid, status: "conflict", message: "Skor host sudah berubah jadi " & cur & " sejak halaman dibuka. Tutup, muat ulang, lalu coba lagi."}, JSONFormat.Compact)),
+                            With({after: Min(Max(cur + Value(p.point), lo), hi)},
+                                IfError(
+                                    Set(varScNew, Patch('[FAS STUDIO] HostScoreTransactions', Defaults('[FAS STUDIO] HostScoreTransactions'), {
+                                        Title: Text(p.transactionId),
+                                        TransactionID: Text(p.transactionId),
+                                        HostID: h.Title,
+                                        RuleID: Text(p.ruleId),
+                                        TransactionType: {Value: Text(p.transactionType)},   // "Reward" | "Penalty"
+                                        Point: Value(p.point),                               // bertanda: penalty negatif
+                                        ScoreBefore: cur,
+                                        ScoreAfter: after,
+                                        Reason: Text(p.ruleName),
+                                        Notes: Text(p.notesText),                            // catatan + alasan override + konfirmasi
+                                        Status: {Value: "Active"},
+                                        CreatedDate: Now(),
+                                        // Hapus kalau CreatedBy bukan kolom Person sendiri (pakai 'Created By' bawaan).
+                                        CreatedBy: {Claims: "i:0#.f|membership|" & Lower(User().Email), DisplayName: User().FullName, Email: User().Email, Department: "", JobTitle: "", Picture: ""}
+                                    }));
+                                    IfError(
+                                        Patch('Host - PBS Hub', h, {CurrentScore: after});
+                                        Patch(colScHost, LookUp(colScHost, Title = h.Title), {CurrentScore: after});
+                                        Collect(colScRecent, varScNew);
+                                        If(varScHostId = h.Title, Collect(colScLedger, varScNew));
+                                        Set(varScResult, JSON({requestId: rid, status: "ok", message: Text(p.transactionId) & " tersimpan · skor " & cur & " → " & after}, JSONFormat.Compact)),
+                                        // Transaksi sudah masuk, CurrentScore belum: host akan tampil tidak sinkron.
+                                        Set(varScResult, JSON({requestId: rid, status: "error", message: "Transaksi " & Text(p.transactionId) & " tersimpan, tapi CurrentScore gagal diperbarui (" & FirstError.Message & "). Isi CurrentScore " & after & " secara manual."}, JSONFormat.Compact))
+                                    ),
+                                    Set(varScResult, JSON({requestId: rid, status: "error", message: "Gagal menyimpan transaksi: " & FirstError.Message}, JSONFormat.Compact))
+                                );
+                                Set(varScNew, Blank())
+                            )))
+                        )),
+                    "VOID_SCORE",
+                        With({o: LookUp('[FAS STUDIO] HostScoreTransactions', ID = Value(p.txItemId)), h: LookUp('Host - PBS Hub', Title = Text(p.hostId))},
+                        With({cur: Coalesce(h.CurrentScore, h.InitialScore, varScCfg.InitialScore),
+                              lo: Coalesce(h.MinimumScore, varScCfg.MinimumScore, 0),
+                              hi: Coalesce(h.MaximumScore, varScCfg.MaximumScore, 100)},
+                            If(!(userRole.Value in ["PBS_Team", "FAS_Team"]),
+                                Set(varScResult, JSON({requestId: rid, status: "error", message: "Tidak punya izin mengubah skor."}, JSONFormat.Compact)),
+                            If(IsBlank(o) || !(IsBlank(o.Status.Value) || o.Status.Value = "Active"),
+                                Set(varScResult, JSON({requestId: rid, status: "conflict", message: "Transaksi " & Text(p.transactionId) & " sudah dibatalkan orang lain."}, JSONFormat.Compact)),
+                            If(IsBlank(h) || cur <> Value(p.expectedScore),
+                                Set(varScResult, JSON({requestId: rid, status: "conflict", message: "Skor host sudah berubah jadi " & cur & " sejak halaman dibuka. Tutup, muat ulang, lalu coba lagi."}, JSONFormat.Compact)),
+                            With({after: Min(Max(cur - o.Point, lo), hi)},
+                                IfError(
+                                    // 1) baris koreksi dulu: kalau langkah berikutnya gagal, baris asli masih Active dan jumlah tetap benar.
+                                    Patch('[FAS STUDIO] HostScoreTransactions', Defaults('[FAS STUDIO] HostScoreTransactions'), {
+                                        Title: Text(p.reversalId),
+                                        TransactionID: Text(p.reversalId),
+                                        HostID: h.Title,
+                                        RuleID: "VOID",
+                                        TransactionType: {Value: If(o.Point > 0, "Penalty", "Reward")},
+                                        Point: -o.Point,
+                                        ScoreBefore: cur,
+                                        ScoreAfter: after,
+                                        Reason: "Pembatalan transaksi",
+                                        Notes: Text(p.notesText),                            // "Membatalkan TX-…: alasan"
+                                        Status: {Value: "Reversal"},
+                                        CreatedDate: Now(),
+                                        CreatedBy: {Claims: "i:0#.f|membership|" & Lower(User().Email), DisplayName: User().FullName, Email: User().Email, Department: "", JobTitle: "", Picture: ""}
+                                    });
+                                    // 2) baris asli → Void.
+                                    Patch('[FAS STUDIO] HostScoreTransactions', o, {Status: {Value: "Void"}});
+                                    IfError(
+                                        // 3) skor host.
+                                        Patch('Host - PBS Hub', h, {CurrentScore: after});
+                                        Patch(colScHost, LookUp(colScHost, Title = h.Title), {CurrentScore: after});
+                                        ClearCollect(colScLedger, Filter('[FAS STUDIO] HostScoreTransactions', HostID = h.Title));
+                                        ClearCollect(colScRecent, Filter('[FAS STUDIO] HostScoreTransactions', CreatedDate >= DateAdd(Today(), -60, TimeUnit.Days)));
+                                        Set(varScResult, JSON({requestId: rid, status: "ok", message: Text(p.transactionId) & " dibatalkan · skor " & cur & " → " & after}, JSONFormat.Compact)),
+                                        Set(varScResult, JSON({requestId: rid, status: "error", message: "Transaksi dibatalkan, tapi CurrentScore gagal diperbarui (" & FirstError.Message & "). Isi CurrentScore " & after & " secara manual."}, JSONFormat.Compact))
+                                    ),
+                                    ClearCollect(colScLedger, Filter('[FAS STUDIO] HostScoreTransactions', HostID = h.Title));
+                                    Set(varScResult, JSON({requestId: rid, status: "error", message: "Gagal membatalkan: " & FirstError.Message & ". Cek ledger: baris koreksi mungkin sudah tertulis."}, JSONFormat.Compact))
+                                )
+                            ))))
+                        ))
+                )
+            )
+        )
+    )
+)
+```
+
+Aksi yang **mengunci** dan wajib dibalas `varScResult`: `ADD_SCORE` dan `VOID_SCORE`. Konflik (`status: "conflict"`)
+tampil di dalam dialog; `ok` menutup dialog dan menampilkan pesannya sebagai banner.
+
+| Aksi | Payload |
+|---|---|
+| `ADD_SCORE` | `{hostId, hostItemId, hostCode, hostName, transactionId ("TX-yyyymmdd-HHmmss-XXXX"), ruleId, ruleName, category, severity, transactionType ("Reward"\|"Penalty"), point (bertanda), defaultPoint, overridden, overrideReason, notes, notesText, acknowledged, expectedScore, scoreBefore, scoreAfter, bandBefore, bandAfter}` |
+| `VOID_SCORE` | `{hostId, hostItemId, txItemId (ID baris asli), transactionId, reversalId, ruleId: "VOID", ruleName, transactionType, point (kebalikan), originalPoint, reason, notesText, expectedScore, scoreBefore, scoreAfter}` |
+| `OPEN_LEDGER` | `{hostId, id}` |
+| `BACK` | `{}` |
+| `NAV` | `{target: "RULES"}` |
+| `FILTER_CHANGED` / `LOAD_MORE` | `{filters, sort}` / `{loaded, filters, sort}` — informasi saja; `HasMore` hanya perlu kalau host > 2000 |
+
+`notesText` sudah disusun control (catatan · *Poin diubah dari default +4: alasan* · *Host dan atasan sudah diberi
+tahu*), jadi canvas cukup menulisnya ke `Notes`. Canvas menghitung ulang `after` dari skor segar di server, bukan
+memakai `scoreAfter` payload. Baris `Reversal` tampil dengan badge *Koreksi* di Ops HostDetail dan di aplikasi host.
+
 ## 9. Alasan (kolom *Alasan* di antrean)
 
 Dihitung di control dari Report + Report Automation, urutan prioritas:
@@ -1047,12 +1244,12 @@ belum ada di v1, bulk approve tidak akan muncul — itu disengaja.
 
 1. Power Platform admin center → environment → **Settings → Product → Features** → aktifkan
    *Allow publishing of canvas apps with code components*.
-2. make.powerapps.com → **Solutions → Import solution** → `PBSHubOpsPCF_1_6_3_0_managed.zip`
+2. make.powerapps.com → **Solutions → Import solution** → `PBSHubOpsPCF_1_6_4_0_managed.zip`
    (sudah pernah import versi lama? Import ini meng-**upgrade** solusi yang sama — pilih *Upgrade*, bukan
    *Stage for upgrade* yang belum di-*Apply*).
 3. Di canvas app: **Insert → Get more components → Code** → pilih `PBS Ops Dashboard`,
    `PBS Ops Report Review`, `PBS Ops Report Detail`, `PBS Ops Payroll Runs`, `PBS Ops Payroll Run Detail`,
-   `PBS Ops Host List`, `PBS Ops Host Detail`.
+   `PBS Ops Host List`, `PBS Ops Host Detail`, `PBS Ops Host Score`.
 4. Taruh tiap control di layar masing-masing (ukuran = area konten di samping sidebar), isi properti
    sesuai bagian 4–8.
 
@@ -1060,8 +1257,8 @@ belum ada di v1, bulk approve tidak akan muncul — itu disengaja.
 disisipkan. Setelah upgrade solusi: buka app di Studio → akan muncul banner *"Updated code components
 detected"* → **Update**. Kalau banner tidak muncul: tutup Studio, hard refresh browser (Ctrl+Shift+R), buka
 lagi. Lalu **Save + Publish** app. Pastikan juga di Solutions → PBS Hub Ops PCF → History bahwa versi
-1.6.3.0 benar-benar terpasang. Versi control di solusi ini: Dashboard 1.3.4, ReportReview / ReportDetail
-1.4.3, PayrollRuns 1.2.5, PayrollRunDetail 1.2.4, HostList 1.2.6, HostDetail 1.3.7. ReportReview dan
+1.6.4.0 benar-benar terpasang. Versi control di solusi ini: Dashboard 1.3.4, ReportReview / ReportDetail
+1.4.3, PayrollRuns 1.2.5, PayrollRunDetail 1.2.4, HostList 1.2.6, HostDetail 1.3.8, HostScore 1.0.0. ReportReview dan
 ReportDetail 1.4.0 punya properti baru `SchedulesJson` — isi di canvas supaya kolom *Jam live* terisi.
 
 **Tampilan rusak di app (tabel tidak full, tombol tanpa border, checkbox hilang)?** Itu CSS global Power

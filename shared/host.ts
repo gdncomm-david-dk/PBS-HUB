@@ -199,6 +199,8 @@ export interface ScoreTx {
   notes: string;
   by: string;
   active: boolean;
+  /** The ledger row written when another row is voided (opposite points, not counted). */
+  reversal: boolean;
   statusText: string;
 }
 
@@ -233,6 +235,8 @@ export function buildLedger(rows: Row[]): ScoreTx[] {
         by: byName,
         // Only Active rows count (DESIGN.md). A blank Status is the v1 default, so it counts.
         active: statusText === "" || /^(active|aktif)$/i.test(statusText),
+        // Voiding marks the original Void and appends a Reversal row; neither counts, so the sum stays right.
+        reversal: /revers|koreksi|correction/i.test(statusText),
         statusText,
       };
     })
@@ -255,7 +259,7 @@ export function checkLedger(host: HostModel, txs: ScoreTx[]): LedgerCheck {
   const sum = active.reduce((s, t) => s + (t.point ?? 0), 0);
   const expected = host.initial === null ? null : clamp(host.initial + sum, host.min, host.max);
   const diff = expected !== null && host.storedScore !== null ? host.storedScore - expected : null;
-  return { expected, sum, activeCount: active.length, voidedCount: txs.length - active.length, diff, drift: diff !== null && Math.abs(diff) >= 0.5 };
+  return { expected, sum, activeCount: active.length, voidedCount: txs.filter((t) => !t.active && !t.reversal).length, diff, drift: diff !== null && Math.abs(diff) >= 0.5 };
 }
 
 // ---- sessions, reports, payroll for one host ---------------------------------------------------

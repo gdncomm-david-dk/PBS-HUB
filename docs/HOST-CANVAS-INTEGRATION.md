@@ -1,6 +1,6 @@
 # Integrasi canvas — PBS Hub Host App
 
-Solusi terpisah dari Ops Console: **`PBSHubHostApp`** (managed, `dist/PBSHubHostApp_1_0_5_0_managed.zip`), berisi
+Solusi terpisah dari Ops Console: **`PBSHubHostApp`** (managed, `dist/PBSHubHostApp_1_0_6_0_managed.zip`), berisi
 ketujuh control host dengan identifier baru `pbs_HostApp.*`. Solusi ini menggantikan `PBSHubHostPCF` +
 `PBSHubHostSchedulePCF` (control lama `pbs_Host.*`). Karena nama solusi dan namespace control berbeda, solusi baru
 bisa diimport berdampingan dengan yang lama tanpa bentrok. Publisher dan prefix tetap sama (`PBSHub` / `pbs`).
@@ -438,7 +438,7 @@ Sesi tanpa clock in diarahkan minta clock in manual ke tim PBS, sesi batal hanya
 
 ## 8. Pemasangan
 
-1. Import `dist/PBSHubHostApp_1_0_5_0_managed.zip` (Solutions → Import). Bisa di environment yang sama dengan
+1. Import `dist/PBSHubHostApp_1_0_6_0_managed.zip` (Solutions → Import). Bisa di environment yang sama dengan
    `PBSHubOpsPCF` dan dengan solusi host lama.
    **Pindah dari solusi lama** (`PBSHubHostPCF` / `PBSHubHostSchedulePCF`, control `pbs_Host.*`): control baru tidak
    otomatis menggantikan yang lama di canvas. Di tiap layar hapus control lama, tambahkan control `pbs_HostApp.*`
@@ -1949,8 +1949,10 @@ Control `pbs_HostApp.CreditScore` (H-7). Isi layar: skor dan level sekarang (`Cu
 kurang dari 10 poin dari batas bawah level, tren skor dari `ScoreAfter` transaksi, kartu Reward / Penalty /
 Perubahan / Dibatalkan untuk bulan yang dipilih, daftar level (`HostScoreThreshold`), *Cara skor berubah* (dari
 `RulesJson`, atau rule yang ada di transaksi host), dan tabel transaksi dengan filter Semua / Reward / Penalty / Dibatalkan.
-Hanya transaksi `Status = Active` (atau kosong) yang dihitung, sama dengan Ops HostDetail. Selisih skor tersimpan
-vs ledger **tidak** ditampilkan ke host (hanya Ops yang bisa memperbaikinya).
+Hanya transaksi `Status = Active` (atau kosong) yang dihitung, sama dengan Ops HostDetail. Baris `Status = Reversal`
+(ditulis Ops *Skor host* saat membatalkan transaksi) tampil dengan badge *Koreksi* dan tidak dihitung, sama seperti
+baris aslinya yang jadi *Dibatalkan*. Selisih skor tersimpan vs ledger **tidak** ditampilkan ke host (hanya Ops yang
+bisa memperbaikinya).
 
 | Properti | Isi |
 |---|---|

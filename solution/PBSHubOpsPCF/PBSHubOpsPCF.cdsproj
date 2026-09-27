@@ -54,6 +54,7 @@
     <ProjectReference Include="../../controls/PayrollRunDetail/PbsOpsPayrollRunDetail.pcfproj" />
     <ProjectReference Include="../../controls/HostList/PbsOpsHostList.pcfproj" />
     <ProjectReference Include="../../controls/HostDetail/PbsOpsHostDetail.pcfproj" />
+    <ProjectReference Include="../../controls/HostScore/PbsOpsHostScore.pcfproj" />
   </ItemGroup>
 
   <Import Project="$(MSBuildToolsPath)\Microsoft.Common.targets" />

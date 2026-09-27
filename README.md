@@ -1,7 +1,7 @@
 # PBS Hub PCF — Ops Console + Host app
 
 Power Apps code components (PCF) untuk canvas app PBS Hub, dibuat dari design handoff
-*PBS Ops Console* (artboard 3a/3b, 4a, 4b–4d, Payroll P-1–P-5, Host HD-1/HD-2) dengan data mapping mengikuti `DESIGN.md`
+*PBS Ops Console* (artboard 3a/3b, 4a, 4b–4d, Payroll P-1–P-5, Host HD-1/HD-2, Skor host SL-1/SL-2) dengan data mapping mengikuti `DESIGN.md`
 (list SharePoint v1: `Report - PBS Hub`, `Report Automation - PBS Hub`, `Schedule - PBS Hub`,
 `Clock In - PBS Hub`, `Host`, `Studio`, `Brand`, `Payroll`, `Payroll Data`, `[FAS STUDIO] HostScoreTransactions`,
 `HostScoreThreshold`).
@@ -15,6 +15,7 @@ Power Apps code components (PCF) untuk canvas app PBS Hub, dibuat dari design ha
 | `pbs_Ops.PayrollRunDetail` | Detail run — baris per host, tracker approval, status slip (P-3–P-5) | `controls/PayrollRunDetail` |
 | `pbs_Ops.HostList` | Host — direktori, skor + band, peringatan tanpa data bank (HD-1) | `controls/HostList` |
 | `pbs_Ops.HostDetail` | Detail host — ringkasan skor/ledger, jadwal, kehadiran (edit jam, tier, weekly), report, payroll, data pribadi tersamar (HD-2) | `controls/HostDetail` |
+| `pbs_Ops.HostScore` | Skor host — host per band, ledger per host, tambah / kurangi poin dari rule, batalkan transaksi dengan baris koreksi (SL-1, SL-2) | `controls/HostScore` |
 
 **Host app** (solusi terpisah `PBSHubHostApp`, dari desain *PBS Host App*; ketujuh control host dalam satu solusi):
 
@@ -31,8 +32,8 @@ Power Apps code components (PCF) untuk canvas app PBS Hub, dibuat dari design ha
 **Output:** dua managed solution, dibangun dengan target MSBuild resmi Power Platform
 (`Microsoft.PowerApps.MSBuild.Solution`):
 
-- `dist/PBSHubOpsPCF_1_6_3_0_managed.zip` — Ops Console (7 control `pbs_Ops.*`)
-- `dist/PBSHubHostApp_1_0_5_0_managed.zip` — Host app (7 control `pbs_HostApp.*`). Menggantikan `PBSHubHostPCF` dan
+- `dist/PBSHubOpsPCF_1_6_4_0_managed.zip` — Ops Console (8 control `pbs_Ops.*`)
+- `dist/PBSHubHostApp_1_0_6_0_managed.zip` — Host app (7 control `pbs_HostApp.*`). Menggantikan `PBSHubHostPCF` dan
   `PBSHubHostSchedulePCF` (control lama `pbs_Host.*`); nama solusi dan control baru, jadi bisa diimport berdampingan
   dengan yang lama tanpa bentrok
 
@@ -49,6 +50,7 @@ shared/            logika + UI bersama (dipakai semua control)
   dashboard.ts     agregasi kartu dashboard
   payroll.ts       periode (P8), gate approval dari Status + kolom audit, preflight, baris per host
   host.ts          band skor, cek ledger vs CurrentScore, periode terdampak saat nonaktif, masking data pribadi
+  scoreAdmin.ts    Ops skor: rule aktif, pratinjau skor + clamp + band, validasi tambah/kurangi, pembatalan (Void + Reversal)
   hostApp.ts       app host: fase sesi (clock in → absen → report), shift, streak, revisi, input metrik
   clockInApp.ts     clock in host: geofence Studio Location, payload CLOCK_IN / CLOCK_OUT, nama file selfie
   hostImage.ts     kompres screenshot ke JPEG (canvas) untuk output UploadData
@@ -71,7 +73,7 @@ npm run solution         # ketiga managed zip → dist/  (butuh .NET SDK 8+)
 ```
 
 Uji tampilan tanpa Power Apps: `npm run build`, lalu buka `harness/index.html` di browser
-(`?c=Dashboard`, `?c=ReportReview`, `?c=ReportDetail&r=REP-20862`, `?c=PayrollRuns&pay=none`, `?c=PayrollRunDetail&run=118`, `?c=HostList`, `?c=HostDetail&h=HST-012`,
+(`?c=Dashboard`, `?c=ReportReview`, `?c=ReportDetail&r=REP-20862`, `?c=PayrollRuns&pay=none`, `?c=PayrollRunDetail&run=118`, `?c=HostList`, `?c=HostDetail&h=HST-012`, `?c=HostScore`, `?c=HostScore&h=HST-001`,
 `?c=HostDashboard`, `?c=MyReports`, `?c=MyReportDetail&r=REP-20901`, `?c=MyReportDetail&sch=SCD-3302`, `?c=MySchedule`, `?c=ScheduleDetail&sch=SCD-3201`, `?c=CreditScore`; `&w=390` untuk lebar HP).
 Tambahkan `&hostile=1` untuk menyuntikkan CSS global yang agresif (meniru Power Apps player) — tampilan harus
 tetap utuh karena control dirender di Shadow DOM.

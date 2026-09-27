@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<manifest>
+  <control namespace="Ops" constructor="HostScore" version="1.0.0" display-name-key="PBS Ops Host Score" description-key="PBS Hub Ops Console SL-1 and SL-2: credit score of every host per band, the ledger of one host, adding a reward or penalty from a rule, and voiding a transaction with a reversal row." control-type="standard">
+    <external-service-usage enabled="false"></external-service-usage>
+
+    <property name="Context" display-name-key="Context" description-key="JSON {userEmail,userName,roles,permissions,config}. config: scoreInitial, scoreMin, scoreMax (ScoreConfig), optional bigPenaltyPoints (default 10) and scheduleMinScore." of-type="Multiple" usage="input" required="false" />
+    <property name="HostsJson" display-name-key="HostsJson" description-key="JSON rows of [Host - PBS Hub]: ID, Title, HostCode, NamaHost, Status, Package, InitialScore, CurrentScore, MinimumScore, MaximumScore, optional LedgerScore. Never send KTP, NoRekening, Alamat, PhoneNumber or PersonalEmail." of-type="Multiple" usage="input" required="false" />
+    <property name="ScoreTxJson" display-name-key="ScoreTxJson" description-key="JSON rows of [FAS STUDIO] HostScoreTransactions of the recent weeks for every host (HostID, TransactionID, Reason, Point, Status, CreatedDate): the Transaksi terakhir column." of-type="Multiple" usage="input" required="false" />
+    <property name="LedgerJson" display-name-key="LedgerJson" description-key="JSON rows of [FAS STUDIO] HostScoreTransactions of HostId, all of them: ID, TransactionID, RuleID, TransactionType, Point, ScoreBefore, ScoreAfter, Reason, Notes, Status, CreatedDate, CreatedBy." of-type="Multiple" usage="input" required="false" />
+    <property name="RulesJson" display-name-key="RulesJson" description-key="JSON rows of the score rules: RuleID, RuleName, RuleType, Point, Category, Severity, Description, Active. Only active rules are offered." of-type="Multiple" usage="input" required="false" />
+    <property name="ThresholdsJson" display-name-key="ThresholdsJson" description-key="JSON rows of [FAS STUDIO] HostScoreThreshold: ThresholdID, Label, Description, MinimumScore, MaximumScore, Tone, Active, SortOrder." of-type="Multiple" usage="input" required="false" />
+    <property name="HostId" display-name-key="HostId" description-key="Host.Title whose ledger is shown. Empty: the host list." of-type="SingleLine.Text" usage="input" required="false" />
+    <property name="HasMore" display-name-key="HasMore" description-key="true when the server has more hosts than were sent: shows Muat lebih banyak (LOAD_MORE)." of-type="TwoOptions" usage="input" required="false" />
+    <property name="IsLoading" display-name-key="IsLoading" description-key="true while canvas is loading: renders skeleton rows." of-type="TwoOptions" usage="input" required="false" />
+    <property name="ReferenceDate" display-name-key="ReferenceDate" description-key="Optional ISO date-time used as now (testing)." of-type="SingleLine.Text" usage="input" required="false" />
+    <property name="ActionResult" display-name-key="ActionResult" description-key="Canvas reply {requestId,status,message}. ADD_SCORE and VOID_SCORE lock until it comes back." of-type="SingleLine.Text" usage="input" required="false" />
+    <property name="ActionPayload" display-name-key="ActionPayload" description-key="JSON {action,requestId,payload}: OPEN_LEDGER, BACK, ADD_SCORE, VOID_SCORE, FILTER_CHANGED, LOAD_MORE, NAV." of-type="SingleLine.Text" usage="output" required="false" />
+
+    <resources>
+      <code path="index.ts" order="1" />
+    </resources>
+  </control>
+</manifest>
