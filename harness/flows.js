@@ -519,7 +519,7 @@ const assert = (c, m) => { if (!c) { console.log("FAIL", m); process.exitCode = 
   pl = await payloads();
   const sb = pl.find((x) => x.action === "SUBMIT_REPORT");
   assert(sb && sb.payload.scheduleId === "SCD-3302" && sb.payload.metrics.Penjualan === 4250000 && sb.payload.metrics.CTR === 3.6 && sb.payload.metrics["Durasi(Min)"] === 120 && sb.payload.metrics.AddToCart === null && sb.payload.file.ext === "jpg", "SUBMIT_REPORT payload uses SharePoint column names");
-  assert(sb && sb.payload.liveId === "7400112233" && sb.payload.playbook === "Payday" && sb.payload.complete === true && sb.payload.scheduleStatus === "Done" && sb.payload.part === 1, "LiveID, Playbook, and Done once Durasi covers the session");
+  assert(sb && sb.payload.liveId === "7400112233" && sb.payload.playbook === "Payday" && sb.payload.complete === true && sb.payload.scheduleStatus === "Finished" && sb.payload.part === 1, "LiveID, Playbook, and Finished once Durasi covers the session");
   assert(await p.getByText(/UploadData \d+ KB base64 JPEG/).isVisible(), "screenshot sent on UploadData, not in ActionPayload");
   assert(JSON.stringify(sb).length < 4000, "ActionPayload stays small");
   assert((await p.getByText(/terkirim/).first().isVisible()) && (await p.getByText("Menunggu review").first().isVisible()), "after submit the screen shows the sent report, waiting for review");
@@ -553,7 +553,7 @@ const assert = (c, m) => { if (!c) { console.log("FAIL", m); process.exitCode = 
   await p.waitForTimeout(700);
   pl = await payloads();
   const rsb = pl.find((x) => x.action === "RESUBMIT_REPORT");
-  assert(rsb && rsb.payload.reportId === "20901" && rsb.payload.metrics.Penjualan === 6980000 && rsb.payload.changed.join() === "Penjualan,CTOR,LiveID,Playbook" && rsb.payload.file === null && rsb.payload.liveId === "7400998877" && rsb.payload.scheduleStatus === "Done", "RESUBMIT_REPORT payload");
+  assert(rsb && rsb.payload.reportId === "20901" && rsb.payload.metrics.Penjualan === 6980000 && rsb.payload.changed.join() === "Penjualan,CTOR,LiveID,Playbook" && rsb.payload.file === null && rsb.payload.liveId === "7400998877" && rsb.payload.scheduleStatus === "Finished", "RESUBMIT_REPORT payload");
   await go("c=MyReportDetail&r=REP-20901");
   await p.getByRole("button", { name: "Saya rasa angka saya benar" }).click();
   const dsend = p.getByRole("dialog").getByRole("button", { name: /Kirim sanggahan/ });
