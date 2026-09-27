@@ -59,7 +59,9 @@ export function scheduleState(s: HostSession, now: Date): ScheduleState {
       return "REVISION";
     default:
       // A report is in. Finished once ops decided it (or canvas already closed the schedule).
-      return s.reportState === "DONE_AUTO" || s.reportState === "DONE_MANUAL" || s.reportState === "LIVE_BREAK" || (s.reportState !== "WAITING" && sessionStatus(s.row) === "DONE") ? "FINISHED" : "WAITING";
+      return s.reportState === "DONE_AUTO" || s.reportState === "DONE_MANUAL" || s.reportState === "LIVE_BREAK" || (s.reportState !== "WAITING" && sessionStatus(s.row) === "DONE")
+        ? "FINISHED"
+        : "WAITING";
   }
 }
 
@@ -182,7 +184,13 @@ export function clockInOf(s: HostSession, clockIns: Row[]): Row | undefined {
     .sort((a, b) => (clockInAt(b)?.getTime() ?? 0) - (clockInAt(a)?.getTime() ?? 0))[0];
 }
 
-export function sessionSteps(s: HostSession, clockIn: Row | undefined, now: Date, opts: HostOptions, fmt: { time: (d: Date | null) => string; day: (d: Date | null) => string }): SessionStep[] {
+export function sessionSteps(
+  s: HostSession,
+  clockIn: Row | undefined,
+  now: Date,
+  opts: HostOptions,
+  fmt: { time: (d: Date | null) => string; day: (d: Date | null) => string },
+): SessionStep[] {
   const st = scheduleState(s, now);
   const cancelled = st === "CANCELLED";
   const opensAt = s.start ? new Date(s.start.getTime() - opts.absenLeadMin * 60000) : null;
@@ -224,34 +232,35 @@ export function sessionSteps(s: HostSession, clockIn: Row | undefined, now: Date
   const report: SessionStep = {
     key: "REPORT",
     label: "Report",
-    state: cancelled || exempt
-      ? "skip"
-      : s.report
-        ? st === "REVISION"
-          ? "bad"
-          : s.partial
-            ? st === "LATE"
-              ? "bad"
-              : "now"
-            : "done"
-        : st === "LATE"
-          ? "bad"
-          : st === "NEEDS_REPORT"
-            ? "now"
-            : st === "NEEDS_CLOCKIN"
-              ? "missing"
-              : "todo",
+    state:
+      cancelled || exempt
+        ? "skip"
+        : s.report
+          ? st === "REVISION"
+            ? "bad"
+            : s.partial
+              ? st === "LATE"
+                ? "bad"
+                : "now"
+              : "done"
+          : st === "LATE"
+            ? "bad"
+            : st === "NEEDS_REPORT"
+              ? "now"
+              : st === "NEEDS_CLOCKIN"
+                ? "missing"
+                : "todo",
     text: exempt
       ? `Tidak perlu report · ${exempt}.`
       : s.partial
-      ? `${s.reports.length} report · ${s.reportedMin} dari ${s.requiredMin} menit. Kirim report berikutnya untuk ${s.remainingMin} menit sisanya.`
-      : s.report
-      ? `${s.reports.length > 1 ? `${s.reports.length} report, terakhir ` : ""}${str(s.report, "Title") || "Report"} dikirim ${fmt.day(date(s.report, "Created", "CreatedDate"))}${st === "REVISION" ? " · dikembalikan untuk revisi" : ""}`
-      : st === "LATE"
-        ? `Lewat batas ${fmt.day(s.due)}. Kirim sekarang dan jelaskan di catatan.`
-        : st === "NEEDS_REPORT"
-          ? `Kirim sebelum ${fmt.day(s.due)}.`
-          : `Setelah sesi selesai${s.due ? `, paling lambat ${fmt.day(s.due)}` : ""}.`,
+        ? `${s.reports.length} report · ${s.reportedMin} dari ${s.requiredMin} menit. Kirim report berikutnya untuk ${s.remainingMin} menit sisanya.`
+        : s.report
+          ? `${s.reports.length > 1 ? `${s.reports.length} report, terakhir ` : ""}${str(s.report, "Title") || "Report"} dikirim ${fmt.day(date(s.report, "Created", "CreatedDate"))}${st === "REVISION" ? " · dikembalikan untuk revisi" : ""}`
+          : st === "LATE"
+            ? `Lewat batas ${fmt.day(s.due)}. Kirim sekarang dan jelaskan di catatan.`
+            : st === "NEEDS_REPORT"
+              ? `Kirim sebelum ${fmt.day(s.due)}.`
+              : `Setelah sesi selesai${s.due ? `, paling lambat ${fmt.day(s.due)}` : ""}.`,
   };
 
   const reviewer = str(s.report, "ApproverName") || (s.report && typeof s.report.Approver === "object" && s.report.Approver ? str(s.report.Approver as Row, "DisplayName") : "");
@@ -315,4 +324,96 @@ export function initialCalendarDay(year: number, month: number, now: Date, days:
   const prefix = `${year}-${String(month + 1).padStart(2, "0")}-`;
   const first = [...days].filter((k) => k.startsWith(prefix)).sort()[0];
   return first ?? `${prefix}01`;
+}
+
+// ---- week board (design 11a) and month summary (design 10b) ------------------------------------------
+
+/** Monday 00:00 of the week holding d. */
+export function weekStart(d: Date): Date {
+  const x = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  x.setDate(x.getDate() - ((x.getDay() + 6) % 7));
+  return x;
+}
+
+export function weekDays(monday: Date): CalendarDay[] {
+  return Array.from({ length: 7 }, (_, i) => {
+    const date = new Date(monday.getFullYear(), monday.getMonth(), monday.getDate() + i);
+    return { key: localDayKey(date), date, inMonth: true };
+  });
+}
+
+/** The week the board opens on: this week in the current month, else the week of the 1st. */
+export function initialWeek(year: number, month: number, now: Date): Date {
+  if (now.getFullYear() === year && now.getMonth() === month) return weekStart(now);
+  return weekStart(new Date(year, month, 1));
+}
+
+/** Board legend (design 11a): next session, planned, report in review, approved, report missing. */
+export type BoardTone = "next" | "planned" | "review" | "done" | "missing" | "off";
+
+export const BOARD_LEGEND: { tone: BoardTone; label: string }[] = [
+  { tone: "next", label: "Berikutnya" },
+  { tone: "planned", label: "Terjadwal" },
+  { tone: "review", label: "Report direview" },
+  { tone: "done", label: "Report disetujui" },
+  { tone: "missing", label: "Report belum dikirim" },
+];
+
+export function boardTone(st: ScheduleState, isNext: boolean): BoardTone {
+  if (st === "CANCELLED") return "off";
+  if (isNext || st === "LIVE" || st === "SOON" || st === "NEEDS_ABSEN") return "next";
+  if (st === "PLANNED") return "planned";
+  if (st === "WAITING") return "review";
+  if (st === "FINISHED") return "done";
+  return "missing";
+}
+
+/** The session the host has to be at next: live now, else the first one that has not started. */
+export function nextSession(sessions: HostSession[], now: Date): HostSession | undefined {
+  const t = now.getTime();
+  const live = sessions.filter((s) => s.phase !== "CANCELLED" && s.start && s.end);
+  return (
+    live.find((s) => (s.start?.getTime() ?? 0) <= t && (s.end?.getTime() ?? 0) > t) ??
+    live.filter((s) => (s.start?.getTime() ?? 0) > t).sort((a, b) => (a.start?.getTime() ?? 0) - (b.start?.getTime() ?? 0))[0]
+  );
+}
+
+/**
+ * National holidays from Context.config.holidays: ["2026-08-17", …] or the JSON of a canvas date
+ * table ([{Value: "2026-08-17"}]). Anything else is ignored.
+ */
+export function holidaySet(config: Record<string, unknown>): Set<string> {
+  const raw = config.holidays;
+  const out = new Set<string>();
+  const list = Array.isArray(raw) ? raw : typeof raw === "string" ? raw.split(/[,;\s]+/) : [];
+  for (const v of list) {
+    const text = typeof v === "string" ? v : v && typeof v === "object" ? String((v as Row).Value ?? (v as Row).Date ?? "") : "";
+    const m = text.match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if (m) out.add(`${m[1]}-${m[2]}-${m[3]}`);
+  }
+  return out;
+}
+
+export interface SpanStats {
+  sessions: number;
+  minutes: number;
+  brands: string[];
+  /** Sessions still owing the host a step: no report, late, revision, no clock in. */
+  pending: number;
+  pendingFirst: HostSession | undefined;
+}
+
+/** Totals for the sessions whose day passes inSpan (a week of the board, or a month). */
+export function spanStats(rows: { s: HostSession; st: ScheduleState }[], inSpan: (s: HostSession) => boolean): SpanStats {
+  const live = rows.filter((r) => r.st !== "CANCELLED" && inSpan(r.s));
+  const brands: string[] = [];
+  for (const r of live) if (r.s.brand && r.s.brand !== "—" && !brands.includes(r.s.brand)) brands.push(r.s.brand);
+  const pend = live.filter((r) => ["NEEDS_REPORT", "LATE", "REVISION", "NEEDS_CLOCKIN"].includes(r.st));
+  return {
+    sessions: live.length,
+    minutes: live.reduce((a, r) => a + (durationMin(r.s) ?? 0), 0),
+    brands,
+    pending: pend.length,
+    pendingFirst: pend.map((r) => r.s).sort((a, b) => (a.day?.getTime() ?? 0) - (b.day?.getTime() ?? 0))[0],
+  };
 }

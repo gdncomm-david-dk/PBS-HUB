@@ -724,7 +724,7 @@ const assert = (c, m) => { if (!c) { console.log("FAIL", m); process.exitCode = 
 
   // MySchedule calendar view: toggle, day cells, day list opens the session.
   await go("c=MySchedule");
-  await p.getByRole("button", { name: "Kalender" }).click();
+  await p.getByRole("button", { name: "Bulan", exact: true }).click();
   await p.waitForTimeout(200);
   pl = await payloads();
   assert(pl.some((x) => x.action === "VIEW_CHANGED" && x.payload.view === "Calendar"), "VIEW_CHANGED on toggle");
@@ -739,6 +739,32 @@ const assert = (c, m) => { if (!c) { console.log("FAIL", m); process.exitCode = 
   assert(await p.locator(".hc-cal-d .dots i").first().isVisible() && !(await p.locator(".hc-cal-ev").first().isVisible()), "phone shows dots instead of chips");
   await p.getByRole("button", { name: "Daftar" }).click();
   assert(await p.locator(".hc-list").isVisible(), "back to list view");
+
+  // Month view side panel (design 10b): month numbers, last month, holidays, PIC; empty month banner.
+  await go("c=MySchedule&view=Calendar");
+  assert(await p.locator(".hc-cal-side .hc-card", { hasText: "September 2026" }).getByText("19", { exact: true }).isVisible(), "month card counts the sessions");
+  assert((await p.locator(".hc-cal-d.hol").count()) === 0, "no holiday without config");
+  await p.getByRole("button", { name: "Hubungi PIC" }).click();
+  assert((await payloads()).some((x) => x.action === "CONTACT_PIC" && x.payload.period === "2026-09"), "CONTACT_PIC fires");
+  await go("c=MySchedule&view=Calendar&period=2026-10&hol=1");
+  assert(await p.getByText("Jadwal Oktober belum terbit").isVisible() && (await p.locator(".hc-cal-side").getByText("Bulan lalu · September").isVisible()), "empty month: banner + last month");
+  assert((await p.locator(".hc-cal-d.hol").count()) === 1 && (await p.locator(".hc-cal-side .hc-card", { hasText: "Oktober 2026" }).getByText("1", { exact: true }).isVisible()), "holiday from config marked and counted");
+  await p.getByRole("button", { name: "Lihat September" }).click();
+  assert((await payloads()).some((x) => x.action === "PERIOD_CHANGED" && x.payload.period === "2026-09"), "Lihat September asks for the previous month");
+
+  // Week board (design 11a).
+  await go("c=MySchedule&view=Week");
+  assert((await p.locator(".hc-bcol").count()) === 7 && (await p.locator(".hc-bcol.on header b").textContent()).startsWith("Sen 14"), "week board: 7 days, today highlighted");
+  assert((await p.locator(".hc-bcol.on .hc-bcard").count()) === 3 && (await p.locator(".hc-bcard.next").count()) === 1, "today column has 3 cards, one marked Berikutnya");
+  assert(await p.getByText("Minggu 14 Sep – 20 Sep 2026 · 6 sesi").isVisible(), "week subtitle counts the week");
+  assert((await p.locator(".hc-kpi", { hasText: "Sesi minggu ini" }).locator(".v").textContent()).startsWith("6"), "week KPI");
+  await p.locator(".hc-bcard", { hasText: "WINGS" }).click();
+  assert((await payloads()).some((x) => x.action === "OPEN_SCHEDULE" && x.payload.scheduleId === "SCD-3308"), "board card opens the session");
+  await p.getByRole("button", { name: "Minggu sebelumnya" }).click();
+  assert(await p.locator(".hc-wknav").getByText("7 Sep – 13 Sep").isVisible() && (await p.locator(".hc-bcard.missing").count()) > 0, "previous week, missing reports in red");
+  for (let i = 0; i < 4; i++) await p.getByRole("button", { name: "Minggu berikutnya" }).click();
+  assert((await payloads()).some((x) => x.action === "PERIOD_CHANGED" && x.payload.period === "2026-10"), "stepping into October asks canvas for that month");
+  await shot("f-week-board");
 
   // Host Clock In: position + selfie, reason only outside the radius, selfie on UploadData.
   const selfiePng = await p.screenshot({ clip: { x: 0, y: 0, width: 300, height: 400 } });

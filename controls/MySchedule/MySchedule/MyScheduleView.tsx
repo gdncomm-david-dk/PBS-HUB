@@ -16,8 +16,13 @@ import {
   scheduleKpis,
   scheduleState,
   todayFocus,
+  holidaySet,
+  initialWeek,
+  nextSession,
+  spanStats,
 } from "../../../shared/hostSchedule";
 import { ScheduleCalendar } from "./ScheduleCalendar";
+import { ScheduleWeek } from "./ScheduleWeek";
 import { Period, addMonths, fmtPeriod, inPeriod, parsePeriod, periodKey, periodOf } from "../../../shared/payroll";
 import { Badge, Button, EmptyState, EndOfData, FilterSelect, Icon, IconName, ResultBanner, Skeleton, Spinner } from "../../../shared/ui";
 
@@ -25,7 +30,7 @@ export interface MyScheduleProps {
   ctx: ModuleContext;
   period: string;
   defaultFilter: string;
-  /** "List" (default) or "Calendar". */
+  /** "List" (default), "Week" or "Calendar" (month). */
   defaultView: string;
   host: Row[];
   schedules: Row[];
@@ -71,6 +76,26 @@ export function StateBadge(props: { state: ScheduleState }): React.ReactElement 
   );
 }
 
+type View = "List" | "Week" | "Calendar";
+
+const VIEWS: { key: View; label: string }[] = [
+  { key: "List", label: "Daftar" },
+  { key: "Week", label: "Minggu" },
+  { key: "Calendar", label: "Bulan" },
+];
+
+/** "28 Sep – 4 Okt 2026" (year optional). */
+function fmtWeek(monday: Date, year = true): string {
+  const sun = new Date(monday.getFullYear(), monday.getMonth(), monday.getDate() + 6);
+  return `${fmtDayMonth(monday)} – ${fmtDayMonth(sun)}${year ? ` ${sun.getFullYear()}` : ""}`;
+}
+
+/** Whether any of the seven days lies in the month. */
+function weekTouches(monday: Date, p: Period): boolean {
+  const sun = new Date(monday.getFullYear(), monday.getMonth(), monday.getDate() + 6);
+  return inPeriod(monday, p) || inPeriod(sun, p);
+}
+
 interface Col {
   key: string;
   label: string;
@@ -96,24 +121,57 @@ export function MyScheduleView(props: MyScheduleProps): React.ReactElement {
   React.useEffect(() => setStatus(initial), [initial]);
   const [platform, setPlatform] = React.useState("");
   const [search, setSearch] = React.useState("");
-  const initialView = props.defaultView === "Calendar" ? "Calendar" : "List";
-  const [view, setView] = React.useState<"List" | "Calendar">(initialView);
+  const initialView: View = props.defaultView === "Calendar" || props.defaultView === "Month" ? "Calendar" : props.defaultView === "Week" ? "Week" : "List";
+  const [view, setView] = React.useState<View>(initialView);
   React.useEffect(() => setView(initialView), [initialView]);
-  const pickView = (v: "List" | "Calendar") => {
+  const pickView = (v: View) => {
     setView(v);
     action.fire("VIEW_CHANGED", { view: v });
   };
+  // Week board: the week follows the month picker; stepping out of the month asks canvas for that month.
+  const [monday, setMonday] = React.useState<Date>(() => initialWeek(period.year, period.month, now));
+  React.useEffect(() => {
+    setMonday((m) => (weekTouches(m, period) ? m : initialWeek(period.year, period.month, now)));
+  }, [period]); // keep the chosen week when canvas answers with the month it asked for
+  const stepWeek = (n: number) => {
+    const m = new Date(monday.getFullYear(), monday.getMonth(), monday.getDate() + 7 * n);
+    setMonday(m);
+    if (!weekTouches(m, period)) {
+      const thu = new Date(m.getFullYear(), m.getMonth(), m.getDate() + 3);
+      action.fire("PERIOD_CHANGED", { period: periodKey(periodOf(thu)) });
+    }
+  };
+  const holidays = React.useMemo(() => holidaySet(ctx.config), [ctx]);
 
   const sessions = React.useMemo(
-    () => buildHostSessions({ schedules: props.schedules, clockIns: props.clockIns, absences: absMemo.absences, reports: props.reports, brands: props.brands, studios: props.studios }, now, opts),
+    () =>
+      buildHostSessions(
+        { schedules: props.schedules, clockIns: props.clockIns, absences: absMemo.absences, reports: props.reports, brands: props.brands, studios: props.studios },
+        now,
+        opts,
+      ),
     [props.schedules, props.clockIns, absMemo.absences, props.reports, props.brands, props.studios, now, opts],
   );
   const inRange = React.useCallback((d: Date | null) => inPeriod(d, period), [period]);
-  const rows = React.useMemo(() => sessions.filter((s) => inRange(s.day)).map((s) => ({ s, st: scheduleState(s, now) })), [sessions, inRange, now]);
+  const allRows = React.useMemo(() => sessions.map((s) => ({ s, st: scheduleState(s, now) })), [sessions, now]);
+  const rows = React.useMemo(() => allRows.filter((r) => inRange(r.s.day)), [allRows, inRange]);
   const kpi = React.useMemo(() => scheduleKpis(sessions, props.clockIns, now, inRange), [sessions, props.clockIns, now, inRange]);
   const focus = React.useMemo(() => todayFocus(sessions, now), [sessions, now]);
   const platforms = React.useMemo(() => [...new Set(rows.map((r) => r.s.platform).filter(Boolean))].sort(), [rows]);
   const filtered = rows.filter((r) => matchesQuery(r.s, r.st, { platform, status, search }));
+  // The board shows the whole week, also days of the neighbouring month when they are loaded.
+  const weekEnd = new Date(monday.getFullYear(), monday.getMonth(), monday.getDate() + 7);
+  const inWeek = (s: HostSession) => !!s.day && s.day >= monday && s.day < weekEnd;
+  const weekRows = allRows.filter((r) => inWeek(r.s) && matchesQuery(r.s, r.st, { platform, status, search }));
+  const week = spanStats(allRows, inWeek);
+  const next = React.useMemo(() => nextSession(sessions, now), [sessions, now]);
+  const prevPeriod = addMonths(period, -1);
+  const prevLoaded = allRows.some((r) => inPeriod(r.s.day, prevPeriod));
+  const monthStats = spanStats(rows, () => true);
+  const prevStats = prevLoaded ? spanStats(allRows, (s) => inPeriod(s.day, prevPeriod)) : null;
+  const weekMax = Number(ctx.config.weekMaxHours) || 0;
+  // Report tertunda counts every loaded session, not only this week (an old unsent report still waits).
+  const owed = spanStats(allRows, (x) => !!x.day && x.day < now);
   // Every loaded row is rendered: a partial list was read as the whole total.
   const visible = filtered;
   const hasPosition = rows.some((r) => positionOf(r.s.row));
@@ -132,7 +190,11 @@ export function MyScheduleView(props: MyScheduleProps): React.ReactElement {
     { key: "dur", label: "Durasi", w: "56px", hide: "s", right: true },
     { key: "st", label: "Status", w: "146px" },
   ];
-  const tpl = (drop: ("m" | "s")[]) => cols.filter((c) => !c.hide || !drop.includes(c.hide)).map((c) => c.w).join(" ");
+  const tpl = (drop: ("m" | "s")[]) =>
+    cols
+      .filter((c) => !c.hide || !drop.includes(c.hide))
+      .map((c) => c.w)
+      .join(" ");
   const grid = { "--gt": tpl([]), "--gt-m": tpl(["m"]), "--gt-s": "minmax(0,1fr) auto" } as React.CSSProperties;
   const cls = (c: Col) => [c.hide === "m" ? "hide-m" : c.hide === "s" ? "hide-s" : "", c.right ? "r" : ""].filter(Boolean).join(" ") || undefined;
 
@@ -152,39 +214,107 @@ export function MyScheduleView(props: MyScheduleProps): React.ReactElement {
         <div>
           <h1>Jadwal saya</h1>
           <p>
-            {fmtLongDate(now)}
-            {firstLoad ? "" : kpi.action ? ` · ${fmtNumber(kpi.action)} sesi perlu tindakan` : ""}
+            {view === "Week"
+              ? `Minggu ${fmtWeek(monday)} · ${fmtNumber(week.sessions)} sesi · ${fmtHours(week.minutes)}`
+              : `${fmtLongDate(now)}${firstLoad ? "" : kpi.action ? ` · ${fmtNumber(kpi.action)} sesi perlu tindakan` : ""}`}
           </p>
         </div>
-        <label className="pbs-chip">
-          <span className="pbs-sr">Bulan</span>
-          <select
-            aria-label="Bulan"
-            value={periodKey(period)}
-            onChange={(e) => {
-              action.fire("PERIOD_CHANGED", { period: e.target.value });
-            }}
-          >
-            {months.map((m) => (
-              <option key={periodKey(m)} value={periodKey(m)}>
-                {fmtPeriod(m)}
-              </option>
+        <div className="hc-hi-a">
+          <div className="hc-seg lg" role="group" aria-label="Tampilan">
+            {VIEWS.map((v) => (
+              <button key={v.key} type="button" aria-pressed={view === v.key} onClick={() => pickView(v.key)}>
+                {v.label}
+              </button>
             ))}
-          </select>
-          <Icon name="chevronDown" size={14} />
-        </label>
+          </div>
+          {view === "Week" ? (
+            <div className="pbs-chip hc-wknav">
+              <span className="pbs-num">{fmtWeek(monday, false)}</span>
+              <button type="button" aria-label="Minggu sebelumnya" onClick={() => stepWeek(-1)}>
+                ‹
+              </button>
+              <button type="button" aria-label="Minggu berikutnya" onClick={() => stepWeek(1)}>
+                ›
+              </button>
+            </div>
+          ) : (
+            <label className="pbs-chip">
+              <span className="pbs-sr">Bulan</span>
+              <select
+                aria-label="Bulan"
+                value={periodKey(period)}
+                onChange={(e) => {
+                  action.fire("PERIOD_CHANGED", { period: e.target.value });
+                }}
+              >
+                {months.map((m) => (
+                  <option key={periodKey(m)} value={periodKey(m)}>
+                    {fmtPeriod(m)}
+                  </option>
+                ))}
+              </select>
+              <Icon name="chevronDown" size={14} />
+            </label>
+          )}
+        </div>
       </div>
 
-      <ResultBanner result={action.lastResult} okText={action.lastResult?.action === "ABSEN" ? "Absen tercatat. Sekarang kamu bisa kirim report sesi ini." : undefined} onClose={action.clearResult} />
+      <ResultBanner
+        result={action.lastResult}
+        okText={action.lastResult?.action === "ABSEN" ? "Absen tercatat. Sekarang kamu bisa kirim report sesi ini." : undefined}
+        onClose={action.clearResult}
+      />
 
-      <div className="hc-kpis">
-        <Kpi icon="calendar" label="Live schedule" loading={firstLoad} value={fmtNumber(kpi.sessions)} sub={kpi.upcoming ? `sesi · ${fmtNumber(kpi.upcoming)} akan datang` : "sesi"} />
-        <Kpi icon="clock" label="Jam live" loading={firstLoad} value={fmtNumber(Math.round(kpi.doneMin / 60))} sub={`dari ${fmtNumber(Math.round(kpi.totalMin / 60))} jam`} />
-        <Kpi icon="checkSquare" label="Absen hari ini" loading={firstLoad} value={fmtNumber(kpi.absenToday)} sub={kpi.today ? `dari ${fmtNumber(kpi.today)} sesi` : "tidak ada sesi"} />
-        <Kpi icon="mapPin" label="Hari clock in" loading={firstLoad} value={fmtNumber(kpi.clockDays)} sub={`dari ${fmtNumber(kpi.workDays)} hari berjadwal`} />
-      </div>
+      {view === "Week" ? (
+        <div className="hc-kpis">
+          <Kpi icon="calendar" label="Sesi minggu ini" loading={firstLoad} value={fmtNumber(week.sessions)} sub="sesi" />
+          <Kpi
+            icon="clock"
+            label="Jam live"
+            loading={firstLoad}
+            value={fmtNumber(Math.round(week.minutes / 6) / 10)}
+            sub={weekMax ? `dari maks ${fmtNumber(weekMax)} jam` : "jam"}
+          />
+          <Kpi
+            icon="file"
+            label="Brand"
+            loading={firstLoad}
+            value={fmtNumber(week.brands.length)}
+            sub={week.brands.length > 2 ? `${week.brands.slice(0, 2).join(", ")}, +${week.brands.length - 2}` : week.brands.join(", ") || "—"}
+          />
+          <Kpi
+            icon="alert"
+            tone={owed.pending ? "bad" : undefined}
+            label="Report tertunda"
+            loading={firstLoad}
+            value={fmtNumber(owed.pending)}
+            sub={owed.pendingFirst ? `${owed.pendingFirst.brand} · ${fmtDayMonth(owed.pendingFirst.day)}` : "semua beres"}
+          />
+        </div>
+      ) : (
+        <div className="hc-kpis">
+          <Kpi
+            icon="calendar"
+            label="Live schedule"
+            loading={firstLoad}
+            value={fmtNumber(kpi.sessions)}
+            sub={kpi.upcoming ? `sesi · ${fmtNumber(kpi.upcoming)} akan datang` : "sesi"}
+          />
+          <Kpi icon="clock" label="Jam live" loading={firstLoad} value={fmtNumber(Math.round(kpi.doneMin / 60))} sub={`dari ${fmtNumber(Math.round(kpi.totalMin / 60))} jam`} />
+          <Kpi
+            icon="checkSquare"
+            label="Absen hari ini"
+            loading={firstLoad}
+            value={fmtNumber(kpi.absenToday)}
+            sub={kpi.today ? `dari ${fmtNumber(kpi.today)} sesi` : "tidak ada sesi"}
+          />
+          <Kpi icon="mapPin" label="Hari clock in" loading={firstLoad} value={fmtNumber(kpi.clockDays)} sub={`dari ${fmtNumber(kpi.workDays)} hari berjadwal`} />
+        </div>
+      )}
 
-      {focus && periodKey(period) === periodKey(periodOf(now)) ? <TodayStrip s={focus} now={now} onAbsen={() => absen.start(focus)} action={action} onOpen={() => open(focus)} /> : null}
+      {focus && periodKey(period) === periodKey(periodOf(now)) ? (
+        <TodayStrip s={focus} now={now} onAbsen={() => absen.start(focus)} action={action} onOpen={() => open(focus)} />
+      ) : null}
 
       <div className="pbs-filters">
         <FilterSelect
@@ -222,19 +352,27 @@ export function MyScheduleView(props: MyScheduleProps): React.ReactElement {
             Reset
           </button>
         ) : null}
-        <div className="hc-seg" role="group" aria-label="Tampilan">
-          <button type="button" aria-pressed={view === "List"} onClick={() => pickView("List")}>
-            <Icon name="file" size={13} /> Daftar
-          </button>
-          <button type="button" aria-pressed={view === "Calendar"} onClick={() => pickView("Calendar")}>
-            <Icon name="calendar" size={13} /> Kalender
-          </button>
-        </div>
       </div>
 
-      {view === "Calendar" && !firstLoad ? <ScheduleCalendar period={period} rows={filtered} now={now} onOpen={open} /> : null}
+      {view === "Calendar" && !firstLoad ? (
+        <ScheduleCalendar
+          period={period}
+          rows={filtered}
+          now={now}
+          onOpen={open}
+          panel={{
+            month: monthStats,
+            previous: prevStats,
+            holidays,
+            pic: String(ctx.config.picName ?? ""),
+            onPrevious: () => action.fire("PERIOD_CHANGED", { period: periodKey(prevPeriod) }),
+            onContact: () => action.fire("CONTACT_PIC", { period: periodKey(period) }),
+          }}
+        />
+      ) : null}
+      {view === "Week" && !firstLoad ? <ScheduleWeek monday={monday} rows={weekRows} next={next} holidays={holidays} now={now} onOpen={open} /> : null}
 
-      <div className="hc-list" hidden={view === "Calendar" && !firstLoad} aria-busy={props.loading} role="table" aria-label="Jadwal saya">
+      <div className="hc-list" hidden={view !== "List" && !firstLoad} aria-busy={props.loading} role="table" aria-label="Jadwal saya">
         <div className="hc-row sch head" style={grid} role="row">
           {cols.map((c) => (
             <span key={c.key} className={cls(c)} role="columnheader">
@@ -275,9 +413,7 @@ export function MyScheduleView(props: MyScheduleProps): React.ReactElement {
                       {s.platform ? ` · ${s.platform}` : ""}
                       {s.studio !== "—" ? ` · ${s.studio}` : ""}
                     </span>
-                    <span className="only-m pbs-muted">
-                      {[s.platform, s.account, s.studio !== "—" ? s.studio : ""].filter(Boolean).join(" · ")}
-                    </span>
+                    <span className="only-m pbs-muted">{[s.platform, s.account, s.studio !== "—" ? s.studio : ""].filter(Boolean).join(" · ")}</span>
                   </span>
                   <span className={`hide-s pbs-num${today ? " hc-b" : ""}`}>{today ? "Hari ini" : fmtDayMonth(s.day)}</span>
                   <span className="hide-m hc-ell">
@@ -303,7 +439,7 @@ export function MyScheduleView(props: MyScheduleProps): React.ReactElement {
             })}
       </div>
 
-      {firstLoad ? null : filtered.length === 0 && view === "List" ? (
+      {firstLoad || view === "Week" ? null : filtered.length === 0 && view === "List" ? (
         <EmptyState
           icon={filtering ? "filterX" : "calendar"}
           title={filtering ? "Tidak ada jadwal yang cocok" : `Belum ada jadwal di ${fmtPeriod(period)}`}
@@ -318,16 +454,9 @@ export function MyScheduleView(props: MyScheduleProps): React.ReactElement {
         />
       ) : props.hasMore ? (
         <div className="pbs-foot">
-          <span>
-            Total {fmtNumber(filtered.length)} jadwal dimuat · masih ada data lain di server sesi
-          </span>
+          <span>Total {fmtNumber(filtered.length)} jadwal dimuat · masih ada data lain di server sesi</span>
           <span className="line" />
-          <Button
-            variant="secondary"
-            size="sm"
-            disabled={props.loading}
-            onClick={() => action.fire("LOAD_MORE", { period: periodKey(period), loaded: props.schedules.length })}
-          >
+          <Button variant="secondary" size="sm" disabled={props.loading} onClick={() => action.fire("LOAD_MORE", { period: periodKey(period), loaded: props.schedules.length })}>
             {props.loading ? (
               <>
                 <Spinner small /> Memuat…
@@ -345,10 +474,10 @@ export function MyScheduleView(props: MyScheduleProps): React.ReactElement {
   );
 }
 
-function Kpi(props: { icon: IconName; label: string; value: string; sub: string; loading: boolean }): React.ReactElement {
+function Kpi(props: { icon: IconName; label: string; value: string; sub: string; loading: boolean; tone?: "bad" }): React.ReactElement {
   return (
     <div className="hc-kpi">
-      <span className="hc-ic">
+      <span className={`hc-ic${props.tone ? ` ${props.tone}` : ""}`}>
         <Icon name={props.icon} size={18} />
       </span>
       <div style={{ minWidth: 0 }}>

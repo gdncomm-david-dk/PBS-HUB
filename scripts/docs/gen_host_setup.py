@@ -172,7 +172,7 @@ belum ada di list lama, cek dulu.
 
     doc.append("""## Langkah 1 — Import solusi dan tambahkan data source
 
-1. Power Apps → **Solutions → Import solution** → pilih `dist/PBSHubHostApp_1_0_3_0_managed.zip` → Import.
+1. Power Apps → **Solutions → Import solution** → pilih `dist/PBSHubHostApp_1_0_4_0_managed.zip` → Import.
 2. Sekali per environment: Power Platform admin center → environment → **Settings → Product → Features** →
    *Allow publishing of canvas apps with code components* = **On**. Tanpa ini control tidak muncul di tab Code.
 3. Panel **Data → Add data → SharePoint** → site PBS Hub → centang semua list di Langkah 0.
@@ -207,6 +207,13 @@ tengah malam. `varSiteID` / `varDriveID` sama dengan screenshot report (library 
 Pilih **App** di tree view → properti **OnStart** → tempel utuh → klik `…` di App → **Run OnStart**.
 
 """ + code("""
+// 0. Hari libur nasional: dipakai Tier (blok 5) dan kalender Jadwal saya (config.holidays di blok 1).
+Set(varHolidays, [                                                  // tanggal merah → Tier 1 (perbarui tiap tahun)
+    Date(2026,1,1), Date(2026,2,16), Date(2026,3,1), Date(2026,3,21), Date(2026,4,1), Date(2026,4,10),
+    Date(2026,4,11), Date(2026,5,1), Date(2026,5,14), Date(2026,5,21), Date(2026,6,1), Date(2026,6,17),
+    Date(2026,6,27), Date(2026,7,7), Date(2026,8,17), Date(2026,12,25)
+]);
+
 // 1. Context: dikirim ke properti Context semua control host.
 Set(varHostCtx, JSON({
     userEmail: User().Email,
@@ -226,6 +233,9 @@ Set(varHostCtx, JSON({
         clockInStatus: "Hadir - Tugas",          // Choice Status di Clock In
         defaultRadiusM: 100, weakAccuracyM: 100, minReasonChars: 10,
         selfieMaxPx: 960, selfieMaxKb: 350,
+        weekMaxHours: 40,                        // Jadwal saya · Minggu: "Jam live … dari maks 40 jam" (0 = tanpa batas)
+        picName: "Bayu Prasetyo",                // Jadwal saya · Bulan: nama PIC jadwal di kartu "Ada yang tidak sesuai?"
+        holidays: Concat(varHolidays, Text(Value, "yyyy-mm-dd"), ","),   // hari libur nasional (blok 0)
         scoreInitial: First('[FAS STUDIO] ScoreConfig').InitialScore,   // Skor saya: kalau kolom skor di Host kosong
         scoreMin: First('[FAS STUDIO] ScoreConfig').MinimumScore,
         scoreMax: First('[FAS STUDIO] ScoreConfig').MaximumScore
@@ -246,6 +256,7 @@ ClearCollect(colPbsProcessed, {Id: ""});                                        
 //    hanya di-Set ke Blank() ("No type found"), jadi semuanya dideklarasikan di sini dengan tipe yang benar.
 Set(varMrPeriod, "");  Set(varMrFilter, "All");                          // Report saya
 Set(varMsPeriod, "");  Set(varMsFilter, "");  Set(varMsView, "List");    // Jadwal saya
+Set(varPicUrl, "mailto:pic-jadwal@contoh.com");                          // tombol Hubungi PIC (mailto: atau link chat Teams)
 Set(varSchId, "");     Set(varSchDate, Today());                         // Detail sesi
 Set(varCsPeriod, "");  Set(varCsFilter, "All"); Set(varCsTop, 200);    // Skor saya
 Set(varRptId, Value(Blank())); Set(varRptSchedule, "");                  // Kirim / revisi report
@@ -261,12 +272,8 @@ Set(varDriveID, "<drive-id>");
 ClearCollect(colTierConfig, 'Performance Tier - PBS Hub');          // Tier 1/2/3: MinViews, CTR, AvgViewDur (Peak), Duration (jam)
 Set(varSlotMin, 15);                                                // grid 15 menit
 Set(varT1MinInWindow, 120);                                         // ≥ 2 jam live di 00:00–06:00 → Tier 1
-Set(varT2MinInWindow, 120);                                         // ≥ 2 jam live di 21:00–24:00 → Tier 2
-Set(varHolidays, [                                                  // tanggal merah → Tier 1 (perbarui tiap tahun)
-    Date(2026,1,1), Date(2026,2,16), Date(2026,3,1), Date(2026,3,21), Date(2026,4,1), Date(2026,4,10),
-    Date(2026,4,11), Date(2026,5,1), Date(2026,5,14), Date(2026,5,21), Date(2026,6,1), Date(2026,6,17),
-    Date(2026,6,27), Date(2026,7,7), Date(2026,8,17), Date(2026,12,25)
-])
+Set(varT2MinInWindow, 120)                                          // ≥ 2 jam live di 21:00–24:00 → Tier 2
+
 """))
 
     doc.append("""### Aturan Tier (dihitung setiap report terkirim)
@@ -435,8 +442,9 @@ Set(varMrdLoading, false)"""
 
     ms_vis = """
 Set(varMsLoading, true);
-With({from: If(IsBlank(varMsPeriod), Date(Year(Today()), Month(Today()), 1), DateValue(varMsPeriod & "-01"))},
-    With({to: DateAdd(from, 1, TimeUnit.Months)},
+// bulan lalu + bulan ini + 7 hari bulan depan: panel Bulan lalu, report tertunda, papan minggu
+With({from: DateAdd(If(IsBlank(varMsPeriod), Date(Year(Today()), Month(Today()), 1), DateValue(varMsPeriod & "-01")), -1, TimeUnit.Months)},
+    With({to: DateAdd(from, 2, TimeUnit.Months) + 7},
         ClearCollect(colMsSch, Filter('Schedule - PBS Hub', HostID = varMe.Title, Date >= from, Date < to));
         ClearCollect(colMsClk, Filter('Clock In - PBS Hub', HostID = varMe.Title, ClockInDate >= from, ClockInDate < to));
         ClearCollect(colMsAbs, Filter('Host Absence - PBS Hub', HostID = varMe.Title, LiveDate >= from, LiveDate < to));
@@ -448,7 +456,7 @@ Set(varMsLoading, false)"""
         ("Context", "varHostCtx", ""),
         ("Period", "varMsPeriod", "`yyyy-mm`; kosong = bulan ini"),
         ("DefaultFilter", "varMsFilter", "kosong, `ACTION`, `PLANNED`, `FINISHED`, `CANCELLED`"),
-        ("DefaultView", 'Coalesce(varMsView, "List")', "`List` atau `Calendar`"),
+        ("DefaultView", 'Coalesce(varMsView, "List")', "`List` (Daftar), `Week` (papan Minggu) atau `Calendar` (Bulan)"),
         ("HostJson", HOST, ""),
         ("SchedulesJson", js("colMsSch", SCH), ""),
         ("ClockInJson", js("colMsClk", CLK), ""),
@@ -462,9 +470,13 @@ Set(varMsLoading, false)"""
         ("ActionResult", "varMsResult", ""),
     ]
     doc.append(screen(9, "Layar Jadwal saya (`scrMySchedule`)", "scrMySchedule", "PBS Host App My Schedule",
-                      "Tabel / kalender sesi sebulan, KPI, strip Hari ini (clock in, absen), filter.",
+                      "Tiga tampilan: **Daftar** (tabel sebulan), **Minggu** (papan 7 hari: kartu per sesi dengan brand, akun, studio, platform, "
+                      "warna status, navigasi ‹ ›) dan **Bulan** (kalender + panel kanan: angka bulan ini, bulan lalu, hari libur nasional, "
+                      "tombol Hubungi PIC; bulan tanpa jadwal tetap menampilkan kalender dengan *Jadwal … belum terbit*). KPI, strip Hari ini "
+                      "(clock in, absen), filter. Data yang dimuat: bulan lalu + bulan ini + 7 hari bulan depan.",
                       ms_vis, ms_rows, oc.ms,
-                      "Ganti bulan → jadwal berganti. Toggle Kalender → tetap Kalender saat kembali ke layar."))
+                      "Ganti bulan → jadwal berganti. Pilih *Minggu* → papan minggu ini, hari ini disorot; ‹ › pindah minggu (masuk bulan lain → "
+                      "canvas memuat bulan itu). Pilih *Bulan* → tetap Bulan saat kembali ke layar; panel *Bulan lalu* terisi."))
 
     ck_vis = """
 Set(varCkLoading, true);

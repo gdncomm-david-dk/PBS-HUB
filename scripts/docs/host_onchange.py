@@ -338,13 +338,15 @@ mrd = shell('\n'.join([
  '"BACK", Back(),',
 ]), upload=True)
 
-MS_AFTER = '''With({from: If(IsBlank(varMsPeriod), Date(Year(Today()), Month(Today()), 1), DateValue(varMsPeriod & "-01"))},
-    ClearCollect(colMsSch, Filter('Schedule - PBS Hub', HostID = varMe.Title, Date >= from, Date < DateAdd(from, 1, TimeUnit.Months)));
-    ClearCollect(colMsRep, Filter('Report - PBS Hub', HostID = varMe.Title, LiveDate >= from, LiveDate < DateAdd(from, 1, TimeUnit.Months)))
+MS_AFTER = '''// bulan lalu ikut dimuat (panel "Bulan lalu", report tertunda), plus 7 hari bulan depan (papan minggu)
+With({from: DateAdd(If(IsBlank(varMsPeriod), Date(Year(Today()), Month(Today()), 1), DateValue(varMsPeriod & "-01")), -1, TimeUnit.Months)},
+    ClearCollect(colMsSch, Filter('Schedule - PBS Hub', HostID = varMe.Title, Date >= from, Date < DateAdd(from, 2, TimeUnit.Months) + 7));
+    ClearCollect(colMsRep, Filter('Report - PBS Hub', HostID = varMe.Title, LiveDate >= from, LiveDate < DateAdd(from, 2, TimeUnit.Months) + 7))
 );'''
 ms_reload = '''Set(varMsLoading, true);
-With({from: If(IsBlank(varMsPeriod), Date(Year(Today()), Month(Today()), 1), DateValue(varMsPeriod & "-01"))},
-    With({to: DateAdd(from, 1, TimeUnit.Months)},
+// bulan lalu + bulan ini + 7 hari bulan depan: panel Bulan lalu, report tertunda, papan minggu
+With({from: DateAdd(If(IsBlank(varMsPeriod), Date(Year(Today()), Month(Today()), 1), DateValue(varMsPeriod & "-01")), -1, TimeUnit.Months)},
+    With({to: DateAdd(from, 2, TimeUnit.Months) + 7},
         ClearCollect(colMsSch, Filter('Schedule - PBS Hub', HostID = varMe.Title, Date >= from, Date < to));
         ClearCollect(colMsClk, Filter('Clock In - PBS Hub', HostID = varMe.Title, ClockInDate >= from, ClockInDate < to));
         ClearCollect(colMsAbs, Filter('Host Absence - PBS Hub', HostID = varMe.Title, LiveDate >= from, LiveDate < to));
@@ -360,6 +362,7 @@ ms = shell('\n'.join([
  '"PERIOD_CHANGED",\n    Set(varMsPeriod, Text(p.period));\n'+ind(ms_reload,4),
  '"FILTER_CHANGED", Set(varMsFilter, Text(p.status)),',
  '"VIEW_CHANGED", Set(varMsView, Text(p.view)),',
+ '"CONTACT_PIC", Launch(varPicUrl),   // mis. "mailto:pic@…" atau link chat Teams PIC jadwal',
 ]))
 
 sd_sch = "ClearCollect(colSdSch, Filter('Schedule - PBS Hub', HostID = varMe.Title, Date = varSchDate));"

@@ -1,6 +1,6 @@
 # Integrasi canvas — PBS Hub Host App
 
-Solusi terpisah dari Ops Console: **`PBSHubHostApp`** (managed, `dist/PBSHubHostApp_1_0_3_0_managed.zip`), berisi
+Solusi terpisah dari Ops Console: **`PBSHubHostApp`** (managed, `dist/PBSHubHostApp_1_0_4_0_managed.zip`), berisi
 ketujuh control host dengan identifier baru `pbs_HostApp.*`. Solusi ini menggantikan `PBSHubHostPCF` +
 `PBSHubHostSchedulePCF` (control lama `pbs_Host.*`). Karena nama solusi dan namespace control berbeda, solusi baru
 bisa diimport berdampingan dengan yang lama tanpa bentrok. Publisher dan prefix tetap sama (`PBSHub` / `pbs`).
@@ -344,7 +344,9 @@ Set(varMsLoading, false);
 | `HostJson` | seperti HostDashboard (dipakai untuk payload `ABSEN`) |
 | `SchedulesJson` | seperti HostDashboard dari `colMsSch`, **plus** `JamLive: JamLive` (`Position`, `LiveBreak`, `AccountName` sudah ikut dari HostDashboard). Kolom *Posisi* hanya tampil kalau ada baris yang mengisinya. |
 | `ClockInJson`, `AbsenceJson`, `ReportsJson`, `BrandsJson`, `StudiosJson` | seperti HostDashboard, dari koleksi `colMs…` |
-| `DefaultView` | `Coalesce(varMsView, "List")` — `"List"` (tabel) atau `"Calendar"` (kalender bulan). Tombol *Daftar / Kalender* mengirim `VIEW_CHANGED {view}`; simpan di `OnChange`: `"VIEW_CHANGED", Set(varMsView, Text(p.view))` supaya pilihan host bertahan saat kembali ke layar. |
+| `DefaultView` | `Coalesce(varMsView, "List")` — `"List"` (Daftar), `"Week"` (papan Minggu, desain 11a) atau `"Calendar"` (kalender Bulan, desain 10b). Tombol *Daftar / Minggu / Bulan* mengirim `VIEW_CHANGED {view}`; simpan di `OnChange`: `"VIEW_CHANGED", Set(varMsView, Text(p.view))` supaya pilihan host bertahan saat kembali ke layar. |
+| Data yang dimuat | bulan lalu + bulan ini + 7 hari bulan depan (`SchedulesJson`, `ClockInJson`, `AbsenceJson`, `ReportsJson`). Angka bulan, daftar dan kalender tetap hanya bulan `Period`; bulan lalu dipakai panel *Bulan lalu* dan *Report tertunda*, 7 hari bulan depan dipakai papan minggu yang melewati akhir bulan. |
+| `Context.config` | `holidays` (teks `"2026-08-17,2026-12-25"` atau array tanggal) → tanggal merah di kalender, *Hari libur nasional*, dan *Libur nasional* di papan; `picName` → nama di kartu *Ada yang tidak sesuai?*; `weekMaxHours` → *Jam live … dari maks X jam* di papan minggu. |
 | `HasMore` | `false` (per host per bulan kecil) |
 | `IsLoading` | `varMsLoading` |
 | `ActionResult` | `varMsResult` |
@@ -371,7 +373,9 @@ terjadwal), *Absen hari ini*, *Hari clock in* (hari berjadwal sampai hari ini ya
 | `CLOCK_IN`, `NEW_REPORT`, `OPEN_REPORT` | sama dengan HostDashboard |
 | `PERIOD_CHANGED` `{period}` | `Set(varMsPeriod, Text(p.period))` lalu ulangi OnVisible |
 | `FILTER_CHANGED` `{status, platform, period}` | opsional: `Set(varMsFilter, Text(p.status))` supaya filter bertahan saat kembali |
-| `VIEW_CHANGED` `{view: "List" \| "Calendar"}` | opsional: `Set(varMsView, Text(p.view))`, lalu `DefaultView = Coalesce(varMsView, "List")` |
+| `VIEW_CHANGED` `{view: "List" \| "Week" \| "Calendar"}` | opsional: `Set(varMsView, Text(p.view))`, lalu `DefaultView = Coalesce(varMsView, "List")` |
+| `CONTACT_PIC` `{period}` | tombol *Hubungi PIC* di tampilan Bulan: `Launch(varPicUrl)` (mailto atau link chat) |
+| `PERIOD_CHANGED` dari papan minggu | ‹ › ke minggu yang tidak menyentuh bulan `Period` mengirim bulan baru (bulan hari Kamis minggu itu); canvas memuat ulang seperti ganti bulan |
 | `LOAD_MORE` `{period, loaded}` | hanya kalau `HasMore` dipakai |
 
 Filter platform, status dan kotak cari (brand, akun, Schedule ID, studio) jalan di control, tanpa reload.
@@ -434,7 +438,7 @@ Sesi tanpa clock in diarahkan minta clock in manual ke tim PBS, sesi batal hanya
 
 ## 8. Pemasangan
 
-1. Import `dist/PBSHubHostApp_1_0_3_0_managed.zip` (Solutions → Import). Bisa di environment yang sama dengan
+1. Import `dist/PBSHubHostApp_1_0_4_0_managed.zip` (Solutions → Import). Bisa di environment yang sama dengan
    `PBSHubOpsPCF` dan dengan solusi host lama.
    **Pindah dari solusi lama** (`PBSHubHostPCF` / `PBSHubHostSchedulePCF`, control `pbs_Host.*`): control baru tidak
    otomatis menggantikan yang lama di canvas. Di tiap layar hapus control lama, tambahkan control `pbs_HostApp.*`
@@ -1309,9 +1313,10 @@ If(!IsBlank(Self.ActionPayload),
                                         Patch('Schedule - PBS Hub', s, {Status: {Value: st}}));
                                     If(Coalesce(ex.Status.Value, "") <> "Hadir", Patch('Host Absence - PBS Hub', ex, {Status: {Value: "Hadir"}}));
                                     If(!(ex.ID in colMsAbs.ID), Collect(colMsAbs, LookUp('Host Absence - PBS Hub', ID = ex.ID)));
-                                    With({from: If(IsBlank(varMsPeriod), Date(Year(Today()), Month(Today()), 1), DateValue(varMsPeriod & "-01"))},
-                                        ClearCollect(colMsSch, Filter('Schedule - PBS Hub', HostID = varMe.Title, Date >= from, Date < DateAdd(from, 1, TimeUnit.Months)));
-                                        ClearCollect(colMsRep, Filter('Report - PBS Hub', HostID = varMe.Title, LiveDate >= from, LiveDate < DateAdd(from, 1, TimeUnit.Months)))
+                                    // bulan lalu ikut dimuat (panel "Bulan lalu", report tertunda), plus 7 hari bulan depan (papan minggu)
+                                    With({from: DateAdd(If(IsBlank(varMsPeriod), Date(Year(Today()), Month(Today()), 1), DateValue(varMsPeriod & "-01")), -1, TimeUnit.Months)},
+                                        ClearCollect(colMsSch, Filter('Schedule - PBS Hub', HostID = varMe.Title, Date >= from, Date < DateAdd(from, 2, TimeUnit.Months) + 7));
+                                        ClearCollect(colMsRep, Filter('Report - PBS Hub', HostID = varMe.Title, LiveDate >= from, LiveDate < DateAdd(from, 2, TimeUnit.Months) + 7))
                                     );
                                     Set(varMsResult, JSON({requestId: rid, status: "conflict", message: "Absen sesi ini sudah tercatat (" & ex.Title & "). Status jadwal " & LookUp('Schedule - PBS Hub', ID = s.ID).Status.Value & "."}, JSONFormat.Compact)),
                                 // 1. Status jadwal. Gagal → pesan error asli, belum ada yang ditulis.
@@ -1423,9 +1428,10 @@ If(!IsBlank(Self.ActionPayload),
                                                             Notify("Report tersimpan, tapi Tier belum terhitung: " & FirstError.Message, NotificationType.Warning)
                                                         )
                                                     );
-                                                    With({from: If(IsBlank(varMsPeriod), Date(Year(Today()), Month(Today()), 1), DateValue(varMsPeriod & "-01"))},
-                                                        ClearCollect(colMsSch, Filter('Schedule - PBS Hub', HostID = varMe.Title, Date >= from, Date < DateAdd(from, 1, TimeUnit.Months)));
-                                                        ClearCollect(colMsRep, Filter('Report - PBS Hub', HostID = varMe.Title, LiveDate >= from, LiveDate < DateAdd(from, 1, TimeUnit.Months)))
+                                                    // bulan lalu ikut dimuat (panel "Bulan lalu", report tertunda), plus 7 hari bulan depan (papan minggu)
+                                                    With({from: DateAdd(If(IsBlank(varMsPeriod), Date(Year(Today()), Month(Today()), 1), DateValue(varMsPeriod & "-01")), -1, TimeUnit.Months)},
+                                                        ClearCollect(colMsSch, Filter('Schedule - PBS Hub', HostID = varMe.Title, Date >= from, Date < DateAdd(from, 2, TimeUnit.Months) + 7));
+                                                        ClearCollect(colMsRep, Filter('Report - PBS Hub', HostID = varMe.Title, LiveDate >= from, LiveDate < DateAdd(from, 2, TimeUnit.Months) + 7))
                                                     );
                                                     // Pesan membaca ulang SharePoint, jadi yang tampil adalah status yang benar-benar tersimpan.
                                                     Set(varMsResult, JSON({requestId: rid, status: "ok", message: If(lb, "Absen tercatat (ABS-" & row.ID & "). Live Break: report 0 dibuat otomatis.", "Absen tercatat (ABS-" & row.ID & "). Status jadwal sekarang " & LookUp('Schedule - PBS Hub', ID = s.ID).Status.Value & ".")}, JSONFormat.Compact))
@@ -1443,8 +1449,9 @@ If(!IsBlank(Self.ActionPayload),
                     "PERIOD_CHANGED",
                         Set(varMsPeriod, Text(p.period));
                         Set(varMsLoading, true);
-                        With({from: If(IsBlank(varMsPeriod), Date(Year(Today()), Month(Today()), 1), DateValue(varMsPeriod & "-01"))},
-                            With({to: DateAdd(from, 1, TimeUnit.Months)},
+                        // bulan lalu + bulan ini + 7 hari bulan depan: panel Bulan lalu, report tertunda, papan minggu
+                        With({from: DateAdd(If(IsBlank(varMsPeriod), Date(Year(Today()), Month(Today()), 1), DateValue(varMsPeriod & "-01")), -1, TimeUnit.Months)},
+                            With({to: DateAdd(from, 2, TimeUnit.Months) + 7},
                                 ClearCollect(colMsSch, Filter('Schedule - PBS Hub', HostID = varMe.Title, Date >= from, Date < to));
                                 ClearCollect(colMsClk, Filter('Clock In - PBS Hub', HostID = varMe.Title, ClockInDate >= from, ClockInDate < to));
                                 ClearCollect(colMsAbs, Filter('Host Absence - PBS Hub', HostID = varMe.Title, LiveDate >= from, LiveDate < to));
@@ -1454,6 +1461,7 @@ If(!IsBlank(Self.ActionPayload),
                         Set(varMsLoading, false),
                     "FILTER_CHANGED", Set(varMsFilter, Text(p.status)),
                     "VIEW_CHANGED", Set(varMsView, Text(p.view)),
+                    "CONTACT_PIC", Launch(varPicUrl),   // mis. "mailto:pic@…" atau link chat Teams PIC jadwal
                     // aksi lain: tidak ada yang perlu dilakukan
                     false
                 )

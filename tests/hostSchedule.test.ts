@@ -139,3 +139,32 @@ describe("calendar grid", () => {
     expect(initialCalendarDay(2026, 6, new Date(2026, 8, 14), [])).toBe("2026-07-01");
   });
 });
+
+describe("week board and month summary", () => {
+  const { weekStart, weekDays, initialWeek, boardTone, holidaySet } = require("../shared/hostSchedule") as typeof import("../shared/hostSchedule");
+  it("weeks start on Monday", () => {
+    expect(weekStart(new Date(2026, 8, 20)).getDate()).toBe(14); // Sunday 20 Sep → Monday 14 Sep
+    expect(weekDays(new Date(2026, 8, 28)).map((d) => d.key)).toEqual(["2026-09-28", "2026-09-29", "2026-09-30", "2026-10-01", "2026-10-02", "2026-10-03", "2026-10-04"]);
+  });
+  it("opens on this week in the current month, else the week of the 1st", () => {
+    const now = new Date(2026, 8, 17, 10);
+    expect(initialWeek(2026, 8, now).getDate()).toBe(14);
+    expect(initialWeek(2026, 9, now).toDateString()).toBe(new Date(2026, 8, 28).toDateString());
+  });
+  it("maps states to the legend", () => {
+    expect([boardTone("PLANNED", false), boardTone("PLANNED", true), boardTone("WAITING", false), boardTone("FINISHED", false), boardTone("LATE", false), boardTone("CANCELLED", true)]).toEqual([
+      "planned",
+      "next",
+      "review",
+      "done",
+      "missing",
+      "off",
+    ]);
+  });
+  it("reads holidays as strings, a canvas date table, or text", () => {
+    expect([...holidaySet({ holidays: ["2026-08-17", "x"] })]).toEqual(["2026-08-17"]);
+    expect([...holidaySet({ holidays: [{ Value: "2026-12-25T00:00:00.000Z" }] })]).toEqual(["2026-12-25"]);
+    expect([...holidaySet({ holidays: "2026-01-01, 2026-05-01" })]).toEqual(["2026-01-01", "2026-05-01"]);
+    expect(holidaySet({}).size).toBe(0);
+  });
+});
