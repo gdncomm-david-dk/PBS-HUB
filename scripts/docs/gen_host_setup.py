@@ -165,7 +165,7 @@ belum ada di list lama, cek dulu.
 
     doc.append("""## Langkah 1 — Import solusi dan tambahkan data source
 
-1. Power Apps → **Solutions → Import solution** → pilih `dist/PBSHubHostApp_1_0_1_0_managed.zip` → Import.
+1. Power Apps → **Solutions → Import solution** → pilih `dist/PBSHubHostApp_1_0_2_0_managed.zip` → Import.
 2. Sekali per environment: Power Platform admin center → environment → **Settings → Product → Features** →
    *Allow publishing of canvas apps with code components* = **On**. Tanpa ini control tidak muncul di tab Code.
 3. Panel **Data → Add data → SharePoint** → site PBS Hub → centang semua list di Langkah 0.
@@ -515,8 +515,9 @@ Pakai satu jadwal milik akunmu (`HostID = varMe.Title`), hari ini, **sudah mulai
 | *The type of this argument 'Account' does not match the expected type 'Record'* | `Account` di Report / Host Absence adalah Lookup/Choice | formula OnChange sudah memakai `LookUp(Choices([@'…'].Account), …)`; kalau kolomnya ternyata teks, ganti jadi `LookUp(colAccounts, Title = s.Account).AccountName` |
 | Nama akun kosong | `colAccounts` belum dimuat / `Schedule.Account` ≠ `Title` di list Account | Run OnStart; cek isi kedua kolom |
 | Klik tombol, spinner berputar terus | OnChange belum ditempel, atau `ActionResult` bukan variabel layar itu | tempel OnChange langkah layar itu; cek `ActionResult` |
+| Tombol Absen masih bisa diklik setelah absen | `AbsenceJson` tidak dari koleksi yang di-`Collect` OnChange (mis. dari koleksi lain yang tidak dimuat ulang) | `AbsenceJson` harus dari `colSdAbs` / `colMsAbs` / `colMyAbs` / `colMrdAbs` sesuai layar. Control 1.0.2 juga menyembunyikan tombol begitu canvas membalas ok / sudah tercatat |
 | Klik tombol, tidak terjadi apa-apa | `colPbsProcessed` belum ada | Run OnStart |
-| Sudah absen tapi jadwal tetap `Planned` / diminta absen terus | absen lama gagal di tengah (baris absen ada, status jadwal belum pindah) | tempel OnChange terbaru, lalu tekan **Absen** sekali lagi: OnChange membetulkan Status jadwal ke `Waiting Report` dan mengisi `Status = Hadir`, tanpa membuat absen baru |
+| Sudah absen tapi jadwal tetap `Planned` / diminta absen terus | absen lama gagal di tengah (baris absen ada, status jadwal belum pindah) | tempel OnChange terbaru, lalu tekan **Absen** sekali lagi: ditolak (*sudah tercatat*) karena satu ScheduleID hanya boleh satu absen, tapi Status jadwal dilengkapi ke `Waiting Report` dan `Status = Hadir` diisi |
 | *Gagal mengubah status jadwal …* / *absen gagal dicatat: …* | Patch ditolak SharePoint; teks setelah `:` adalah error aslinya (mis. host tidak punya izin edit list Schedule / Host Absence, pilihan `Hadir` / `Waiting Report` tidak ada, kolom wajib kosong) | perbaiki sesuai pesan, lalu tekan **Absen** lagi |
 | *Jadwal … tidak ditemukan untuk akunmu* | `HostID` jadwal ≠ `varMe.Title`, atau Title jadwal berubah | cek `HostID` di Schedule; muat ulang layar |
 | *Gagal absen: … Status* | Choice `Status` di Host Absence tidak punya `Hadir` (atau kolomnya teks) | tambah pilihan `Hadir`; kalau teks ganti jadi `Status: "Hadir"` |

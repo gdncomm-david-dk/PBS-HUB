@@ -20,7 +20,7 @@ import {
 import { SCHEDULE_STATE, SessionStep, StepState, clockInOf, durationMin, fmtHours, isLive, positionOf, scheduleState, sessionSteps } from "../../../shared/hostSchedule";
 import { ALL_METRICS, readMetric, reviewState } from "../../../shared/reconcile";
 import { Coverage, PageHead, Revision, SubmitReport } from "../../../shared/hostReport";
-import { useAbsen } from "../../../shared/hostAbsen";
+import { useAbsen, useAbsenceMemory } from "../../../shared/hostAbsen";
 import { Badge, Button, EmptyState, Icon, IconName, InfoBanner, ResultBanner, Skeleton, Spinner } from "../../../shared/ui";
 
 export interface ScheduleDetailProps {
@@ -84,6 +84,7 @@ const STEP_ICON: Record<StepState, IconName> = {
 export function ScheduleDetailView(props: ScheduleDetailProps): React.ReactElement {
   const { ctx, now, action } = props;
   const opts = React.useMemo(() => hostOptions(ctx.config), [ctx]);
+  const absMemo = useAbsenceMemory(action, props.absences);
   const host = props.host[0];
   const sessions = React.useMemo(
     () =>
@@ -91,7 +92,7 @@ export function ScheduleDetailView(props: ScheduleDetailProps): React.ReactEleme
         {
           schedules: props.schedules,
           clockIns: props.clockIns,
-          absences: props.absences,
+          absences: absMemo.absences,
           reports: props.reports,
           brands: props.brands,
           studios: props.studios,
@@ -99,12 +100,12 @@ export function ScheduleDetailView(props: ScheduleDetailProps): React.ReactEleme
         now,
         opts,
       ),
-    [props.schedules, props.clockIns, props.absences, props.reports, props.brands, props.studios, now, opts],
+    [props.schedules, props.clockIns, absMemo.absences, props.reports, props.brands, props.studios, now, opts],
   );
   const want = props.scheduleId.trim().toLowerCase();
   const s = want ? sessions.find((x) => x.title.toLowerCase() === want || x.id === props.scheduleId.trim()) : sessions[0];
   const back = () => action.fire("BACK", {});
-  const absen = useAbsen(action, host, opts);
+  const absen = useAbsen(action, host, opts, absMemo.remember);
   const [formOpen, setFormOpen] = React.useState(false);
   const formRef = React.useRef<HTMLElement>(null);
   const [scrollTo, setScrollTo] = React.useState(0);
@@ -166,7 +167,8 @@ export function ScheduleDetailView(props: ScheduleDetailProps): React.ReactEleme
     schedule: [s.row],
     evidence: s.report ? props.evidence.filter((e) => str(e, "Title").toLowerCase() === str(s.report, "Title").toLowerCase()) : [],
     clockIns: props.clockIns,
-    absences: props.absences,
+    absences: absMemo.absences,
+    onAbsenSent: absMemo.remember,
     history: props.history,
     brands: props.brands,
     studios: props.studios,

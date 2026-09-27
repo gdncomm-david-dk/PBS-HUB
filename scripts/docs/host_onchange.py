@@ -111,11 +111,11 @@ def absen(R, col, after=''):
     Every Patch is checked on its own: in a `;` chain Power Fx keeps going after a failed Patch, so one IfError
     around the chain reported "ok" while nothing was written. An absence left behind by an earlier half-finished
     absen is repaired instead of rejected, so the host is never stuck."""
-    ok_after = ind(after, 32) + chr(10) if after else ''
+    dup_after = ind(after, 16) + chr(10) if after else ''
     new_after = ind(after, 32) + chr(10) if after else ''
     err = lambda msg: res(R, "error", msg)
     now = "LookUp('Schedule - PBS Hub', ID = s.ID).Status.Value"
-    ok_repair = res(R, "ok", '"Absen sudah tercatat. Status jadwal sekarang " & ' + now + ' & "."')
+    dup = res(R, "conflict", '"Absen sesi ini sudah tercatat (" & ex.Title & "). Status jadwal " & ' + now + ' & "."')
     ok_new = res(R, "ok", 'If(lb, "Absen tercatat (ABS-" & row.ID & "). Live Break: report 0 dibuat otomatis.", '
                           '"Absen tercatat (ABS-" & row.ID & "). Status jadwal sekarang " & ' + now + ' & ".")')
     return f'''"ABSEN",
@@ -127,20 +127,18 @@ def absen(R, col, after=''):
         If(
             IsBlank(s) || s.Title <> Text(p.scheduleId) || s.HostID <> varMe.Title,
                 {err('"Jadwal " & Text(p.scheduleId) & " tidak ditemukan untuk akunmu. Muat ulang dulu."')},
-            !IsBlank(ex) && (s.Status.Value = "Waiting Report" || s.Status.Value = "Finished" || s.Status.Value = "Done"),
-                {res(R, "conflict", '"Absen sesi ini sudah tercatat."')},
+            // Satu ScheduleID = satu absen. Sudah ada → ditolak, tidak ada baris absen baru.
+            // Absen lama yang gagal di tengah (jadwal masih Planned / Status belum Hadir) dilengkapi sekalian.
+            !IsBlank(ex),
+                If(s.Status.Value <> "Waiting Report" && s.Status.Value <> "Finished" && s.Status.Value <> "Done",
+                    Patch('Schedule - PBS Hub', s, {{Status: {{Value: st}}}}));
+                If(Coalesce(ex.Status.Value, "") <> "Hadir", Patch('Host Absence - PBS Hub', ex, {{Status: {{Value: "Hadir"}}}}));
+                If(!(ex.ID in {col}.ID), Collect({col}, LookUp('Host Absence - PBS Hub', ID = ex.ID)));
+{dup_after}                {dup},
             // 1. Status jadwal. Gagal → pesan error asli, belum ada yang ditulis.
             With({{sp: IfError(Patch('Schedule - PBS Hub', s, {{Status: {{Value: st}}}}),
                         {err('"Gagal mengubah status jadwal ke " & st & ": " & FirstError.Message')}; Blank())}},
                 If(!IsBlank(sp),
-                    If(
-                        // Sudah ada absen (absen lama gagal di tengah): cukup lengkapi Status Hadir.
-                        !IsBlank(ex),
-                            If(!IsBlank(IfError(Patch('Host Absence - PBS Hub', ex, {{Status: {{Value: "Hadir"}}}}),
-                                    {err('"Status jadwal sudah " & st & ", tapi Status Hadir gagal diisi: " & FirstError.Message')}; Blank())),
-                                If(!(ex.ID in {col}.ID), Collect({col}, LookUp('Host Absence - PBS Hub', ID = ex.ID)));
-{ok_after}                                {ok_repair}
-                            ),
                         // 2. Baris absen baru, Status Hadir.
                         With({{row: IfError(Patch('Host Absence - PBS Hub', Defaults('Host Absence - PBS Hub'), {{
                                     ScheduleID: s.Title, HostID: varMe.Title, HostName: Text(p.hostName), LiveDate: s.Date,
@@ -169,7 +167,6 @@ def absen(R, col, after=''):
                                 {ok_new}
                             )
                         )
-                    )
                 )
             )
         )

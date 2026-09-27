@@ -26,7 +26,7 @@ import {
   statusAfterReport,
   statusAllowsReport,
 } from "./hostApp";
-import { useAbsen } from "./hostAbsen";
+import { useAbsen, useAbsenceMemory } from "./hostAbsen";
 import { PreparedImage, fmtBytes, prepareImage } from "./hostImage";
 import { ALL_METRICS, MetricComparison, MetricDef, compareMetric, reviewState, sameValue } from "./reconcile";
 import { evidenceUrl, fmtMetric } from "./reportUi";
@@ -104,6 +104,7 @@ function writeDraft(key: string, d: Draft | null): void {
 export function MyReportDetailView(props: MyReportDetailProps): React.ReactElement {
   const { ctx, now, action } = props;
   const opts = React.useMemo(() => hostOptions(ctx.config), [ctx]);
+  const absMemo = useAbsenceMemory(action, props.absences);
   const report = props.report[0];
   const schedule = props.schedule[0];
   const parts = props.sessionReports;
@@ -114,7 +115,7 @@ export function MyReportDetailView(props: MyReportDetailProps): React.ReactEleme
       {
         schedules: [schedule],
         clockIns: props.clockIns,
-        absences: props.absences,
+        absences: absMemo.absences,
         reports,
         brands: props.brands,
         studios: props.studios,
@@ -122,7 +123,7 @@ export function MyReportDetailView(props: MyReportDetailProps): React.ReactEleme
       now,
       opts,
     )[0];
-  }, [schedule, report, parts, props.clockIns, props.absences, props.brands, props.studios, now, opts]);
+  }, [schedule, report, parts, props.clockIns, absMemo.absences, props.brands, props.studios, now, opts]);
 
   if (props.loading && !report && !schedule) return <Loading />;
   const back = (
@@ -145,7 +146,7 @@ export function MyReportDetailView(props: MyReportDetailProps): React.ReactEleme
     <div className="hc-col">
       {back}
       {!report ? (
-        <SubmitReport {...props} session={session} />
+        <SubmitReport {...props} absences={absMemo.absences} onAbsenSent={absMemo.remember} session={session} />
       ) : state === "REVISION" ? (
         <Revision {...props} report={report} session={session} />
       ) : (
@@ -305,6 +306,8 @@ export function SubmitReport(
     session: HostSession | undefined;
     embedded?: boolean;
     playbooks?: string[];
+    /** From the parent's useAbsenceMemory, so an absen sent here hides the Absen button at once. */
+    onAbsenSent?: (scheduleId: string) => void;
   },
 ): React.ReactElement {
   const { ctx, action, session } = props;
@@ -332,7 +335,7 @@ export function SubmitReport(
   const playbook = (texts[PLAYBOOK] ?? "").trim();
   const blocker = session ? reportBlocker(session, opts) : null;
   const pending = action.pending?.action === "SUBMIT_REPORT";
-  const absen = useAbsen(action, host, opts);
+  const absen = useAbsen(action, host, opts, props.onAbsenSent);
   const res = action.lastResult;
   const sent = res?.action === "SUBMIT_REPORT" && res.status === "ok";
   const minutes = values.Durasi ?? null;

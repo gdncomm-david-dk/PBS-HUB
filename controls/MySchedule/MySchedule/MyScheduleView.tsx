@@ -3,7 +3,7 @@ import { ModuleContext, UseActionResult } from "../../../shared/contract";
 import { Row, localDayKey, NO_REPORT_LABEL, reportScheduleId, rowId, str } from "../../../shared/data";
 import { fmtDayMonth, fmtLongDate, fmtNumber } from "../../../shared/format";
 import { HostSession, buildHostSessions, hostOptions } from "../../../shared/hostApp";
-import { useAbsen } from "../../../shared/hostAbsen";
+import { useAbsen, useAbsenceMemory } from "../../../shared/hostAbsen";
 import {
   STATUS_FILTERS,
   SCHEDULE_STATE,
@@ -83,12 +83,13 @@ interface Col {
 export function MyScheduleView(props: MyScheduleProps): React.ReactElement {
   const { ctx, now, action } = props;
   const opts = React.useMemo(() => hostOptions(ctx.config), [ctx]);
+  const absMemo = useAbsenceMemory(action, props.absences);
   const pk = periodKey(parsePeriod(props.period) ?? periodOf(now));
   const period: Period = React.useMemo(() => parsePeriod(pk) as Period, [pk]);
   const months = Array.from({ length: 7 }, (_, i) => addMonths(periodOf(now), 1 - i));
   if (!months.some((m) => periodKey(m) === periodKey(period))) months.push(period);
   const host = props.host[0];
-  const absen = useAbsen(action, host, opts);
+  const absen = useAbsen(action, host, opts, absMemo.remember);
 
   const initial = (STATUS_FILTERS.find((f) => f.value === props.defaultFilter)?.value ?? "") as StatusFilter;
   const [status, setStatus] = React.useState<StatusFilter>(initial);
@@ -104,8 +105,8 @@ export function MyScheduleView(props: MyScheduleProps): React.ReactElement {
   };
 
   const sessions = React.useMemo(
-    () => buildHostSessions({ schedules: props.schedules, clockIns: props.clockIns, absences: props.absences, reports: props.reports, brands: props.brands, studios: props.studios }, now, opts),
-    [props.schedules, props.clockIns, props.absences, props.reports, props.brands, props.studios, now, opts],
+    () => buildHostSessions({ schedules: props.schedules, clockIns: props.clockIns, absences: absMemo.absences, reports: props.reports, brands: props.brands, studios: props.studios }, now, opts),
+    [props.schedules, props.clockIns, absMemo.absences, props.reports, props.brands, props.studios, now, opts],
   );
   const inRange = React.useCallback((d: Date | null) => inPeriod(d, period), [period]);
   const rows = React.useMemo(() => sessions.filter((s) => inRange(s.day)).map((s) => ({ s, st: scheduleState(s, now) })), [sessions, inRange, now]);

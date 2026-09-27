@@ -20,7 +20,7 @@ import {
   streakDays,
 } from "../../../shared/hostApp";
 import { reviewState } from "../../../shared/reconcile";
-import { useAbsen } from "../../../shared/hostAbsen";
+import { useAbsen, useAbsenceMemory } from "../../../shared/hostAbsen";
 import { SCHEDULE_STATE, scheduleKpis, scheduleState } from "../../../shared/hostSchedule";
 import { MASCOT_CHEER } from "../../../shared/assets.generated";
 import { Badge, Button, Icon, InfoBanner, ResultBanner, Skeleton, Spinner } from "../../../shared/ui";
@@ -65,6 +65,7 @@ export const reportRef = (r: Row): Record<string, unknown> => ({
 export function HostDashboardView(props: HostDashboardProps): React.ReactElement {
   const { ctx, now, action } = props;
   const opts = React.useMemo(() => hostOptions(ctx.config), [ctx]);
+  const absMemo = useAbsenceMemory(action, props.absences);
   const host = props.host[0];
   const sessions = React.useMemo(
     () =>
@@ -72,7 +73,7 @@ export function HostDashboardView(props: HostDashboardProps): React.ReactElement
         {
           schedules: props.schedules,
           clockIns: props.clockIns,
-          absences: props.absences,
+          absences: absMemo.absences,
           reports: props.reports,
           brands: props.brands,
           studios: props.studios,
@@ -80,7 +81,7 @@ export function HostDashboardView(props: HostDashboardProps): React.ReactElement
         now,
         opts,
       ),
-    [props.schedules, props.clockIns, props.absences, props.reports, props.brands, props.studios, now, opts],
+    [props.schedules, props.clockIns, absMemo.absences, props.reports, props.brands, props.studios, now, opts],
   );
   const shift = shiftToday(props.clockIns, now, opts);
   const todayKey = localDayKey(now);
@@ -98,7 +99,7 @@ export function HostDashboardView(props: HostDashboardProps): React.ReactElement
   const next = sessions.find((s) => s.day && startOfDay(s.day) > startOfDay(now) && s.phase !== "CANCELLED");
 
   const busy = action.pending?.action === "ABSEN";
-  const absenFlow = useAbsen(action, host, opts);
+  const absenFlow = useAbsen(action, host, opts, absMemo.remember);
   const absen = (s: HostSession) => absenFlow.start(s);
 
   if (props.loading && sessions.length === 0 && !host) return <Loading />;

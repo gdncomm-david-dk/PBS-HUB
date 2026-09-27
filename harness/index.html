@@ -272,7 +272,9 @@
         const patchSchedule = (id, patch) => { if (!params.SchedulesJson) return; params.SchedulesJson = J(JSON.parse(params.SchedulesJson).map((x) => (x.Title === id ? Object.assign({}, x, patch) : x))); };
         const repKey = c === "ScheduleDetail" || c === "MySchedule" || c === "HostDashboard" ? "ReportsJson" : "ReportJson";
         window.__rid = (window.__rid || 20950) + 1;
-        if (!fail && p.action === "ABSEN") {
+        // stale=1: canvas answers ok but never sends the new absence / schedule back (a misconfigured AbsenceJson).
+        if (!fail && p.action === "ABSEN" && q.get("stale")) message = `Absen tercatat untuk ${p.payload.scheduleId}.`;
+        else if (!fail && p.action === "ABSEN") {
           const rows = JSON.parse(params.AbsenceJson || "[]");
           rows.push({ ID: 8899, Title: "ABS-8899", HostID: p.payload.hostId, ScheduleID: p.payload.scheduleId, AbsenceDate: p.payload.liveDate, CheckInTime: S.REF, Created: S.REF });
           params.AbsenceJson = J(rows);

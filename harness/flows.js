@@ -673,7 +673,7 @@ const assert = (c, m) => { if (!c) { console.log("FAIL", m); process.exitCode = 
   await p.waitForTimeout(800);
   pl = await payloads();
   part = pl.filter((x) => x.action === "SUBMIT_REPORT").pop();
-  assert(part && part.payload.part === 3 && part.payload.complete === true && part.payload.scheduleStatus === "Done" && part.payload.reportedMin === 255, "part 3 covers the session (255 of 240): Done");
+  assert(part && part.payload.part === 3 && part.payload.complete === true && part.payload.scheduleStatus === "Finished" && part.payload.reportedMin === 255, "part 3 covers the session (255 of 240): Finished");
   assert((await p.locator(".hc-ph-a").getByRole("button", { name: /Send Report/ }).count()) === 0, "no more Send Report once covered");
   await shot("f-host-split");
 
@@ -681,13 +681,20 @@ const assert = (c, m) => { if (!c) { console.log("FAIL", m); process.exitCode = 
   await go("c=ScheduleDetail&sch=SCD-3314");
   assert(await p.getByText("Menunggu status Waiting Report").isVisible() && (await p.getByRole("button", { name: "Send Report", exact: true }).isDisabled()), "absen done but status Planned: Send Report disabled");
 
+  // Canvas says ok but AbsenceJson never gets the row: the Absen button must not stay clickable.
+  await go("c=ScheduleDetail&sch=SCD-3201&stale=1");
+  await p.getByRole("button", { name: "Absen", exact: true }).first().click();
+  await absenDialog(false);
+  await p.waitForTimeout(300);
+  assert((await p.getByRole("button", { name: "Absen", exact: true }).count()) === 0, "absen ok but no row back from canvas: Absen button still hidden (no double absen)");
+
   // Live break: absen "Ya" = no report, but a Report row of zeros with ApprovalStatus LiveBreak.
   await go("c=ScheduleDetail&sch=SCD-3201");
   await p.getByRole("button", { name: "Absen", exact: true }).first().click();
   await absenDialog(true);
   pl = await payloads();
   const lbAbs = pl.filter((x) => x.action === "ABSEN").pop();
-  assert(lbAbs && lbAbs.payload.liveBreak === true && lbAbs.payload.scheduleStatus === "Done" && lbAbs.payload.report.approvalStatus === "LiveBreak" && Object.values(lbAbs.payload.report.metrics).every((v) => v === 0), "LiveBreak ABSEN payload: Done + report of zeros");
+  assert(lbAbs && lbAbs.payload.liveBreak === true && lbAbs.payload.scheduleStatus === "Finished" && lbAbs.payload.report.approvalStatus === "LiveBreak" && Object.values(lbAbs.payload.report.metrics).every((v) => v === 0), "LiveBreak ABSEN payload: Finished + report of zeros");
   assert((await p.locator(".hc-ph-a").getByRole("button", { name: /Send Report/ }).count()) === 0 && (await p.getByText("Live break · tanpa report").isVisible()), "live break: no Send Report");
   assert(await p.locator(".hc-part").getByText("Live break").isVisible(), "the LiveBreak report row is listed");
 

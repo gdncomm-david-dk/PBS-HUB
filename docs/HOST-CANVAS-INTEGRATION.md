@@ -1,6 +1,6 @@
 # Integrasi canvas — PBS Hub Host App
 
-Solusi terpisah dari Ops Console: **`PBSHubHostApp`** (managed, `dist/PBSHubHostApp_1_0_1_0_managed.zip`), berisi
+Solusi terpisah dari Ops Console: **`PBSHubHostApp`** (managed, `dist/PBSHubHostApp_1_0_2_0_managed.zip`), berisi
 keenam control host dengan identifier baru `pbs_HostApp.*`. Solusi ini menggantikan `PBSHubHostPCF` +
 `PBSHubHostSchedulePCF` (control lama `pbs_Host.*`). Karena nama solusi dan namespace control berbeda, solusi baru
 bisa diimport berdampingan dengan yang lama tanpa bentrok. Publisher dan prefix tetap sama (`PBSHub` / `pbs`).
@@ -433,7 +433,7 @@ Sesi tanpa clock in diarahkan minta clock in manual ke tim PBS, sesi batal hanya
 
 ## 8. Pemasangan
 
-1. Import `dist/PBSHubHostApp_1_0_1_0_managed.zip` (Solutions → Import). Bisa di environment yang sama dengan
+1. Import `dist/PBSHubHostApp_1_0_2_0_managed.zip` (Solutions → Import). Bisa di environment yang sama dengan
    `PBSHubOpsPCF` dan dengan solusi host lama.
    **Pindah dari solusi lama** (`PBSHubHostPCF` / `PBSHubHostSchedulePCF`, control `pbs_Host.*`): control baru tidak
    otomatis menggantikan yang lama di canvas. Di tiap layar hapus control lama, tambahkan control `pbs_HostApp.*`
@@ -671,22 +671,20 @@ If(!IsBlank(Self.ActionPayload),
                             If(
                                 IsBlank(s) || s.Title <> Text(p.scheduleId) || s.HostID <> varMe.Title,
                                     Set(varHdResult, JSON({requestId: rid, status: "error", message: "Jadwal " & Text(p.scheduleId) & " tidak ditemukan untuk akunmu. Muat ulang dulu."}, JSONFormat.Compact)),
-                                !IsBlank(ex) && (s.Status.Value = "Waiting Report" || s.Status.Value = "Finished" || s.Status.Value = "Done"),
-                                    Set(varHdResult, JSON({requestId: rid, status: "conflict", message: "Absen sesi ini sudah tercatat."}, JSONFormat.Compact)),
+                                // Satu ScheduleID = satu absen. Sudah ada → ditolak, tidak ada baris absen baru.
+                                // Absen lama yang gagal di tengah (jadwal masih Planned / Status belum Hadir) dilengkapi sekalian.
+                                !IsBlank(ex),
+                                    If(s.Status.Value <> "Waiting Report" && s.Status.Value <> "Finished" && s.Status.Value <> "Done",
+                                        Patch('Schedule - PBS Hub', s, {Status: {Value: st}}));
+                                    If(Coalesce(ex.Status.Value, "") <> "Hadir", Patch('Host Absence - PBS Hub', ex, {Status: {Value: "Hadir"}}));
+                                    If(!(ex.ID in colMyAbs.ID), Collect(colMyAbs, LookUp('Host Absence - PBS Hub', ID = ex.ID)));
+                                    ClearCollect(colMySch, Filter('Schedule - PBS Hub', HostID = varMe.Title, Date >= Today() - 7, Date <= Today() + 7));
+                                    ClearCollect(colMyRep, Filter('Report - PBS Hub', HostID = varMe.Title, LiveDate >= Today() - 30));
+                                    Set(varHdResult, JSON({requestId: rid, status: "conflict", message: "Absen sesi ini sudah tercatat (" & ex.Title & "). Status jadwal " & LookUp('Schedule - PBS Hub', ID = s.ID).Status.Value & "."}, JSONFormat.Compact)),
                                 // 1. Status jadwal. Gagal → pesan error asli, belum ada yang ditulis.
                                 With({sp: IfError(Patch('Schedule - PBS Hub', s, {Status: {Value: st}}),
                                             Set(varHdResult, JSON({requestId: rid, status: "error", message: "Gagal mengubah status jadwal ke " & st & ": " & FirstError.Message}, JSONFormat.Compact)); Blank())},
                                     If(!IsBlank(sp),
-                                        If(
-                                            // Sudah ada absen (absen lama gagal di tengah): cukup lengkapi Status Hadir.
-                                            !IsBlank(ex),
-                                                If(!IsBlank(IfError(Patch('Host Absence - PBS Hub', ex, {Status: {Value: "Hadir"}}),
-                                                        Set(varHdResult, JSON({requestId: rid, status: "error", message: "Status jadwal sudah " & st & ", tapi Status Hadir gagal diisi: " & FirstError.Message}, JSONFormat.Compact)); Blank())),
-                                                    If(!(ex.ID in colMyAbs.ID), Collect(colMyAbs, LookUp('Host Absence - PBS Hub', ID = ex.ID)));
-                                                    ClearCollect(colMySch, Filter('Schedule - PBS Hub', HostID = varMe.Title, Date >= Today() - 7, Date <= Today() + 7));
-                                                    ClearCollect(colMyRep, Filter('Report - PBS Hub', HostID = varMe.Title, LiveDate >= Today() - 30));
-                                                    Set(varHdResult, JSON({requestId: rid, status: "ok", message: "Absen sudah tercatat. Status jadwal sekarang " & LookUp('Schedule - PBS Hub', ID = s.ID).Status.Value & "."}, JSONFormat.Compact))
-                                                ),
                                             // 2. Baris absen baru, Status Hadir.
                                             With({row: IfError(Patch('Host Absence - PBS Hub', Defaults('Host Absence - PBS Hub'), {
                                                         ScheduleID: s.Title, HostID: varMe.Title, HostName: Text(p.hostName), LiveDate: s.Date,
@@ -796,7 +794,6 @@ If(!IsBlank(Self.ActionPayload),
                                                     Set(varHdResult, JSON({requestId: rid, status: "ok", message: If(lb, "Absen tercatat (ABS-" & row.ID & "). Live Break: report 0 dibuat otomatis.", "Absen tercatat (ABS-" & row.ID & "). Status jadwal sekarang " & LookUp('Schedule - PBS Hub', ID = s.ID).Status.Value & ".")}, JSONFormat.Compact))
                                                 )
                                             )
-                                        )
                                     )
                                 )
                             )
@@ -872,22 +869,20 @@ If(!IsBlank(Self.ActionPayload),
                             If(
                                 IsBlank(s) || s.Title <> Text(p.scheduleId) || s.HostID <> varMe.Title,
                                     Set(varMrdResult, JSON({requestId: rid, status: "error", message: "Jadwal " & Text(p.scheduleId) & " tidak ditemukan untuk akunmu. Muat ulang dulu."}, JSONFormat.Compact)),
-                                !IsBlank(ex) && (s.Status.Value = "Waiting Report" || s.Status.Value = "Finished" || s.Status.Value = "Done"),
-                                    Set(varMrdResult, JSON({requestId: rid, status: "conflict", message: "Absen sesi ini sudah tercatat."}, JSONFormat.Compact)),
+                                // Satu ScheduleID = satu absen. Sudah ada → ditolak, tidak ada baris absen baru.
+                                // Absen lama yang gagal di tengah (jadwal masih Planned / Status belum Hadir) dilengkapi sekalian.
+                                !IsBlank(ex),
+                                    If(s.Status.Value <> "Waiting Report" && s.Status.Value <> "Finished" && s.Status.Value <> "Done",
+                                        Patch('Schedule - PBS Hub', s, {Status: {Value: st}}));
+                                    If(Coalesce(ex.Status.Value, "") <> "Hadir", Patch('Host Absence - PBS Hub', ex, {Status: {Value: "Hadir"}}));
+                                    If(!(ex.ID in colMrdAbs.ID), Collect(colMrdAbs, LookUp('Host Absence - PBS Hub', ID = ex.ID)));
+                                    Set(varMrdSch, LookUp('Schedule - PBS Hub', ID = varMrdSch.ID));
+                                    ClearCollect(colMrdSesRep, Filter('Report - PBS Hub', HostID = varMe.Title, ScheduleID = varMrdSch.Title));
+                                    Set(varMrdResult, JSON({requestId: rid, status: "conflict", message: "Absen sesi ini sudah tercatat (" & ex.Title & "). Status jadwal " & LookUp('Schedule - PBS Hub', ID = s.ID).Status.Value & "."}, JSONFormat.Compact)),
                                 // 1. Status jadwal. Gagal → pesan error asli, belum ada yang ditulis.
                                 With({sp: IfError(Patch('Schedule - PBS Hub', s, {Status: {Value: st}}),
                                             Set(varMrdResult, JSON({requestId: rid, status: "error", message: "Gagal mengubah status jadwal ke " & st & ": " & FirstError.Message}, JSONFormat.Compact)); Blank())},
                                     If(!IsBlank(sp),
-                                        If(
-                                            // Sudah ada absen (absen lama gagal di tengah): cukup lengkapi Status Hadir.
-                                            !IsBlank(ex),
-                                                If(!IsBlank(IfError(Patch('Host Absence - PBS Hub', ex, {Status: {Value: "Hadir"}}),
-                                                        Set(varMrdResult, JSON({requestId: rid, status: "error", message: "Status jadwal sudah " & st & ", tapi Status Hadir gagal diisi: " & FirstError.Message}, JSONFormat.Compact)); Blank())),
-                                                    If(!(ex.ID in colMrdAbs.ID), Collect(colMrdAbs, LookUp('Host Absence - PBS Hub', ID = ex.ID)));
-                                                    Set(varMrdSch, LookUp('Schedule - PBS Hub', ID = varMrdSch.ID));
-                                                    ClearCollect(colMrdSesRep, Filter('Report - PBS Hub', HostID = varMe.Title, ScheduleID = varMrdSch.Title));
-                                                    Set(varMrdResult, JSON({requestId: rid, status: "ok", message: "Absen sudah tercatat. Status jadwal sekarang " & LookUp('Schedule - PBS Hub', ID = s.ID).Status.Value & "."}, JSONFormat.Compact))
-                                                ),
                                             // 2. Baris absen baru, Status Hadir.
                                             With({row: IfError(Patch('Host Absence - PBS Hub', Defaults('Host Absence - PBS Hub'), {
                                                         ScheduleID: s.Title, HostID: varMe.Title, HostName: Text(p.hostName), LiveDate: s.Date,
@@ -997,7 +992,6 @@ If(!IsBlank(Self.ActionPayload),
                                                     Set(varMrdResult, JSON({requestId: rid, status: "ok", message: If(lb, "Absen tercatat (ABS-" & row.ID & "). Live Break: report 0 dibuat otomatis.", "Absen tercatat (ABS-" & row.ID & "). Status jadwal sekarang " & LookUp('Schedule - PBS Hub', ID = s.ID).Status.Value & ".")}, JSONFormat.Compact))
                                                 )
                                             )
-                                        )
                                     )
                                 )
                             )
@@ -1301,24 +1295,22 @@ If(!IsBlank(Self.ActionPayload),
                             If(
                                 IsBlank(s) || s.Title <> Text(p.scheduleId) || s.HostID <> varMe.Title,
                                     Set(varMsResult, JSON({requestId: rid, status: "error", message: "Jadwal " & Text(p.scheduleId) & " tidak ditemukan untuk akunmu. Muat ulang dulu."}, JSONFormat.Compact)),
-                                !IsBlank(ex) && (s.Status.Value = "Waiting Report" || s.Status.Value = "Finished" || s.Status.Value = "Done"),
-                                    Set(varMsResult, JSON({requestId: rid, status: "conflict", message: "Absen sesi ini sudah tercatat."}, JSONFormat.Compact)),
+                                // Satu ScheduleID = satu absen. Sudah ada → ditolak, tidak ada baris absen baru.
+                                // Absen lama yang gagal di tengah (jadwal masih Planned / Status belum Hadir) dilengkapi sekalian.
+                                !IsBlank(ex),
+                                    If(s.Status.Value <> "Waiting Report" && s.Status.Value <> "Finished" && s.Status.Value <> "Done",
+                                        Patch('Schedule - PBS Hub', s, {Status: {Value: st}}));
+                                    If(Coalesce(ex.Status.Value, "") <> "Hadir", Patch('Host Absence - PBS Hub', ex, {Status: {Value: "Hadir"}}));
+                                    If(!(ex.ID in colMsAbs.ID), Collect(colMsAbs, LookUp('Host Absence - PBS Hub', ID = ex.ID)));
+                                    With({from: If(IsBlank(varMsPeriod), Date(Year(Today()), Month(Today()), 1), DateValue(varMsPeriod & "-01"))},
+                                        ClearCollect(colMsSch, Filter('Schedule - PBS Hub', HostID = varMe.Title, Date >= from, Date < DateAdd(from, 1, TimeUnit.Months)));
+                                        ClearCollect(colMsRep, Filter('Report - PBS Hub', HostID = varMe.Title, LiveDate >= from, LiveDate < DateAdd(from, 1, TimeUnit.Months)))
+                                    );
+                                    Set(varMsResult, JSON({requestId: rid, status: "conflict", message: "Absen sesi ini sudah tercatat (" & ex.Title & "). Status jadwal " & LookUp('Schedule - PBS Hub', ID = s.ID).Status.Value & "."}, JSONFormat.Compact)),
                                 // 1. Status jadwal. Gagal → pesan error asli, belum ada yang ditulis.
                                 With({sp: IfError(Patch('Schedule - PBS Hub', s, {Status: {Value: st}}),
                                             Set(varMsResult, JSON({requestId: rid, status: "error", message: "Gagal mengubah status jadwal ke " & st & ": " & FirstError.Message}, JSONFormat.Compact)); Blank())},
                                     If(!IsBlank(sp),
-                                        If(
-                                            // Sudah ada absen (absen lama gagal di tengah): cukup lengkapi Status Hadir.
-                                            !IsBlank(ex),
-                                                If(!IsBlank(IfError(Patch('Host Absence - PBS Hub', ex, {Status: {Value: "Hadir"}}),
-                                                        Set(varMsResult, JSON({requestId: rid, status: "error", message: "Status jadwal sudah " & st & ", tapi Status Hadir gagal diisi: " & FirstError.Message}, JSONFormat.Compact)); Blank())),
-                                                    If(!(ex.ID in colMsAbs.ID), Collect(colMsAbs, LookUp('Host Absence - PBS Hub', ID = ex.ID)));
-                                                    With({from: If(IsBlank(varMsPeriod), Date(Year(Today()), Month(Today()), 1), DateValue(varMsPeriod & "-01"))},
-                                                        ClearCollect(colMsSch, Filter('Schedule - PBS Hub', HostID = varMe.Title, Date >= from, Date < DateAdd(from, 1, TimeUnit.Months)));
-                                                        ClearCollect(colMsRep, Filter('Report - PBS Hub', HostID = varMe.Title, LiveDate >= from, LiveDate < DateAdd(from, 1, TimeUnit.Months)))
-                                                    );
-                                                    Set(varMsResult, JSON({requestId: rid, status: "ok", message: "Absen sudah tercatat. Status jadwal sekarang " & LookUp('Schedule - PBS Hub', ID = s.ID).Status.Value & "."}, JSONFormat.Compact))
-                                                ),
                                             // 2. Baris absen baru, Status Hadir.
                                             With({row: IfError(Patch('Host Absence - PBS Hub', Defaults('Host Absence - PBS Hub'), {
                                                         ScheduleID: s.Title, HostID: varMe.Title, HostName: Text(p.hostName), LiveDate: s.Date,
@@ -1430,7 +1422,6 @@ If(!IsBlank(Self.ActionPayload),
                                                     Set(varMsResult, JSON({requestId: rid, status: "ok", message: If(lb, "Absen tercatat (ABS-" & row.ID & "). Live Break: report 0 dibuat otomatis.", "Absen tercatat (ABS-" & row.ID & "). Status jadwal sekarang " & LookUp('Schedule - PBS Hub', ID = s.ID).Status.Value & ".")}, JSONFormat.Compact))
                                                 )
                                             )
-                                        )
                                     )
                                 )
                             )
@@ -1484,22 +1475,20 @@ If(!IsBlank(Self.ActionPayload),
                             If(
                                 IsBlank(s) || s.Title <> Text(p.scheduleId) || s.HostID <> varMe.Title,
                                     Set(varSdResult, JSON({requestId: rid, status: "error", message: "Jadwal " & Text(p.scheduleId) & " tidak ditemukan untuk akunmu. Muat ulang dulu."}, JSONFormat.Compact)),
-                                !IsBlank(ex) && (s.Status.Value = "Waiting Report" || s.Status.Value = "Finished" || s.Status.Value = "Done"),
-                                    Set(varSdResult, JSON({requestId: rid, status: "conflict", message: "Absen sesi ini sudah tercatat."}, JSONFormat.Compact)),
+                                // Satu ScheduleID = satu absen. Sudah ada → ditolak, tidak ada baris absen baru.
+                                // Absen lama yang gagal di tengah (jadwal masih Planned / Status belum Hadir) dilengkapi sekalian.
+                                !IsBlank(ex),
+                                    If(s.Status.Value <> "Waiting Report" && s.Status.Value <> "Finished" && s.Status.Value <> "Done",
+                                        Patch('Schedule - PBS Hub', s, {Status: {Value: st}}));
+                                    If(Coalesce(ex.Status.Value, "") <> "Hadir", Patch('Host Absence - PBS Hub', ex, {Status: {Value: "Hadir"}}));
+                                    If(!(ex.ID in colSdAbs.ID), Collect(colSdAbs, LookUp('Host Absence - PBS Hub', ID = ex.ID)));
+                                    ClearCollect(colSdSch, Filter('Schedule - PBS Hub', HostID = varMe.Title, Date = varSchDate));
+                                    ClearCollect(colSdRep, Filter('Report - PBS Hub', HostID = varMe.Title, LiveDate = varSchDate));
+                                    Set(varSdResult, JSON({requestId: rid, status: "conflict", message: "Absen sesi ini sudah tercatat (" & ex.Title & "). Status jadwal " & LookUp('Schedule - PBS Hub', ID = s.ID).Status.Value & "."}, JSONFormat.Compact)),
                                 // 1. Status jadwal. Gagal → pesan error asli, belum ada yang ditulis.
                                 With({sp: IfError(Patch('Schedule - PBS Hub', s, {Status: {Value: st}}),
                                             Set(varSdResult, JSON({requestId: rid, status: "error", message: "Gagal mengubah status jadwal ke " & st & ": " & FirstError.Message}, JSONFormat.Compact)); Blank())},
                                     If(!IsBlank(sp),
-                                        If(
-                                            // Sudah ada absen (absen lama gagal di tengah): cukup lengkapi Status Hadir.
-                                            !IsBlank(ex),
-                                                If(!IsBlank(IfError(Patch('Host Absence - PBS Hub', ex, {Status: {Value: "Hadir"}}),
-                                                        Set(varSdResult, JSON({requestId: rid, status: "error", message: "Status jadwal sudah " & st & ", tapi Status Hadir gagal diisi: " & FirstError.Message}, JSONFormat.Compact)); Blank())),
-                                                    If(!(ex.ID in colSdAbs.ID), Collect(colSdAbs, LookUp('Host Absence - PBS Hub', ID = ex.ID)));
-                                                    ClearCollect(colSdSch, Filter('Schedule - PBS Hub', HostID = varMe.Title, Date = varSchDate));
-                                                    ClearCollect(colSdRep, Filter('Report - PBS Hub', HostID = varMe.Title, LiveDate = varSchDate));
-                                                    Set(varSdResult, JSON({requestId: rid, status: "ok", message: "Absen sudah tercatat. Status jadwal sekarang " & LookUp('Schedule - PBS Hub', ID = s.ID).Status.Value & "."}, JSONFormat.Compact))
-                                                ),
                                             // 2. Baris absen baru, Status Hadir.
                                             With({row: IfError(Patch('Host Absence - PBS Hub', Defaults('Host Absence - PBS Hub'), {
                                                         ScheduleID: s.Title, HostID: varMe.Title, HostName: Text(p.hostName), LiveDate: s.Date,
@@ -1609,7 +1598,6 @@ If(!IsBlank(Self.ActionPayload),
                                                     Set(varSdResult, JSON({requestId: rid, status: "ok", message: If(lb, "Absen tercatat (ABS-" & row.ID & "). Live Break: report 0 dibuat otomatis.", "Absen tercatat (ABS-" & row.ID & "). Status jadwal sekarang " & LookUp('Schedule - PBS Hub', ID = s.ID).Status.Value & ".")}, JSONFormat.Compact))
                                                 )
                                             )
-                                        )
                                     )
                                 )
                             )
