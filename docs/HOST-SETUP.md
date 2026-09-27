@@ -76,9 +76,9 @@ belum ada di list lama, cek dulu.
    *Allow publishing of canvas apps with code components* = **On**. Tanpa ini control tidak muncul di tab Code.
 3. Panel **Data → Add data → SharePoint** → site PBS Hub → centang semua list di Langkah 0.
 4. **Add data → Office 365 Groups** (connector yang sama dengan app upload jadwal bulk/AI). Dipakai untuk
-   `Office365Groups.HttpRequest` yang mengunggah screenshot report ke Graph.
+   `Office365Groups.HttpRequest` yang mengunggah screenshot report dan selfie clock in ke Graph.
 
-## Langkah 2 — Upload screenshot (Graph) dan flow selfie
+## Langkah 2 — Upload screenshot dan selfie (Graph)
 
 **Screenshot report — tanpa flow.** Caranya sama dengan app upload jadwal bulk/AI: `Office365Groups.HttpRequest`
 PUT ke Graph. File masuk ke
@@ -92,16 +92,14 @@ Control mengirim base64 JPEG tanpa prefix, jadi body-nya `"data:image/jpeg;base6
 respons Graph disimpan ke `Report.Attachment`. Revisi dengan screenshot baru menimpa file yang sama (folder bulan
 diambil dari `Created` report), sehingga flow AI membacanya ulang.
 
-**Flow — `PBS Host - Upload selfie`** (untuk Clock in)
+**Selfie clock in — juga Graph, tanpa flow.** File masuk ke
 
-1. Power Automate → **Create → Instant cloud flow** → trigger **Power Apps (V2)**.
-2. Di trigger tambahkan dua input **Text**, berurutan: `fileName`, lalu `fileBase64`.
-3. **+ New step → SharePoint → Create file**: Site = site PBS Hub; Folder Path = `/PBS Power Apps/Selfie Clock In`;
-   File Name = `fileName` (dynamic content); File Content = expression `base64ToBinary(triggerBody()?['text_1'])`
-   (`text_1` = input kedua; cek lewat *Peek code* di trigger kalau namanya lain).
-4. **+ New step → Power Apps → Respond to a PowerApp or flow** → output **Text** `url` = `Path` dari Create file.
-5. Save. Di Power Apps Studio: panel **Power Automate → Add flow** → pilih flow ini. Namanya di formula menjadi
-   `'PBSHost-Uploadselfie'`; kalau Studio memberi nama lain, ganti di formula Langkah 10.
+```text
+Absence/<yyyy>/<mmmm>/<dd-mm-yyyy>/HST-001_20260927_IN_0803.jpg   (mis. Absence/2026/September/27-09-2026/)
+```
+
+Tahun / bulan / tanggal otomatis dari hari clock in; selfie clock out masuk folder yang sama walaupun shift lewat
+tengah malam. `varSiteID` / `varDriveID` sama dengan screenshot report (library `PBS Power Apps`).
 
 ## Langkah 3 — App.OnStart
 
@@ -2049,7 +2047,13 @@ If(!IsBlank(Self.ActionPayload),
                             Set(varCkResult, JSON({requestId: rid, status: "conflict", message: "Kamu sudah clock in hari ini."}, JSONFormat.Compact)),
                             IfError(
                                 // Selfie dulu: nama file tidak butuh ID, jadi upload gagal tidak meninggalkan baris tanpa foto.
-                                With({up: 'PBSHost-Uploadselfie'.Run(Text(p.file.name), data)},
+                                // PBS Power Apps/Absence/<yyyy>/<mmmm>/<dd-mm-yyyy>/<file> lewat Graph (sama dengan screenshot report).
+                                With({up: Office365Groups.HttpRequest(
+                                    "https://graph.microsoft.com/v1.0/sites/" & varSiteID & "/drives/" & varDriveID & "/root:/Absence/" &
+                                    Text(Today(), "yyyy") & "/" & Text(Today(), "mmmm") & "/" & Text(Today(), "dd-mm-yyyy") & "/" & Text(p.file.name) & ":/content",
+                                    "PUT",
+                                    "data:image/jpeg;base64," & data
+                                )},
                                     With({row: Patch('Clock In - PBS Hub', Defaults('Clock In - PBS Hub'), {
                                             HostID: varMe.Title, HostName: Text(p.hostName),
                                             EmployeeName: Text(p.employeeName), EmployeeEmail: Text(p.employeeEmail),
@@ -2060,7 +2064,7 @@ If(!IsBlank(Self.ActionPayload),
                                             CheckInAccuracy: Value(p.accuracy), CheckInDistance: Value(p.distance),
                                             CheckInOffice: Text(p.office), IsInsideGeofence: Boolean(p.inside),
                                             Reason: Text(p.reason), SelfieSource: Text(p.selfieSource),
-                                            SelfiePhotoUrl: up.url
+                                            SelfiePhotoUrl: Text(up.webUrl)
                                         })},
                                         Patch('Clock In - PBS Hub', row, {Title: "CLK-" & Text(row.ID, "0000")});
                                         ClearCollect(colCkClk, Filter('Clock In - PBS Hub', HostID = varMe.Title, ClockInDate >= Today() - 1));
@@ -2075,7 +2079,13 @@ If(!IsBlank(Self.ActionPayload),
                             If(IsBlank(cur) || !IsBlank(cur.CheckOutTime),
                                 Set(varCkResult, JSON({requestId: rid, status: "conflict", message: "Shift ini sudah di-clock out. Muat ulang."}, JSONFormat.Compact)),
                                 IfError(
-                                    With({up: 'PBSHost-Uploadselfie'.Run(Text(p.file.name), data)},
+                                    // Folder tanggal clock in (bukan hari ini): shift lewat tengah malam tetap satu folder.
+                                    With({up: Office365Groups.HttpRequest(
+                                        "https://graph.microsoft.com/v1.0/sites/" & varSiteID & "/drives/" & varDriveID & "/root:/Absence/" &
+                                        Text(cur.ClockInDate, "yyyy") & "/" & Text(cur.ClockInDate, "mmmm") & "/" & Text(cur.ClockInDate, "dd-mm-yyyy") & "/" & Text(p.file.name) & ":/content",
+                                        "PUT",
+                                        "data:image/jpeg;base64," & data
+                                    )},
                                         Patch('Clock In - PBS Hub', cur, {
                                             CheckOutTime: Now(), ClockOutDate: Today(),
                                             CheckOutLatitude: Value(p.latitude), CheckOutLongitude: Value(p.longitude),
@@ -2084,7 +2094,7 @@ If(!IsBlank(Self.ActionPayload),
                                             WorkingDuration: DateDiff(Coalesce(cur.CheckInTime, Now()), Now(), TimeUnit.Minutes),  // menit; pakai /60 kalau kolomnya jam
                                             ScheduleCount: Value(p.scheduleCount), TotalReports: Value(p.totalReports),
                                             Reason: Text(p.reasonText),
-                                            SelfieOutPhotoUrl: up.url
+                                            SelfieOutPhotoUrl: Text(up.webUrl)
                                             // , StatusAbsence: {Value: Text(p.statusAbsence)}   ← aktifkan kalau config.statusAbsence diisi
                                         })
                                     );
@@ -2139,7 +2149,7 @@ Pakai satu jadwal milik akunmu (`HostID = varMe.Title`), hari ini, **sudah mulai
 | *Status jadwal Done, report tidak bisa dikirim* | durasi sudah terpenuhi, atau ejaan Choice beda | cek ejaan Choice = `scheduleWaitingStatus` di Langkah 3 dan teks `"Waiting Report"` di OnChange |
 | Error di `Playbook` | pilihan dropdown tidak ada di Choice | `PlaybooksJson` = `JSON(Choices([@'Report - PBS Hub'].Playbook), …)` |
 | Report terbuat tapi `Attachment` kosong / error *HttpRequest* | `varSiteID` / `varDriveID` salah, Office 365 Groups belum ditambahkan, atau folder brand belum ada | salin ID dari app upload jadwal; cek `NamaBrand` di list Brand |
-| File screenshot ada tapi tidak bisa dibuka (isinya teks) | body data URI tidak diubah jadi binary oleh connector | ganti body jadi hasil flow: buat flow Create file (seperti flow selfie) dengan path yang sama, lalu panggil flow itu sebagai pengganti `HttpRequest` |
+| File screenshot ada tapi tidak bisa dibuka (isinya teks) | body data URI tidak diubah jadi binary oleh connector | ganti `HttpRequest` dengan flow Power Apps (V2) → SharePoint *Create file* (`base64ToBinary`) di path yang sama; berlaku juga untuk selfie |
 | `up.webUrl` error (*untyped / record*) | respons HttpRequest bertipe lain di versi kamu | pakai `Attachment: "Report Automation/…/" & title & "_Report.png"` (path yang sama) |
 | Tier tidak berubah setelah report | belum clock in hari itu, atau `ClockInDate` ≠ tanggal live | clock in dulu; jalankan hitung ulang bulanan |
 | Notifikasi *Tier belum terhitung* | kolom Tier di Clock In / list `Performance Tier - PBS Hub` belum ada, atau Choice `Tier` tidak punya pilihannya | lihat Langkah 0; report tetap tersimpan |

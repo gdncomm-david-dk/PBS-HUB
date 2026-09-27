@@ -441,8 +441,8 @@ Sesi tanpa clock in diarahkan minta clock in manual ke tim PBS, sesi batal hanya
    `OnChange` dari bagian 10. Setelah semua layar pindah dan app dipublish, solusi lama boleh dihapus.
 2. Di canvas app host: **Insert → Get more components → Code** → `PBS Host App Dashboard`, `PBS Host App My Reports`,
    `PBS Host App My Report Detail`, `PBS Host App Clock In`, `PBS Host App My Schedule`, `PBS Host App Schedule Detail`.
-3. Buat flow *PBS Host – Upload selfie* (bagian 9) dan tambahkan ke app (**Power Automate** pane). Screenshot
-   report diunggah lewat Graph (`Office365Groups.HttpRequest`, bagian 5): tambahkan data source **Office 365 Groups**.
+3. Tambahkan data source **Office 365 Groups**. Screenshot report (bagian 5) dan selfie clock in (bagian 9)
+   diunggah lewat Graph (`Office365Groups.HttpRequest`), tanpa flow.
 4. Satu control per layar, ukuran = area konten. Layout menyesuaikan lebar sendiri (container query): di HP
    (≤ 560 px) kolom tunggal, di tablet/desktop kolom tengah 720 px. *Jadwal saya* memakai kolom lebar
    (sampai 1160 px) dan menyembunyikan kolom Akun / Posisi / Studio di bawah 900 px.
@@ -508,10 +508,11 @@ Set(varCkLoading, false)
 Output kedua **`UploadData`** berisi base64 JPEG selfie, terisi bersama `CLOCK_IN` / `CLOCK_OUT` — polanya sama
 dengan screenshot report (bagian 5). Nama file disusun control: `HST-001_20260925_IN_0803.jpg` / `…_OUT_1733.jpg`.
 
-**Flow *PBS Host – Upload selfie*** — trigger *Power Apps (V2)* dengan input Text `fileName`, `fileBase64`;
-**SharePoint → Create file** ke mis. `/PBS Power Apps/Selfie Clock In`, File content
-`base64ToBinary(triggerBody()?['text_1'])`; **Respond to a PowerApp** dengan `url`. Di app
-namanya `'PBSHost-Uploadselfie'`.
+**Upload selfie — Graph, tanpa flow.** Sama dengan screenshot report: `Office365Groups.HttpRequest` PUT ke
+`PBS Power Apps/Absence/<yyyy>/<mmmm>/<dd-mm-yyyy>/<nama file>` (mis. `Absence/2026/September/27-09-2026/`).
+Tahun, bulan dan tanggal diambil dari hari clock in, jadi selfie clock out masuk folder yang sama walaupun shift
+lewat tengah malam. `webUrl` dari respons → `SelfiePhotoUrl` / `SelfieOutPhotoUrl`. Butuh `varSiteID` /
+`varDriveID` yang sama dengan screenshot report.
 
 **Payload**
 
@@ -539,7 +540,13 @@ If(!IsBlank(Self.ActionPayload),
                             Set(varCkResult, JSON({requestId: rid, status: "conflict", message: "Kamu sudah clock in hari ini."}, JSONFormat.Compact)),
                             IfError(
                                 // Selfie dulu: nama file tidak butuh ID, jadi upload gagal tidak meninggalkan baris tanpa foto.
-                                With({up: 'PBSHost-Uploadselfie'.Run(Text(p.file.name), data)},
+                                // PBS Power Apps/Absence/<yyyy>/<mmmm>/<dd-mm-yyyy>/<file> lewat Graph (sama dengan screenshot report).
+                                With({up: Office365Groups.HttpRequest(
+                                    "https://graph.microsoft.com/v1.0/sites/" & varSiteID & "/drives/" & varDriveID & "/root:/Absence/" &
+                                    Text(Today(), "yyyy") & "/" & Text(Today(), "mmmm") & "/" & Text(Today(), "dd-mm-yyyy") & "/" & Text(p.file.name) & ":/content",
+                                    "PUT",
+                                    "data:image/jpeg;base64," & data
+                                )},
                                     With({row: Patch('Clock In - PBS Hub', Defaults('Clock In - PBS Hub'), {
                                             HostID: varMe.Title, HostName: Text(p.hostName),
                                             EmployeeName: Text(p.employeeName), EmployeeEmail: Text(p.employeeEmail),
@@ -550,7 +557,7 @@ If(!IsBlank(Self.ActionPayload),
                                             CheckInAccuracy: Value(p.accuracy), CheckInDistance: Value(p.distance),
                                             CheckInOffice: Text(p.office), IsInsideGeofence: Boolean(p.inside),
                                             Reason: Text(p.reason), SelfieSource: Text(p.selfieSource),
-                                            SelfiePhotoUrl: up.url
+                                            SelfiePhotoUrl: Text(up.webUrl)
                                         })},
                                         Patch('Clock In - PBS Hub', row, {Title: "CLK-" & Text(row.ID, "0000")});
                                         ClearCollect(colCkClk, Filter('Clock In - PBS Hub', HostID = varMe.Title, ClockInDate >= Today() - 1));
@@ -565,7 +572,13 @@ If(!IsBlank(Self.ActionPayload),
                             If(IsBlank(cur) || !IsBlank(cur.CheckOutTime),
                                 Set(varCkResult, JSON({requestId: rid, status: "conflict", message: "Shift ini sudah di-clock out. Muat ulang."}, JSONFormat.Compact)),
                                 IfError(
-                                    With({up: 'PBSHost-Uploadselfie'.Run(Text(p.file.name), data)},
+                                    // Folder tanggal clock in (bukan hari ini): shift lewat tengah malam tetap satu folder.
+                                    With({up: Office365Groups.HttpRequest(
+                                        "https://graph.microsoft.com/v1.0/sites/" & varSiteID & "/drives/" & varDriveID & "/root:/Absence/" &
+                                        Text(cur.ClockInDate, "yyyy") & "/" & Text(cur.ClockInDate, "mmmm") & "/" & Text(cur.ClockInDate, "dd-mm-yyyy") & "/" & Text(p.file.name) & ":/content",
+                                        "PUT",
+                                        "data:image/jpeg;base64," & data
+                                    )},
                                         Patch('Clock In - PBS Hub', cur, {
                                             CheckOutTime: Now(), ClockOutDate: Today(),
                                             CheckOutLatitude: Value(p.latitude), CheckOutLongitude: Value(p.longitude),
@@ -574,7 +587,7 @@ If(!IsBlank(Self.ActionPayload),
                                             WorkingDuration: DateDiff(Coalesce(cur.CheckInTime, Now()), Now(), TimeUnit.Minutes),  // menit; pakai /60 kalau kolomnya jam
                                             ScheduleCount: Value(p.scheduleCount), TotalReports: Value(p.totalReports),
                                             Reason: Text(p.reasonText),
-                                            SelfieOutPhotoUrl: up.url
+                                            SelfieOutPhotoUrl: Text(up.webUrl)
                                             // , StatusAbsence: {Value: Text(p.statusAbsence)}   ← aktifkan kalau config.statusAbsence diisi
                                         })
                                     );
