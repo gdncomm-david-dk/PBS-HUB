@@ -130,8 +130,8 @@ belum ada di list lama, cek dulu.
 
 **`Report - PBS Hub`**
 
-- `Title` (REP-…), `ScheduleID`, `HostID`, `BrandID`, `AccountID` (teks), `LiveDate`, `AbsID`
-- `Account` — Lookup ke list Account (atau Choice)
+- `Title` (REP-…), `ScheduleID`, `HostID`, `HostName` (teks, `NamaHost` dari list Host), `BrandID`, `AccountID` (teks), `LiveDate`, `AbsID`
+- `Account` — Lookup ke list Account (atau Choice); diisi `AccountName` dari list Account
 - `Platform` — Choice
 - ⚠ `LiveID` — Single line of text (baru)
 - `Playbook` — Choice (Flash Sale, Payday, …)
