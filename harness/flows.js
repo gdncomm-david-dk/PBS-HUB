@@ -476,6 +476,30 @@ const assert = (c, m) => { if (!c) { console.log("FAIL", m); process.exitCode = 
   await p.getByRole("button", { name: "Clock in" }).click();
   assert((await payloads()).some((x) => x.action === "CLOCK_IN"), "CLOCK_IN fired");
 
+  // ---- Host app: credit score (Skor saya) -------------------------------------------------------
+  await go("c=CreditScore");
+  assert(await p.locator(".hc-scorec-n").getByText("112", { exact: true }).isVisible() && (await p.locator(".hc-scorec-n").getByText("Baik", { exact: true }).isVisible()), "score 112 with its level Baik");
+  assert(await p.getByText("3 poin lagi").isVisible() && (await p.locator(".hc-sc-next").getByText("Sangat baik").isVisible()), "points to the next level");
+  assert((await p.locator(".hc-row.tx:not(.head)").count()) === 3, "September: 3 transactions (voided one included)");
+  assert(await p.getByText("Total 3 transaksi · September 2026").isVisible(), "footer total for the month");
+  assert((await p.locator(".hc-kpi", { hasText: "Reward" }).locator(".v").textContent()).startsWith("+5"), "reward KPI counts active rows only");
+  assert(await p.locator(".hc-lv li.on").getByText("Kamu di sini").isVisible(), "current level highlighted");
+  await p.getByRole("tab", { name: /Dibatalkan/ }).click();
+  assert((await p.locator(".hc-row.tx.void").count()) === 1 && (await p.locator(".hc-row.tx:not(.head)").count()) === 1, "void filter");
+  await p.selectOption("select[aria-label=Bulan]", "All");
+  await p.getByRole("tab", { name: /Semua/ }).click();
+  assert((await p.locator(".hc-row.tx:not(.head)").count()) === 8, "every month: 8 transactions");
+  pl = await payloads();
+  assert(pl.some((x) => x.action === "PERIOD_CHANGED" && x.payload.period === "All") && pl.some((x) => x.action === "FILTER_CHANGED" && x.payload.filter === "Void"), "PERIOD_CHANGED and FILTER_CHANGED fire");
+  await shot("f-credit-score");
+  await go("c=CreditScore&period=All&f=Penalty");
+  assert((await p.locator(".hc-row.tx:not(.head)").count()) === 1 && (await p.getByText("Report terlambat lebih dari 2 hari").first().isVisible()), "DefaultFilter Penalty + Period All");
+  await go("c=CreditScore&s=empty");
+  assert(await p.getByText("Belum ada transaksi skor").isVisible() && (await p.locator(".hc-scorec-n").isVisible()), "no transactions: score still shown, empty list");
+  await go("c=CreditScore&more=1");
+  await p.getByRole("button", { name: "Muat lebih banyak" }).click();
+  assert((await payloads()).some((x) => x.action === "LOAD_MORE" && x.payload.loaded === 8), "LOAD_MORE with the loaded count");
+
   // ---- Host app: my reports --------------------------------------------------------------------
   await go("c=MyReports");
   assert(await p.getByText("Total 8 report pada September 2026").isVisible(), "MyReports footer shows the total");

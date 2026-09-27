@@ -16,7 +16,7 @@ Power Apps code components (PCF) untuk canvas app PBS Hub, dibuat dari design ha
 | `pbs_Ops.HostList` | Host — direktori, skor + band, peringatan tanpa data bank (HD-1) | `controls/HostList` |
 | `pbs_Ops.HostDetail` | Detail host — ringkasan skor/ledger, jadwal, kehadiran (edit jam, tier, weekly), report, payroll, data pribadi tersamar (HD-2) | `controls/HostDetail` |
 
-**Host app** (solusi terpisah `PBSHubHostApp`, dari desain *PBS Host App*; keenam control host dalam satu solusi):
+**Host app** (solusi terpisah `PBSHubHostApp`, dari desain *PBS Host App*; ketujuh control host dalam satu solusi):
 
 | Control | Layar | Folder |
 |---|---|---|
@@ -26,12 +26,13 @@ Power Apps code components (PCF) untuk canvas app PBS Hub, dibuat dari design ha
 | `pbs_HostApp.ClockIn` | Clock in / clock out — GPS vs radius *Studio Location - PBS*, selfie in & out, alasan wajib di luar radius | `controls/ClockIn` |
 | `pbs_HostApp.MySchedule` | Jadwal saya — tabel atau kalender sesi sebulan, KPI, strip *Hari ini* (clock in / absen / kirim report), filter platform + status + cari | `controls/MySchedule` |
 | `pbs_HostApp.ScheduleDetail` | Detail sesi — langkah berikutnya, absen + kirim report (metrik + screenshot) / revisi di tempat, 4 langkah sesi, detail jadwal, sesi lain hari itu | `controls/ScheduleDetail` |
+| `pbs_HostApp.CreditScore` | Skor saya — skor kredit + level, poin lagi ke level berikutnya, tren, reward / penalty per bulan, daftar level, cara skor berubah, semua transaksi | `controls/CreditScore` |
 
 **Output:** dua managed solution, dibangun dengan target MSBuild resmi Power Platform
 (`Microsoft.PowerApps.MSBuild.Solution`):
 
 - `dist/PBSHubOpsPCF_1_6_3_0_managed.zip` — Ops Console (7 control `pbs_Ops.*`)
-- `dist/PBSHubHostApp_1_0_2_0_managed.zip` — Host app (6 control `pbs_HostApp.*`). Menggantikan `PBSHubHostPCF` dan
+- `dist/PBSHubHostApp_1_0_3_0_managed.zip` — Host app (7 control `pbs_HostApp.*`). Menggantikan `PBSHubHostPCF` dan
   `PBSHubHostSchedulePCF` (control lama `pbs_Host.*`); nama solusi dan control baru, jadi bisa diimport berdampingan
   dengan yang lama tanpa bentrok
 
@@ -71,7 +72,7 @@ npm run solution         # ketiga managed zip → dist/  (butuh .NET SDK 8+)
 
 Uji tampilan tanpa Power Apps: `npm run build`, lalu buka `harness/index.html` di browser
 (`?c=Dashboard`, `?c=ReportReview`, `?c=ReportDetail&r=REP-20862`, `?c=PayrollRuns&pay=none`, `?c=PayrollRunDetail&run=118`, `?c=HostList`, `?c=HostDetail&h=HST-012`,
-`?c=HostDashboard`, `?c=MyReports`, `?c=MyReportDetail&r=REP-20901`, `?c=MyReportDetail&sch=SCD-3302`, `?c=MySchedule`, `?c=ScheduleDetail&sch=SCD-3201`; `&w=390` untuk lebar HP).
+`?c=HostDashboard`, `?c=MyReports`, `?c=MyReportDetail&r=REP-20901`, `?c=MyReportDetail&sch=SCD-3302`, `?c=MySchedule`, `?c=ScheduleDetail&sch=SCD-3201`, `?c=CreditScore`; `&w=390` untuk lebar HP).
 Tambahkan `&hostile=1` untuk menyuntikkan CSS global yang agresif (meniru Power Apps player) — tampilan harus
 tetap utuh karena control dirender di Shadow DOM.
 `node harness/flows.js <dir>` menjalankan cek interaksi (approve → mengirim → hasil, konflik, revisi, bulk approve,

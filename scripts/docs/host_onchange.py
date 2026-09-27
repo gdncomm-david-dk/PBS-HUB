@@ -308,8 +308,7 @@ hd = shell('\n'.join([
  absen('varHdResult','colMyAbs', "ClearCollect(colMySch, Filter('Schedule - PBS Hub', HostID = varMe.Title, Date >= Today() - 7, Date <= Today() + 7));\nClearCollect(colMyRep, Filter('Report - PBS Hub', HostID = varMe.Title, LiveDate >= Today() - 30));"),
  NAV_REPORT, OPEN_SCH,
  '''"NAV",
-    // "SCORE": tambahkan Navigate(layar skor) kalau app punya layar skor sendiri.
-    Switch(Text(p.target), "REPORTS", Navigate(scrMyReports), "SCHEDULE", Navigate(scrMySchedule)),''',
+    Switch(Text(p.target), "REPORTS", Navigate(scrMyReports), "SCHEDULE", Navigate(scrMySchedule), "SCORE", Navigate(scrCreditScore)),''',
 ]))
 
 mr_reload = '''Set(varMrLoading, true);
@@ -378,3 +377,13 @@ sd = shell('\n'.join([
  '"OPEN_SCHEDULE", Set(varSchId, Text(p.scheduleId)),   // sesi lain di hari yang sama: data sudah ada',
  '"BACK", Back(),',
 ]), upload=True)
+
+# Skor saya: read only. Month and filter work on the rows already loaded; LOAD_MORE loads older transactions.
+cs_reload = '''Set(varCsLoading, true);
+ClearCollect(colCsTx, FirstN(Sort(Filter('[FAS STUDIO] HostScoreTransactions', HostID = varMe.Title), CreatedDate, SortOrder.Descending), varCsTop));
+Set(varCsLoading, false)'''
+cs = shell('\n'.join([
+ '"PERIOD_CHANGED", Set(varCsPeriod, Text(p.period)),',
+ '"FILTER_CHANGED", Set(varCsFilter, Text(p.filter)),',
+ '"LOAD_MORE",\n    Set(varCsTop, varCsTop + 200);\n'+ind(cs_reload,4)+',',
+]))

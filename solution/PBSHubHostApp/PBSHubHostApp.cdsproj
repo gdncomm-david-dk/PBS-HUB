@@ -53,6 +53,7 @@
     <ProjectReference Include="../../controls/ClockIn/PbsHostClockIn.pcfproj" />
     <ProjectReference Include="../../controls/MySchedule/PbsHostMySchedule.pcfproj" />
     <ProjectReference Include="../../controls/ScheduleDetail/PbsHostScheduleDetail.pcfproj" />
+    <ProjectReference Include="../../controls/CreditScore/PbsHostCreditScore.pcfproj" />
   </ItemGroup>
 
   <Import Project="$(MSBuildToolsPath)\Microsoft.Common.targets" />

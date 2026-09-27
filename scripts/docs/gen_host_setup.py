@@ -49,6 +49,13 @@ BRANDS = "JSON(ForAll(colBrands, {Title: Title, NamaBrand: NamaBrand}), JSONForm
 STUDIOS = "JSON(ForAll(colStudios, {Title: Title, NamaStudio: NamaStudio}), JSONFormat.Compact)"
 PLAYBOOKS = "JSON(Choices([@'Report - PBS Hub'].Playbook), JSONFormat.Compact)"
 
+TX = """{ID: ID, TransactionID: TransactionID, RuleID: RuleID, TransactionType: TransactionType.Value, Point: Point,
+    ScoreBefore: ScoreBefore, ScoreAfter: ScoreAfter, Reason: Reason, Notes: Notes, Status: Status.Value,
+    CreatedDate: CreatedDate, CreatedBy: CreatedBy.DisplayName}"""
+
+BANDS = """{ThresholdID: ThresholdID, Label: Label, Description: Description, MinimumScore: MinimumScore,
+    MaximumScore: MaximumScore, Tone: Tone.Value, Active: Active, SortOrder: SortOrder}"""
+
 
 def js(col, rec):
     return f"JSON(ForAll({col}, {rec}), JSONFormat.Compact)"
@@ -94,7 +101,7 @@ def build():
     doc = []
     doc.append("""# Setup canvas app host — langkah demi langkah
 
-Ikuti **berurutan dari Langkah 0 sampai 12**. Setiap layar ditulis lengkap: `OnVisible`, **semua** properti control
+Ikuti **berurutan dari Langkah 0 sampai 13**. Setiap layar ditulis lengkap: `OnVisible`, **semua** properti control
 dengan formula utuh, dan `OnChange` utuh. Tidak ada "seperti layar lain" — cukup salin per blok.
 
 **Cara kerja singkat.** Control tidak pernah menulis ke SharePoint. Tombol di control mengirim JSON lewat output
@@ -161,11 +168,11 @@ belum ada di list lama, cek dulu.
 **`Brand - PBS Hub`** — `Title`, `NamaBrand` · **`Studio - PBS Hub`** — `Title`, `NamaStudio` ·
 **`Studio Location - PBS`** — `Title`, `LocationID`, `Latitude`, `Longitude`, `RadiusMeter`, `IsActive`
 
-**Opsional (skor di Hari ini)** — `[FAS STUDIO] HostScoreTransactions`, `[FAS STUDIO] HostScoreThreshold`""")
+**Skor (kartu skor di Hari ini + layar Skor saya)** — `[FAS STUDIO] HostScoreTransactions` (`TransactionID, HostID, RuleID, TransactionType, Point, ScoreBefore, ScoreAfter, Reason, Notes, Status, CreatedDate`), `[FAS STUDIO] HostScoreThreshold` (`ThresholdID, Label, Description, MinimumScore, MaximumScore, Tone, Active, SortOrder`), `[FAS STUDIO] ScoreConfig` (`InitialScore, MinimumScore, MaximumScore`, dipakai kalau kolom skor di Host kosong). Host perlu izin **baca** ketiga list; tidak ada yang ditulis dari app host.""")
 
     doc.append("""## Langkah 1 — Import solusi dan tambahkan data source
 
-1. Power Apps → **Solutions → Import solution** → pilih `dist/PBSHubHostApp_1_0_2_0_managed.zip` → Import.
+1. Power Apps → **Solutions → Import solution** → pilih `dist/PBSHubHostApp_1_0_3_0_managed.zip` → Import.
 2. Sekali per environment: Power Platform admin center → environment → **Settings → Product → Features** →
    *Allow publishing of canvas apps with code components* = **On**. Tanpa ini control tidak muncul di tab Code.
 3. Panel **Data → Add data → SharePoint** → site PBS Hub → centang semua list di Langkah 0.
@@ -218,7 +225,10 @@ Set(varHostCtx, JSON({
         imageMaxPx: 2000, imageMaxKb: 1200,      // screenshot report
         clockInStatus: "Hadir - Tugas",          // Choice Status di Clock In
         defaultRadiusM: 100, weakAccuracyM: 100, minReasonChars: 10,
-        selfieMaxPx: 960, selfieMaxKb: 350
+        selfieMaxPx: 960, selfieMaxKb: 350,
+        scoreInitial: First('[FAS STUDIO] ScoreConfig').InitialScore,   // Skor saya: kalau kolom skor di Host kosong
+        scoreMin: First('[FAS STUDIO] ScoreConfig').MinimumScore,
+        scoreMax: First('[FAS STUDIO] ScoreConfig').MaximumScore
     }
 }, JSONFormat.Compact));
 
@@ -237,11 +247,12 @@ ClearCollect(colPbsProcessed, {Id: ""});                                        
 Set(varMrPeriod, "");  Set(varMrFilter, "All");                          // Report saya
 Set(varMsPeriod, "");  Set(varMsFilter, "");  Set(varMsView, "List");    // Jadwal saya
 Set(varSchId, "");     Set(varSchDate, Today());                         // Detail sesi
+Set(varCsPeriod, "");  Set(varCsFilter, "All"); Set(varCsTop, 200);    // Skor saya
 Set(varRptId, Value(Blank())); Set(varRptSchedule, "");                  // Kirim / revisi report
 Set(varMrdRep, LookUp('Report - PBS Hub', ID = -1));                     // record kosong yang bertipe
 Set(varMrdSch, LookUp('Schedule - PBS Hub', ID = -1));
 Set(varHdLoading, false); Set(varMrLoading, false); Set(varMrdLoading, false);
-Set(varMsLoading, false); Set(varSdLoading, false); Set(varCkLoading, false);
+Set(varMsLoading, false); Set(varSdLoading, false); Set(varCkLoading, false); Set(varCsLoading, false);
 Set(varHdResult, ""); Set(varMrdResult, ""); Set(varMsResult, ""); Set(varSdResult, ""); Set(varCkResult, "");
 
 // 5. Upload screenshot (Graph) dan Tier harian di Clock In.
@@ -279,7 +290,7 @@ dihitung dua kali. Contoh: 4 jadwal total 8 jam → Tier 1; total 4 jam tapi liv
 00:00) → Tier 1. Metrik memakai akun terbaik hari itu (TotalViewer dijumlah, Peak dan CTR maksimum). Insentif:
 Tier 1 = 75.000, Tier 2 = 65.000, Tier 3 = 55.000, No = 0.""")
 
-    doc.append("""## Langkah 4 — Buat enam layar
+    doc.append("""## Langkah 4 — Buat tujuh layar
 
 Nama layar dipakai di formula `Navigate(...)`. Pakai nama persis ini (atau ganti di semua formula).
 
@@ -291,9 +302,10 @@ Nama layar dipakai di formula `Navigate(...)`. Pakai nama persis ini (atau ganti
 | `scrMyReports` | PBS Host App My Reports | tab / tombol *Report saya* |
 | `scrMyReportDetail` | PBS Host App My Report Detail | klik report di Report saya / to-do Hari ini |
 | `scrClockIn` | PBS Host App Clock In | tombol Clock in / Clock out di Hari ini |
+| `scrCreditScore` | PBS Host App Credit Score | *Lihat rincian* di kartu skor Hari ini, atau tab *Skor saya* |
 
 Navigasi utama (tab bar atau tombol di header, di luar control): `Navigate(scrHome)`, `Navigate(scrMySchedule)`,
-`Navigate(scrMyReports)`. Sisanya dibuka oleh control lewat OnChange.""")
+`Navigate(scrMyReports)`, `Navigate(scrCreditScore)`. Sisanya dibuka oleh control lewat OnChange.""")
 
     # ---- screens ---------------------------------------------------------------------------------
 
@@ -313,7 +325,7 @@ Set(varHdLoading, false)"""
         ("AbsenceJson", js("colMyAbs", ABS), ""),
         ("ReportsJson", js("colMyRep", REP), ""),
         ("ScoreTxJson", js("colMyTx", "{Point: Point, Status: Status.Value, CreatedDate: CreatedDate, Reason: Reason}"), "opsional; isi `\"[]\"` kalau tanpa skor"),
-        ("ThresholdsJson", js("colScoreBand", "{ThresholdID: ThresholdID, Label: Label, MinimumScore: MinimumScore, MaximumScore: MaximumScore, Tone: Tone.Value, Active: Active, SortOrder: SortOrder}"), "opsional; isi `\"[]\"` kalau tanpa skor"),
+        ("ThresholdsJson", js("colScoreBand", BANDS), "opsional; isi `\"[]\"` kalau tanpa skor"),
         ("BrandsJson", BRANDS, ""),
         ("StudiosJson", STUDIOS, ""),
         ("IsLoading", "varHdLoading", ""),
@@ -485,7 +497,35 @@ Set(varCkLoading, false)"""
                       ck_vis, ck_rows, clockin_onchange(),
                       "Clock in → baris `CLK-…` baru dengan `SelfiePhotoUrl`; kembali ke Hari ini kartu shift berubah jadi *Sedang shift*."))
 
-    doc.append("""## Langkah 11 — Tes alur report dari awal sampai akhir
+    cs_vis = """
+Set(varCsLoading, true);
+Set(varCsTop, 200);
+Set(varMe, LookUp('Host - PBS Hub', Email.Email = User().Email));   // skor terbaru
+ClearCollect(colCsTx, FirstN(Sort(Filter('[FAS STUDIO] HostScoreTransactions', HostID = varMe.Title), CreatedDate, SortOrder.Descending), varCsTop));
+ClearCollect(colScoreBand, Filter('[FAS STUDIO] HostScoreThreshold', Active));
+Set(varCsLoading, false)"""
+    cs_rows = [
+        ("Context", "varHostCtx", ""),
+        ("HostJson", HOST, ""),
+        ("ScoreTxJson", js("colCsTx", TX), "semua transaksi host (terbaru dulu); yang dibatalkan ikut, ditampilkan dicoret"),
+        ("ThresholdsJson", js("colScoreBand", BANDS), ""),
+        ("RulesJson", '"[]"', "opsional; kosong = daftar *Cara skor berubah* diambil dari transaksi. Kalau ada list rule: `JSON(ForAll(<list rule>, {RuleID: RuleID, RuleName: RuleName, RuleType: RuleType.Value, Point: Point, Description: Description, Active: Active}), JSONFormat.Compact)`"),
+        ("Period", "varCsPeriod", "kosong = bulan ini; `All` = semua waktu"),
+        ("DefaultFilter", "varCsFilter", ""),
+        ("HasMore", "CountRows(colCsTx) >= varCsTop", "tombol *Muat lebih banyak*"),
+        ("IsLoading", "varCsLoading", ""),
+        ("ReferenceDate", '""', "kosong"),
+        ("ActionResult", '""', "layar ini hanya membaca, tidak ada aksi terkunci"),
+    ]
+    doc.append(screen(11, "Layar Skor saya (`scrCreditScore`)", "scrCreditScore", "PBS Host App Credit Score",
+                      "Skor kredit host: angka dan level sekarang, berapa poin lagi ke level berikutnya, tren, reward / penalty per bulan, "
+                      "daftar level, cara skor berubah, dan semua transaksi (yang dibatalkan dicoret dan tidak dihitung). "
+                      "Layar ini **hanya membaca**: tidak ada Patch. Ganti bulan dan filter dikerjakan control di data yang sudah dimuat.",
+                      cs_vis, cs_rows, oc.cs,
+                      "Dari Hari ini klik *Lihat rincian* di kartu skor → `scrCreditScore`: angka sama dengan kartu, level berlabel "
+                      "*Kamu di sini*, transaksi bulan ini tampil; pilih *Semua waktu* di kanan atas → semua transaksi."))
+
+    doc.append("""## Langkah 12 — Tes alur report dari awal sampai akhir
 
 Pakai satu jadwal milik akunmu (`HostID = varMe.Title`), hari ini, **sudah mulai**, durasi 120 menit, platform Shopee,
 `Status = Planned`, `Position = Host`.
@@ -506,7 +546,7 @@ Pakai satu jadwal milik akunmu (`HostID = varMe.Title`), hari ini, **sudah mulai
 | 12 | Setelah langkah 4 buka baris Clock In hari ini | — | `Tier`, `Insentif`, `Reason`, `Total_Jam_Live`, `Schedule`, `LastTierUpdate` terisi |
 | 13 | Buka folder `Report Automation/<Brand>/<tahun>/<bulan>/REP-…` | — | file `REP-…_Shopee_<Account>_Report.png` bisa dibuka sebagai gambar |""")
 
-    doc.append("""## Langkah 12 — Kalau ada yang tidak jalan
+    doc.append("""## Langkah 13 — Kalau ada yang tidak jalan
 
 | Gejala | Penyebab | Perbaikan |
 |---|---|---|
@@ -517,6 +557,10 @@ Pakai satu jadwal milik akunmu (`HostID = varMe.Title`), hari ini, **sudah mulai
 | Klik tombol, spinner berputar terus | OnChange belum ditempel, atau `ActionResult` bukan variabel layar itu | tempel OnChange langkah layar itu; cek `ActionResult` |
 | Tombol Absen masih bisa diklik setelah absen | `AbsenceJson` tidak dari koleksi yang di-`Collect` OnChange (mis. dari koleksi lain yang tidak dimuat ulang) | `AbsenceJson` harus dari `colSdAbs` / `colMsAbs` / `colMyAbs` / `colMrdAbs` sesuai layar. Control 1.0.2 juga menyembunyikan tombol begitu canvas membalas ok / sudah tercatat |
 | Klik tombol, tidak terjadi apa-apa | `colPbsProcessed` belum ada | Run OnStart |
+| Skor saya: *Skor belum tersedia* | `CurrentScore` dan `InitialScore` di Host kosong, dan `scoreInitial` di Context kosong | isi `InitialScore` host, atau cek `[FAS STUDIO] ScoreConfig` dan blok `config` di Langkah 3 |
+| Skor saya: level tidak muncul / tidak ada *Kamu di sini* | `colScoreBand` kosong, `Active` tidak dicentang, atau skor di luar semua rentang | cek `[FAS STUDIO] HostScoreThreshold`; rentang tiap level tidak boleh bolong |
+| Skor saya: transaksi kosong padahal ada di list | `HostID` transaksi ≠ `varMe.Title`, atau host tidak punya izin baca list | cek kolom `HostID`; beri izin baca |
+| *Lihat rincian* di kartu skor Hari ini tidak pindah layar | OnChange Hari ini masih versi lama (tanpa `"SCORE"`) | tempel ulang OnChange Langkah 5 |
 | Sudah absen tapi jadwal tetap `Planned` / diminta absen terus | absen lama gagal di tengah (baris absen ada, status jadwal belum pindah) | tempel OnChange terbaru, lalu tekan **Absen** sekali lagi: ditolak (*sudah tercatat*) karena satu ScheduleID hanya boleh satu absen, tapi Status jadwal dilengkapi ke `Waiting Report` dan `Status = Hadir` diisi |
 | *Gagal mengubah status jadwal …* / *absen gagal dicatat: …* | Patch ditolak SharePoint; teks setelah `:` adalah error aslinya (mis. host tidak punya izin edit list Schedule / Host Absence, pilihan `Hadir` / `Waiting Report` tidak ada, kolom wajib kosong) | perbaiki sesuai pesan, lalu tekan **Absen** lagi |
 | *Jadwal … tidak ditemukan untuk akunmu* | `HostID` jadwal ≠ `varMe.Title`, atau Title jadwal berubah | cek `HostID` di Schedule; muat ulang layar |

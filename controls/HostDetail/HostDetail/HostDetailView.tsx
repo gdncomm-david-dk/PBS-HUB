@@ -33,7 +33,8 @@ import {
 } from "../../../shared/host";
 import { buildRuns, fmtPeriod } from "../../../shared/payroll";
 import { reviewBadge } from "../../../shared/reconcile";
-import { Badge, Button, EmptyState, EndOfData, Icon, InfoBanner, Overlay, Pill, PlaybookValue, ResultBanner, SectionHeader, Skeleton, SkeletonRows, Spinner, TONE_DOT } from "../../../shared/ui";
+import { BandChart } from "../../../shared/scoreUi";
+import { Badge, Button, EmptyState, EndOfData, Icon, InfoBanner, Overlay, Pill, PlaybookValue, ResultBanner, SectionHeader, Skeleton, SkeletonRows, Spinner } from "../../../shared/ui";
 
 export type HostTab = "Summary" | "Schedule" | "Attendance" | "Reports" | "Payroll" | "Personal";
 
@@ -311,31 +312,6 @@ function DeactivatedBanner(props: { impact: ReturnType<typeof deactivationImpact
 }
 
 // ---- Ringkasan --------------------------------------------------------------------------------
-
-function BandChart(props: { bands: ScoreBand[]; score: number | null; min: number | null; max: number | null }): React.ReactElement | null {
-  const { bands, score } = props;
-  const lo = Math.min(...bands.map((b) => b.min ?? Infinity), props.min ?? Infinity, score ?? Infinity);
-  const hi = Math.max(...bands.map((b) => b.max ?? -Infinity), props.max ?? -Infinity, score ?? -Infinity);
-  if (bands.length === 0 || !Number.isFinite(lo) || !Number.isFinite(hi) || hi <= lo) return null;
-  const pos = (v: number) => ((v - lo) / (hi - lo)) * 100;
-  return (
-    <div aria-hidden="true">
-      <div className="pbs-bands">
-        {bands.map((b) => (
-          <span key={b.id} title={`${b.label}: ${fmtNumber(b.min)}–${fmtNumber(b.max)}`} style={{ flex: `${Math.max(1, (b.max ?? hi) - (b.min ?? lo))} 1 0`, background: TONE_DOT[b.tone] }} />
-        ))}
-        {score !== null ? <i style={{ left: `${Math.min(100, Math.max(0, pos(score)))}%` }} /> : null}
-      </div>
-      <div className="pbs-bands-l">
-        {bands.map((b) => (
-          <span key={b.id} style={{ flex: `${Math.max(1, (b.max ?? hi) - (b.min ?? lo))} 1 0`, textAlign: "center" }}>
-            {b.label}
-          </span>
-        ))}
-      </div>
-    </div>
-  );
-}
 
 function SummaryTab(props: {
   h: HostModel;

@@ -24,7 +24,7 @@ Set(varHolidays, [Date(2026,1,1), Date(2026,2,16) /* … */]);
 ```
 
 Nama yang dipakai: layar `scrHome` (Hari ini), `scrMyReports`, `scrMyReportDetail`, `scrMySchedule`,
-`scrScheduleDetail`, `scrClockIn`; upload screenshot Graph dengan `varSiteID` / `varDriveID` (bagian 5). Ganti kalau
+`scrScheduleDetail`, `scrClockIn`, `scrCreditScore` (Skor saya); upload screenshot Graph dengan `varSiteID` / `varDriveID` (bagian 5). Ganti kalau
 nama di app berbeda. Schedule tidak punya kolom nama akun: `Schedule.Account` adalah `Title` di list Account, dan
 namanya diambil dari `colAccounts` (dimuat di App.OnStart). `AccountID` di Report diisi kode akun (`s.Account`).
 
@@ -41,6 +41,7 @@ Kalau di list kamu `Account` ternyata teks biasa, `Choices` akan error — ganti
 | Kirim / revisi report (MyReportDetail) | `varMrdResult` | `colMrdAbs`, `colMrdSesRep`, `varMrdSch`, `varMrdRep` |
 | Jadwal saya (MySchedule) | `varMsResult` | `colMsAbs`, `colMsSch`, `colMsRep`, koleksi `colMs…` saat ganti bulan |
 | Detail sesi (ScheduleDetail) | `varSdResult` | `colSdAbs`, `colSdSch`, `colSdRep` |
+| Skor saya (CreditScore) | — (hanya membaca) | `colCsTx` saat *Muat lebih banyak* |
 
 ### 10.1 HostDashboard — `OnChange`
 
@@ -79,6 +80,15 @@ dimuat ulang (`colSdSch`, `colSdRep`), supaya status jadwal, daftar report dan s
 %SD%
 ```
 
+### 10.6 CreditScore — `OnChange`
+
+Tidak ada Patch. Ganti bulan dan filter dikerjakan control di baris yang sudah dimuat; canvas hanya menyimpan
+pilihannya (`Period`, `DefaultFilter`) supaya tetap sama saat layar dibuka lagi. `LOAD_MORE` memuat 200 transaksi lebih lama.
+
+```powerfx
+%CS%
+```
+
 Catatan:
 - `Switch(act, …, false)`: nilai terakhir hanya default supaya Switch valid; aksi yang tidak dikenal tidak melakukan apa-apa.
 - `RESUBMIT_REPORT` membandingkan `Modified` dengan selisih detik, bukan teks: `Modified` di JSON berformat UTC
@@ -86,9 +96,39 @@ Catatan:
   di zona WIB.
 - `Boolean(p.liveBreak)` / `Boolean(p.complete)`: `p` hasil `ParseJSON`, jadi nilai true/false perlu dikonversi.
 - Kolom `LiveBreak` di Schedule adalah Choice Yes/No: ditulis `{Value: "Yes"}`; kosong dibaca sebagai `No`.
-- `LOAD_MORE` tidak ditangani karena `HasMore = false` (data per host per bulan kecil).
+- `LOAD_MORE` tidak ditangani di layar lain karena `HasMore = false` (data per host per bulan kecil); hanya Skor saya memakainya.
+
+## 11. CreditScore (layar *Skor saya*)
+
+Control `pbs_HostApp.CreditScore` (H-7). Isi layar: skor dan level sekarang (`CurrentScore`, kalau kosong
+`InitialScore`, kalau kosong `scoreInitial` di Context), *X poin lagi ke level …*, peringatan kalau skor tinggal
+kurang dari 10 poin dari batas bawah level, tren skor dari `ScoreAfter` transaksi, kartu Reward / Penalty /
+Perubahan / Dibatalkan untuk bulan yang dipilih, daftar level (`HostScoreThreshold`), *Cara skor berubah* (dari
+`RulesJson`, atau rule yang ada di transaksi host), dan tabel transaksi dengan filter Semua / Reward / Penalty / Dibatalkan.
+Hanya transaksi `Status = Active` (atau kosong) yang dihitung, sama dengan Ops HostDetail. Selisih skor tersimpan
+vs ledger **tidak** ditampilkan ke host (hanya Ops yang bisa memperbaikinya).
+
+| Properti | Isi |
+|---|---|
+| `Context` | `varHostCtx` (config `scoreInitial`, `scoreMin`, `scoreMax` dari `[FAS STUDIO] ScoreConfig`) |
+| `HostJson` | baris host yang login: `Title, HostCode, NamaHost, Package, CurrentScore, InitialScore` |
+| `ScoreTxJson` | `[FAS STUDIO] HostScoreTransactions` host ini, terbaru dulu: `ID, TransactionID, RuleID, TransactionType, Point, ScoreBefore, ScoreAfter, Reason, Notes, Status, CreatedDate, CreatedBy` |
+| `ThresholdsJson` | `[FAS STUDIO] HostScoreThreshold`: `ThresholdID, Label, Description, MinimumScore, MaximumScore, Tone, Active, SortOrder` |
+| `RulesJson` | opsional: `RuleID, RuleName, RuleType, Point, Description, Active` |
+| `Period` | `yyyy-mm`, `All`, atau kosong (bulan ini) |
+| `DefaultFilter` | `All`, `Reward`, `Penalty`, `Void` |
+| `HasMore` / `IsLoading` | tombol *Muat lebih banyak* / skeleton |
+
+| Aksi | Payload | Canvas |
+|---|---|---|
+| `PERIOD_CHANGED` | `{period: "yyyy-mm" \| "All"}` | `Set(varCsPeriod, …)` |
+| `FILTER_CHANGED` | `{filter, period}` | `Set(varCsFilter, …)` |
+| `LOAD_MORE` | `{loaded}` | `varCsTop + 200`, muat ulang `colCsTx` |
+
+HostDashboard mengirim `NAV {target: "SCORE"}` dari *Lihat rincian* di kartu skor → `Navigate(scrCreditScore)`.
+Langkah setup lengkap: HOST-SETUP.md Langkah 11.
 '''
-sec = sec.replace('%HD%', hd).replace('%MR%', mr).replace('%MRD%', mrd).replace('%MS%', ms).replace('%SD%', sd)
+sec = sec.replace('%HD%', hd).replace('%MR%', mr).replace('%MRD%', mrd).replace('%MS%', ms).replace('%SD%', sd).replace('%CS%', cs)
 if '## 10. OnChange lengkap' in s:
     s = s[:s.index('\n## 10. OnChange lengkap')]
 s = s.rstrip('\n') + '\n' + sec

@@ -313,5 +313,6 @@
     { Title: "Studio BSD", LocationID: "LOC-02", Latitude: -6.3015, Longitude: 106.6527, RadiusMeter: 100, IsActive: true },
     { Title: "Studio Kemang (tutup)", LocationID: "LOC-03", Latitude: -6.2607, Longitude: 106.8132, RadiusMeter: 100, IsActive: false },
   ];
-  window.PBS_SAMPLE = { REF, hostApp, studioLocations, thresholds, scoreTx, hostExtraClockIns, hostExtraSchedules, piiValues, brands, hosts, studios, schedules, reports, evidence, clockIns, payrolls, context, clockInsAug, clockInsAugBlocked, payrollRuns, payrollHistory, payrollLines, payslips };
+  const scoreRules = RULES.map(([RuleID, RuleName, RuleType, Point]) => ({ RuleID, RuleName, RuleType: { Value: RuleType }, Point, Active: true }));
+  window.PBS_SAMPLE = { REF, hostApp, studioLocations, thresholds, scoreTx, scoreRules, hostExtraClockIns, hostExtraSchedules, piiValues, brands, hosts, studios, schedules, reports, evidence, clockIns, payrolls, context, clockInsAug, clockInsAugBlocked, payrollRuns, payrollHistory, payrollLines, payslips };
 })();
