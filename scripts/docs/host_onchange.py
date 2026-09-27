@@ -107,7 +107,7 @@ def tier(date_expr):
     return TIER_TPL.replace('@DATE@', date_expr)
 
 def absen(R, col, after=''):
-    """ABSEN: Schedule.Status first (Planned → Waiting Report / Done), then the Host Absence row with Status Hadir.
+    """ABSEN: Schedule.Status first (Planned → Waiting Report / Finished), then the Host Absence row with Status Hadir.
     An absence left behind by an earlier half-finished absen is repaired instead of rejected, so the host is never stuck."""
     ok_after = ind(after, 20) + chr(10) if after else ''
     return f'''"ABSEN",
@@ -115,12 +115,12 @@ def absen(R, col, after=''):
     With({{s: LookUp('Schedule - PBS Hub', ID = Value(p.scheduleItemId)),
           ex: LookUp('Host Absence - PBS Hub', ScheduleID = Text(p.scheduleId) && HostID = varMe.Title),
           lb: Boolean(p.liveBreak),
-          st: Coalesce(Text(p.scheduleStatus), "Waiting Report")}},   // dari control: Waiting Report, atau Done (Live Break / Co-Host)
+          st: Coalesce(Text(p.scheduleStatus), "Waiting Report")}},   // dari control: Waiting Report, atau Finished (Live Break / Co-Host)
         If(
             IsBlank(s) || s.Title <> Text(p.scheduleId) || s.HostID <> varMe.Title,
                 {res(R, "error", '"Jadwal " & Text(p.scheduleId) & " tidak ditemukan untuk akunmu. Muat ulang dulu."')},
             // Sudah ada absen, tapi jadwal masih Planned (absen lama gagal di tengah): betulkan, jangan tolak.
-            !IsBlank(ex) && s.Status.Value <> "Waiting Report" && s.Status.Value <> "Done",
+            !IsBlank(ex) && s.Status.Value <> "Waiting Report" && s.Status.Value <> "Finished" && s.Status.Value <> "Done",
                 IfError(
                     Patch('Schedule - PBS Hub', s, {{Status: {{Value: st}}}});
                     Patch('Host Absence - PBS Hub', ex, {{Status: {{Value: "Hadir"}}}});
@@ -175,7 +175,7 @@ def submit(R, after):
         If(IsBlank(LookUp('Host Absence - PBS Hub', ScheduleID = Text(p.scheduleId) && HostID = varMe.Title)),
             {res(R, "error", '"Absen sesi ini belum tercatat."')},
         // Report hanya dibuka saat jadwal Waiting Report (hapus kalau config.requireWaitingStatus = false).
-        // Setelah durasi terpenuhi statusnya Done, jadi report tambahan ditolak di sini.
+        // Setelah durasi terpenuhi statusnya Finished, jadi report tambahan ditolak di sini.
         s.Status.Value <> "Waiting Report",
             {res(R, "conflict", '"Status jadwal " & s.Status.Value & ", report tidak bisa dikirim. Muat ulang dulu."')},
         // Live terputus boleh punya beberapa report, tapi satu Live ID hanya sekali.
@@ -197,7 +197,7 @@ def submit(R, after):
                                 Patch('Report - PBS Hub', row, {{Attachment: Text(up.webUrl)}})
                             )
                         );
-                        // Total Durasi(Min) semua report sesi ini ≥ durasi jadwal → "Done", kalau belum tetap "Waiting Report".
+                        // Total Durasi(Min) semua report sesi ini ≥ durasi jadwal → "Finished", kalau belum tetap "Waiting Report".
                         Patch('Schedule - PBS Hub', s, {{Status: {{Value: Text(p.scheduleStatus)}}}});
 {ind(tier("s.Date"), 24)}
 {ind(after, 24)}
@@ -237,7 +237,7 @@ def resubmit(R, after):
                     With({{up: {ind(graph_put("cur.BrandID", "cur.Created", "cur.Title", "cur.Platform.Value", "cur.AccountID"), 24).strip()}}},
                         Patch('Report - PBS Hub', LookUp('Report - PBS Hub', ID = cur.ID), {{Attachment: Text(up.webUrl)}}))
                 );
-                // Durasi bisa ikut direvisi: status jadwal dihitung ulang oleh control (Waiting Report / Done).
+                // Durasi bisa ikut direvisi: status jadwal dihitung ulang oleh control (Waiting Report / Finished).
                 If(!IsBlank(Text(p.scheduleStatus)),
                     Patch('Schedule - PBS Hub', LookUp('Schedule - PBS Hub', Title = cur.ScheduleID && HostID = varMe.Title), {{Status: {{Value: Text(p.scheduleStatus)}}}}));
                 // Angka berubah → Tier hari itu dihitung ulang.

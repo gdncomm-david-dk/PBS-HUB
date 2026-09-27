@@ -172,7 +172,7 @@ describe("split live: reports in parts until Durasi covers the session", () => {
     expect(s).toMatchObject({ phase: "NEEDS_REPORT", requiredMin: 240, reportedMin: 60, remainingMin: 180, partial: true });
     expect(reportBlocker(s)).toBeNull();
     expect(statusAfterReport(s, 120, DEFAULT_HOST_OPTIONS)).toEqual({ status: "Waiting Report", complete: false, totalMin: 180, remainingMin: 60 });
-    expect(statusAfterReport(s, 200, DEFAULT_HOST_OPTIONS)).toMatchObject({ status: "Done", complete: true, remainingMin: 0 });
+    expect(statusAfterReport(s, 200, DEFAULT_HOST_OPTIONS)).toMatchObject({ status: "Finished", complete: true, remainingMin: 0 });
   });
   it("covered (or more): reported, no more Send Report", () => {
     const s = build([part("R1", 120, "Waiting Approval", "2026-09-12T21:00:00"), part("R2", 130, "Done", "2026-09-12T23:10:00")]);
@@ -201,14 +201,14 @@ describe("absen payload", () => {
   it("normal live: Waiting Report, no report row", () => {
     expect(absenPayload(s, { Title: "H1", NamaHost: "Dinda" })).toMatchObject({ scheduleId: "SCD-2", hostId: "H1", liveBreak: false, scheduleStatus: "Waiting Report", report: null, accountName: "brand.official" });
   });
-  it("live break: Done plus a Report row of zeros with ApprovalStatus LiveBreak", () => {
+  it("live break: Finished plus a Report row of zeros with ApprovalStatus LiveBreak", () => {
     const p = absenPayload(s, undefined, true);
-    expect(p).toMatchObject({ liveBreak: true, scheduleStatus: "Done", report: { approvalStatus: "LiveBreak" } });
+    expect(p).toMatchObject({ liveBreak: true, scheduleStatus: "Finished", report: { approvalStatus: "LiveBreak" } });
     const metrics = (p.report as { metrics: Record<string, number> }).metrics;
     expect(Object.values(metrics).every((v) => v === 0)).toBe(true);
     expect(metrics["Durasi(Min)"]).toBe(0);
   });
-  it("Co-Host: Done, never a report", () => {
+  it("Co-Host: Finished, never a report", () => {
     const co = buildHostSessions({ ...empty, schedules: [sch(2, "2026-09-14", "10:00", "12:00", { Position: { Value: "Co-Host" } })] }, now)[0]!;
     expect(absenPayload(co, undefined, false, hostOptions({ scheduleDoneStatus: "Finished" }))).toMatchObject({ scheduleStatus: "Finished", report: null });
   });

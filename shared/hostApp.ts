@@ -39,7 +39,7 @@ export const DEFAULT_HOST_OPTIONS: HostOptions = {
   requireAbsen: true,
   requireWaitingStatus: true,
   waitingStatus: "Waiting Report",
-  doneStatus: "Done",
+  doneStatus: "Finished",
   playbooks: DEFAULT_PLAYBOOKS,
 };
 

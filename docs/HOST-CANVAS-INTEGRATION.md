@@ -96,13 +96,13 @@ Status sesi yang dilihat host dihitung dari data di atas (aturan v1 tetap):
 |---|---|
 | Kapan bisa report | sudah clock in, absen tercatat, sesi sudah mulai, **dan** `Schedule.Status = Waiting Report`. Canvas mengisi status itu saat ABSEN (`p.scheduleStatus`). Status lain (mis. *Planned*) → tombol **Send Report** nonaktif dengan keterangan |
 | Isian | Live ID (teks), `Durasi(Min)`, Playbook (dropdown), `AddToCart` (**hanya Shopee**; TikTok dan lainnya tidak ditanya, dikirim `null`), Pesanan, Penjualan, ProdukTerjual, JumlahPembeli, CTR, PeakViewer, TotalViewer, CTOR, Comment, screenshot. Semua wajib. `Share` tidak dipakai lagi |
-| Co-Host | tidak perlu report; absen langsung menulis `Status = Done` |
+| Co-Host | tidak perlu report; absen langsung menulis `Status = Finished` |
 | Live Break | saat absen host ditanya *Live Break atau bukan*. **Ya** → tidak perlu report, tapi canvas tetap membuat baris Report dengan semua angka 0 dan `ApprovalStatus = LiveBreak`, `Schedule.Status = Done`, `LiveBreak = Yes` |
-| Live terputus | satu sesi boleh punya beberapa Report (satu per Live ID). Control menjumlahkan `Durasi(Min)` semua report sesi itu dan membandingkannya dengan durasi jadwal (`EndTime − StartTime`). Kurang → status tetap `Waiting Report`, host melihat *kurang X menit, silakan report berikutnya*. Total ≥ durasi jadwal → `Status = Done`, tombol Send Report hilang |
+| Live terputus | satu sesi boleh punya beberapa Report (satu per Live ID). Control menjumlahkan `Durasi(Min)` semua report sesi itu dan membandingkannya dengan durasi jadwal (`EndTime − StartTime`). Kurang → status tetap `Waiting Report`, host melihat *kurang X menit, silakan report berikutnya*. Total ≥ durasi jadwal → `Status = Finished`, tombol Send Report hilang |
 | Revisi | report yang `Need Revision` bisa diperbaiki termasuk Live ID, Playbook dan Durasi; status jadwal dihitung ulang dengan durasi baru |
 
 Nama status bisa diganti lewat `Context.config`: `scheduleWaitingStatus` (default `Waiting Report`),
-`scheduleDoneStatus` (default `Done`); `requireWaitingStatus: false` mematikan syarat status. Pilihan Playbook dari
+`scheduleDoneStatus` (default `Finished`); `requireWaitingStatus: false` mematikan syarat status. Pilihan Playbook dari
 properti `PlaybooksJson` (mis. `JSON(Choices([@'Report - PBS Hub'].Playbook), JSONFormat.Compact)`), lalu
 `config.playbooks`, lalu default *Flash Sale, Payday, Launching Produk, Reguler*. Report lama dengan `Durasi(Min)`
 kosong dianggap sudah menutup sesi.
@@ -154,7 +154,7 @@ menampilkan pop-up *Apakah sesi ini Live Break?* (Co-Host tidak ditanya, `liveBr
 |---|---|
 | `liveBreak` | `true` kalau host memilih *Ya, Live Break* |
 | `position` | `Schedule.Position` (mis. `Host`, `Co-Host`) |
-| `scheduleStatus` | nilai untuk `Schedule.Status`: `Done` (Live Break atau Co-Host) atau `Waiting Report` |
+| `scheduleStatus` | nilai untuk `Schedule.Status`: `Finished` (Live Break atau Co-Host) atau `Waiting Report` |
 | `report` | Live Break: `{approvalStatus: "LiveBreak", metrics: {semua 0}, liveId: "", playbook: "", durationMin: 0, fileName: ""}`; selain itu `null` |
 
 Canvas: buat baris Host Absence, `Patch` `Schedule.Status = p.scheduleStatus`; kalau `p.liveBreak` juga
@@ -263,7 +263,7 @@ width, height}, warnings: [..]}`. `AddToCart` bernilai `null` di luar Shopee.
 | `part` | report ke berapa untuk sesi ini (1, 2, …) |
 | `durationMin` | `Durasi(Min)` report ini |
 | `requiredMin` / `reportedMin` / `remainingMin` | durasi jadwal / total setelah report ini / sisa |
-| `complete`, `scheduleStatus` | total ≥ durasi jadwal → `true`, `"Done"`; kalau belum `false`, `"Waiting Report"` |
+| `complete`, `scheduleStatus` | total ≥ durasi jadwal → `true`, `"Finished"`; kalau belum `false`, `"Waiting Report"` |
 
 Canvas menolak (`conflict`) kalau `Schedule.Status` bukan `Waiting Report` atau Live ID yang sama sudah ada
 untuk sesi itu; selain itu Patch Report (termasuk `LiveID`, `Playbook`), upload screenshot, lalu
@@ -428,7 +428,7 @@ report, langkah sesi, sesi lain hari itu).
 kalau tidak, tombolnya nonaktif dengan keterangan kenapa. Co-Host dan Live Break tidak punya tombol ini
 (*tanpa report*). Setelah report terkirim dan durasinya belum mencukupi, halaman menampilkan *kurang X menit* dan
 tombol berubah jadi **Send Report berikutnya**; setelah total durasi ≥ durasi jadwal tombol hilang dan status
-menjadi `Done`. Report yang perlu revisi dibuka di tempat (angka, Live ID, Playbook, durasi; perbaiki atau sanggah).
+menjadi `Finished`. Report yang perlu revisi dibuka di tempat (angka, Live ID, Playbook, durasi; perbaiki atau sanggah).
 Sesi tanpa clock in diarahkan minta clock in manual ke tim PBS, sesi batal hanya diberi keterangan.
 
 ## 8. Pemasangan
@@ -667,12 +667,12 @@ If(!IsBlank(Self.ActionPayload),
                         With({s: LookUp('Schedule - PBS Hub', ID = Value(p.scheduleItemId)),
                               ex: LookUp('Host Absence - PBS Hub', ScheduleID = Text(p.scheduleId) && HostID = varMe.Title),
                               lb: Boolean(p.liveBreak),
-                              st: Coalesce(Text(p.scheduleStatus), "Waiting Report")},   // dari control: Waiting Report, atau Done (Live Break / Co-Host)
+                              st: Coalesce(Text(p.scheduleStatus), "Waiting Report")},   // dari control: Waiting Report, atau Finished (Live Break / Co-Host)
                             If(
                                 IsBlank(s) || s.Title <> Text(p.scheduleId) || s.HostID <> varMe.Title,
                                     Set(varHdResult, JSON({requestId: rid, status: "error", message: "Jadwal " & Text(p.scheduleId) & " tidak ditemukan untuk akunmu. Muat ulang dulu."}, JSONFormat.Compact)),
                                 // Sudah ada absen, tapi jadwal masih Planned (absen lama gagal di tengah): betulkan, jangan tolak.
-                                !IsBlank(ex) && s.Status.Value <> "Waiting Report" && s.Status.Value <> "Done",
+                                !IsBlank(ex) && s.Status.Value <> "Waiting Report" && s.Status.Value <> "Finished" && s.Status.Value <> "Done",
                                     IfError(
                                         Patch('Schedule - PBS Hub', s, {Status: {Value: st}});
                                         Patch('Host Absence - PBS Hub', ex, {Status: {Value: "Hadir"}});
@@ -863,12 +863,12 @@ If(!IsBlank(Self.ActionPayload),
                         With({s: LookUp('Schedule - PBS Hub', ID = Value(p.scheduleItemId)),
                               ex: LookUp('Host Absence - PBS Hub', ScheduleID = Text(p.scheduleId) && HostID = varMe.Title),
                               lb: Boolean(p.liveBreak),
-                              st: Coalesce(Text(p.scheduleStatus), "Waiting Report")},   // dari control: Waiting Report, atau Done (Live Break / Co-Host)
+                              st: Coalesce(Text(p.scheduleStatus), "Waiting Report")},   // dari control: Waiting Report, atau Finished (Live Break / Co-Host)
                             If(
                                 IsBlank(s) || s.Title <> Text(p.scheduleId) || s.HostID <> varMe.Title,
                                     Set(varMrdResult, JSON({requestId: rid, status: "error", message: "Jadwal " & Text(p.scheduleId) & " tidak ditemukan untuk akunmu. Muat ulang dulu."}, JSONFormat.Compact)),
                                 // Sudah ada absen, tapi jadwal masih Planned (absen lama gagal di tengah): betulkan, jangan tolak.
-                                !IsBlank(ex) && s.Status.Value <> "Waiting Report" && s.Status.Value <> "Done",
+                                !IsBlank(ex) && s.Status.Value <> "Waiting Report" && s.Status.Value <> "Finished" && s.Status.Value <> "Done",
                                     IfError(
                                         Patch('Schedule - PBS Hub', s, {Status: {Value: st}});
                                         Patch('Host Absence - PBS Hub', ex, {Status: {Value: "Hadir"}});
@@ -998,7 +998,7 @@ If(!IsBlank(Self.ActionPayload),
                             If(IsBlank(LookUp('Host Absence - PBS Hub', ScheduleID = Text(p.scheduleId) && HostID = varMe.Title)),
                                 Set(varMrdResult, JSON({requestId: rid, status: "error", message: "Absen sesi ini belum tercatat."}, JSONFormat.Compact)),
                             // Report hanya dibuka saat jadwal Waiting Report (hapus kalau config.requireWaitingStatus = false).
-                            // Setelah durasi terpenuhi statusnya Done, jadi report tambahan ditolak di sini.
+                            // Setelah durasi terpenuhi statusnya Finished, jadi report tambahan ditolak di sini.
                             s.Status.Value <> "Waiting Report",
                                 Set(varMrdResult, JSON({requestId: rid, status: "conflict", message: "Status jadwal " & s.Status.Value & ", report tidak bisa dikirim. Muat ulang dulu."}, JSONFormat.Compact)),
                             // Live terputus boleh punya beberapa report, tapi satu Live ID hanya sekali.
@@ -1030,7 +1030,7 @@ If(!IsBlank(Self.ActionPayload),
                                                     Patch('Report - PBS Hub', row, {Attachment: Text(up.webUrl)})
                                                 )
                                             );
-                                            // Total Durasi(Min) semua report sesi ini ≥ durasi jadwal → "Done", kalau belum tetap "Waiting Report".
+                                            // Total Durasi(Min) semua report sesi ini ≥ durasi jadwal → "Finished", kalau belum tetap "Waiting Report".
                                             Patch('Schedule - PBS Hub', s, {Status: {Value: Text(p.scheduleStatus)}});
                                             // ---- Tier harian di Clock In: host ini, tanggal s.Date. Aturan sama dengan hitung ulang bulanan.
                                             IfError(
@@ -1154,7 +1154,7 @@ If(!IsBlank(Self.ActionPayload),
                                             )},
                                             Patch('Report - PBS Hub', LookUp('Report - PBS Hub', ID = cur.ID), {Attachment: Text(up.webUrl)}))
                                     );
-                                    // Durasi bisa ikut direvisi: status jadwal dihitung ulang oleh control (Waiting Report / Done).
+                                    // Durasi bisa ikut direvisi: status jadwal dihitung ulang oleh control (Waiting Report / Finished).
                                     If(!IsBlank(Text(p.scheduleStatus)),
                                         Patch('Schedule - PBS Hub', LookUp('Schedule - PBS Hub', Title = cur.ScheduleID && HostID = varMe.Title), {Status: {Value: Text(p.scheduleStatus)}}));
                                     // Angka berubah → Tier hari itu dihitung ulang.
@@ -1287,12 +1287,12 @@ If(!IsBlank(Self.ActionPayload),
                         With({s: LookUp('Schedule - PBS Hub', ID = Value(p.scheduleItemId)),
                               ex: LookUp('Host Absence - PBS Hub', ScheduleID = Text(p.scheduleId) && HostID = varMe.Title),
                               lb: Boolean(p.liveBreak),
-                              st: Coalesce(Text(p.scheduleStatus), "Waiting Report")},   // dari control: Waiting Report, atau Done (Live Break / Co-Host)
+                              st: Coalesce(Text(p.scheduleStatus), "Waiting Report")},   // dari control: Waiting Report, atau Finished (Live Break / Co-Host)
                             If(
                                 IsBlank(s) || s.Title <> Text(p.scheduleId) || s.HostID <> varMe.Title,
                                     Set(varMsResult, JSON({requestId: rid, status: "error", message: "Jadwal " & Text(p.scheduleId) & " tidak ditemukan untuk akunmu. Muat ulang dulu."}, JSONFormat.Compact)),
                                 // Sudah ada absen, tapi jadwal masih Planned (absen lama gagal di tengah): betulkan, jangan tolak.
-                                !IsBlank(ex) && s.Status.Value <> "Waiting Report" && s.Status.Value <> "Done",
+                                !IsBlank(ex) && s.Status.Value <> "Waiting Report" && s.Status.Value <> "Finished" && s.Status.Value <> "Done",
                                     IfError(
                                         Patch('Schedule - PBS Hub', s, {Status: {Value: st}});
                                         Patch('Host Absence - PBS Hub', ex, {Status: {Value: "Hadir"}});
@@ -1465,12 +1465,12 @@ If(!IsBlank(Self.ActionPayload),
                         With({s: LookUp('Schedule - PBS Hub', ID = Value(p.scheduleItemId)),
                               ex: LookUp('Host Absence - PBS Hub', ScheduleID = Text(p.scheduleId) && HostID = varMe.Title),
                               lb: Boolean(p.liveBreak),
-                              st: Coalesce(Text(p.scheduleStatus), "Waiting Report")},   // dari control: Waiting Report, atau Done (Live Break / Co-Host)
+                              st: Coalesce(Text(p.scheduleStatus), "Waiting Report")},   // dari control: Waiting Report, atau Finished (Live Break / Co-Host)
                             If(
                                 IsBlank(s) || s.Title <> Text(p.scheduleId) || s.HostID <> varMe.Title,
                                     Set(varSdResult, JSON({requestId: rid, status: "error", message: "Jadwal " & Text(p.scheduleId) & " tidak ditemukan untuk akunmu. Muat ulang dulu."}, JSONFormat.Compact)),
                                 // Sudah ada absen, tapi jadwal masih Planned (absen lama gagal di tengah): betulkan, jangan tolak.
-                                !IsBlank(ex) && s.Status.Value <> "Waiting Report" && s.Status.Value <> "Done",
+                                !IsBlank(ex) && s.Status.Value <> "Waiting Report" && s.Status.Value <> "Finished" && s.Status.Value <> "Done",
                                     IfError(
                                         Patch('Schedule - PBS Hub', s, {Status: {Value: st}});
                                         Patch('Host Absence - PBS Hub', ex, {Status: {Value: "Hadir"}});
@@ -1600,7 +1600,7 @@ If(!IsBlank(Self.ActionPayload),
                             If(IsBlank(LookUp('Host Absence - PBS Hub', ScheduleID = Text(p.scheduleId) && HostID = varMe.Title)),
                                 Set(varSdResult, JSON({requestId: rid, status: "error", message: "Absen sesi ini belum tercatat."}, JSONFormat.Compact)),
                             // Report hanya dibuka saat jadwal Waiting Report (hapus kalau config.requireWaitingStatus = false).
-                            // Setelah durasi terpenuhi statusnya Done, jadi report tambahan ditolak di sini.
+                            // Setelah durasi terpenuhi statusnya Finished, jadi report tambahan ditolak di sini.
                             s.Status.Value <> "Waiting Report",
                                 Set(varSdResult, JSON({requestId: rid, status: "conflict", message: "Status jadwal " & s.Status.Value & ", report tidak bisa dikirim. Muat ulang dulu."}, JSONFormat.Compact)),
                             // Live terputus boleh punya beberapa report, tapi satu Live ID hanya sekali.
@@ -1632,7 +1632,7 @@ If(!IsBlank(Self.ActionPayload),
                                                     Patch('Report - PBS Hub', row, {Attachment: Text(up.webUrl)})
                                                 )
                                             );
-                                            // Total Durasi(Min) semua report sesi ini ≥ durasi jadwal → "Done", kalau belum tetap "Waiting Report".
+                                            // Total Durasi(Min) semua report sesi ini ≥ durasi jadwal → "Finished", kalau belum tetap "Waiting Report".
                                             Patch('Schedule - PBS Hub', s, {Status: {Value: Text(p.scheduleStatus)}});
                                             // ---- Tier harian di Clock In: host ini, tanggal s.Date. Aturan sama dengan hitung ulang bulanan.
                                             IfError(
@@ -1755,7 +1755,7 @@ If(!IsBlank(Self.ActionPayload),
                                             )},
                                             Patch('Report - PBS Hub', LookUp('Report - PBS Hub', ID = cur.ID), {Attachment: Text(up.webUrl)}))
                                     );
-                                    // Durasi bisa ikut direvisi: status jadwal dihitung ulang oleh control (Waiting Report / Done).
+                                    // Durasi bisa ikut direvisi: status jadwal dihitung ulang oleh control (Waiting Report / Finished).
                                     If(!IsBlank(Text(p.scheduleStatus)),
                                         Patch('Schedule - PBS Hub', LookUp('Schedule - PBS Hub', Title = cur.ScheduleID && HostID = varMe.Title), {Status: {Value: Text(p.scheduleStatus)}}));
                                     // Angka berubah → Tier hari itu dihitung ulang.
