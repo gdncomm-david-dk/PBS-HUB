@@ -671,128 +671,133 @@ If(!IsBlank(Self.ActionPayload),
                             If(
                                 IsBlank(s) || s.Title <> Text(p.scheduleId) || s.HostID <> varMe.Title,
                                     Set(varHdResult, JSON({requestId: rid, status: "error", message: "Jadwal " & Text(p.scheduleId) & " tidak ditemukan untuk akunmu. Muat ulang dulu."}, JSONFormat.Compact)),
-                                // Sudah ada absen, tapi jadwal masih Planned (absen lama gagal di tengah): betulkan, jangan tolak.
-                                !IsBlank(ex) && s.Status.Value <> "Waiting Report" && s.Status.Value <> "Finished" && s.Status.Value <> "Done",
-                                    IfError(
-                                        Patch('Schedule - PBS Hub', s, {Status: {Value: st}});
-                                        Patch('Host Absence - PBS Hub', ex, {Status: {Value: "Hadir"}});
-                                        If(!(ex.ID in colMyAbs.ID), Collect(colMyAbs, LookUp('Host Absence - PBS Hub', ID = ex.ID)));
-                                        ClearCollect(colMySch, Filter('Schedule - PBS Hub', HostID = varMe.Title, Date >= Today() - 7, Date <= Today() + 7));
-                                        ClearCollect(colMyRep, Filter('Report - PBS Hub', HostID = varMe.Title, LiveDate >= Today() - 30));
-                                        Set(varHdResult, JSON({requestId: rid, status: "ok", message: "Absen sudah tercatat, status jadwal diperbarui ke " & st & "."}, JSONFormat.Compact)),
-                                        Set(varHdResult, JSON({requestId: rid, status: "error", message: "Gagal memperbarui status jadwal: " & FirstError.Message}, JSONFormat.Compact))
-                                    ),
-                                !IsBlank(ex),
+                                !IsBlank(ex) && (s.Status.Value = "Waiting Report" || s.Status.Value = "Finished" || s.Status.Value = "Done"),
                                     Set(varHdResult, JSON({requestId: rid, status: "conflict", message: "Absen sesi ini sudah tercatat."}, JSONFormat.Compact)),
-                                IfError(
-                                    // 1. Status jadwal dulu: kalau gagal, belum ada baris absen yang tertinggal.
-                                    Patch('Schedule - PBS Hub', s, {Status: {Value: st}});
-                                    // 2. Baris absen, Status Hadir.
-                                    With({row: Patch('Host Absence - PBS Hub', Defaults('Host Absence - PBS Hub'), {
-                                            ScheduleID: s.Title, HostID: varMe.Title, HostName: Text(p.hostName), LiveDate: s.Date,
-                                            BrandID: s.BrandID, Platform: {Value: s.Platform.Value},
-                                            Account: LookUp(Choices([@'Host Absence - PBS Hub'].Account), Value = s.Account || Value = LookUp(colAccounts, Title = s.Account).AccountName),
-                                            Status: {Value: "Hadir"}   // Choice Status di Host Absence; kalau kolomnya teks: Status: "Hadir"
-                                        })},
-                                        Patch('Host Absence - PBS Hub', row, {Title: "ABS-" & row.ID});
-                                        Collect(colMyAbs, LookUp('Host Absence - PBS Hub', ID = row.ID));
-                                        // 3. Live Break: host tidak perlu report, tapi baris Report tetap dibuat, semua angka 0.
-                                        If(lb,
-                                            Patch('Schedule - PBS Hub', LookUp('Schedule - PBS Hub', ID = s.ID), {LiveBreak: {Value: "Yes"}});   // Choice Yes/No
-                                            With({rep: Patch('Report - PBS Hub', Defaults('Report - PBS Hub'), {
-                                                    ScheduleID: s.Title, HostID: varMe.Title, BrandID: s.BrandID, Platform: {Value: s.Platform.Value},
-                                                    AccountID: s.Account, Account: LookUp(Choices([@'Report - PBS Hub'].Account), Value = s.Account || Value = LookUp(colAccounts, Title = s.Account).AccountName), LiveDate: s.Date, AbsID: "ABS-" & row.ID,
-                                                    Penjualan: 0, Pesanan: 0, ProdukTerjual: 0, JumlahPembeli: 0, CTR: 0, CTOR: 0, PeakViewer: 0,
-                                                    'Durasi(Min)': 0, AddToCart: 0, TotalViewer: 0, Comment: 0,
-                                                    ApprovalStatus: {Value: "LiveBreak"}
-                                                })},
-                                                Patch('Report - PBS Hub', rep, {Title: "REP-" & rep.ID})
-                                            );
-                                            // ---- Tier harian di Clock In: host ini, tanggal s.Date. Aturan sama dengan hitung ulang bulanan.
-                                            IfError(
-                                                With({tDate: s.Date},
-                                                With({clk: LookUp('Clock In - PBS Hub', HostID = varMe.Title && ClockInDate = tDate),
-                                                      schDay: Filter('Schedule - PBS Hub', HostID = varMe.Title && Date = tDate),
-                                                      repDay: Filter('Report - PBS Hub', HostID = varMe.Title && LiveDate = tDate),
-                                                      t1: LookUp(colTierConfig, Title = "Tier 1"), t2: LookUp(colTierConfig, Title = "Tier 2"),
-                                                      t3: LookUp(colTierConfig, Title = "Tier 3")},
-                                                If(!IsBlank(clk),
-                                                // Segmen jadwal aktif (bukan Cancelled, jam lengkap). Lewat tengah malam: EndMin + 1440.
-                                                With({seg: ForAll(Filter(schDay, !IsBlank(StartTime) && !IsBlank(EndTime) && Status.Value <> "Cancelled") As S,
-                                                            With({sm: Hour(TimeValue(S.StartTime)) * 60 + Minute(TimeValue(S.StartTime)),
-                                                                  em: Hour(TimeValue(S.EndTime)) * 60 + Minute(TimeValue(S.EndTime))},
-                                                                {Title: S.Title, BrandID: S.BrandID, StartTime: S.StartTime, EndTime: S.EndTime,
-                                                                 Co: S.Position.Value = "Co-Host",          // "Host" / "Main Host" = main host
-                                                                 StartMin: sm, EndMin: If(em >= sm, em, em + 1440)}))},
-                                                With({mainSeg: Filter(seg, !Co), mainMin: Sum(Filter(seg, !Co), EndMin - StartMin), coMin: Sum(Filter(seg, Co), EndMin - StartMin)},
-                                                // Grid 15 menit selama 2 hari (0–2880): slot yang tertutup jadwal main host.
-                                                With({slots: ForAll(Sequence(2880 / varSlotMin, 0, 1) As Sl,
-                                                            With({ms: Sl.Value * varSlotMin}, {SlotStart: ms, Covered: !IsEmpty(Filter(mainSeg, StartMin <= ms && EndMin > ms))}))},
-                                                With({liveMin: CountRows(Filter(slots, Covered)) * varSlotMin,
-                                                      t1Win: CountRows(Filter(slots, Covered && (SlotStart < 360 || (SlotStart >= 1440 && SlotStart < 1800)))) * varSlotMin,     // 00:00–06:00
-                                                      t2Win: CountRows(Filter(slots, Covered && ((SlotStart >= 1260 && SlotStart < 1440) || SlotStart >= 2700))) * varSlotMin,  // 21:00–24:00
-                                                      // Akun terbaik hari itu: TotalViewer dijumlah, Peak dan CTR diambil maksimum.
-                                                      best: First(Sort(ForAll(Distinct(repDay, Account.Value) As D,
-                                                                With({r: Filter(repDay, Account.Value = D.Value)},
-                                                                    {Account: D.Value, TotalViewer: Sum(r, TotalViewer), PeakViewer: Max(r, PeakViewer), CTR: Max(r, CTR)})),
-                                                            TotalViewer * PeakViewer * CTR, SortOrder.Descending))},
-                                                With({m1: !IsBlank(best) && best.TotalViewer >= t1.MinViews && best.CTR >= t1.CTR && best.PeakViewer >= t1.AvgViewDur,
-                                                      m2: !IsBlank(best) && best.TotalViewer >= t2.MinViews && best.CTR >= t2.CTR && best.PeakViewer >= t2.AvgViewDur,
-                                                      m3: !IsBlank(best) && best.TotalViewer >= t3.MinViews && best.CTR >= t3.CTR && best.PeakViewer >= t3.AvgViewDur,
-                                                      d1: liveMin >= t1.Duration * 60, d2: liveMin >= t2.Duration * 60, d3: liveMin >= t3.Duration * 60,
-                                                      w1: t1Win >= varT1MinInWindow, w2: t2Win >= varT2MinInWindow,
-                                                      jam: Round(liveMin / 60, 2), main: mainMin > coMin,
-                                                      hol: tDate in varHolidays, wkd: Weekday(tDate) = 1 || Weekday(tDate) = 7},
-                                                With({calc: If(m1 || d1 || w1, "Tier 1", m2 || d2 || w2, "Tier 2", m3 || d3, "Tier 3", "No")},
-                                                // Urutan: Co-Host mayoritas → No; tanggal merah → Tier 1; Sabtu/Minggu → minimal Tier 2.
-                                                With({tier: If(!main, "No", hol, "Tier 1", wkd && calc <> "Tier 1", "Tier 2", calc)},
-                                                    Patch('Clock In - PBS Hub', clk, {
-                                                        Tier: {Value: tier},
-                                                        Insentif: Switch(tier, "Tier 1", 75000, "Tier 2", 65000, "Tier 3", 55000, 0),
-                                                        TotalReports: CountRows(repDay),
-                                                        LastTierUpdate: Now(),
-                                                        Reason: If(
-                                                            !main,
-                                                                If(mainMin = 0, "Tidak mendapatkan Tier karena hanya sebagai Co-Host. Main Host: 0 jam, Co-Host: " & Round(coMin / 60, 2) & " jam",
-                                                                    "Tidak eligible Tier karena durasi Co-Host lebih besar atau sama dengan Main Host. Main Host: " &
-                                                                    Round(mainMin / 60, 2) & " jam, Co-Host: " & Round(coMin / 60, 2) & " jam"),
-                                                            hol, "Auto Tier 1 karena Tanggal Merah (Libur Nasional)",
-                                                            tier = "No",
-                                                                "Belum mencapai target minimum. Views: " & Coalesce(best.TotalViewer, 0) & " (min " & t3.MinViews & "), CTR: " &
-                                                                Coalesce(best.CTR, 0) & " (min " & t3.CTR & "), Peak: " & Coalesce(best.PeakViewer, 0) & " (min " & t3.AvgViewDur &
-                                                                "), Durasi: " & jam & " jam (min " & t3.Duration & " jam)",
-                                                            tier & " karena " & Concat(Filter([
-                                                                If(w1, "Jam Live 00:00-06:00 (" & t1Win & " menit, min " & varT1MinInWindow & ")", ""),
-                                                                If(w2, "Jam Live 21:00-24:00 (" & t2Win & " menit, min " & varT2MinInWindow & ")", ""),
-                                                                If(m1, "Metric Tier 1 (Views " & best.TotalViewer & ", CTR " & best.CTR & ", Peak " & best.PeakViewer & ")", ""),
-                                                                If(m2 && !m1, "Metric Tier 2 (Views " & best.TotalViewer & ", CTR " & best.CTR & ", Peak " & best.PeakViewer & ")", ""),
-                                                                If(m3 && !m2, "Metric Tier 3 (Views " & best.TotalViewer & ", CTR " & best.CTR & ", Peak " & best.PeakViewer & ")", ""),
-                                                                If(d1, "Durasi Live >= " & t1.Duration & " Jam (" & jam & " jam)", ""),
-                                                                If(d2 && !d1, "Durasi Live >= " & t2.Duration & " Jam (" & jam & " jam)", ""),
-                                                                If(d3 && !d2, "Durasi Live >= " & t3.Duration & " Jam (" & jam & " jam)", ""),
-                                                                If(wkd && calc <> "Tier 1", "Weekend (Auto Tier 2 minimum)", ""),
-                                                                If(wkd && calc = "Tier 1", "Weekend + memenuhi syarat Tier 1", "")
-                                                            ], Value <> ""), Value, " + ")
-                                                        ),
-                                                        Total_Jam_Live: If(main, jam, 0),
-                                                        Schedule: If(main,
-                                                            Concat(Sort(mainSeg, StartMin), With({b: BrandID},
-                                                                Title & "_" & LookUp(colBrands, Title = b).NamaBrand & "_" & Substitute(StartTime, ":", ".") & "-" & Substitute(EndTime, ":", ".")), ", "),
-                                                            "Not Eligible - Main Host " & Round(mainMin / 60, 2) & " jam vs Co-Host " & Round(coMin / 60, 2) & " jam"),
-                                                        statusupdate: If(clk.Tier.Value = tier, "Tier tetap " & tier & " (tidak ada perubahan)",
-                                                            "Berhasil update dari " & Coalesce(clk.Tier.Value, "-") & " → " & tier)
-                                                    });
-                                                    true   // IfError butuh tipe yang sama dengan Notify (Boolean), bukan record hasil Patch
-                                                )))))))))),
-                                                // Report tetap tersimpan kalau hitung Tier gagal; hitung ulang bulanan akan membetulkannya.
-                                                Notify("Report tersimpan, tapi Tier belum terhitung: " & FirstError.Message, NotificationType.Warning)
+                                // 1. Status jadwal. Gagal → pesan error asli, belum ada yang ditulis.
+                                With({sp: IfError(Patch('Schedule - PBS Hub', s, {Status: {Value: st}}),
+                                            Set(varHdResult, JSON({requestId: rid, status: "error", message: "Gagal mengubah status jadwal ke " & st & ": " & FirstError.Message}, JSONFormat.Compact)); Blank())},
+                                    If(!IsBlank(sp),
+                                        If(
+                                            // Sudah ada absen (absen lama gagal di tengah): cukup lengkapi Status Hadir.
+                                            !IsBlank(ex),
+                                                If(!IsBlank(IfError(Patch('Host Absence - PBS Hub', ex, {Status: {Value: "Hadir"}}),
+                                                        Set(varHdResult, JSON({requestId: rid, status: "error", message: "Status jadwal sudah " & st & ", tapi Status Hadir gagal diisi: " & FirstError.Message}, JSONFormat.Compact)); Blank())),
+                                                    If(!(ex.ID in colMyAbs.ID), Collect(colMyAbs, LookUp('Host Absence - PBS Hub', ID = ex.ID)));
+                                                    ClearCollect(colMySch, Filter('Schedule - PBS Hub', HostID = varMe.Title, Date >= Today() - 7, Date <= Today() + 7));
+                                                    ClearCollect(colMyRep, Filter('Report - PBS Hub', HostID = varMe.Title, LiveDate >= Today() - 30));
+                                                    Set(varHdResult, JSON({requestId: rid, status: "ok", message: "Absen sudah tercatat. Status jadwal sekarang " & LookUp('Schedule - PBS Hub', ID = s.ID).Status.Value & "."}, JSONFormat.Compact))
+                                                ),
+                                            // 2. Baris absen baru, Status Hadir.
+                                            With({row: IfError(Patch('Host Absence - PBS Hub', Defaults('Host Absence - PBS Hub'), {
+                                                        ScheduleID: s.Title, HostID: varMe.Title, HostName: Text(p.hostName), LiveDate: s.Date,
+                                                        BrandID: s.BrandID, Platform: {Value: s.Platform.Value},
+                                                        Account: LookUp(Choices([@'Host Absence - PBS Hub'].Account), Value = s.Account || Value = LookUp(colAccounts, Title = s.Account).AccountName),
+                                                        Status: {Value: "Hadir"}   // Choice Status di Host Absence; kalau kolomnya teks: Status: "Hadir"
+                                                    }),
+                                                    Set(varHdResult, JSON({requestId: rid, status: "error", message: "Status jadwal sudah " & st & ", tapi absen gagal dicatat: " & FirstError.Message}, JSONFormat.Compact)); Blank())},
+                                                If(!IsBlank(row),
+                                                    Patch('Host Absence - PBS Hub', row, {Title: "ABS-" & row.ID});
+                                                    Collect(colMyAbs, LookUp('Host Absence - PBS Hub', ID = row.ID));
+                                                    // 3. Live Break: host tidak perlu report, tapi baris Report tetap dibuat, semua angka 0.
+                                                    If(lb,
+                                                        Patch('Schedule - PBS Hub', LookUp('Schedule - PBS Hub', ID = s.ID), {LiveBreak: {Value: "Yes"}});   // Choice Yes/No
+                                                        With({rep: Patch('Report - PBS Hub', Defaults('Report - PBS Hub'), {
+                                                                ScheduleID: s.Title, HostID: varMe.Title, BrandID: s.BrandID, Platform: {Value: s.Platform.Value},
+                                                                AccountID: s.Account, Account: LookUp(Choices([@'Report - PBS Hub'].Account), Value = s.Account || Value = LookUp(colAccounts, Title = s.Account).AccountName), LiveDate: s.Date, AbsID: "ABS-" & row.ID,
+                                                                Penjualan: 0, Pesanan: 0, ProdukTerjual: 0, JumlahPembeli: 0, CTR: 0, CTOR: 0, PeakViewer: 0,
+                                                                'Durasi(Min)': 0, AddToCart: 0, TotalViewer: 0, Comment: 0,
+                                                                ApprovalStatus: {Value: "LiveBreak"}
+                                                            })},
+                                                            Patch('Report - PBS Hub', rep, {Title: "REP-" & rep.ID})
+                                                        );
+                                                        // ---- Tier harian di Clock In: host ini, tanggal s.Date. Aturan sama dengan hitung ulang bulanan.
+                                                        IfError(
+                                                            With({tDate: s.Date},
+                                                            With({clk: LookUp('Clock In - PBS Hub', HostID = varMe.Title && ClockInDate = tDate),
+                                                                  schDay: Filter('Schedule - PBS Hub', HostID = varMe.Title && Date = tDate),
+                                                                  repDay: Filter('Report - PBS Hub', HostID = varMe.Title && LiveDate = tDate),
+                                                                  t1: LookUp(colTierConfig, Title = "Tier 1"), t2: LookUp(colTierConfig, Title = "Tier 2"),
+                                                                  t3: LookUp(colTierConfig, Title = "Tier 3")},
+                                                            If(!IsBlank(clk),
+                                                            // Segmen jadwal aktif (bukan Cancelled, jam lengkap). Lewat tengah malam: EndMin + 1440.
+                                                            With({seg: ForAll(Filter(schDay, !IsBlank(StartTime) && !IsBlank(EndTime) && Status.Value <> "Cancelled") As S,
+                                                                        With({sm: Hour(TimeValue(S.StartTime)) * 60 + Minute(TimeValue(S.StartTime)),
+                                                                              em: Hour(TimeValue(S.EndTime)) * 60 + Minute(TimeValue(S.EndTime))},
+                                                                            {Title: S.Title, BrandID: S.BrandID, StartTime: S.StartTime, EndTime: S.EndTime,
+                                                                             Co: S.Position.Value = "Co-Host",          // "Host" / "Main Host" = main host
+                                                                             StartMin: sm, EndMin: If(em >= sm, em, em + 1440)}))},
+                                                            With({mainSeg: Filter(seg, !Co), mainMin: Sum(Filter(seg, !Co), EndMin - StartMin), coMin: Sum(Filter(seg, Co), EndMin - StartMin)},
+                                                            // Grid 15 menit selama 2 hari (0–2880): slot yang tertutup jadwal main host.
+                                                            With({slots: ForAll(Sequence(2880 / varSlotMin, 0, 1) As Sl,
+                                                                        With({ms: Sl.Value * varSlotMin}, {SlotStart: ms, Covered: !IsEmpty(Filter(mainSeg, StartMin <= ms && EndMin > ms))}))},
+                                                            With({liveMin: CountRows(Filter(slots, Covered)) * varSlotMin,
+                                                                  t1Win: CountRows(Filter(slots, Covered && (SlotStart < 360 || (SlotStart >= 1440 && SlotStart < 1800)))) * varSlotMin,     // 00:00–06:00
+                                                                  t2Win: CountRows(Filter(slots, Covered && ((SlotStart >= 1260 && SlotStart < 1440) || SlotStart >= 2700))) * varSlotMin,  // 21:00–24:00
+                                                                  // Akun terbaik hari itu: TotalViewer dijumlah, Peak dan CTR diambil maksimum.
+                                                                  best: First(Sort(ForAll(Distinct(repDay, Account.Value) As D,
+                                                                            With({r: Filter(repDay, Account.Value = D.Value)},
+                                                                                {Account: D.Value, TotalViewer: Sum(r, TotalViewer), PeakViewer: Max(r, PeakViewer), CTR: Max(r, CTR)})),
+                                                                        TotalViewer * PeakViewer * CTR, SortOrder.Descending))},
+                                                            With({m1: !IsBlank(best) && best.TotalViewer >= t1.MinViews && best.CTR >= t1.CTR && best.PeakViewer >= t1.AvgViewDur,
+                                                                  m2: !IsBlank(best) && best.TotalViewer >= t2.MinViews && best.CTR >= t2.CTR && best.PeakViewer >= t2.AvgViewDur,
+                                                                  m3: !IsBlank(best) && best.TotalViewer >= t3.MinViews && best.CTR >= t3.CTR && best.PeakViewer >= t3.AvgViewDur,
+                                                                  d1: liveMin >= t1.Duration * 60, d2: liveMin >= t2.Duration * 60, d3: liveMin >= t3.Duration * 60,
+                                                                  w1: t1Win >= varT1MinInWindow, w2: t2Win >= varT2MinInWindow,
+                                                                  jam: Round(liveMin / 60, 2), main: mainMin > coMin,
+                                                                  hol: tDate in varHolidays, wkd: Weekday(tDate) = 1 || Weekday(tDate) = 7},
+                                                            With({calc: If(m1 || d1 || w1, "Tier 1", m2 || d2 || w2, "Tier 2", m3 || d3, "Tier 3", "No")},
+                                                            // Urutan: Co-Host mayoritas → No; tanggal merah → Tier 1; Sabtu/Minggu → minimal Tier 2.
+                                                            With({tier: If(!main, "No", hol, "Tier 1", wkd && calc <> "Tier 1", "Tier 2", calc)},
+                                                                Patch('Clock In - PBS Hub', clk, {
+                                                                    Tier: {Value: tier},
+                                                                    Insentif: Switch(tier, "Tier 1", 75000, "Tier 2", 65000, "Tier 3", 55000, 0),
+                                                                    TotalReports: CountRows(repDay),
+                                                                    LastTierUpdate: Now(),
+                                                                    Reason: If(
+                                                                        !main,
+                                                                            If(mainMin = 0, "Tidak mendapatkan Tier karena hanya sebagai Co-Host. Main Host: 0 jam, Co-Host: " & Round(coMin / 60, 2) & " jam",
+                                                                                "Tidak eligible Tier karena durasi Co-Host lebih besar atau sama dengan Main Host. Main Host: " &
+                                                                                Round(mainMin / 60, 2) & " jam, Co-Host: " & Round(coMin / 60, 2) & " jam"),
+                                                                        hol, "Auto Tier 1 karena Tanggal Merah (Libur Nasional)",
+                                                                        tier = "No",
+                                                                            "Belum mencapai target minimum. Views: " & Coalesce(best.TotalViewer, 0) & " (min " & t3.MinViews & "), CTR: " &
+                                                                            Coalesce(best.CTR, 0) & " (min " & t3.CTR & "), Peak: " & Coalesce(best.PeakViewer, 0) & " (min " & t3.AvgViewDur &
+                                                                            "), Durasi: " & jam & " jam (min " & t3.Duration & " jam)",
+                                                                        tier & " karena " & Concat(Filter([
+                                                                            If(w1, "Jam Live 00:00-06:00 (" & t1Win & " menit, min " & varT1MinInWindow & ")", ""),
+                                                                            If(w2, "Jam Live 21:00-24:00 (" & t2Win & " menit, min " & varT2MinInWindow & ")", ""),
+                                                                            If(m1, "Metric Tier 1 (Views " & best.TotalViewer & ", CTR " & best.CTR & ", Peak " & best.PeakViewer & ")", ""),
+                                                                            If(m2 && !m1, "Metric Tier 2 (Views " & best.TotalViewer & ", CTR " & best.CTR & ", Peak " & best.PeakViewer & ")", ""),
+                                                                            If(m3 && !m2, "Metric Tier 3 (Views " & best.TotalViewer & ", CTR " & best.CTR & ", Peak " & best.PeakViewer & ")", ""),
+                                                                            If(d1, "Durasi Live >= " & t1.Duration & " Jam (" & jam & " jam)", ""),
+                                                                            If(d2 && !d1, "Durasi Live >= " & t2.Duration & " Jam (" & jam & " jam)", ""),
+                                                                            If(d3 && !d2, "Durasi Live >= " & t3.Duration & " Jam (" & jam & " jam)", ""),
+                                                                            If(wkd && calc <> "Tier 1", "Weekend (Auto Tier 2 minimum)", ""),
+                                                                            If(wkd && calc = "Tier 1", "Weekend + memenuhi syarat Tier 1", "")
+                                                                        ], Value <> ""), Value, " + ")
+                                                                    ),
+                                                                    Total_Jam_Live: If(main, jam, 0),
+                                                                    Schedule: If(main,
+                                                                        Concat(Sort(mainSeg, StartMin), With({b: BrandID},
+                                                                            Title & "_" & LookUp(colBrands, Title = b).NamaBrand & "_" & Substitute(StartTime, ":", ".") & "-" & Substitute(EndTime, ":", ".")), ", "),
+                                                                        "Not Eligible - Main Host " & Round(mainMin / 60, 2) & " jam vs Co-Host " & Round(coMin / 60, 2) & " jam"),
+                                                                    statusupdate: If(clk.Tier.Value = tier, "Tier tetap " & tier & " (tidak ada perubahan)",
+                                                                        "Berhasil update dari " & Coalesce(clk.Tier.Value, "-") & " → " & tier)
+                                                                });
+                                                                true   // IfError butuh tipe yang sama dengan Notify (Boolean), bukan record hasil Patch
+                                                            )))))))))),
+                                                            // Report tetap tersimpan kalau hitung Tier gagal; hitung ulang bulanan akan membetulkannya.
+                                                            Notify("Report tersimpan, tapi Tier belum terhitung: " & FirstError.Message, NotificationType.Warning)
+                                                        )
+                                                    );
+                                                    ClearCollect(colMySch, Filter('Schedule - PBS Hub', HostID = varMe.Title, Date >= Today() - 7, Date <= Today() + 7));
+                                                    ClearCollect(colMyRep, Filter('Report - PBS Hub', HostID = varMe.Title, LiveDate >= Today() - 30));
+                                                    // Pesan membaca ulang SharePoint, jadi yang tampil adalah status yang benar-benar tersimpan.
+                                                    Set(varHdResult, JSON({requestId: rid, status: "ok", message: If(lb, "Absen tercatat (ABS-" & row.ID & "). Live Break: report 0 dibuat otomatis.", "Absen tercatat (ABS-" & row.ID & "). Status jadwal sekarang " & LookUp('Schedule - PBS Hub', ID = s.ID).Status.Value & ".")}, JSONFormat.Compact))
+                                                )
                                             )
                                         )
-                                    );
-                                    ClearCollect(colMySch, Filter('Schedule - PBS Hub', HostID = varMe.Title, Date >= Today() - 7, Date <= Today() + 7));
-                                    ClearCollect(colMyRep, Filter('Report - PBS Hub', HostID = varMe.Title, LiveDate >= Today() - 30));
-                                    Set(varHdResult, JSON({requestId: rid, status: "ok", message: If(lb, "Absen tercatat. Live Break: report 0 dibuat otomatis.", "Absen tercatat untuk " & Text(p.scheduleId) & ". Status jadwal: " & st & ".")}, JSONFormat.Compact)),
-                                    Set(varHdResult, JSON({requestId: rid, status: "error", message: "Gagal absen: " & FirstError.Message}, JSONFormat.Compact))
+                                    )
                                 )
                             )
                         ),
@@ -867,128 +872,133 @@ If(!IsBlank(Self.ActionPayload),
                             If(
                                 IsBlank(s) || s.Title <> Text(p.scheduleId) || s.HostID <> varMe.Title,
                                     Set(varMrdResult, JSON({requestId: rid, status: "error", message: "Jadwal " & Text(p.scheduleId) & " tidak ditemukan untuk akunmu. Muat ulang dulu."}, JSONFormat.Compact)),
-                                // Sudah ada absen, tapi jadwal masih Planned (absen lama gagal di tengah): betulkan, jangan tolak.
-                                !IsBlank(ex) && s.Status.Value <> "Waiting Report" && s.Status.Value <> "Finished" && s.Status.Value <> "Done",
-                                    IfError(
-                                        Patch('Schedule - PBS Hub', s, {Status: {Value: st}});
-                                        Patch('Host Absence - PBS Hub', ex, {Status: {Value: "Hadir"}});
-                                        If(!(ex.ID in colMrdAbs.ID), Collect(colMrdAbs, LookUp('Host Absence - PBS Hub', ID = ex.ID)));
-                                        Set(varMrdSch, LookUp('Schedule - PBS Hub', ID = varMrdSch.ID));
-                                        ClearCollect(colMrdSesRep, Filter('Report - PBS Hub', HostID = varMe.Title, ScheduleID = varMrdSch.Title));
-                                        Set(varMrdResult, JSON({requestId: rid, status: "ok", message: "Absen sudah tercatat, status jadwal diperbarui ke " & st & "."}, JSONFormat.Compact)),
-                                        Set(varMrdResult, JSON({requestId: rid, status: "error", message: "Gagal memperbarui status jadwal: " & FirstError.Message}, JSONFormat.Compact))
-                                    ),
-                                !IsBlank(ex),
+                                !IsBlank(ex) && (s.Status.Value = "Waiting Report" || s.Status.Value = "Finished" || s.Status.Value = "Done"),
                                     Set(varMrdResult, JSON({requestId: rid, status: "conflict", message: "Absen sesi ini sudah tercatat."}, JSONFormat.Compact)),
-                                IfError(
-                                    // 1. Status jadwal dulu: kalau gagal, belum ada baris absen yang tertinggal.
-                                    Patch('Schedule - PBS Hub', s, {Status: {Value: st}});
-                                    // 2. Baris absen, Status Hadir.
-                                    With({row: Patch('Host Absence - PBS Hub', Defaults('Host Absence - PBS Hub'), {
-                                            ScheduleID: s.Title, HostID: varMe.Title, HostName: Text(p.hostName), LiveDate: s.Date,
-                                            BrandID: s.BrandID, Platform: {Value: s.Platform.Value},
-                                            Account: LookUp(Choices([@'Host Absence - PBS Hub'].Account), Value = s.Account || Value = LookUp(colAccounts, Title = s.Account).AccountName),
-                                            Status: {Value: "Hadir"}   // Choice Status di Host Absence; kalau kolomnya teks: Status: "Hadir"
-                                        })},
-                                        Patch('Host Absence - PBS Hub', row, {Title: "ABS-" & row.ID});
-                                        Collect(colMrdAbs, LookUp('Host Absence - PBS Hub', ID = row.ID));
-                                        // 3. Live Break: host tidak perlu report, tapi baris Report tetap dibuat, semua angka 0.
-                                        If(lb,
-                                            Patch('Schedule - PBS Hub', LookUp('Schedule - PBS Hub', ID = s.ID), {LiveBreak: {Value: "Yes"}});   // Choice Yes/No
-                                            With({rep: Patch('Report - PBS Hub', Defaults('Report - PBS Hub'), {
-                                                    ScheduleID: s.Title, HostID: varMe.Title, BrandID: s.BrandID, Platform: {Value: s.Platform.Value},
-                                                    AccountID: s.Account, Account: LookUp(Choices([@'Report - PBS Hub'].Account), Value = s.Account || Value = LookUp(colAccounts, Title = s.Account).AccountName), LiveDate: s.Date, AbsID: "ABS-" & row.ID,
-                                                    Penjualan: 0, Pesanan: 0, ProdukTerjual: 0, JumlahPembeli: 0, CTR: 0, CTOR: 0, PeakViewer: 0,
-                                                    'Durasi(Min)': 0, AddToCart: 0, TotalViewer: 0, Comment: 0,
-                                                    ApprovalStatus: {Value: "LiveBreak"}
-                                                })},
-                                                Patch('Report - PBS Hub', rep, {Title: "REP-" & rep.ID})
-                                            );
-                                            // ---- Tier harian di Clock In: host ini, tanggal s.Date. Aturan sama dengan hitung ulang bulanan.
-                                            IfError(
-                                                With({tDate: s.Date},
-                                                With({clk: LookUp('Clock In - PBS Hub', HostID = varMe.Title && ClockInDate = tDate),
-                                                      schDay: Filter('Schedule - PBS Hub', HostID = varMe.Title && Date = tDate),
-                                                      repDay: Filter('Report - PBS Hub', HostID = varMe.Title && LiveDate = tDate),
-                                                      t1: LookUp(colTierConfig, Title = "Tier 1"), t2: LookUp(colTierConfig, Title = "Tier 2"),
-                                                      t3: LookUp(colTierConfig, Title = "Tier 3")},
-                                                If(!IsBlank(clk),
-                                                // Segmen jadwal aktif (bukan Cancelled, jam lengkap). Lewat tengah malam: EndMin + 1440.
-                                                With({seg: ForAll(Filter(schDay, !IsBlank(StartTime) && !IsBlank(EndTime) && Status.Value <> "Cancelled") As S,
-                                                            With({sm: Hour(TimeValue(S.StartTime)) * 60 + Minute(TimeValue(S.StartTime)),
-                                                                  em: Hour(TimeValue(S.EndTime)) * 60 + Minute(TimeValue(S.EndTime))},
-                                                                {Title: S.Title, BrandID: S.BrandID, StartTime: S.StartTime, EndTime: S.EndTime,
-                                                                 Co: S.Position.Value = "Co-Host",          // "Host" / "Main Host" = main host
-                                                                 StartMin: sm, EndMin: If(em >= sm, em, em + 1440)}))},
-                                                With({mainSeg: Filter(seg, !Co), mainMin: Sum(Filter(seg, !Co), EndMin - StartMin), coMin: Sum(Filter(seg, Co), EndMin - StartMin)},
-                                                // Grid 15 menit selama 2 hari (0–2880): slot yang tertutup jadwal main host.
-                                                With({slots: ForAll(Sequence(2880 / varSlotMin, 0, 1) As Sl,
-                                                            With({ms: Sl.Value * varSlotMin}, {SlotStart: ms, Covered: !IsEmpty(Filter(mainSeg, StartMin <= ms && EndMin > ms))}))},
-                                                With({liveMin: CountRows(Filter(slots, Covered)) * varSlotMin,
-                                                      t1Win: CountRows(Filter(slots, Covered && (SlotStart < 360 || (SlotStart >= 1440 && SlotStart < 1800)))) * varSlotMin,     // 00:00–06:00
-                                                      t2Win: CountRows(Filter(slots, Covered && ((SlotStart >= 1260 && SlotStart < 1440) || SlotStart >= 2700))) * varSlotMin,  // 21:00–24:00
-                                                      // Akun terbaik hari itu: TotalViewer dijumlah, Peak dan CTR diambil maksimum.
-                                                      best: First(Sort(ForAll(Distinct(repDay, Account.Value) As D,
-                                                                With({r: Filter(repDay, Account.Value = D.Value)},
-                                                                    {Account: D.Value, TotalViewer: Sum(r, TotalViewer), PeakViewer: Max(r, PeakViewer), CTR: Max(r, CTR)})),
-                                                            TotalViewer * PeakViewer * CTR, SortOrder.Descending))},
-                                                With({m1: !IsBlank(best) && best.TotalViewer >= t1.MinViews && best.CTR >= t1.CTR && best.PeakViewer >= t1.AvgViewDur,
-                                                      m2: !IsBlank(best) && best.TotalViewer >= t2.MinViews && best.CTR >= t2.CTR && best.PeakViewer >= t2.AvgViewDur,
-                                                      m3: !IsBlank(best) && best.TotalViewer >= t3.MinViews && best.CTR >= t3.CTR && best.PeakViewer >= t3.AvgViewDur,
-                                                      d1: liveMin >= t1.Duration * 60, d2: liveMin >= t2.Duration * 60, d3: liveMin >= t3.Duration * 60,
-                                                      w1: t1Win >= varT1MinInWindow, w2: t2Win >= varT2MinInWindow,
-                                                      jam: Round(liveMin / 60, 2), main: mainMin > coMin,
-                                                      hol: tDate in varHolidays, wkd: Weekday(tDate) = 1 || Weekday(tDate) = 7},
-                                                With({calc: If(m1 || d1 || w1, "Tier 1", m2 || d2 || w2, "Tier 2", m3 || d3, "Tier 3", "No")},
-                                                // Urutan: Co-Host mayoritas → No; tanggal merah → Tier 1; Sabtu/Minggu → minimal Tier 2.
-                                                With({tier: If(!main, "No", hol, "Tier 1", wkd && calc <> "Tier 1", "Tier 2", calc)},
-                                                    Patch('Clock In - PBS Hub', clk, {
-                                                        Tier: {Value: tier},
-                                                        Insentif: Switch(tier, "Tier 1", 75000, "Tier 2", 65000, "Tier 3", 55000, 0),
-                                                        TotalReports: CountRows(repDay),
-                                                        LastTierUpdate: Now(),
-                                                        Reason: If(
-                                                            !main,
-                                                                If(mainMin = 0, "Tidak mendapatkan Tier karena hanya sebagai Co-Host. Main Host: 0 jam, Co-Host: " & Round(coMin / 60, 2) & " jam",
-                                                                    "Tidak eligible Tier karena durasi Co-Host lebih besar atau sama dengan Main Host. Main Host: " &
-                                                                    Round(mainMin / 60, 2) & " jam, Co-Host: " & Round(coMin / 60, 2) & " jam"),
-                                                            hol, "Auto Tier 1 karena Tanggal Merah (Libur Nasional)",
-                                                            tier = "No",
-                                                                "Belum mencapai target minimum. Views: " & Coalesce(best.TotalViewer, 0) & " (min " & t3.MinViews & "), CTR: " &
-                                                                Coalesce(best.CTR, 0) & " (min " & t3.CTR & "), Peak: " & Coalesce(best.PeakViewer, 0) & " (min " & t3.AvgViewDur &
-                                                                "), Durasi: " & jam & " jam (min " & t3.Duration & " jam)",
-                                                            tier & " karena " & Concat(Filter([
-                                                                If(w1, "Jam Live 00:00-06:00 (" & t1Win & " menit, min " & varT1MinInWindow & ")", ""),
-                                                                If(w2, "Jam Live 21:00-24:00 (" & t2Win & " menit, min " & varT2MinInWindow & ")", ""),
-                                                                If(m1, "Metric Tier 1 (Views " & best.TotalViewer & ", CTR " & best.CTR & ", Peak " & best.PeakViewer & ")", ""),
-                                                                If(m2 && !m1, "Metric Tier 2 (Views " & best.TotalViewer & ", CTR " & best.CTR & ", Peak " & best.PeakViewer & ")", ""),
-                                                                If(m3 && !m2, "Metric Tier 3 (Views " & best.TotalViewer & ", CTR " & best.CTR & ", Peak " & best.PeakViewer & ")", ""),
-                                                                If(d1, "Durasi Live >= " & t1.Duration & " Jam (" & jam & " jam)", ""),
-                                                                If(d2 && !d1, "Durasi Live >= " & t2.Duration & " Jam (" & jam & " jam)", ""),
-                                                                If(d3 && !d2, "Durasi Live >= " & t3.Duration & " Jam (" & jam & " jam)", ""),
-                                                                If(wkd && calc <> "Tier 1", "Weekend (Auto Tier 2 minimum)", ""),
-                                                                If(wkd && calc = "Tier 1", "Weekend + memenuhi syarat Tier 1", "")
-                                                            ], Value <> ""), Value, " + ")
-                                                        ),
-                                                        Total_Jam_Live: If(main, jam, 0),
-                                                        Schedule: If(main,
-                                                            Concat(Sort(mainSeg, StartMin), With({b: BrandID},
-                                                                Title & "_" & LookUp(colBrands, Title = b).NamaBrand & "_" & Substitute(StartTime, ":", ".") & "-" & Substitute(EndTime, ":", ".")), ", "),
-                                                            "Not Eligible - Main Host " & Round(mainMin / 60, 2) & " jam vs Co-Host " & Round(coMin / 60, 2) & " jam"),
-                                                        statusupdate: If(clk.Tier.Value = tier, "Tier tetap " & tier & " (tidak ada perubahan)",
-                                                            "Berhasil update dari " & Coalesce(clk.Tier.Value, "-") & " → " & tier)
-                                                    });
-                                                    true   // IfError butuh tipe yang sama dengan Notify (Boolean), bukan record hasil Patch
-                                                )))))))))),
-                                                // Report tetap tersimpan kalau hitung Tier gagal; hitung ulang bulanan akan membetulkannya.
-                                                Notify("Report tersimpan, tapi Tier belum terhitung: " & FirstError.Message, NotificationType.Warning)
+                                // 1. Status jadwal. Gagal → pesan error asli, belum ada yang ditulis.
+                                With({sp: IfError(Patch('Schedule - PBS Hub', s, {Status: {Value: st}}),
+                                            Set(varMrdResult, JSON({requestId: rid, status: "error", message: "Gagal mengubah status jadwal ke " & st & ": " & FirstError.Message}, JSONFormat.Compact)); Blank())},
+                                    If(!IsBlank(sp),
+                                        If(
+                                            // Sudah ada absen (absen lama gagal di tengah): cukup lengkapi Status Hadir.
+                                            !IsBlank(ex),
+                                                If(!IsBlank(IfError(Patch('Host Absence - PBS Hub', ex, {Status: {Value: "Hadir"}}),
+                                                        Set(varMrdResult, JSON({requestId: rid, status: "error", message: "Status jadwal sudah " & st & ", tapi Status Hadir gagal diisi: " & FirstError.Message}, JSONFormat.Compact)); Blank())),
+                                                    If(!(ex.ID in colMrdAbs.ID), Collect(colMrdAbs, LookUp('Host Absence - PBS Hub', ID = ex.ID)));
+                                                    Set(varMrdSch, LookUp('Schedule - PBS Hub', ID = varMrdSch.ID));
+                                                    ClearCollect(colMrdSesRep, Filter('Report - PBS Hub', HostID = varMe.Title, ScheduleID = varMrdSch.Title));
+                                                    Set(varMrdResult, JSON({requestId: rid, status: "ok", message: "Absen sudah tercatat. Status jadwal sekarang " & LookUp('Schedule - PBS Hub', ID = s.ID).Status.Value & "."}, JSONFormat.Compact))
+                                                ),
+                                            // 2. Baris absen baru, Status Hadir.
+                                            With({row: IfError(Patch('Host Absence - PBS Hub', Defaults('Host Absence - PBS Hub'), {
+                                                        ScheduleID: s.Title, HostID: varMe.Title, HostName: Text(p.hostName), LiveDate: s.Date,
+                                                        BrandID: s.BrandID, Platform: {Value: s.Platform.Value},
+                                                        Account: LookUp(Choices([@'Host Absence - PBS Hub'].Account), Value = s.Account || Value = LookUp(colAccounts, Title = s.Account).AccountName),
+                                                        Status: {Value: "Hadir"}   // Choice Status di Host Absence; kalau kolomnya teks: Status: "Hadir"
+                                                    }),
+                                                    Set(varMrdResult, JSON({requestId: rid, status: "error", message: "Status jadwal sudah " & st & ", tapi absen gagal dicatat: " & FirstError.Message}, JSONFormat.Compact)); Blank())},
+                                                If(!IsBlank(row),
+                                                    Patch('Host Absence - PBS Hub', row, {Title: "ABS-" & row.ID});
+                                                    Collect(colMrdAbs, LookUp('Host Absence - PBS Hub', ID = row.ID));
+                                                    // 3. Live Break: host tidak perlu report, tapi baris Report tetap dibuat, semua angka 0.
+                                                    If(lb,
+                                                        Patch('Schedule - PBS Hub', LookUp('Schedule - PBS Hub', ID = s.ID), {LiveBreak: {Value: "Yes"}});   // Choice Yes/No
+                                                        With({rep: Patch('Report - PBS Hub', Defaults('Report - PBS Hub'), {
+                                                                ScheduleID: s.Title, HostID: varMe.Title, BrandID: s.BrandID, Platform: {Value: s.Platform.Value},
+                                                                AccountID: s.Account, Account: LookUp(Choices([@'Report - PBS Hub'].Account), Value = s.Account || Value = LookUp(colAccounts, Title = s.Account).AccountName), LiveDate: s.Date, AbsID: "ABS-" & row.ID,
+                                                                Penjualan: 0, Pesanan: 0, ProdukTerjual: 0, JumlahPembeli: 0, CTR: 0, CTOR: 0, PeakViewer: 0,
+                                                                'Durasi(Min)': 0, AddToCart: 0, TotalViewer: 0, Comment: 0,
+                                                                ApprovalStatus: {Value: "LiveBreak"}
+                                                            })},
+                                                            Patch('Report - PBS Hub', rep, {Title: "REP-" & rep.ID})
+                                                        );
+                                                        // ---- Tier harian di Clock In: host ini, tanggal s.Date. Aturan sama dengan hitung ulang bulanan.
+                                                        IfError(
+                                                            With({tDate: s.Date},
+                                                            With({clk: LookUp('Clock In - PBS Hub', HostID = varMe.Title && ClockInDate = tDate),
+                                                                  schDay: Filter('Schedule - PBS Hub', HostID = varMe.Title && Date = tDate),
+                                                                  repDay: Filter('Report - PBS Hub', HostID = varMe.Title && LiveDate = tDate),
+                                                                  t1: LookUp(colTierConfig, Title = "Tier 1"), t2: LookUp(colTierConfig, Title = "Tier 2"),
+                                                                  t3: LookUp(colTierConfig, Title = "Tier 3")},
+                                                            If(!IsBlank(clk),
+                                                            // Segmen jadwal aktif (bukan Cancelled, jam lengkap). Lewat tengah malam: EndMin + 1440.
+                                                            With({seg: ForAll(Filter(schDay, !IsBlank(StartTime) && !IsBlank(EndTime) && Status.Value <> "Cancelled") As S,
+                                                                        With({sm: Hour(TimeValue(S.StartTime)) * 60 + Minute(TimeValue(S.StartTime)),
+                                                                              em: Hour(TimeValue(S.EndTime)) * 60 + Minute(TimeValue(S.EndTime))},
+                                                                            {Title: S.Title, BrandID: S.BrandID, StartTime: S.StartTime, EndTime: S.EndTime,
+                                                                             Co: S.Position.Value = "Co-Host",          // "Host" / "Main Host" = main host
+                                                                             StartMin: sm, EndMin: If(em >= sm, em, em + 1440)}))},
+                                                            With({mainSeg: Filter(seg, !Co), mainMin: Sum(Filter(seg, !Co), EndMin - StartMin), coMin: Sum(Filter(seg, Co), EndMin - StartMin)},
+                                                            // Grid 15 menit selama 2 hari (0–2880): slot yang tertutup jadwal main host.
+                                                            With({slots: ForAll(Sequence(2880 / varSlotMin, 0, 1) As Sl,
+                                                                        With({ms: Sl.Value * varSlotMin}, {SlotStart: ms, Covered: !IsEmpty(Filter(mainSeg, StartMin <= ms && EndMin > ms))}))},
+                                                            With({liveMin: CountRows(Filter(slots, Covered)) * varSlotMin,
+                                                                  t1Win: CountRows(Filter(slots, Covered && (SlotStart < 360 || (SlotStart >= 1440 && SlotStart < 1800)))) * varSlotMin,     // 00:00–06:00
+                                                                  t2Win: CountRows(Filter(slots, Covered && ((SlotStart >= 1260 && SlotStart < 1440) || SlotStart >= 2700))) * varSlotMin,  // 21:00–24:00
+                                                                  // Akun terbaik hari itu: TotalViewer dijumlah, Peak dan CTR diambil maksimum.
+                                                                  best: First(Sort(ForAll(Distinct(repDay, Account.Value) As D,
+                                                                            With({r: Filter(repDay, Account.Value = D.Value)},
+                                                                                {Account: D.Value, TotalViewer: Sum(r, TotalViewer), PeakViewer: Max(r, PeakViewer), CTR: Max(r, CTR)})),
+                                                                        TotalViewer * PeakViewer * CTR, SortOrder.Descending))},
+                                                            With({m1: !IsBlank(best) && best.TotalViewer >= t1.MinViews && best.CTR >= t1.CTR && best.PeakViewer >= t1.AvgViewDur,
+                                                                  m2: !IsBlank(best) && best.TotalViewer >= t2.MinViews && best.CTR >= t2.CTR && best.PeakViewer >= t2.AvgViewDur,
+                                                                  m3: !IsBlank(best) && best.TotalViewer >= t3.MinViews && best.CTR >= t3.CTR && best.PeakViewer >= t3.AvgViewDur,
+                                                                  d1: liveMin >= t1.Duration * 60, d2: liveMin >= t2.Duration * 60, d3: liveMin >= t3.Duration * 60,
+                                                                  w1: t1Win >= varT1MinInWindow, w2: t2Win >= varT2MinInWindow,
+                                                                  jam: Round(liveMin / 60, 2), main: mainMin > coMin,
+                                                                  hol: tDate in varHolidays, wkd: Weekday(tDate) = 1 || Weekday(tDate) = 7},
+                                                            With({calc: If(m1 || d1 || w1, "Tier 1", m2 || d2 || w2, "Tier 2", m3 || d3, "Tier 3", "No")},
+                                                            // Urutan: Co-Host mayoritas → No; tanggal merah → Tier 1; Sabtu/Minggu → minimal Tier 2.
+                                                            With({tier: If(!main, "No", hol, "Tier 1", wkd && calc <> "Tier 1", "Tier 2", calc)},
+                                                                Patch('Clock In - PBS Hub', clk, {
+                                                                    Tier: {Value: tier},
+                                                                    Insentif: Switch(tier, "Tier 1", 75000, "Tier 2", 65000, "Tier 3", 55000, 0),
+                                                                    TotalReports: CountRows(repDay),
+                                                                    LastTierUpdate: Now(),
+                                                                    Reason: If(
+                                                                        !main,
+                                                                            If(mainMin = 0, "Tidak mendapatkan Tier karena hanya sebagai Co-Host. Main Host: 0 jam, Co-Host: " & Round(coMin / 60, 2) & " jam",
+                                                                                "Tidak eligible Tier karena durasi Co-Host lebih besar atau sama dengan Main Host. Main Host: " &
+                                                                                Round(mainMin / 60, 2) & " jam, Co-Host: " & Round(coMin / 60, 2) & " jam"),
+                                                                        hol, "Auto Tier 1 karena Tanggal Merah (Libur Nasional)",
+                                                                        tier = "No",
+                                                                            "Belum mencapai target minimum. Views: " & Coalesce(best.TotalViewer, 0) & " (min " & t3.MinViews & "), CTR: " &
+                                                                            Coalesce(best.CTR, 0) & " (min " & t3.CTR & "), Peak: " & Coalesce(best.PeakViewer, 0) & " (min " & t3.AvgViewDur &
+                                                                            "), Durasi: " & jam & " jam (min " & t3.Duration & " jam)",
+                                                                        tier & " karena " & Concat(Filter([
+                                                                            If(w1, "Jam Live 00:00-06:00 (" & t1Win & " menit, min " & varT1MinInWindow & ")", ""),
+                                                                            If(w2, "Jam Live 21:00-24:00 (" & t2Win & " menit, min " & varT2MinInWindow & ")", ""),
+                                                                            If(m1, "Metric Tier 1 (Views " & best.TotalViewer & ", CTR " & best.CTR & ", Peak " & best.PeakViewer & ")", ""),
+                                                                            If(m2 && !m1, "Metric Tier 2 (Views " & best.TotalViewer & ", CTR " & best.CTR & ", Peak " & best.PeakViewer & ")", ""),
+                                                                            If(m3 && !m2, "Metric Tier 3 (Views " & best.TotalViewer & ", CTR " & best.CTR & ", Peak " & best.PeakViewer & ")", ""),
+                                                                            If(d1, "Durasi Live >= " & t1.Duration & " Jam (" & jam & " jam)", ""),
+                                                                            If(d2 && !d1, "Durasi Live >= " & t2.Duration & " Jam (" & jam & " jam)", ""),
+                                                                            If(d3 && !d2, "Durasi Live >= " & t3.Duration & " Jam (" & jam & " jam)", ""),
+                                                                            If(wkd && calc <> "Tier 1", "Weekend (Auto Tier 2 minimum)", ""),
+                                                                            If(wkd && calc = "Tier 1", "Weekend + memenuhi syarat Tier 1", "")
+                                                                        ], Value <> ""), Value, " + ")
+                                                                    ),
+                                                                    Total_Jam_Live: If(main, jam, 0),
+                                                                    Schedule: If(main,
+                                                                        Concat(Sort(mainSeg, StartMin), With({b: BrandID},
+                                                                            Title & "_" & LookUp(colBrands, Title = b).NamaBrand & "_" & Substitute(StartTime, ":", ".") & "-" & Substitute(EndTime, ":", ".")), ", "),
+                                                                        "Not Eligible - Main Host " & Round(mainMin / 60, 2) & " jam vs Co-Host " & Round(coMin / 60, 2) & " jam"),
+                                                                    statusupdate: If(clk.Tier.Value = tier, "Tier tetap " & tier & " (tidak ada perubahan)",
+                                                                        "Berhasil update dari " & Coalesce(clk.Tier.Value, "-") & " → " & tier)
+                                                                });
+                                                                true   // IfError butuh tipe yang sama dengan Notify (Boolean), bukan record hasil Patch
+                                                            )))))))))),
+                                                            // Report tetap tersimpan kalau hitung Tier gagal; hitung ulang bulanan akan membetulkannya.
+                                                            Notify("Report tersimpan, tapi Tier belum terhitung: " & FirstError.Message, NotificationType.Warning)
+                                                        )
+                                                    );
+                                                    Set(varMrdSch, LookUp('Schedule - PBS Hub', ID = varMrdSch.ID));
+                                                    ClearCollect(colMrdSesRep, Filter('Report - PBS Hub', HostID = varMe.Title, ScheduleID = varMrdSch.Title));
+                                                    // Pesan membaca ulang SharePoint, jadi yang tampil adalah status yang benar-benar tersimpan.
+                                                    Set(varMrdResult, JSON({requestId: rid, status: "ok", message: If(lb, "Absen tercatat (ABS-" & row.ID & "). Live Break: report 0 dibuat otomatis.", "Absen tercatat (ABS-" & row.ID & "). Status jadwal sekarang " & LookUp('Schedule - PBS Hub', ID = s.ID).Status.Value & ".")}, JSONFormat.Compact))
+                                                )
                                             )
                                         )
-                                    );
-                                    Set(varMrdSch, LookUp('Schedule - PBS Hub', ID = varMrdSch.ID));
-                                    ClearCollect(colMrdSesRep, Filter('Report - PBS Hub', HostID = varMe.Title, ScheduleID = varMrdSch.Title));
-                                    Set(varMrdResult, JSON({requestId: rid, status: "ok", message: If(lb, "Absen tercatat. Live Break: report 0 dibuat otomatis.", "Absen tercatat untuk " & Text(p.scheduleId) & ". Status jadwal: " & st & ".")}, JSONFormat.Compact)),
-                                    Set(varMrdResult, JSON({requestId: rid, status: "error", message: "Gagal absen: " & FirstError.Message}, JSONFormat.Compact))
+                                    )
                                 )
                             )
                         ),
@@ -1291,132 +1301,137 @@ If(!IsBlank(Self.ActionPayload),
                             If(
                                 IsBlank(s) || s.Title <> Text(p.scheduleId) || s.HostID <> varMe.Title,
                                     Set(varMsResult, JSON({requestId: rid, status: "error", message: "Jadwal " & Text(p.scheduleId) & " tidak ditemukan untuk akunmu. Muat ulang dulu."}, JSONFormat.Compact)),
-                                // Sudah ada absen, tapi jadwal masih Planned (absen lama gagal di tengah): betulkan, jangan tolak.
-                                !IsBlank(ex) && s.Status.Value <> "Waiting Report" && s.Status.Value <> "Finished" && s.Status.Value <> "Done",
-                                    IfError(
-                                        Patch('Schedule - PBS Hub', s, {Status: {Value: st}});
-                                        Patch('Host Absence - PBS Hub', ex, {Status: {Value: "Hadir"}});
-                                        If(!(ex.ID in colMsAbs.ID), Collect(colMsAbs, LookUp('Host Absence - PBS Hub', ID = ex.ID)));
-                                        With({from: If(IsBlank(varMsPeriod), Date(Year(Today()), Month(Today()), 1), DateValue(varMsPeriod & "-01"))},
-                                            ClearCollect(colMsSch, Filter('Schedule - PBS Hub', HostID = varMe.Title, Date >= from, Date < DateAdd(from, 1, TimeUnit.Months)));
-                                            ClearCollect(colMsRep, Filter('Report - PBS Hub', HostID = varMe.Title, LiveDate >= from, LiveDate < DateAdd(from, 1, TimeUnit.Months)))
-                                        );
-                                        Set(varMsResult, JSON({requestId: rid, status: "ok", message: "Absen sudah tercatat, status jadwal diperbarui ke " & st & "."}, JSONFormat.Compact)),
-                                        Set(varMsResult, JSON({requestId: rid, status: "error", message: "Gagal memperbarui status jadwal: " & FirstError.Message}, JSONFormat.Compact))
-                                    ),
-                                !IsBlank(ex),
+                                !IsBlank(ex) && (s.Status.Value = "Waiting Report" || s.Status.Value = "Finished" || s.Status.Value = "Done"),
                                     Set(varMsResult, JSON({requestId: rid, status: "conflict", message: "Absen sesi ini sudah tercatat."}, JSONFormat.Compact)),
-                                IfError(
-                                    // 1. Status jadwal dulu: kalau gagal, belum ada baris absen yang tertinggal.
-                                    Patch('Schedule - PBS Hub', s, {Status: {Value: st}});
-                                    // 2. Baris absen, Status Hadir.
-                                    With({row: Patch('Host Absence - PBS Hub', Defaults('Host Absence - PBS Hub'), {
-                                            ScheduleID: s.Title, HostID: varMe.Title, HostName: Text(p.hostName), LiveDate: s.Date,
-                                            BrandID: s.BrandID, Platform: {Value: s.Platform.Value},
-                                            Account: LookUp(Choices([@'Host Absence - PBS Hub'].Account), Value = s.Account || Value = LookUp(colAccounts, Title = s.Account).AccountName),
-                                            Status: {Value: "Hadir"}   // Choice Status di Host Absence; kalau kolomnya teks: Status: "Hadir"
-                                        })},
-                                        Patch('Host Absence - PBS Hub', row, {Title: "ABS-" & row.ID});
-                                        Collect(colMsAbs, LookUp('Host Absence - PBS Hub', ID = row.ID));
-                                        // 3. Live Break: host tidak perlu report, tapi baris Report tetap dibuat, semua angka 0.
-                                        If(lb,
-                                            Patch('Schedule - PBS Hub', LookUp('Schedule - PBS Hub', ID = s.ID), {LiveBreak: {Value: "Yes"}});   // Choice Yes/No
-                                            With({rep: Patch('Report - PBS Hub', Defaults('Report - PBS Hub'), {
-                                                    ScheduleID: s.Title, HostID: varMe.Title, BrandID: s.BrandID, Platform: {Value: s.Platform.Value},
-                                                    AccountID: s.Account, Account: LookUp(Choices([@'Report - PBS Hub'].Account), Value = s.Account || Value = LookUp(colAccounts, Title = s.Account).AccountName), LiveDate: s.Date, AbsID: "ABS-" & row.ID,
-                                                    Penjualan: 0, Pesanan: 0, ProdukTerjual: 0, JumlahPembeli: 0, CTR: 0, CTOR: 0, PeakViewer: 0,
-                                                    'Durasi(Min)': 0, AddToCart: 0, TotalViewer: 0, Comment: 0,
-                                                    ApprovalStatus: {Value: "LiveBreak"}
-                                                })},
-                                                Patch('Report - PBS Hub', rep, {Title: "REP-" & rep.ID})
-                                            );
-                                            // ---- Tier harian di Clock In: host ini, tanggal s.Date. Aturan sama dengan hitung ulang bulanan.
-                                            IfError(
-                                                With({tDate: s.Date},
-                                                With({clk: LookUp('Clock In - PBS Hub', HostID = varMe.Title && ClockInDate = tDate),
-                                                      schDay: Filter('Schedule - PBS Hub', HostID = varMe.Title && Date = tDate),
-                                                      repDay: Filter('Report - PBS Hub', HostID = varMe.Title && LiveDate = tDate),
-                                                      t1: LookUp(colTierConfig, Title = "Tier 1"), t2: LookUp(colTierConfig, Title = "Tier 2"),
-                                                      t3: LookUp(colTierConfig, Title = "Tier 3")},
-                                                If(!IsBlank(clk),
-                                                // Segmen jadwal aktif (bukan Cancelled, jam lengkap). Lewat tengah malam: EndMin + 1440.
-                                                With({seg: ForAll(Filter(schDay, !IsBlank(StartTime) && !IsBlank(EndTime) && Status.Value <> "Cancelled") As S,
-                                                            With({sm: Hour(TimeValue(S.StartTime)) * 60 + Minute(TimeValue(S.StartTime)),
-                                                                  em: Hour(TimeValue(S.EndTime)) * 60 + Minute(TimeValue(S.EndTime))},
-                                                                {Title: S.Title, BrandID: S.BrandID, StartTime: S.StartTime, EndTime: S.EndTime,
-                                                                 Co: S.Position.Value = "Co-Host",          // "Host" / "Main Host" = main host
-                                                                 StartMin: sm, EndMin: If(em >= sm, em, em + 1440)}))},
-                                                With({mainSeg: Filter(seg, !Co), mainMin: Sum(Filter(seg, !Co), EndMin - StartMin), coMin: Sum(Filter(seg, Co), EndMin - StartMin)},
-                                                // Grid 15 menit selama 2 hari (0–2880): slot yang tertutup jadwal main host.
-                                                With({slots: ForAll(Sequence(2880 / varSlotMin, 0, 1) As Sl,
-                                                            With({ms: Sl.Value * varSlotMin}, {SlotStart: ms, Covered: !IsEmpty(Filter(mainSeg, StartMin <= ms && EndMin > ms))}))},
-                                                With({liveMin: CountRows(Filter(slots, Covered)) * varSlotMin,
-                                                      t1Win: CountRows(Filter(slots, Covered && (SlotStart < 360 || (SlotStart >= 1440 && SlotStart < 1800)))) * varSlotMin,     // 00:00–06:00
-                                                      t2Win: CountRows(Filter(slots, Covered && ((SlotStart >= 1260 && SlotStart < 1440) || SlotStart >= 2700))) * varSlotMin,  // 21:00–24:00
-                                                      // Akun terbaik hari itu: TotalViewer dijumlah, Peak dan CTR diambil maksimum.
-                                                      best: First(Sort(ForAll(Distinct(repDay, Account.Value) As D,
-                                                                With({r: Filter(repDay, Account.Value = D.Value)},
-                                                                    {Account: D.Value, TotalViewer: Sum(r, TotalViewer), PeakViewer: Max(r, PeakViewer), CTR: Max(r, CTR)})),
-                                                            TotalViewer * PeakViewer * CTR, SortOrder.Descending))},
-                                                With({m1: !IsBlank(best) && best.TotalViewer >= t1.MinViews && best.CTR >= t1.CTR && best.PeakViewer >= t1.AvgViewDur,
-                                                      m2: !IsBlank(best) && best.TotalViewer >= t2.MinViews && best.CTR >= t2.CTR && best.PeakViewer >= t2.AvgViewDur,
-                                                      m3: !IsBlank(best) && best.TotalViewer >= t3.MinViews && best.CTR >= t3.CTR && best.PeakViewer >= t3.AvgViewDur,
-                                                      d1: liveMin >= t1.Duration * 60, d2: liveMin >= t2.Duration * 60, d3: liveMin >= t3.Duration * 60,
-                                                      w1: t1Win >= varT1MinInWindow, w2: t2Win >= varT2MinInWindow,
-                                                      jam: Round(liveMin / 60, 2), main: mainMin > coMin,
-                                                      hol: tDate in varHolidays, wkd: Weekday(tDate) = 1 || Weekday(tDate) = 7},
-                                                With({calc: If(m1 || d1 || w1, "Tier 1", m2 || d2 || w2, "Tier 2", m3 || d3, "Tier 3", "No")},
-                                                // Urutan: Co-Host mayoritas → No; tanggal merah → Tier 1; Sabtu/Minggu → minimal Tier 2.
-                                                With({tier: If(!main, "No", hol, "Tier 1", wkd && calc <> "Tier 1", "Tier 2", calc)},
-                                                    Patch('Clock In - PBS Hub', clk, {
-                                                        Tier: {Value: tier},
-                                                        Insentif: Switch(tier, "Tier 1", 75000, "Tier 2", 65000, "Tier 3", 55000, 0),
-                                                        TotalReports: CountRows(repDay),
-                                                        LastTierUpdate: Now(),
-                                                        Reason: If(
-                                                            !main,
-                                                                If(mainMin = 0, "Tidak mendapatkan Tier karena hanya sebagai Co-Host. Main Host: 0 jam, Co-Host: " & Round(coMin / 60, 2) & " jam",
-                                                                    "Tidak eligible Tier karena durasi Co-Host lebih besar atau sama dengan Main Host. Main Host: " &
-                                                                    Round(mainMin / 60, 2) & " jam, Co-Host: " & Round(coMin / 60, 2) & " jam"),
-                                                            hol, "Auto Tier 1 karena Tanggal Merah (Libur Nasional)",
-                                                            tier = "No",
-                                                                "Belum mencapai target minimum. Views: " & Coalesce(best.TotalViewer, 0) & " (min " & t3.MinViews & "), CTR: " &
-                                                                Coalesce(best.CTR, 0) & " (min " & t3.CTR & "), Peak: " & Coalesce(best.PeakViewer, 0) & " (min " & t3.AvgViewDur &
-                                                                "), Durasi: " & jam & " jam (min " & t3.Duration & " jam)",
-                                                            tier & " karena " & Concat(Filter([
-                                                                If(w1, "Jam Live 00:00-06:00 (" & t1Win & " menit, min " & varT1MinInWindow & ")", ""),
-                                                                If(w2, "Jam Live 21:00-24:00 (" & t2Win & " menit, min " & varT2MinInWindow & ")", ""),
-                                                                If(m1, "Metric Tier 1 (Views " & best.TotalViewer & ", CTR " & best.CTR & ", Peak " & best.PeakViewer & ")", ""),
-                                                                If(m2 && !m1, "Metric Tier 2 (Views " & best.TotalViewer & ", CTR " & best.CTR & ", Peak " & best.PeakViewer & ")", ""),
-                                                                If(m3 && !m2, "Metric Tier 3 (Views " & best.TotalViewer & ", CTR " & best.CTR & ", Peak " & best.PeakViewer & ")", ""),
-                                                                If(d1, "Durasi Live >= " & t1.Duration & " Jam (" & jam & " jam)", ""),
-                                                                If(d2 && !d1, "Durasi Live >= " & t2.Duration & " Jam (" & jam & " jam)", ""),
-                                                                If(d3 && !d2, "Durasi Live >= " & t3.Duration & " Jam (" & jam & " jam)", ""),
-                                                                If(wkd && calc <> "Tier 1", "Weekend (Auto Tier 2 minimum)", ""),
-                                                                If(wkd && calc = "Tier 1", "Weekend + memenuhi syarat Tier 1", "")
-                                                            ], Value <> ""), Value, " + ")
-                                                        ),
-                                                        Total_Jam_Live: If(main, jam, 0),
-                                                        Schedule: If(main,
-                                                            Concat(Sort(mainSeg, StartMin), With({b: BrandID},
-                                                                Title & "_" & LookUp(colBrands, Title = b).NamaBrand & "_" & Substitute(StartTime, ":", ".") & "-" & Substitute(EndTime, ":", ".")), ", "),
-                                                            "Not Eligible - Main Host " & Round(mainMin / 60, 2) & " jam vs Co-Host " & Round(coMin / 60, 2) & " jam"),
-                                                        statusupdate: If(clk.Tier.Value = tier, "Tier tetap " & tier & " (tidak ada perubahan)",
-                                                            "Berhasil update dari " & Coalesce(clk.Tier.Value, "-") & " → " & tier)
-                                                    });
-                                                    true   // IfError butuh tipe yang sama dengan Notify (Boolean), bukan record hasil Patch
-                                                )))))))))),
-                                                // Report tetap tersimpan kalau hitung Tier gagal; hitung ulang bulanan akan membetulkannya.
-                                                Notify("Report tersimpan, tapi Tier belum terhitung: " & FirstError.Message, NotificationType.Warning)
+                                // 1. Status jadwal. Gagal → pesan error asli, belum ada yang ditulis.
+                                With({sp: IfError(Patch('Schedule - PBS Hub', s, {Status: {Value: st}}),
+                                            Set(varMsResult, JSON({requestId: rid, status: "error", message: "Gagal mengubah status jadwal ke " & st & ": " & FirstError.Message}, JSONFormat.Compact)); Blank())},
+                                    If(!IsBlank(sp),
+                                        If(
+                                            // Sudah ada absen (absen lama gagal di tengah): cukup lengkapi Status Hadir.
+                                            !IsBlank(ex),
+                                                If(!IsBlank(IfError(Patch('Host Absence - PBS Hub', ex, {Status: {Value: "Hadir"}}),
+                                                        Set(varMsResult, JSON({requestId: rid, status: "error", message: "Status jadwal sudah " & st & ", tapi Status Hadir gagal diisi: " & FirstError.Message}, JSONFormat.Compact)); Blank())),
+                                                    If(!(ex.ID in colMsAbs.ID), Collect(colMsAbs, LookUp('Host Absence - PBS Hub', ID = ex.ID)));
+                                                    With({from: If(IsBlank(varMsPeriod), Date(Year(Today()), Month(Today()), 1), DateValue(varMsPeriod & "-01"))},
+                                                        ClearCollect(colMsSch, Filter('Schedule - PBS Hub', HostID = varMe.Title, Date >= from, Date < DateAdd(from, 1, TimeUnit.Months)));
+                                                        ClearCollect(colMsRep, Filter('Report - PBS Hub', HostID = varMe.Title, LiveDate >= from, LiveDate < DateAdd(from, 1, TimeUnit.Months)))
+                                                    );
+                                                    Set(varMsResult, JSON({requestId: rid, status: "ok", message: "Absen sudah tercatat. Status jadwal sekarang " & LookUp('Schedule - PBS Hub', ID = s.ID).Status.Value & "."}, JSONFormat.Compact))
+                                                ),
+                                            // 2. Baris absen baru, Status Hadir.
+                                            With({row: IfError(Patch('Host Absence - PBS Hub', Defaults('Host Absence - PBS Hub'), {
+                                                        ScheduleID: s.Title, HostID: varMe.Title, HostName: Text(p.hostName), LiveDate: s.Date,
+                                                        BrandID: s.BrandID, Platform: {Value: s.Platform.Value},
+                                                        Account: LookUp(Choices([@'Host Absence - PBS Hub'].Account), Value = s.Account || Value = LookUp(colAccounts, Title = s.Account).AccountName),
+                                                        Status: {Value: "Hadir"}   // Choice Status di Host Absence; kalau kolomnya teks: Status: "Hadir"
+                                                    }),
+                                                    Set(varMsResult, JSON({requestId: rid, status: "error", message: "Status jadwal sudah " & st & ", tapi absen gagal dicatat: " & FirstError.Message}, JSONFormat.Compact)); Blank())},
+                                                If(!IsBlank(row),
+                                                    Patch('Host Absence - PBS Hub', row, {Title: "ABS-" & row.ID});
+                                                    Collect(colMsAbs, LookUp('Host Absence - PBS Hub', ID = row.ID));
+                                                    // 3. Live Break: host tidak perlu report, tapi baris Report tetap dibuat, semua angka 0.
+                                                    If(lb,
+                                                        Patch('Schedule - PBS Hub', LookUp('Schedule - PBS Hub', ID = s.ID), {LiveBreak: {Value: "Yes"}});   // Choice Yes/No
+                                                        With({rep: Patch('Report - PBS Hub', Defaults('Report - PBS Hub'), {
+                                                                ScheduleID: s.Title, HostID: varMe.Title, BrandID: s.BrandID, Platform: {Value: s.Platform.Value},
+                                                                AccountID: s.Account, Account: LookUp(Choices([@'Report - PBS Hub'].Account), Value = s.Account || Value = LookUp(colAccounts, Title = s.Account).AccountName), LiveDate: s.Date, AbsID: "ABS-" & row.ID,
+                                                                Penjualan: 0, Pesanan: 0, ProdukTerjual: 0, JumlahPembeli: 0, CTR: 0, CTOR: 0, PeakViewer: 0,
+                                                                'Durasi(Min)': 0, AddToCart: 0, TotalViewer: 0, Comment: 0,
+                                                                ApprovalStatus: {Value: "LiveBreak"}
+                                                            })},
+                                                            Patch('Report - PBS Hub', rep, {Title: "REP-" & rep.ID})
+                                                        );
+                                                        // ---- Tier harian di Clock In: host ini, tanggal s.Date. Aturan sama dengan hitung ulang bulanan.
+                                                        IfError(
+                                                            With({tDate: s.Date},
+                                                            With({clk: LookUp('Clock In - PBS Hub', HostID = varMe.Title && ClockInDate = tDate),
+                                                                  schDay: Filter('Schedule - PBS Hub', HostID = varMe.Title && Date = tDate),
+                                                                  repDay: Filter('Report - PBS Hub', HostID = varMe.Title && LiveDate = tDate),
+                                                                  t1: LookUp(colTierConfig, Title = "Tier 1"), t2: LookUp(colTierConfig, Title = "Tier 2"),
+                                                                  t3: LookUp(colTierConfig, Title = "Tier 3")},
+                                                            If(!IsBlank(clk),
+                                                            // Segmen jadwal aktif (bukan Cancelled, jam lengkap). Lewat tengah malam: EndMin + 1440.
+                                                            With({seg: ForAll(Filter(schDay, !IsBlank(StartTime) && !IsBlank(EndTime) && Status.Value <> "Cancelled") As S,
+                                                                        With({sm: Hour(TimeValue(S.StartTime)) * 60 + Minute(TimeValue(S.StartTime)),
+                                                                              em: Hour(TimeValue(S.EndTime)) * 60 + Minute(TimeValue(S.EndTime))},
+                                                                            {Title: S.Title, BrandID: S.BrandID, StartTime: S.StartTime, EndTime: S.EndTime,
+                                                                             Co: S.Position.Value = "Co-Host",          // "Host" / "Main Host" = main host
+                                                                             StartMin: sm, EndMin: If(em >= sm, em, em + 1440)}))},
+                                                            With({mainSeg: Filter(seg, !Co), mainMin: Sum(Filter(seg, !Co), EndMin - StartMin), coMin: Sum(Filter(seg, Co), EndMin - StartMin)},
+                                                            // Grid 15 menit selama 2 hari (0–2880): slot yang tertutup jadwal main host.
+                                                            With({slots: ForAll(Sequence(2880 / varSlotMin, 0, 1) As Sl,
+                                                                        With({ms: Sl.Value * varSlotMin}, {SlotStart: ms, Covered: !IsEmpty(Filter(mainSeg, StartMin <= ms && EndMin > ms))}))},
+                                                            With({liveMin: CountRows(Filter(slots, Covered)) * varSlotMin,
+                                                                  t1Win: CountRows(Filter(slots, Covered && (SlotStart < 360 || (SlotStart >= 1440 && SlotStart < 1800)))) * varSlotMin,     // 00:00–06:00
+                                                                  t2Win: CountRows(Filter(slots, Covered && ((SlotStart >= 1260 && SlotStart < 1440) || SlotStart >= 2700))) * varSlotMin,  // 21:00–24:00
+                                                                  // Akun terbaik hari itu: TotalViewer dijumlah, Peak dan CTR diambil maksimum.
+                                                                  best: First(Sort(ForAll(Distinct(repDay, Account.Value) As D,
+                                                                            With({r: Filter(repDay, Account.Value = D.Value)},
+                                                                                {Account: D.Value, TotalViewer: Sum(r, TotalViewer), PeakViewer: Max(r, PeakViewer), CTR: Max(r, CTR)})),
+                                                                        TotalViewer * PeakViewer * CTR, SortOrder.Descending))},
+                                                            With({m1: !IsBlank(best) && best.TotalViewer >= t1.MinViews && best.CTR >= t1.CTR && best.PeakViewer >= t1.AvgViewDur,
+                                                                  m2: !IsBlank(best) && best.TotalViewer >= t2.MinViews && best.CTR >= t2.CTR && best.PeakViewer >= t2.AvgViewDur,
+                                                                  m3: !IsBlank(best) && best.TotalViewer >= t3.MinViews && best.CTR >= t3.CTR && best.PeakViewer >= t3.AvgViewDur,
+                                                                  d1: liveMin >= t1.Duration * 60, d2: liveMin >= t2.Duration * 60, d3: liveMin >= t3.Duration * 60,
+                                                                  w1: t1Win >= varT1MinInWindow, w2: t2Win >= varT2MinInWindow,
+                                                                  jam: Round(liveMin / 60, 2), main: mainMin > coMin,
+                                                                  hol: tDate in varHolidays, wkd: Weekday(tDate) = 1 || Weekday(tDate) = 7},
+                                                            With({calc: If(m1 || d1 || w1, "Tier 1", m2 || d2 || w2, "Tier 2", m3 || d3, "Tier 3", "No")},
+                                                            // Urutan: Co-Host mayoritas → No; tanggal merah → Tier 1; Sabtu/Minggu → minimal Tier 2.
+                                                            With({tier: If(!main, "No", hol, "Tier 1", wkd && calc <> "Tier 1", "Tier 2", calc)},
+                                                                Patch('Clock In - PBS Hub', clk, {
+                                                                    Tier: {Value: tier},
+                                                                    Insentif: Switch(tier, "Tier 1", 75000, "Tier 2", 65000, "Tier 3", 55000, 0),
+                                                                    TotalReports: CountRows(repDay),
+                                                                    LastTierUpdate: Now(),
+                                                                    Reason: If(
+                                                                        !main,
+                                                                            If(mainMin = 0, "Tidak mendapatkan Tier karena hanya sebagai Co-Host. Main Host: 0 jam, Co-Host: " & Round(coMin / 60, 2) & " jam",
+                                                                                "Tidak eligible Tier karena durasi Co-Host lebih besar atau sama dengan Main Host. Main Host: " &
+                                                                                Round(mainMin / 60, 2) & " jam, Co-Host: " & Round(coMin / 60, 2) & " jam"),
+                                                                        hol, "Auto Tier 1 karena Tanggal Merah (Libur Nasional)",
+                                                                        tier = "No",
+                                                                            "Belum mencapai target minimum. Views: " & Coalesce(best.TotalViewer, 0) & " (min " & t3.MinViews & "), CTR: " &
+                                                                            Coalesce(best.CTR, 0) & " (min " & t3.CTR & "), Peak: " & Coalesce(best.PeakViewer, 0) & " (min " & t3.AvgViewDur &
+                                                                            "), Durasi: " & jam & " jam (min " & t3.Duration & " jam)",
+                                                                        tier & " karena " & Concat(Filter([
+                                                                            If(w1, "Jam Live 00:00-06:00 (" & t1Win & " menit, min " & varT1MinInWindow & ")", ""),
+                                                                            If(w2, "Jam Live 21:00-24:00 (" & t2Win & " menit, min " & varT2MinInWindow & ")", ""),
+                                                                            If(m1, "Metric Tier 1 (Views " & best.TotalViewer & ", CTR " & best.CTR & ", Peak " & best.PeakViewer & ")", ""),
+                                                                            If(m2 && !m1, "Metric Tier 2 (Views " & best.TotalViewer & ", CTR " & best.CTR & ", Peak " & best.PeakViewer & ")", ""),
+                                                                            If(m3 && !m2, "Metric Tier 3 (Views " & best.TotalViewer & ", CTR " & best.CTR & ", Peak " & best.PeakViewer & ")", ""),
+                                                                            If(d1, "Durasi Live >= " & t1.Duration & " Jam (" & jam & " jam)", ""),
+                                                                            If(d2 && !d1, "Durasi Live >= " & t2.Duration & " Jam (" & jam & " jam)", ""),
+                                                                            If(d3 && !d2, "Durasi Live >= " & t3.Duration & " Jam (" & jam & " jam)", ""),
+                                                                            If(wkd && calc <> "Tier 1", "Weekend (Auto Tier 2 minimum)", ""),
+                                                                            If(wkd && calc = "Tier 1", "Weekend + memenuhi syarat Tier 1", "")
+                                                                        ], Value <> ""), Value, " + ")
+                                                                    ),
+                                                                    Total_Jam_Live: If(main, jam, 0),
+                                                                    Schedule: If(main,
+                                                                        Concat(Sort(mainSeg, StartMin), With({b: BrandID},
+                                                                            Title & "_" & LookUp(colBrands, Title = b).NamaBrand & "_" & Substitute(StartTime, ":", ".") & "-" & Substitute(EndTime, ":", ".")), ", "),
+                                                                        "Not Eligible - Main Host " & Round(mainMin / 60, 2) & " jam vs Co-Host " & Round(coMin / 60, 2) & " jam"),
+                                                                    statusupdate: If(clk.Tier.Value = tier, "Tier tetap " & tier & " (tidak ada perubahan)",
+                                                                        "Berhasil update dari " & Coalesce(clk.Tier.Value, "-") & " → " & tier)
+                                                                });
+                                                                true   // IfError butuh tipe yang sama dengan Notify (Boolean), bukan record hasil Patch
+                                                            )))))))))),
+                                                            // Report tetap tersimpan kalau hitung Tier gagal; hitung ulang bulanan akan membetulkannya.
+                                                            Notify("Report tersimpan, tapi Tier belum terhitung: " & FirstError.Message, NotificationType.Warning)
+                                                        )
+                                                    );
+                                                    With({from: If(IsBlank(varMsPeriod), Date(Year(Today()), Month(Today()), 1), DateValue(varMsPeriod & "-01"))},
+                                                        ClearCollect(colMsSch, Filter('Schedule - PBS Hub', HostID = varMe.Title, Date >= from, Date < DateAdd(from, 1, TimeUnit.Months)));
+                                                        ClearCollect(colMsRep, Filter('Report - PBS Hub', HostID = varMe.Title, LiveDate >= from, LiveDate < DateAdd(from, 1, TimeUnit.Months)))
+                                                    );
+                                                    // Pesan membaca ulang SharePoint, jadi yang tampil adalah status yang benar-benar tersimpan.
+                                                    Set(varMsResult, JSON({requestId: rid, status: "ok", message: If(lb, "Absen tercatat (ABS-" & row.ID & "). Live Break: report 0 dibuat otomatis.", "Absen tercatat (ABS-" & row.ID & "). Status jadwal sekarang " & LookUp('Schedule - PBS Hub', ID = s.ID).Status.Value & ".")}, JSONFormat.Compact))
+                                                )
                                             )
                                         )
-                                    );
-                                    With({from: If(IsBlank(varMsPeriod), Date(Year(Today()), Month(Today()), 1), DateValue(varMsPeriod & "-01"))},
-                                        ClearCollect(colMsSch, Filter('Schedule - PBS Hub', HostID = varMe.Title, Date >= from, Date < DateAdd(from, 1, TimeUnit.Months)));
-                                        ClearCollect(colMsRep, Filter('Report - PBS Hub', HostID = varMe.Title, LiveDate >= from, LiveDate < DateAdd(from, 1, TimeUnit.Months)))
-                                    );
-                                    Set(varMsResult, JSON({requestId: rid, status: "ok", message: If(lb, "Absen tercatat. Live Break: report 0 dibuat otomatis.", "Absen tercatat untuk " & Text(p.scheduleId) & ". Status jadwal: " & st & ".")}, JSONFormat.Compact)),
-                                    Set(varMsResult, JSON({requestId: rid, status: "error", message: "Gagal absen: " & FirstError.Message}, JSONFormat.Compact))
+                                    )
                                 )
                             )
                         ),
@@ -1469,128 +1484,133 @@ If(!IsBlank(Self.ActionPayload),
                             If(
                                 IsBlank(s) || s.Title <> Text(p.scheduleId) || s.HostID <> varMe.Title,
                                     Set(varSdResult, JSON({requestId: rid, status: "error", message: "Jadwal " & Text(p.scheduleId) & " tidak ditemukan untuk akunmu. Muat ulang dulu."}, JSONFormat.Compact)),
-                                // Sudah ada absen, tapi jadwal masih Planned (absen lama gagal di tengah): betulkan, jangan tolak.
-                                !IsBlank(ex) && s.Status.Value <> "Waiting Report" && s.Status.Value <> "Finished" && s.Status.Value <> "Done",
-                                    IfError(
-                                        Patch('Schedule - PBS Hub', s, {Status: {Value: st}});
-                                        Patch('Host Absence - PBS Hub', ex, {Status: {Value: "Hadir"}});
-                                        If(!(ex.ID in colSdAbs.ID), Collect(colSdAbs, LookUp('Host Absence - PBS Hub', ID = ex.ID)));
-                                        ClearCollect(colSdSch, Filter('Schedule - PBS Hub', HostID = varMe.Title, Date = varSchDate));
-                                        ClearCollect(colSdRep, Filter('Report - PBS Hub', HostID = varMe.Title, LiveDate = varSchDate));
-                                        Set(varSdResult, JSON({requestId: rid, status: "ok", message: "Absen sudah tercatat, status jadwal diperbarui ke " & st & "."}, JSONFormat.Compact)),
-                                        Set(varSdResult, JSON({requestId: rid, status: "error", message: "Gagal memperbarui status jadwal: " & FirstError.Message}, JSONFormat.Compact))
-                                    ),
-                                !IsBlank(ex),
+                                !IsBlank(ex) && (s.Status.Value = "Waiting Report" || s.Status.Value = "Finished" || s.Status.Value = "Done"),
                                     Set(varSdResult, JSON({requestId: rid, status: "conflict", message: "Absen sesi ini sudah tercatat."}, JSONFormat.Compact)),
-                                IfError(
-                                    // 1. Status jadwal dulu: kalau gagal, belum ada baris absen yang tertinggal.
-                                    Patch('Schedule - PBS Hub', s, {Status: {Value: st}});
-                                    // 2. Baris absen, Status Hadir.
-                                    With({row: Patch('Host Absence - PBS Hub', Defaults('Host Absence - PBS Hub'), {
-                                            ScheduleID: s.Title, HostID: varMe.Title, HostName: Text(p.hostName), LiveDate: s.Date,
-                                            BrandID: s.BrandID, Platform: {Value: s.Platform.Value},
-                                            Account: LookUp(Choices([@'Host Absence - PBS Hub'].Account), Value = s.Account || Value = LookUp(colAccounts, Title = s.Account).AccountName),
-                                            Status: {Value: "Hadir"}   // Choice Status di Host Absence; kalau kolomnya teks: Status: "Hadir"
-                                        })},
-                                        Patch('Host Absence - PBS Hub', row, {Title: "ABS-" & row.ID});
-                                        Collect(colSdAbs, LookUp('Host Absence - PBS Hub', ID = row.ID));
-                                        // 3. Live Break: host tidak perlu report, tapi baris Report tetap dibuat, semua angka 0.
-                                        If(lb,
-                                            Patch('Schedule - PBS Hub', LookUp('Schedule - PBS Hub', ID = s.ID), {LiveBreak: {Value: "Yes"}});   // Choice Yes/No
-                                            With({rep: Patch('Report - PBS Hub', Defaults('Report - PBS Hub'), {
-                                                    ScheduleID: s.Title, HostID: varMe.Title, BrandID: s.BrandID, Platform: {Value: s.Platform.Value},
-                                                    AccountID: s.Account, Account: LookUp(Choices([@'Report - PBS Hub'].Account), Value = s.Account || Value = LookUp(colAccounts, Title = s.Account).AccountName), LiveDate: s.Date, AbsID: "ABS-" & row.ID,
-                                                    Penjualan: 0, Pesanan: 0, ProdukTerjual: 0, JumlahPembeli: 0, CTR: 0, CTOR: 0, PeakViewer: 0,
-                                                    'Durasi(Min)': 0, AddToCart: 0, TotalViewer: 0, Comment: 0,
-                                                    ApprovalStatus: {Value: "LiveBreak"}
-                                                })},
-                                                Patch('Report - PBS Hub', rep, {Title: "REP-" & rep.ID})
-                                            );
-                                            // ---- Tier harian di Clock In: host ini, tanggal s.Date. Aturan sama dengan hitung ulang bulanan.
-                                            IfError(
-                                                With({tDate: s.Date},
-                                                With({clk: LookUp('Clock In - PBS Hub', HostID = varMe.Title && ClockInDate = tDate),
-                                                      schDay: Filter('Schedule - PBS Hub', HostID = varMe.Title && Date = tDate),
-                                                      repDay: Filter('Report - PBS Hub', HostID = varMe.Title && LiveDate = tDate),
-                                                      t1: LookUp(colTierConfig, Title = "Tier 1"), t2: LookUp(colTierConfig, Title = "Tier 2"),
-                                                      t3: LookUp(colTierConfig, Title = "Tier 3")},
-                                                If(!IsBlank(clk),
-                                                // Segmen jadwal aktif (bukan Cancelled, jam lengkap). Lewat tengah malam: EndMin + 1440.
-                                                With({seg: ForAll(Filter(schDay, !IsBlank(StartTime) && !IsBlank(EndTime) && Status.Value <> "Cancelled") As S,
-                                                            With({sm: Hour(TimeValue(S.StartTime)) * 60 + Minute(TimeValue(S.StartTime)),
-                                                                  em: Hour(TimeValue(S.EndTime)) * 60 + Minute(TimeValue(S.EndTime))},
-                                                                {Title: S.Title, BrandID: S.BrandID, StartTime: S.StartTime, EndTime: S.EndTime,
-                                                                 Co: S.Position.Value = "Co-Host",          // "Host" / "Main Host" = main host
-                                                                 StartMin: sm, EndMin: If(em >= sm, em, em + 1440)}))},
-                                                With({mainSeg: Filter(seg, !Co), mainMin: Sum(Filter(seg, !Co), EndMin - StartMin), coMin: Sum(Filter(seg, Co), EndMin - StartMin)},
-                                                // Grid 15 menit selama 2 hari (0–2880): slot yang tertutup jadwal main host.
-                                                With({slots: ForAll(Sequence(2880 / varSlotMin, 0, 1) As Sl,
-                                                            With({ms: Sl.Value * varSlotMin}, {SlotStart: ms, Covered: !IsEmpty(Filter(mainSeg, StartMin <= ms && EndMin > ms))}))},
-                                                With({liveMin: CountRows(Filter(slots, Covered)) * varSlotMin,
-                                                      t1Win: CountRows(Filter(slots, Covered && (SlotStart < 360 || (SlotStart >= 1440 && SlotStart < 1800)))) * varSlotMin,     // 00:00–06:00
-                                                      t2Win: CountRows(Filter(slots, Covered && ((SlotStart >= 1260 && SlotStart < 1440) || SlotStart >= 2700))) * varSlotMin,  // 21:00–24:00
-                                                      // Akun terbaik hari itu: TotalViewer dijumlah, Peak dan CTR diambil maksimum.
-                                                      best: First(Sort(ForAll(Distinct(repDay, Account.Value) As D,
-                                                                With({r: Filter(repDay, Account.Value = D.Value)},
-                                                                    {Account: D.Value, TotalViewer: Sum(r, TotalViewer), PeakViewer: Max(r, PeakViewer), CTR: Max(r, CTR)})),
-                                                            TotalViewer * PeakViewer * CTR, SortOrder.Descending))},
-                                                With({m1: !IsBlank(best) && best.TotalViewer >= t1.MinViews && best.CTR >= t1.CTR && best.PeakViewer >= t1.AvgViewDur,
-                                                      m2: !IsBlank(best) && best.TotalViewer >= t2.MinViews && best.CTR >= t2.CTR && best.PeakViewer >= t2.AvgViewDur,
-                                                      m3: !IsBlank(best) && best.TotalViewer >= t3.MinViews && best.CTR >= t3.CTR && best.PeakViewer >= t3.AvgViewDur,
-                                                      d1: liveMin >= t1.Duration * 60, d2: liveMin >= t2.Duration * 60, d3: liveMin >= t3.Duration * 60,
-                                                      w1: t1Win >= varT1MinInWindow, w2: t2Win >= varT2MinInWindow,
-                                                      jam: Round(liveMin / 60, 2), main: mainMin > coMin,
-                                                      hol: tDate in varHolidays, wkd: Weekday(tDate) = 1 || Weekday(tDate) = 7},
-                                                With({calc: If(m1 || d1 || w1, "Tier 1", m2 || d2 || w2, "Tier 2", m3 || d3, "Tier 3", "No")},
-                                                // Urutan: Co-Host mayoritas → No; tanggal merah → Tier 1; Sabtu/Minggu → minimal Tier 2.
-                                                With({tier: If(!main, "No", hol, "Tier 1", wkd && calc <> "Tier 1", "Tier 2", calc)},
-                                                    Patch('Clock In - PBS Hub', clk, {
-                                                        Tier: {Value: tier},
-                                                        Insentif: Switch(tier, "Tier 1", 75000, "Tier 2", 65000, "Tier 3", 55000, 0),
-                                                        TotalReports: CountRows(repDay),
-                                                        LastTierUpdate: Now(),
-                                                        Reason: If(
-                                                            !main,
-                                                                If(mainMin = 0, "Tidak mendapatkan Tier karena hanya sebagai Co-Host. Main Host: 0 jam, Co-Host: " & Round(coMin / 60, 2) & " jam",
-                                                                    "Tidak eligible Tier karena durasi Co-Host lebih besar atau sama dengan Main Host. Main Host: " &
-                                                                    Round(mainMin / 60, 2) & " jam, Co-Host: " & Round(coMin / 60, 2) & " jam"),
-                                                            hol, "Auto Tier 1 karena Tanggal Merah (Libur Nasional)",
-                                                            tier = "No",
-                                                                "Belum mencapai target minimum. Views: " & Coalesce(best.TotalViewer, 0) & " (min " & t3.MinViews & "), CTR: " &
-                                                                Coalesce(best.CTR, 0) & " (min " & t3.CTR & "), Peak: " & Coalesce(best.PeakViewer, 0) & " (min " & t3.AvgViewDur &
-                                                                "), Durasi: " & jam & " jam (min " & t3.Duration & " jam)",
-                                                            tier & " karena " & Concat(Filter([
-                                                                If(w1, "Jam Live 00:00-06:00 (" & t1Win & " menit, min " & varT1MinInWindow & ")", ""),
-                                                                If(w2, "Jam Live 21:00-24:00 (" & t2Win & " menit, min " & varT2MinInWindow & ")", ""),
-                                                                If(m1, "Metric Tier 1 (Views " & best.TotalViewer & ", CTR " & best.CTR & ", Peak " & best.PeakViewer & ")", ""),
-                                                                If(m2 && !m1, "Metric Tier 2 (Views " & best.TotalViewer & ", CTR " & best.CTR & ", Peak " & best.PeakViewer & ")", ""),
-                                                                If(m3 && !m2, "Metric Tier 3 (Views " & best.TotalViewer & ", CTR " & best.CTR & ", Peak " & best.PeakViewer & ")", ""),
-                                                                If(d1, "Durasi Live >= " & t1.Duration & " Jam (" & jam & " jam)", ""),
-                                                                If(d2 && !d1, "Durasi Live >= " & t2.Duration & " Jam (" & jam & " jam)", ""),
-                                                                If(d3 && !d2, "Durasi Live >= " & t3.Duration & " Jam (" & jam & " jam)", ""),
-                                                                If(wkd && calc <> "Tier 1", "Weekend (Auto Tier 2 minimum)", ""),
-                                                                If(wkd && calc = "Tier 1", "Weekend + memenuhi syarat Tier 1", "")
-                                                            ], Value <> ""), Value, " + ")
-                                                        ),
-                                                        Total_Jam_Live: If(main, jam, 0),
-                                                        Schedule: If(main,
-                                                            Concat(Sort(mainSeg, StartMin), With({b: BrandID},
-                                                                Title & "_" & LookUp(colBrands, Title = b).NamaBrand & "_" & Substitute(StartTime, ":", ".") & "-" & Substitute(EndTime, ":", ".")), ", "),
-                                                            "Not Eligible - Main Host " & Round(mainMin / 60, 2) & " jam vs Co-Host " & Round(coMin / 60, 2) & " jam"),
-                                                        statusupdate: If(clk.Tier.Value = tier, "Tier tetap " & tier & " (tidak ada perubahan)",
-                                                            "Berhasil update dari " & Coalesce(clk.Tier.Value, "-") & " → " & tier)
-                                                    });
-                                                    true   // IfError butuh tipe yang sama dengan Notify (Boolean), bukan record hasil Patch
-                                                )))))))))),
-                                                // Report tetap tersimpan kalau hitung Tier gagal; hitung ulang bulanan akan membetulkannya.
-                                                Notify("Report tersimpan, tapi Tier belum terhitung: " & FirstError.Message, NotificationType.Warning)
+                                // 1. Status jadwal. Gagal → pesan error asli, belum ada yang ditulis.
+                                With({sp: IfError(Patch('Schedule - PBS Hub', s, {Status: {Value: st}}),
+                                            Set(varSdResult, JSON({requestId: rid, status: "error", message: "Gagal mengubah status jadwal ke " & st & ": " & FirstError.Message}, JSONFormat.Compact)); Blank())},
+                                    If(!IsBlank(sp),
+                                        If(
+                                            // Sudah ada absen (absen lama gagal di tengah): cukup lengkapi Status Hadir.
+                                            !IsBlank(ex),
+                                                If(!IsBlank(IfError(Patch('Host Absence - PBS Hub', ex, {Status: {Value: "Hadir"}}),
+                                                        Set(varSdResult, JSON({requestId: rid, status: "error", message: "Status jadwal sudah " & st & ", tapi Status Hadir gagal diisi: " & FirstError.Message}, JSONFormat.Compact)); Blank())),
+                                                    If(!(ex.ID in colSdAbs.ID), Collect(colSdAbs, LookUp('Host Absence - PBS Hub', ID = ex.ID)));
+                                                    ClearCollect(colSdSch, Filter('Schedule - PBS Hub', HostID = varMe.Title, Date = varSchDate));
+                                                    ClearCollect(colSdRep, Filter('Report - PBS Hub', HostID = varMe.Title, LiveDate = varSchDate));
+                                                    Set(varSdResult, JSON({requestId: rid, status: "ok", message: "Absen sudah tercatat. Status jadwal sekarang " & LookUp('Schedule - PBS Hub', ID = s.ID).Status.Value & "."}, JSONFormat.Compact))
+                                                ),
+                                            // 2. Baris absen baru, Status Hadir.
+                                            With({row: IfError(Patch('Host Absence - PBS Hub', Defaults('Host Absence - PBS Hub'), {
+                                                        ScheduleID: s.Title, HostID: varMe.Title, HostName: Text(p.hostName), LiveDate: s.Date,
+                                                        BrandID: s.BrandID, Platform: {Value: s.Platform.Value},
+                                                        Account: LookUp(Choices([@'Host Absence - PBS Hub'].Account), Value = s.Account || Value = LookUp(colAccounts, Title = s.Account).AccountName),
+                                                        Status: {Value: "Hadir"}   // Choice Status di Host Absence; kalau kolomnya teks: Status: "Hadir"
+                                                    }),
+                                                    Set(varSdResult, JSON({requestId: rid, status: "error", message: "Status jadwal sudah " & st & ", tapi absen gagal dicatat: " & FirstError.Message}, JSONFormat.Compact)); Blank())},
+                                                If(!IsBlank(row),
+                                                    Patch('Host Absence - PBS Hub', row, {Title: "ABS-" & row.ID});
+                                                    Collect(colSdAbs, LookUp('Host Absence - PBS Hub', ID = row.ID));
+                                                    // 3. Live Break: host tidak perlu report, tapi baris Report tetap dibuat, semua angka 0.
+                                                    If(lb,
+                                                        Patch('Schedule - PBS Hub', LookUp('Schedule - PBS Hub', ID = s.ID), {LiveBreak: {Value: "Yes"}});   // Choice Yes/No
+                                                        With({rep: Patch('Report - PBS Hub', Defaults('Report - PBS Hub'), {
+                                                                ScheduleID: s.Title, HostID: varMe.Title, BrandID: s.BrandID, Platform: {Value: s.Platform.Value},
+                                                                AccountID: s.Account, Account: LookUp(Choices([@'Report - PBS Hub'].Account), Value = s.Account || Value = LookUp(colAccounts, Title = s.Account).AccountName), LiveDate: s.Date, AbsID: "ABS-" & row.ID,
+                                                                Penjualan: 0, Pesanan: 0, ProdukTerjual: 0, JumlahPembeli: 0, CTR: 0, CTOR: 0, PeakViewer: 0,
+                                                                'Durasi(Min)': 0, AddToCart: 0, TotalViewer: 0, Comment: 0,
+                                                                ApprovalStatus: {Value: "LiveBreak"}
+                                                            })},
+                                                            Patch('Report - PBS Hub', rep, {Title: "REP-" & rep.ID})
+                                                        );
+                                                        // ---- Tier harian di Clock In: host ini, tanggal s.Date. Aturan sama dengan hitung ulang bulanan.
+                                                        IfError(
+                                                            With({tDate: s.Date},
+                                                            With({clk: LookUp('Clock In - PBS Hub', HostID = varMe.Title && ClockInDate = tDate),
+                                                                  schDay: Filter('Schedule - PBS Hub', HostID = varMe.Title && Date = tDate),
+                                                                  repDay: Filter('Report - PBS Hub', HostID = varMe.Title && LiveDate = tDate),
+                                                                  t1: LookUp(colTierConfig, Title = "Tier 1"), t2: LookUp(colTierConfig, Title = "Tier 2"),
+                                                                  t3: LookUp(colTierConfig, Title = "Tier 3")},
+                                                            If(!IsBlank(clk),
+                                                            // Segmen jadwal aktif (bukan Cancelled, jam lengkap). Lewat tengah malam: EndMin + 1440.
+                                                            With({seg: ForAll(Filter(schDay, !IsBlank(StartTime) && !IsBlank(EndTime) && Status.Value <> "Cancelled") As S,
+                                                                        With({sm: Hour(TimeValue(S.StartTime)) * 60 + Minute(TimeValue(S.StartTime)),
+                                                                              em: Hour(TimeValue(S.EndTime)) * 60 + Minute(TimeValue(S.EndTime))},
+                                                                            {Title: S.Title, BrandID: S.BrandID, StartTime: S.StartTime, EndTime: S.EndTime,
+                                                                             Co: S.Position.Value = "Co-Host",          // "Host" / "Main Host" = main host
+                                                                             StartMin: sm, EndMin: If(em >= sm, em, em + 1440)}))},
+                                                            With({mainSeg: Filter(seg, !Co), mainMin: Sum(Filter(seg, !Co), EndMin - StartMin), coMin: Sum(Filter(seg, Co), EndMin - StartMin)},
+                                                            // Grid 15 menit selama 2 hari (0–2880): slot yang tertutup jadwal main host.
+                                                            With({slots: ForAll(Sequence(2880 / varSlotMin, 0, 1) As Sl,
+                                                                        With({ms: Sl.Value * varSlotMin}, {SlotStart: ms, Covered: !IsEmpty(Filter(mainSeg, StartMin <= ms && EndMin > ms))}))},
+                                                            With({liveMin: CountRows(Filter(slots, Covered)) * varSlotMin,
+                                                                  t1Win: CountRows(Filter(slots, Covered && (SlotStart < 360 || (SlotStart >= 1440 && SlotStart < 1800)))) * varSlotMin,     // 00:00–06:00
+                                                                  t2Win: CountRows(Filter(slots, Covered && ((SlotStart >= 1260 && SlotStart < 1440) || SlotStart >= 2700))) * varSlotMin,  // 21:00–24:00
+                                                                  // Akun terbaik hari itu: TotalViewer dijumlah, Peak dan CTR diambil maksimum.
+                                                                  best: First(Sort(ForAll(Distinct(repDay, Account.Value) As D,
+                                                                            With({r: Filter(repDay, Account.Value = D.Value)},
+                                                                                {Account: D.Value, TotalViewer: Sum(r, TotalViewer), PeakViewer: Max(r, PeakViewer), CTR: Max(r, CTR)})),
+                                                                        TotalViewer * PeakViewer * CTR, SortOrder.Descending))},
+                                                            With({m1: !IsBlank(best) && best.TotalViewer >= t1.MinViews && best.CTR >= t1.CTR && best.PeakViewer >= t1.AvgViewDur,
+                                                                  m2: !IsBlank(best) && best.TotalViewer >= t2.MinViews && best.CTR >= t2.CTR && best.PeakViewer >= t2.AvgViewDur,
+                                                                  m3: !IsBlank(best) && best.TotalViewer >= t3.MinViews && best.CTR >= t3.CTR && best.PeakViewer >= t3.AvgViewDur,
+                                                                  d1: liveMin >= t1.Duration * 60, d2: liveMin >= t2.Duration * 60, d3: liveMin >= t3.Duration * 60,
+                                                                  w1: t1Win >= varT1MinInWindow, w2: t2Win >= varT2MinInWindow,
+                                                                  jam: Round(liveMin / 60, 2), main: mainMin > coMin,
+                                                                  hol: tDate in varHolidays, wkd: Weekday(tDate) = 1 || Weekday(tDate) = 7},
+                                                            With({calc: If(m1 || d1 || w1, "Tier 1", m2 || d2 || w2, "Tier 2", m3 || d3, "Tier 3", "No")},
+                                                            // Urutan: Co-Host mayoritas → No; tanggal merah → Tier 1; Sabtu/Minggu → minimal Tier 2.
+                                                            With({tier: If(!main, "No", hol, "Tier 1", wkd && calc <> "Tier 1", "Tier 2", calc)},
+                                                                Patch('Clock In - PBS Hub', clk, {
+                                                                    Tier: {Value: tier},
+                                                                    Insentif: Switch(tier, "Tier 1", 75000, "Tier 2", 65000, "Tier 3", 55000, 0),
+                                                                    TotalReports: CountRows(repDay),
+                                                                    LastTierUpdate: Now(),
+                                                                    Reason: If(
+                                                                        !main,
+                                                                            If(mainMin = 0, "Tidak mendapatkan Tier karena hanya sebagai Co-Host. Main Host: 0 jam, Co-Host: " & Round(coMin / 60, 2) & " jam",
+                                                                                "Tidak eligible Tier karena durasi Co-Host lebih besar atau sama dengan Main Host. Main Host: " &
+                                                                                Round(mainMin / 60, 2) & " jam, Co-Host: " & Round(coMin / 60, 2) & " jam"),
+                                                                        hol, "Auto Tier 1 karena Tanggal Merah (Libur Nasional)",
+                                                                        tier = "No",
+                                                                            "Belum mencapai target minimum. Views: " & Coalesce(best.TotalViewer, 0) & " (min " & t3.MinViews & "), CTR: " &
+                                                                            Coalesce(best.CTR, 0) & " (min " & t3.CTR & "), Peak: " & Coalesce(best.PeakViewer, 0) & " (min " & t3.AvgViewDur &
+                                                                            "), Durasi: " & jam & " jam (min " & t3.Duration & " jam)",
+                                                                        tier & " karena " & Concat(Filter([
+                                                                            If(w1, "Jam Live 00:00-06:00 (" & t1Win & " menit, min " & varT1MinInWindow & ")", ""),
+                                                                            If(w2, "Jam Live 21:00-24:00 (" & t2Win & " menit, min " & varT2MinInWindow & ")", ""),
+                                                                            If(m1, "Metric Tier 1 (Views " & best.TotalViewer & ", CTR " & best.CTR & ", Peak " & best.PeakViewer & ")", ""),
+                                                                            If(m2 && !m1, "Metric Tier 2 (Views " & best.TotalViewer & ", CTR " & best.CTR & ", Peak " & best.PeakViewer & ")", ""),
+                                                                            If(m3 && !m2, "Metric Tier 3 (Views " & best.TotalViewer & ", CTR " & best.CTR & ", Peak " & best.PeakViewer & ")", ""),
+                                                                            If(d1, "Durasi Live >= " & t1.Duration & " Jam (" & jam & " jam)", ""),
+                                                                            If(d2 && !d1, "Durasi Live >= " & t2.Duration & " Jam (" & jam & " jam)", ""),
+                                                                            If(d3 && !d2, "Durasi Live >= " & t3.Duration & " Jam (" & jam & " jam)", ""),
+                                                                            If(wkd && calc <> "Tier 1", "Weekend (Auto Tier 2 minimum)", ""),
+                                                                            If(wkd && calc = "Tier 1", "Weekend + memenuhi syarat Tier 1", "")
+                                                                        ], Value <> ""), Value, " + ")
+                                                                    ),
+                                                                    Total_Jam_Live: If(main, jam, 0),
+                                                                    Schedule: If(main,
+                                                                        Concat(Sort(mainSeg, StartMin), With({b: BrandID},
+                                                                            Title & "_" & LookUp(colBrands, Title = b).NamaBrand & "_" & Substitute(StartTime, ":", ".") & "-" & Substitute(EndTime, ":", ".")), ", "),
+                                                                        "Not Eligible - Main Host " & Round(mainMin / 60, 2) & " jam vs Co-Host " & Round(coMin / 60, 2) & " jam"),
+                                                                    statusupdate: If(clk.Tier.Value = tier, "Tier tetap " & tier & " (tidak ada perubahan)",
+                                                                        "Berhasil update dari " & Coalesce(clk.Tier.Value, "-") & " → " & tier)
+                                                                });
+                                                                true   // IfError butuh tipe yang sama dengan Notify (Boolean), bukan record hasil Patch
+                                                            )))))))))),
+                                                            // Report tetap tersimpan kalau hitung Tier gagal; hitung ulang bulanan akan membetulkannya.
+                                                            Notify("Report tersimpan, tapi Tier belum terhitung: " & FirstError.Message, NotificationType.Warning)
+                                                        )
+                                                    );
+                                                    ClearCollect(colSdSch, Filter('Schedule - PBS Hub', HostID = varMe.Title, Date = varSchDate));
+                                                    ClearCollect(colSdRep, Filter('Report - PBS Hub', HostID = varMe.Title, LiveDate = varSchDate));
+                                                    // Pesan membaca ulang SharePoint, jadi yang tampil adalah status yang benar-benar tersimpan.
+                                                    Set(varSdResult, JSON({requestId: rid, status: "ok", message: If(lb, "Absen tercatat (ABS-" & row.ID & "). Live Break: report 0 dibuat otomatis.", "Absen tercatat (ABS-" & row.ID & "). Status jadwal sekarang " & LookUp('Schedule - PBS Hub', ID = s.ID).Status.Value & ".")}, JSONFormat.Compact))
+                                                )
                                             )
                                         )
-                                    );
-                                    ClearCollect(colSdSch, Filter('Schedule - PBS Hub', HostID = varMe.Title, Date = varSchDate));
-                                    ClearCollect(colSdRep, Filter('Report - PBS Hub', HostID = varMe.Title, LiveDate = varSchDate));
-                                    Set(varSdResult, JSON({requestId: rid, status: "ok", message: If(lb, "Absen tercatat. Live Break: report 0 dibuat otomatis.", "Absen tercatat untuk " & Text(p.scheduleId) & ". Status jadwal: " & st & ".")}, JSONFormat.Compact)),
-                                    Set(varSdResult, JSON({requestId: rid, status: "error", message: "Gagal absen: " & FirstError.Message}, JSONFormat.Compact))
+                                    )
                                 )
                             )
                         ),

@@ -517,6 +517,7 @@ Pakai satu jadwal milik akunmu (`HostID = varMe.Title`), hari ini, **sudah mulai
 | Klik tombol, spinner berputar terus | OnChange belum ditempel, atau `ActionResult` bukan variabel layar itu | tempel OnChange langkah layar itu; cek `ActionResult` |
 | Klik tombol, tidak terjadi apa-apa | `colPbsProcessed` belum ada | Run OnStart |
 | Sudah absen tapi jadwal tetap `Planned` / diminta absen terus | absen lama gagal di tengah (baris absen ada, status jadwal belum pindah) | tempel OnChange terbaru, lalu tekan **Absen** sekali lagi: OnChange membetulkan Status jadwal ke `Waiting Report` dan mengisi `Status = Hadir`, tanpa membuat absen baru |
+| *Gagal mengubah status jadwal …* / *absen gagal dicatat: …* | Patch ditolak SharePoint; teks setelah `:` adalah error aslinya (mis. host tidak punya izin edit list Schedule / Host Absence, pilihan `Hadir` / `Waiting Report` tidak ada, kolom wajib kosong) | perbaiki sesuai pesan, lalu tekan **Absen** lagi |
 | *Jadwal … tidak ditemukan untuk akunmu* | `HostID` jadwal ≠ `varMe.Title`, atau Title jadwal berubah | cek `HostID` di Schedule; muat ulang layar |
 | *Gagal absen: … Status* | Choice `Status` di Host Absence tidak punya `Hadir` (atau kolomnya teks) | tambah pilihan `Hadir`; kalau teks ganti jadi `Status: "Hadir"` |
 | *Status jadwal Finished, report tidak bisa dikirim* | durasi sudah terpenuhi, atau ejaan Choice beda | cek ejaan Choice = `scheduleWaitingStatus` di Langkah 3 dan teks `"Waiting Report"` di OnChange |

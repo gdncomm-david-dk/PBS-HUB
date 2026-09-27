@@ -108,8 +108,16 @@ def tier(date_expr):
 
 def absen(R, col, after=''):
     """ABSEN: Schedule.Status first (Planned → Waiting Report / Finished), then the Host Absence row with Status Hadir.
-    An absence left behind by an earlier half-finished absen is repaired instead of rejected, so the host is never stuck."""
-    ok_after = ind(after, 20) + chr(10) if after else ''
+    Every Patch is checked on its own: in a `;` chain Power Fx keeps going after a failed Patch, so one IfError
+    around the chain reported "ok" while nothing was written. An absence left behind by an earlier half-finished
+    absen is repaired instead of rejected, so the host is never stuck."""
+    ok_after = ind(after, 32) + chr(10) if after else ''
+    new_after = ind(after, 32) + chr(10) if after else ''
+    err = lambda msg: res(R, "error", msg)
+    now = "LookUp('Schedule - PBS Hub', ID = s.ID).Status.Value"
+    ok_repair = res(R, "ok", '"Absen sudah tercatat. Status jadwal sekarang " & ' + now + ' & "."')
+    ok_new = res(R, "ok", 'If(lb, "Absen tercatat (ABS-" & row.ID & "). Live Break: report 0 dibuat otomatis.", '
+                          '"Absen tercatat (ABS-" & row.ID & "). Status jadwal sekarang " & ' + now + ' & ".")')
     return f'''"ABSEN",
     // Jadwal dicari lewat ID SharePoint (scheduleItemId), Title hanya dicocokkan.
     With({{s: LookUp('Schedule - PBS Hub', ID = Value(p.scheduleItemId)),
@@ -118,46 +126,51 @@ def absen(R, col, after=''):
           st: Coalesce(Text(p.scheduleStatus), "Waiting Report")}},   // dari control: Waiting Report, atau Finished (Live Break / Co-Host)
         If(
             IsBlank(s) || s.Title <> Text(p.scheduleId) || s.HostID <> varMe.Title,
-                {res(R, "error", '"Jadwal " & Text(p.scheduleId) & " tidak ditemukan untuk akunmu. Muat ulang dulu."')},
-            // Sudah ada absen, tapi jadwal masih Planned (absen lama gagal di tengah): betulkan, jangan tolak.
-            !IsBlank(ex) && s.Status.Value <> "Waiting Report" && s.Status.Value <> "Finished" && s.Status.Value <> "Done",
-                IfError(
-                    Patch('Schedule - PBS Hub', s, {{Status: {{Value: st}}}});
-                    Patch('Host Absence - PBS Hub', ex, {{Status: {{Value: "Hadir"}}}});
-                    If(!(ex.ID in {col}.ID), Collect({col}, LookUp('Host Absence - PBS Hub', ID = ex.ID)));
-{ok_after}                    {res(R, "ok", '"Absen sudah tercatat, status jadwal diperbarui ke " & st & "."')},
-                    {res(R, "error", '"Gagal memperbarui status jadwal: " & FirstError.Message')}
-                ),
-            !IsBlank(ex),
+                {err('"Jadwal " & Text(p.scheduleId) & " tidak ditemukan untuk akunmu. Muat ulang dulu."')},
+            !IsBlank(ex) && (s.Status.Value = "Waiting Report" || s.Status.Value = "Finished" || s.Status.Value = "Done"),
                 {res(R, "conflict", '"Absen sesi ini sudah tercatat."')},
-            IfError(
-                // 1. Status jadwal dulu: kalau gagal, belum ada baris absen yang tertinggal.
-                Patch('Schedule - PBS Hub', s, {{Status: {{Value: st}}}});
-                // 2. Baris absen, Status Hadir.
-                With({{row: Patch('Host Absence - PBS Hub', Defaults('Host Absence - PBS Hub'), {{
-                        ScheduleID: s.Title, HostID: varMe.Title, HostName: Text(p.hostName), LiveDate: s.Date,
-                        BrandID: s.BrandID, Platform: {{Value: s.Platform.Value}},
-                        Account: LookUp(Choices([@'Host Absence - PBS Hub'].Account), Value = s.Account || Value = LookUp(colAccounts, Title = s.Account).AccountName),
-                        Status: {{Value: "Hadir"}}   // Choice Status di Host Absence; kalau kolomnya teks: Status: "Hadir"
-                    }})}},
-                    Patch('Host Absence - PBS Hub', row, {{Title: "ABS-" & row.ID}});
-                    Collect({col}, LookUp('Host Absence - PBS Hub', ID = row.ID));
-                    // 3. Live Break: host tidak perlu report, tapi baris Report tetap dibuat, semua angka 0.
-                    If(lb,
-                        Patch('Schedule - PBS Hub', LookUp('Schedule - PBS Hub', ID = s.ID), {{LiveBreak: {{Value: "Yes"}}}});   // Choice Yes/No
-                        With({{rep: Patch('Report - PBS Hub', Defaults('Report - PBS Hub'), {{
-                                ScheduleID: s.Title, HostID: varMe.Title, BrandID: s.BrandID, Platform: {{Value: s.Platform.Value}},
-                                AccountID: s.Account, Account: LookUp(Choices([@'Report - PBS Hub'].Account), Value = s.Account || Value = LookUp(colAccounts, Title = s.Account).AccountName), LiveDate: s.Date, AbsID: "ABS-" & row.ID,
-{ind(ZERO, 32)},
-                                ApprovalStatus: {{Value: "LiveBreak"}}
-                            }})}},
-                            Patch('Report - PBS Hub', rep, {{Title: "REP-" & rep.ID}})
-                        );
-{ind(tier("s.Date").rstrip(';'), 24)}
+            // 1. Status jadwal. Gagal → pesan error asli, belum ada yang ditulis.
+            With({{sp: IfError(Patch('Schedule - PBS Hub', s, {{Status: {{Value: st}}}}),
+                        {err('"Gagal mengubah status jadwal ke " & st & ": " & FirstError.Message')}; Blank())}},
+                If(!IsBlank(sp),
+                    If(
+                        // Sudah ada absen (absen lama gagal di tengah): cukup lengkapi Status Hadir.
+                        !IsBlank(ex),
+                            If(!IsBlank(IfError(Patch('Host Absence - PBS Hub', ex, {{Status: {{Value: "Hadir"}}}}),
+                                    {err('"Status jadwal sudah " & st & ", tapi Status Hadir gagal diisi: " & FirstError.Message')}; Blank())),
+                                If(!(ex.ID in {col}.ID), Collect({col}, LookUp('Host Absence - PBS Hub', ID = ex.ID)));
+{ok_after}                                {ok_repair}
+                            ),
+                        // 2. Baris absen baru, Status Hadir.
+                        With({{row: IfError(Patch('Host Absence - PBS Hub', Defaults('Host Absence - PBS Hub'), {{
+                                    ScheduleID: s.Title, HostID: varMe.Title, HostName: Text(p.hostName), LiveDate: s.Date,
+                                    BrandID: s.BrandID, Platform: {{Value: s.Platform.Value}},
+                                    Account: LookUp(Choices([@'Host Absence - PBS Hub'].Account), Value = s.Account || Value = LookUp(colAccounts, Title = s.Account).AccountName),
+                                    Status: {{Value: "Hadir"}}   // Choice Status di Host Absence; kalau kolomnya teks: Status: "Hadir"
+                                }}),
+                                {err('"Status jadwal sudah " & st & ", tapi absen gagal dicatat: " & FirstError.Message')}; Blank())}},
+                            If(!IsBlank(row),
+                                Patch('Host Absence - PBS Hub', row, {{Title: "ABS-" & row.ID}});
+                                Collect({col}, LookUp('Host Absence - PBS Hub', ID = row.ID));
+                                // 3. Live Break: host tidak perlu report, tapi baris Report tetap dibuat, semua angka 0.
+                                If(lb,
+                                    Patch('Schedule - PBS Hub', LookUp('Schedule - PBS Hub', ID = s.ID), {{LiveBreak: {{Value: "Yes"}}}});   // Choice Yes/No
+                                    With({{rep: Patch('Report - PBS Hub', Defaults('Report - PBS Hub'), {{
+                                            ScheduleID: s.Title, HostID: varMe.Title, BrandID: s.BrandID, Platform: {{Value: s.Platform.Value}},
+                                            AccountID: s.Account, Account: LookUp(Choices([@'Report - PBS Hub'].Account), Value = s.Account || Value = LookUp(colAccounts, Title = s.Account).AccountName), LiveDate: s.Date, AbsID: "ABS-" & row.ID,
+{ind(ZERO, 44)},
+                                            ApprovalStatus: {{Value: "LiveBreak"}}
+                                        }})}},
+                                        Patch('Report - PBS Hub', rep, {{Title: "REP-" & rep.ID}})
+                                    );
+{ind(tier("s.Date").rstrip(';'), 36)}
+                                );
+{new_after}                                // Pesan membaca ulang SharePoint, jadi yang tampil adalah status yang benar-benar tersimpan.
+                                {ok_new}
+                            )
+                        )
                     )
-                );
-{ind(after, 16) + chr(10) if after else ''}                {res(R, "ok", 'If(lb, "Absen tercatat. Live Break: report 0 dibuat otomatis.", "Absen tercatat untuk " & Text(p.scheduleId) & ". Status jadwal: " & st & ".")')},
-                {res(R, "error", '"Gagal absen: " & FirstError.Message')}
+                )
             )
         )
     ),'''
