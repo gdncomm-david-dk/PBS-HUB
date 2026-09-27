@@ -1,6 +1,6 @@
 # Integrasi canvas — PBS Hub Host App
 
-Solusi terpisah dari Ops Console: **`PBSHubHostApp`** (managed, `dist/PBSHubHostApp_1_0_4_0_managed.zip`), berisi
+Solusi terpisah dari Ops Console: **`PBSHubHostApp`** (managed, `dist/PBSHubHostApp_1_0_5_0_managed.zip`), berisi
 ketujuh control host dengan identifier baru `pbs_HostApp.*`. Solusi ini menggantikan `PBSHubHostPCF` +
 `PBSHubHostSchedulePCF` (control lama `pbs_Host.*`). Karena nama solusi dan namespace control berbeda, solusi baru
 bisa diimport berdampingan dengan yang lama tanpa bentrok. Publisher dan prefix tetap sama (`PBSHub` / `pbs`).
@@ -52,7 +52,7 @@ ClearCollect(colAccounts, ShowColumns('Account - PBS Hub', Title, AccountName));
 // Inisialisasi semua variabel host. Power Apps menolak variabel yang belum pernah di-Set di mana pun
 // ("Name isn't valid. 'varMrPeriod' isn't recognized"), jadi deklarasikan semuanya di sini sekali.
 Set(varMrPeriod, "");  Set(varMrFilter, "");                 // Report saya: bulan "yyyy-mm" (kosong = bulan ini), filter
-Set(varMsPeriod, "");  Set(varMsFilter, "");  Set(varMsView, "List");   // Jadwal saya
+Set(varMsPeriod, "");  Set(varMsFilter, "");  Set(varMsView, "Week");   // Jadwal saya
 Set(varSchId, "");     Set(varSchDate, Today());             // Detail sesi yang dibuka
 Set(varRptId, Value(Blank())); Set(varRptSchedule, "");      // Kirim / revisi report (Value(Blank()) = angka kosong)
 // Record kosong yang sudah bertipe: LookUp ke ID yang tidak ada. Set(var, Blank()) saja ditolak
@@ -344,7 +344,7 @@ Set(varMsLoading, false);
 | `HostJson` | seperti HostDashboard (dipakai untuk payload `ABSEN`) |
 | `SchedulesJson` | seperti HostDashboard dari `colMsSch`, **plus** `JamLive: JamLive` (`Position`, `LiveBreak`, `AccountName` sudah ikut dari HostDashboard). Kolom *Posisi* hanya tampil kalau ada baris yang mengisinya. |
 | `ClockInJson`, `AbsenceJson`, `ReportsJson`, `BrandsJson`, `StudiosJson` | seperti HostDashboard, dari koleksi `colMs…` |
-| `DefaultView` | `Coalesce(varMsView, "List")` — `"List"` (Daftar), `"Week"` (papan Minggu, desain 11a) atau `"Calendar"` (kalender Bulan, desain 10b). Tombol *Daftar / Minggu / Bulan* mengirim `VIEW_CHANGED {view}`; simpan di `OnChange`: `"VIEW_CHANGED", Set(varMsView, Text(p.view))` supaya pilihan host bertahan saat kembali ke layar. |
+| `DefaultView` | `Coalesce(varMsView, "Week")` — `"Week"` (papan Minggu, desain 11a, default; kosong juga Minggu), `"List"` (Daftar) atau `"Calendar"` (kalender Bulan, desain 10b). Tombol *Daftar / Minggu / Bulan* mengirim `VIEW_CHANGED {view}`; simpan di `OnChange`: `"VIEW_CHANGED", Set(varMsView, Text(p.view))` supaya pilihan host bertahan saat kembali ke layar. |
 | Data yang dimuat | bulan lalu + bulan ini + 7 hari bulan depan (`SchedulesJson`, `ClockInJson`, `AbsenceJson`, `ReportsJson`). Angka bulan, daftar dan kalender tetap hanya bulan `Period`; bulan lalu dipakai panel *Bulan lalu* dan *Report tertunda*, 7 hari bulan depan dipakai papan minggu yang melewati akhir bulan. |
 | `Context.config` | `holidays` (teks `"2026-08-17,2026-12-25"` atau array tanggal) → tanggal merah di kalender, *Hari libur nasional*, dan *Libur nasional* di papan; `picName` → nama di kartu *Ada yang tidak sesuai?*; `weekMaxHours` → *Jam live … dari maks X jam* di papan minggu. |
 | `HasMore` | `false` (per host per bulan kecil) |
@@ -373,7 +373,7 @@ terjadwal), *Absen hari ini*, *Hari clock in* (hari berjadwal sampai hari ini ya
 | `CLOCK_IN`, `NEW_REPORT`, `OPEN_REPORT` | sama dengan HostDashboard |
 | `PERIOD_CHANGED` `{period}` | `Set(varMsPeriod, Text(p.period))` lalu ulangi OnVisible |
 | `FILTER_CHANGED` `{status, platform, period}` | opsional: `Set(varMsFilter, Text(p.status))` supaya filter bertahan saat kembali |
-| `VIEW_CHANGED` `{view: "List" \| "Week" \| "Calendar"}` | opsional: `Set(varMsView, Text(p.view))`, lalu `DefaultView = Coalesce(varMsView, "List")` |
+| `VIEW_CHANGED` `{view: "List" \| "Week" \| "Calendar"}` | opsional: `Set(varMsView, Text(p.view))`, lalu `DefaultView = Coalesce(varMsView, "Week")` |
 | `CONTACT_PIC` `{period}` | tombol *Hubungi PIC* di tampilan Bulan: `Launch(varPicUrl)` (mailto atau link chat) |
 | `PERIOD_CHANGED` dari papan minggu | ‹ › ke minggu yang tidak menyentuh bulan `Period` mengirim bulan baru (bulan hari Kamis minggu itu); canvas memuat ulang seperti ganti bulan |
 | `LOAD_MORE` `{period, loaded}` | hanya kalau `HasMore` dipakai |
@@ -438,7 +438,7 @@ Sesi tanpa clock in diarahkan minta clock in manual ke tim PBS, sesi batal hanya
 
 ## 8. Pemasangan
 
-1. Import `dist/PBSHubHostApp_1_0_4_0_managed.zip` (Solutions → Import). Bisa di environment yang sama dengan
+1. Import `dist/PBSHubHostApp_1_0_5_0_managed.zip` (Solutions → Import). Bisa di environment yang sama dengan
    `PBSHubOpsPCF` dan dengan solusi host lama.
    **Pindah dari solusi lama** (`PBSHubHostPCF` / `PBSHubHostSchedulePCF`, control `pbs_Host.*`): control baru tidak
    otomatis menggantikan yang lama di canvas. Di tiap layar hapus control lama, tambahkan control `pbs_HostApp.*`

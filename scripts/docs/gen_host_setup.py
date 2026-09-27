@@ -172,7 +172,7 @@ belum ada di list lama, cek dulu.
 
     doc.append("""## Langkah 1 — Import solusi dan tambahkan data source
 
-1. Power Apps → **Solutions → Import solution** → pilih `dist/PBSHubHostApp_1_0_4_0_managed.zip` → Import.
+1. Power Apps → **Solutions → Import solution** → pilih `dist/PBSHubHostApp_1_0_5_0_managed.zip` → Import.
 2. Sekali per environment: Power Platform admin center → environment → **Settings → Product → Features** →
    *Allow publishing of canvas apps with code components* = **On**. Tanpa ini control tidak muncul di tab Code.
 3. Panel **Data → Add data → SharePoint** → site PBS Hub → centang semua list di Langkah 0.
@@ -255,7 +255,7 @@ ClearCollect(colPbsProcessed, {Id: ""});                                        
 // 4. Semua variabel layar. Power Apps menolak variabel yang tidak pernah di-Set ("Name isn't valid") atau
 //    hanya di-Set ke Blank() ("No type found"), jadi semuanya dideklarasikan di sini dengan tipe yang benar.
 Set(varMrPeriod, "");  Set(varMrFilter, "All");                          // Report saya
-Set(varMsPeriod, "");  Set(varMsFilter, "");  Set(varMsView, "List");    // Jadwal saya
+Set(varMsPeriod, "");  Set(varMsFilter, "");  Set(varMsView, "Week");    // Jadwal saya
 Set(varPicUrl, "mailto:pic-jadwal@contoh.com");                          // tombol Hubungi PIC (mailto: atau link chat Teams)
 Set(varSchId, "");     Set(varSchDate, Today());                         // Detail sesi
 Set(varCsPeriod, "");  Set(varCsFilter, "All"); Set(varCsTop, 200);    // Skor saya
@@ -456,7 +456,7 @@ Set(varMsLoading, false)"""
         ("Context", "varHostCtx", ""),
         ("Period", "varMsPeriod", "`yyyy-mm`; kosong = bulan ini"),
         ("DefaultFilter", "varMsFilter", "kosong, `ACTION`, `PLANNED`, `FINISHED`, `CANCELLED`"),
-        ("DefaultView", 'Coalesce(varMsView, "List")', "`List` (Daftar), `Week` (papan Minggu) atau `Calendar` (Bulan)"),
+        ("DefaultView", 'Coalesce(varMsView, "Week")', "`Week` (papan Minggu, default), `List` (Daftar) atau `Calendar` (Bulan)"),
         ("HostJson", HOST, ""),
         ("SchedulesJson", js("colMsSch", SCH), ""),
         ("ClockInJson", js("colMsClk", CLK), ""),
@@ -475,7 +475,7 @@ Set(varMsLoading, false)"""
                       "tombol Hubungi PIC; bulan tanpa jadwal tetap menampilkan kalender dengan *Jadwal … belum terbit*). KPI, strip Hari ini "
                       "(clock in, absen), filter. Data yang dimuat: bulan lalu + bulan ini + 7 hari bulan depan.",
                       ms_vis, ms_rows, oc.ms,
-                      "Ganti bulan → jadwal berganti. Pilih *Minggu* → papan minggu ini, hari ini disorot; ‹ › pindah minggu (masuk bulan lain → "
+                      "Buka layar → langsung papan *Minggu* ini, hari ini disorot. Ganti bulan → jadwal berganti; ‹ › pindah minggu (masuk bulan lain → "
                       "canvas memuat bulan itu). Pilih *Bulan* → tetap Bulan saat kembali ke layar; panel *Bulan lalu* terisi."))
 
     ck_vis = """

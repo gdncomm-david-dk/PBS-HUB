@@ -591,7 +591,7 @@ const assert = (c, m) => { if (!c) { console.log("FAIL", m); process.exitCode = 
   assert((await p.getByRole("button", { name: "Perbaiki report" }).count()) === 0, "done report is read-only");
 
   // ---- Host app: my schedule --------------------------------------------------------------------
-  await go("c=MySchedule");
+  await go("c=MySchedule&view=List");
   const schRows = () => p.locator(".hc-row.sch:not(.head)").count();
   assert((await schRows()) === 20, "20 sessions in September, cancelled included");
   assert(await p.getByText("Planned").first().isVisible() && (await p.getByText("Finished").first().isVisible()), "Planned / Finished status words");
@@ -614,7 +614,7 @@ const assert = (c, m) => { if (!c) { console.log("FAIL", m); process.exitCode = 
   await p.selectOption("select[aria-label=Bulan]", "2026-07");
   await p.waitForTimeout(200);
   assert(await p.getByText("Belum ada jadwal di Juli 2026").isVisible(), "empty month after PERIOD_CHANGED");
-  await go("c=MySchedule&w=390");
+  await go("c=MySchedule&view=List&w=390");
   const over = await p.evaluate(() => { const st = document.getElementById("stage"); return st.scrollWidth - st.clientWidth; });
   assert(over <= 0, "mobile table has no horizontal scroll");
   await go("c=HostDashboard");
@@ -723,7 +723,7 @@ const assert = (c, m) => { if (!c) { console.log("FAIL", m); process.exitCode = 
   assert(await p.locator(".hc-part").getByText("Live break").isVisible(), "the LiveBreak report row is listed");
 
   // MySchedule calendar view: toggle, day cells, day list opens the session.
-  await go("c=MySchedule");
+  await go("c=MySchedule&view=List");
   await p.getByRole("button", { name: "Bulan", exact: true }).click();
   await p.waitForTimeout(200);
   pl = await payloads();
@@ -753,6 +753,8 @@ const assert = (c, m) => { if (!c) { console.log("FAIL", m); process.exitCode = 
   assert((await payloads()).some((x) => x.action === "PERIOD_CHANGED" && x.payload.period === "2026-09"), "Lihat September asks for the previous month");
 
   // Week board (design 11a).
+  await go("c=MySchedule");
+  assert((await p.locator(".hc-bcol").count()) === 7, "no DefaultView: the week board opens");
   await go("c=MySchedule&view=Week");
   assert((await p.locator(".hc-bcol").count()) === 7 && (await p.locator(".hc-bcol.on header b").textContent()).startsWith("Sen 14"), "week board: 7 days, today highlighted");
   assert((await p.locator(".hc-bcol.on .hc-bcard").count()) === 3 && (await p.locator(".hc-bcard.next").count()) === 1, "today column has 3 cards, one marked Berikutnya");

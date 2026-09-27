@@ -30,7 +30,7 @@ export interface MyScheduleProps {
   ctx: ModuleContext;
   period: string;
   defaultFilter: string;
-  /** "List" (default), "Week" or "Calendar" (month). */
+  /** "Week" (default), "List" or "Calendar" (month). */
   defaultView: string;
   host: Row[];
   schedules: Row[];
@@ -121,7 +121,7 @@ export function MyScheduleView(props: MyScheduleProps): React.ReactElement {
   React.useEffect(() => setStatus(initial), [initial]);
   const [platform, setPlatform] = React.useState("");
   const [search, setSearch] = React.useState("");
-  const initialView: View = props.defaultView === "Calendar" || props.defaultView === "Month" ? "Calendar" : props.defaultView === "Week" ? "Week" : "List";
+  const initialView: View = props.defaultView === "Calendar" || props.defaultView === "Month" ? "Calendar" : props.defaultView === "List" ? "List" : "Week";
   const [view, setView] = React.useState<View>(initialView);
   React.useEffect(() => setView(initialView), [initialView]);
   const pickView = (v: View) => {
