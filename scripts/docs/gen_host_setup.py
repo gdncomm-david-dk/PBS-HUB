@@ -142,7 +142,7 @@ belum ada di list lama, cek dulu.
 - `ApprovalComment`, `Approver` (Person), `ApproverEmail`, `Attachment`
 
 **`Host Absence - PBS Hub`** — `Title` (ABS-…), `ScheduleID`, `HostID`, `HostName`, `LiveDate`, `BrandID`,
-`Platform`, `Account`
+`Platform`, `Account`, ⚠ `Status` — Choice dengan pilihan **`Hadir`** (diisi saat absen)
 
 **`Report Automation - PBS Hub`** — bukti AI; `Title` sama dengan Title report; `Status` Choice (termasuk `Unmatch`)
 
@@ -494,7 +494,7 @@ Pakai satu jadwal milik akunmu (`HostID = varMe.Title`), hari ini, **sudah mulai
 |---|---|---|---|
 | 1 | Clock in di `scrClockIn` | *Clock in tersimpan* | Clock In `CLK-…` |
 | 2 | Buka sesi di `scrScheduleDetail` | Send Report nonaktif: *Absen sesi ini belum tercatat* | — |
-| 3 | **Absen** → *Tidak* → Absen | *Absen tercatat*, Send Report aktif | Host Absence `ABS-…`; Schedule `Status = Waiting Report` |
+| 3 | **Absen** → *Tidak* → Absen | *Absen tercatat … Status jadwal: Waiting Report*, Send Report aktif | Host Absence `ABS-…` dengan `Status = Hadir`; Schedule `Planned` → `Waiting Report` |
 | 4 | **Send Report**: Live ID `111`, Durasi `60`, semua angka, screenshot | *Kurang 60 menit*, tombol jadi **Send Report berikutnya** | Report `REP-…` (`Waiting Approval`, LiveID 111, Attachment); Schedule tetap `Waiting Report` |
 | 5 | Report berikutnya dengan Live ID `111` | ditolak: *Live ID sudah dipakai* | — |
 | 6 | Live ID `222`, Durasi `60` | *Durasi sesi terpenuhi*, tombol hilang | Report kedua; Schedule `Status = Done` |
@@ -516,7 +516,9 @@ Pakai satu jadwal milik akunmu (`HostID = varMe.Title`), hari ini, **sudah mulai
 | Nama akun kosong | `colAccounts` belum dimuat / `Schedule.Account` ≠ `Title` di list Account | Run OnStart; cek isi kedua kolom |
 | Klik tombol, spinner berputar terus | OnChange belum ditempel, atau `ActionResult` bukan variabel layar itu | tempel OnChange langkah layar itu; cek `ActionResult` |
 | Klik tombol, tidak terjadi apa-apa | `colPbsProcessed` belum ada | Run OnStart |
-| Send Report nonaktif *Status jadwal masih Planned* | absen dicatat sebelum OnChange baru terpasang | ubah Status jadwal itu ke `Waiting Report` sekali secara manual |
+| Sudah absen tapi jadwal tetap `Planned` / diminta absen terus | absen lama gagal di tengah (baris absen ada, status jadwal belum pindah) | tempel OnChange terbaru, lalu tekan **Absen** sekali lagi: OnChange membetulkan Status jadwal ke `Waiting Report` dan mengisi `Status = Hadir`, tanpa membuat absen baru |
+| *Jadwal … tidak ditemukan untuk akunmu* | `HostID` jadwal ≠ `varMe.Title`, atau Title jadwal berubah | cek `HostID` di Schedule; muat ulang layar |
+| *Gagal absen: … Status* | Choice `Status` di Host Absence tidak punya `Hadir` (atau kolomnya teks) | tambah pilihan `Hadir`; kalau teks ganti jadi `Status: "Hadir"` |
 | *Status jadwal Done, report tidak bisa dikirim* | durasi sudah terpenuhi, atau ejaan Choice beda | cek ejaan Choice = `scheduleWaitingStatus` di Langkah 3 dan teks `"Waiting Report"` di OnChange |
 | Error di `Playbook` | pilihan dropdown tidak ada di Choice | `PlaybooksJson` = `JSON(Choices([@'Report - PBS Hub'].Playbook), …)` |
 | Report terbuat tapi `Attachment` kosong / error *HttpRequest* | `varSiteID` / `varDriveID` salah, Office 365 Groups belum ditambahkan, atau folder brand belum ada | salin ID dari app upload jadwal; cek `NamaBrand` di list Brand |

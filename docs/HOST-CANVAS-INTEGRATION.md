@@ -663,20 +663,40 @@ If(!IsBlank(Self.ActionPayload),
                     "CLOCK_IN", Navigate(scrClockIn),
                     "CLOCK_OUT", Navigate(scrClockIn),
                     "ABSEN",
-                        If(!IsBlank(LookUp('Host Absence - PBS Hub', ScheduleID = Text(p.scheduleId) && HostID = varMe.Title)),
-                            Set(varHdResult, JSON({requestId: rid, status: "conflict", message: "Absen sesi ini sudah tercatat."}, JSONFormat.Compact)),
-                            IfError(
-                                With({s: LookUp('Schedule - PBS Hub', Title = Text(p.scheduleId) && HostID = varMe.Title), lb: Boolean(p.liveBreak)},
+                        // Jadwal dicari lewat ID SharePoint (scheduleItemId), Title hanya dicocokkan.
+                        With({s: LookUp('Schedule - PBS Hub', ID = Value(p.scheduleItemId)),
+                              ex: LookUp('Host Absence - PBS Hub', ScheduleID = Text(p.scheduleId) && HostID = varMe.Title),
+                              lb: Boolean(p.liveBreak),
+                              st: Coalesce(Text(p.scheduleStatus), "Waiting Report")},   // dari control: Waiting Report, atau Done (Live Break / Co-Host)
+                            If(
+                                IsBlank(s) || s.Title <> Text(p.scheduleId) || s.HostID <> varMe.Title,
+                                    Set(varHdResult, JSON({requestId: rid, status: "error", message: "Jadwal " & Text(p.scheduleId) & " tidak ditemukan untuk akunmu. Muat ulang dulu."}, JSONFormat.Compact)),
+                                // Sudah ada absen, tapi jadwal masih Planned (absen lama gagal di tengah): betulkan, jangan tolak.
+                                !IsBlank(ex) && s.Status.Value <> "Waiting Report" && s.Status.Value <> "Done",
+                                    IfError(
+                                        Patch('Schedule - PBS Hub', s, {Status: {Value: st}});
+                                        Patch('Host Absence - PBS Hub', ex, {Status: {Value: "Hadir"}});
+                                        If(!(ex.ID in colMyAbs.ID), Collect(colMyAbs, LookUp('Host Absence - PBS Hub', ID = ex.ID)));
+                                        ClearCollect(colMySch, Filter('Schedule - PBS Hub', HostID = varMe.Title, Date >= Today() - 7, Date <= Today() + 7));
+                                        ClearCollect(colMyRep, Filter('Report - PBS Hub', HostID = varMe.Title, LiveDate >= Today() - 30));
+                                        Set(varHdResult, JSON({requestId: rid, status: "ok", message: "Absen sudah tercatat, status jadwal diperbarui ke " & st & "."}, JSONFormat.Compact)),
+                                        Set(varHdResult, JSON({requestId: rid, status: "error", message: "Gagal memperbarui status jadwal: " & FirstError.Message}, JSONFormat.Compact))
+                                    ),
+                                !IsBlank(ex),
+                                    Set(varHdResult, JSON({requestId: rid, status: "conflict", message: "Absen sesi ini sudah tercatat."}, JSONFormat.Compact)),
+                                IfError(
+                                    // 1. Status jadwal dulu: kalau gagal, belum ada baris absen yang tertinggal.
+                                    Patch('Schedule - PBS Hub', s, {Status: {Value: st}});
+                                    // 2. Baris absen, Status Hadir.
                                     With({row: Patch('Host Absence - PBS Hub', Defaults('Host Absence - PBS Hub'), {
                                             ScheduleID: s.Title, HostID: varMe.Title, HostName: Text(p.hostName), LiveDate: s.Date,
-                                            BrandID: s.BrandID, Platform: {Value: s.Platform.Value}, Account: LookUp(Choices([@'Host Absence - PBS Hub'].Account), Value = s.Account || Value = LookUp(colAccounts, Title = s.Account).AccountName)
-                                            // , Status: {Value: "Present"}   ← nilai Choice Status di Host Absence, kalau kolomnya ada
+                                            BrandID: s.BrandID, Platform: {Value: s.Platform.Value},
+                                            Account: LookUp(Choices([@'Host Absence - PBS Hub'].Account), Value = s.Account || Value = LookUp(colAccounts, Title = s.Account).AccountName),
+                                            Status: {Value: "Hadir"}   // Choice Status di Host Absence; kalau kolomnya teks: Status: "Hadir"
                                         })},
                                         Patch('Host Absence - PBS Hub', row, {Title: "ABS-" & row.ID});
                                         Collect(colMyAbs, LookUp('Host Absence - PBS Hub', ID = row.ID));
-                                        // Status jadwal dari control: "Waiting Report" (report dibuka) atau "Done" (Live Break / Co-Host).
-                                        Patch('Schedule - PBS Hub', s, {Status: {Value: Text(p.scheduleStatus)}});
-                                        // Live Break: host tidak perlu report, tapi baris Report tetap dibuat, semua angka 0.
+                                        // 3. Live Break: host tidak perlu report, tapi baris Report tetap dibuat, semua angka 0.
                                         If(lb,
                                             Patch('Schedule - PBS Hub', LookUp('Schedule - PBS Hub', ID = s.ID), {LiveBreak: {Value: "Yes"}});   // Choice Yes/No
                                             With({rep: Patch('Report - PBS Hub', Defaults('Report - PBS Hub'), {
@@ -768,12 +788,12 @@ If(!IsBlank(Self.ActionPayload),
                                                 Notify("Report tersimpan, tapi Tier belum terhitung: " & FirstError.Message, NotificationType.Warning)
                                             )
                                         )
-                                    )
-                                );
-                                ClearCollect(colMySch, Filter('Schedule - PBS Hub', HostID = varMe.Title, Date >= Today() - 7, Date <= Today() + 7));
-                                ClearCollect(colMyRep, Filter('Report - PBS Hub', HostID = varMe.Title, LiveDate >= Today() - 30));
-                                Set(varHdResult, JSON({requestId: rid, status: "ok", message: If(Boolean(p.liveBreak), "Absen tercatat. Live Break: report 0 dibuat otomatis.", "Absen tercatat untuk " & Text(p.scheduleId) & ".")}, JSONFormat.Compact)),
-                                Set(varHdResult, JSON({requestId: rid, status: "error", message: "Gagal absen: " & FirstError.Message}, JSONFormat.Compact))
+                                    );
+                                    ClearCollect(colMySch, Filter('Schedule - PBS Hub', HostID = varMe.Title, Date >= Today() - 7, Date <= Today() + 7));
+                                    ClearCollect(colMyRep, Filter('Report - PBS Hub', HostID = varMe.Title, LiveDate >= Today() - 30));
+                                    Set(varHdResult, JSON({requestId: rid, status: "ok", message: If(lb, "Absen tercatat. Live Break: report 0 dibuat otomatis.", "Absen tercatat untuk " & Text(p.scheduleId) & ". Status jadwal: " & st & ".")}, JSONFormat.Compact)),
+                                    Set(varHdResult, JSON({requestId: rid, status: "error", message: "Gagal absen: " & FirstError.Message}, JSONFormat.Compact))
+                                )
                             )
                         ),
                     "NEW_REPORT",
@@ -839,20 +859,40 @@ If(!IsBlank(Self.ActionPayload),
                 Collect(colPbsProcessed, {Id: rid});
                 Switch(act,
                     "ABSEN",
-                        If(!IsBlank(LookUp('Host Absence - PBS Hub', ScheduleID = Text(p.scheduleId) && HostID = varMe.Title)),
-                            Set(varMrdResult, JSON({requestId: rid, status: "conflict", message: "Absen sesi ini sudah tercatat."}, JSONFormat.Compact)),
-                            IfError(
-                                With({s: LookUp('Schedule - PBS Hub', Title = Text(p.scheduleId) && HostID = varMe.Title), lb: Boolean(p.liveBreak)},
+                        // Jadwal dicari lewat ID SharePoint (scheduleItemId), Title hanya dicocokkan.
+                        With({s: LookUp('Schedule - PBS Hub', ID = Value(p.scheduleItemId)),
+                              ex: LookUp('Host Absence - PBS Hub', ScheduleID = Text(p.scheduleId) && HostID = varMe.Title),
+                              lb: Boolean(p.liveBreak),
+                              st: Coalesce(Text(p.scheduleStatus), "Waiting Report")},   // dari control: Waiting Report, atau Done (Live Break / Co-Host)
+                            If(
+                                IsBlank(s) || s.Title <> Text(p.scheduleId) || s.HostID <> varMe.Title,
+                                    Set(varMrdResult, JSON({requestId: rid, status: "error", message: "Jadwal " & Text(p.scheduleId) & " tidak ditemukan untuk akunmu. Muat ulang dulu."}, JSONFormat.Compact)),
+                                // Sudah ada absen, tapi jadwal masih Planned (absen lama gagal di tengah): betulkan, jangan tolak.
+                                !IsBlank(ex) && s.Status.Value <> "Waiting Report" && s.Status.Value <> "Done",
+                                    IfError(
+                                        Patch('Schedule - PBS Hub', s, {Status: {Value: st}});
+                                        Patch('Host Absence - PBS Hub', ex, {Status: {Value: "Hadir"}});
+                                        If(!(ex.ID in colMrdAbs.ID), Collect(colMrdAbs, LookUp('Host Absence - PBS Hub', ID = ex.ID)));
+                                        Set(varMrdSch, LookUp('Schedule - PBS Hub', ID = varMrdSch.ID));
+                                        ClearCollect(colMrdSesRep, Filter('Report - PBS Hub', HostID = varMe.Title, ScheduleID = varMrdSch.Title));
+                                        Set(varMrdResult, JSON({requestId: rid, status: "ok", message: "Absen sudah tercatat, status jadwal diperbarui ke " & st & "."}, JSONFormat.Compact)),
+                                        Set(varMrdResult, JSON({requestId: rid, status: "error", message: "Gagal memperbarui status jadwal: " & FirstError.Message}, JSONFormat.Compact))
+                                    ),
+                                !IsBlank(ex),
+                                    Set(varMrdResult, JSON({requestId: rid, status: "conflict", message: "Absen sesi ini sudah tercatat."}, JSONFormat.Compact)),
+                                IfError(
+                                    // 1. Status jadwal dulu: kalau gagal, belum ada baris absen yang tertinggal.
+                                    Patch('Schedule - PBS Hub', s, {Status: {Value: st}});
+                                    // 2. Baris absen, Status Hadir.
                                     With({row: Patch('Host Absence - PBS Hub', Defaults('Host Absence - PBS Hub'), {
                                             ScheduleID: s.Title, HostID: varMe.Title, HostName: Text(p.hostName), LiveDate: s.Date,
-                                            BrandID: s.BrandID, Platform: {Value: s.Platform.Value}, Account: LookUp(Choices([@'Host Absence - PBS Hub'].Account), Value = s.Account || Value = LookUp(colAccounts, Title = s.Account).AccountName)
-                                            // , Status: {Value: "Present"}   ← nilai Choice Status di Host Absence, kalau kolomnya ada
+                                            BrandID: s.BrandID, Platform: {Value: s.Platform.Value},
+                                            Account: LookUp(Choices([@'Host Absence - PBS Hub'].Account), Value = s.Account || Value = LookUp(colAccounts, Title = s.Account).AccountName),
+                                            Status: {Value: "Hadir"}   // Choice Status di Host Absence; kalau kolomnya teks: Status: "Hadir"
                                         })},
                                         Patch('Host Absence - PBS Hub', row, {Title: "ABS-" & row.ID});
                                         Collect(colMrdAbs, LookUp('Host Absence - PBS Hub', ID = row.ID));
-                                        // Status jadwal dari control: "Waiting Report" (report dibuka) atau "Done" (Live Break / Co-Host).
-                                        Patch('Schedule - PBS Hub', s, {Status: {Value: Text(p.scheduleStatus)}});
-                                        // Live Break: host tidak perlu report, tapi baris Report tetap dibuat, semua angka 0.
+                                        // 3. Live Break: host tidak perlu report, tapi baris Report tetap dibuat, semua angka 0.
                                         If(lb,
                                             Patch('Schedule - PBS Hub', LookUp('Schedule - PBS Hub', ID = s.ID), {LiveBreak: {Value: "Yes"}});   // Choice Yes/No
                                             With({rep: Patch('Report - PBS Hub', Defaults('Report - PBS Hub'), {
@@ -944,12 +984,12 @@ If(!IsBlank(Self.ActionPayload),
                                                 Notify("Report tersimpan, tapi Tier belum terhitung: " & FirstError.Message, NotificationType.Warning)
                                             )
                                         )
-                                    )
-                                );
-                                Set(varMrdSch, LookUp('Schedule - PBS Hub', ID = varMrdSch.ID));
-                                ClearCollect(colMrdSesRep, Filter('Report - PBS Hub', HostID = varMe.Title, ScheduleID = varMrdSch.Title));
-                                Set(varMrdResult, JSON({requestId: rid, status: "ok", message: If(Boolean(p.liveBreak), "Absen tercatat. Live Break: report 0 dibuat otomatis.", "Absen tercatat untuk " & Text(p.scheduleId) & ".")}, JSONFormat.Compact)),
-                                Set(varMrdResult, JSON({requestId: rid, status: "error", message: "Gagal absen: " & FirstError.Message}, JSONFormat.Compact))
+                                    );
+                                    Set(varMrdSch, LookUp('Schedule - PBS Hub', ID = varMrdSch.ID));
+                                    ClearCollect(colMrdSesRep, Filter('Report - PBS Hub', HostID = varMe.Title, ScheduleID = varMrdSch.Title));
+                                    Set(varMrdResult, JSON({requestId: rid, status: "ok", message: If(lb, "Absen tercatat. Live Break: report 0 dibuat otomatis.", "Absen tercatat untuk " & Text(p.scheduleId) & ". Status jadwal: " & st & ".")}, JSONFormat.Compact)),
+                                    Set(varMrdResult, JSON({requestId: rid, status: "error", message: "Gagal absen: " & FirstError.Message}, JSONFormat.Compact))
+                                )
                             )
                         ),
                     "SUBMIT_REPORT",
@@ -1243,20 +1283,42 @@ If(!IsBlank(Self.ActionPayload),
                     "OPEN_SCHEDULE",
                         Set(varSchId, Text(p.scheduleId)); Set(varSchDate, DateValue(Text(p.liveDate))); Navigate(scrScheduleDetail),
                     "ABSEN",
-                        If(!IsBlank(LookUp('Host Absence - PBS Hub', ScheduleID = Text(p.scheduleId) && HostID = varMe.Title)),
-                            Set(varMsResult, JSON({requestId: rid, status: "conflict", message: "Absen sesi ini sudah tercatat."}, JSONFormat.Compact)),
-                            IfError(
-                                With({s: LookUp('Schedule - PBS Hub', Title = Text(p.scheduleId) && HostID = varMe.Title), lb: Boolean(p.liveBreak)},
+                        // Jadwal dicari lewat ID SharePoint (scheduleItemId), Title hanya dicocokkan.
+                        With({s: LookUp('Schedule - PBS Hub', ID = Value(p.scheduleItemId)),
+                              ex: LookUp('Host Absence - PBS Hub', ScheduleID = Text(p.scheduleId) && HostID = varMe.Title),
+                              lb: Boolean(p.liveBreak),
+                              st: Coalesce(Text(p.scheduleStatus), "Waiting Report")},   // dari control: Waiting Report, atau Done (Live Break / Co-Host)
+                            If(
+                                IsBlank(s) || s.Title <> Text(p.scheduleId) || s.HostID <> varMe.Title,
+                                    Set(varMsResult, JSON({requestId: rid, status: "error", message: "Jadwal " & Text(p.scheduleId) & " tidak ditemukan untuk akunmu. Muat ulang dulu."}, JSONFormat.Compact)),
+                                // Sudah ada absen, tapi jadwal masih Planned (absen lama gagal di tengah): betulkan, jangan tolak.
+                                !IsBlank(ex) && s.Status.Value <> "Waiting Report" && s.Status.Value <> "Done",
+                                    IfError(
+                                        Patch('Schedule - PBS Hub', s, {Status: {Value: st}});
+                                        Patch('Host Absence - PBS Hub', ex, {Status: {Value: "Hadir"}});
+                                        If(!(ex.ID in colMsAbs.ID), Collect(colMsAbs, LookUp('Host Absence - PBS Hub', ID = ex.ID)));
+                                        With({from: If(IsBlank(varMsPeriod), Date(Year(Today()), Month(Today()), 1), DateValue(varMsPeriod & "-01"))},
+                                            ClearCollect(colMsSch, Filter('Schedule - PBS Hub', HostID = varMe.Title, Date >= from, Date < DateAdd(from, 1, TimeUnit.Months)));
+                                            ClearCollect(colMsRep, Filter('Report - PBS Hub', HostID = varMe.Title, LiveDate >= from, LiveDate < DateAdd(from, 1, TimeUnit.Months)))
+                                        );
+                                        Set(varMsResult, JSON({requestId: rid, status: "ok", message: "Absen sudah tercatat, status jadwal diperbarui ke " & st & "."}, JSONFormat.Compact)),
+                                        Set(varMsResult, JSON({requestId: rid, status: "error", message: "Gagal memperbarui status jadwal: " & FirstError.Message}, JSONFormat.Compact))
+                                    ),
+                                !IsBlank(ex),
+                                    Set(varMsResult, JSON({requestId: rid, status: "conflict", message: "Absen sesi ini sudah tercatat."}, JSONFormat.Compact)),
+                                IfError(
+                                    // 1. Status jadwal dulu: kalau gagal, belum ada baris absen yang tertinggal.
+                                    Patch('Schedule - PBS Hub', s, {Status: {Value: st}});
+                                    // 2. Baris absen, Status Hadir.
                                     With({row: Patch('Host Absence - PBS Hub', Defaults('Host Absence - PBS Hub'), {
                                             ScheduleID: s.Title, HostID: varMe.Title, HostName: Text(p.hostName), LiveDate: s.Date,
-                                            BrandID: s.BrandID, Platform: {Value: s.Platform.Value}, Account: LookUp(Choices([@'Host Absence - PBS Hub'].Account), Value = s.Account || Value = LookUp(colAccounts, Title = s.Account).AccountName)
-                                            // , Status: {Value: "Present"}   ← nilai Choice Status di Host Absence, kalau kolomnya ada
+                                            BrandID: s.BrandID, Platform: {Value: s.Platform.Value},
+                                            Account: LookUp(Choices([@'Host Absence - PBS Hub'].Account), Value = s.Account || Value = LookUp(colAccounts, Title = s.Account).AccountName),
+                                            Status: {Value: "Hadir"}   // Choice Status di Host Absence; kalau kolomnya teks: Status: "Hadir"
                                         })},
                                         Patch('Host Absence - PBS Hub', row, {Title: "ABS-" & row.ID});
                                         Collect(colMsAbs, LookUp('Host Absence - PBS Hub', ID = row.ID));
-                                        // Status jadwal dari control: "Waiting Report" (report dibuka) atau "Done" (Live Break / Co-Host).
-                                        Patch('Schedule - PBS Hub', s, {Status: {Value: Text(p.scheduleStatus)}});
-                                        // Live Break: host tidak perlu report, tapi baris Report tetap dibuat, semua angka 0.
+                                        // 3. Live Break: host tidak perlu report, tapi baris Report tetap dibuat, semua angka 0.
                                         If(lb,
                                             Patch('Schedule - PBS Hub', LookUp('Schedule - PBS Hub', ID = s.ID), {LiveBreak: {Value: "Yes"}});   // Choice Yes/No
                                             With({rep: Patch('Report - PBS Hub', Defaults('Report - PBS Hub'), {
@@ -1348,14 +1410,14 @@ If(!IsBlank(Self.ActionPayload),
                                                 Notify("Report tersimpan, tapi Tier belum terhitung: " & FirstError.Message, NotificationType.Warning)
                                             )
                                         )
-                                    )
-                                );
-                                With({from: If(IsBlank(varMsPeriod), Date(Year(Today()), Month(Today()), 1), DateValue(varMsPeriod & "-01"))},
-                                    ClearCollect(colMsSch, Filter('Schedule - PBS Hub', HostID = varMe.Title, Date >= from, Date < DateAdd(from, 1, TimeUnit.Months)));
-                                    ClearCollect(colMsRep, Filter('Report - PBS Hub', HostID = varMe.Title, LiveDate >= from, LiveDate < DateAdd(from, 1, TimeUnit.Months)))
-                                );
-                                Set(varMsResult, JSON({requestId: rid, status: "ok", message: If(Boolean(p.liveBreak), "Absen tercatat. Live Break: report 0 dibuat otomatis.", "Absen tercatat untuk " & Text(p.scheduleId) & ".")}, JSONFormat.Compact)),
-                                Set(varMsResult, JSON({requestId: rid, status: "error", message: "Gagal absen: " & FirstError.Message}, JSONFormat.Compact))
+                                    );
+                                    With({from: If(IsBlank(varMsPeriod), Date(Year(Today()), Month(Today()), 1), DateValue(varMsPeriod & "-01"))},
+                                        ClearCollect(colMsSch, Filter('Schedule - PBS Hub', HostID = varMe.Title, Date >= from, Date < DateAdd(from, 1, TimeUnit.Months)));
+                                        ClearCollect(colMsRep, Filter('Report - PBS Hub', HostID = varMe.Title, LiveDate >= from, LiveDate < DateAdd(from, 1, TimeUnit.Months)))
+                                    );
+                                    Set(varMsResult, JSON({requestId: rid, status: "ok", message: If(lb, "Absen tercatat. Live Break: report 0 dibuat otomatis.", "Absen tercatat untuk " & Text(p.scheduleId) & ". Status jadwal: " & st & ".")}, JSONFormat.Compact)),
+                                    Set(varMsResult, JSON({requestId: rid, status: "error", message: "Gagal absen: " & FirstError.Message}, JSONFormat.Compact))
+                                )
                             )
                         ),
                     "CLOCK_IN", Navigate(scrClockIn),
@@ -1399,20 +1461,40 @@ If(!IsBlank(Self.ActionPayload),
                 Collect(colPbsProcessed, {Id: rid});
                 Switch(act,
                     "ABSEN",
-                        If(!IsBlank(LookUp('Host Absence - PBS Hub', ScheduleID = Text(p.scheduleId) && HostID = varMe.Title)),
-                            Set(varSdResult, JSON({requestId: rid, status: "conflict", message: "Absen sesi ini sudah tercatat."}, JSONFormat.Compact)),
-                            IfError(
-                                With({s: LookUp('Schedule - PBS Hub', Title = Text(p.scheduleId) && HostID = varMe.Title), lb: Boolean(p.liveBreak)},
+                        // Jadwal dicari lewat ID SharePoint (scheduleItemId), Title hanya dicocokkan.
+                        With({s: LookUp('Schedule - PBS Hub', ID = Value(p.scheduleItemId)),
+                              ex: LookUp('Host Absence - PBS Hub', ScheduleID = Text(p.scheduleId) && HostID = varMe.Title),
+                              lb: Boolean(p.liveBreak),
+                              st: Coalesce(Text(p.scheduleStatus), "Waiting Report")},   // dari control: Waiting Report, atau Done (Live Break / Co-Host)
+                            If(
+                                IsBlank(s) || s.Title <> Text(p.scheduleId) || s.HostID <> varMe.Title,
+                                    Set(varSdResult, JSON({requestId: rid, status: "error", message: "Jadwal " & Text(p.scheduleId) & " tidak ditemukan untuk akunmu. Muat ulang dulu."}, JSONFormat.Compact)),
+                                // Sudah ada absen, tapi jadwal masih Planned (absen lama gagal di tengah): betulkan, jangan tolak.
+                                !IsBlank(ex) && s.Status.Value <> "Waiting Report" && s.Status.Value <> "Done",
+                                    IfError(
+                                        Patch('Schedule - PBS Hub', s, {Status: {Value: st}});
+                                        Patch('Host Absence - PBS Hub', ex, {Status: {Value: "Hadir"}});
+                                        If(!(ex.ID in colSdAbs.ID), Collect(colSdAbs, LookUp('Host Absence - PBS Hub', ID = ex.ID)));
+                                        ClearCollect(colSdSch, Filter('Schedule - PBS Hub', HostID = varMe.Title, Date = varSchDate));
+                                        ClearCollect(colSdRep, Filter('Report - PBS Hub', HostID = varMe.Title, LiveDate = varSchDate));
+                                        Set(varSdResult, JSON({requestId: rid, status: "ok", message: "Absen sudah tercatat, status jadwal diperbarui ke " & st & "."}, JSONFormat.Compact)),
+                                        Set(varSdResult, JSON({requestId: rid, status: "error", message: "Gagal memperbarui status jadwal: " & FirstError.Message}, JSONFormat.Compact))
+                                    ),
+                                !IsBlank(ex),
+                                    Set(varSdResult, JSON({requestId: rid, status: "conflict", message: "Absen sesi ini sudah tercatat."}, JSONFormat.Compact)),
+                                IfError(
+                                    // 1. Status jadwal dulu: kalau gagal, belum ada baris absen yang tertinggal.
+                                    Patch('Schedule - PBS Hub', s, {Status: {Value: st}});
+                                    // 2. Baris absen, Status Hadir.
                                     With({row: Patch('Host Absence - PBS Hub', Defaults('Host Absence - PBS Hub'), {
                                             ScheduleID: s.Title, HostID: varMe.Title, HostName: Text(p.hostName), LiveDate: s.Date,
-                                            BrandID: s.BrandID, Platform: {Value: s.Platform.Value}, Account: LookUp(Choices([@'Host Absence - PBS Hub'].Account), Value = s.Account || Value = LookUp(colAccounts, Title = s.Account).AccountName)
-                                            // , Status: {Value: "Present"}   ← nilai Choice Status di Host Absence, kalau kolomnya ada
+                                            BrandID: s.BrandID, Platform: {Value: s.Platform.Value},
+                                            Account: LookUp(Choices([@'Host Absence - PBS Hub'].Account), Value = s.Account || Value = LookUp(colAccounts, Title = s.Account).AccountName),
+                                            Status: {Value: "Hadir"}   // Choice Status di Host Absence; kalau kolomnya teks: Status: "Hadir"
                                         })},
                                         Patch('Host Absence - PBS Hub', row, {Title: "ABS-" & row.ID});
                                         Collect(colSdAbs, LookUp('Host Absence - PBS Hub', ID = row.ID));
-                                        // Status jadwal dari control: "Waiting Report" (report dibuka) atau "Done" (Live Break / Co-Host).
-                                        Patch('Schedule - PBS Hub', s, {Status: {Value: Text(p.scheduleStatus)}});
-                                        // Live Break: host tidak perlu report, tapi baris Report tetap dibuat, semua angka 0.
+                                        // 3. Live Break: host tidak perlu report, tapi baris Report tetap dibuat, semua angka 0.
                                         If(lb,
                                             Patch('Schedule - PBS Hub', LookUp('Schedule - PBS Hub', ID = s.ID), {LiveBreak: {Value: "Yes"}});   // Choice Yes/No
                                             With({rep: Patch('Report - PBS Hub', Defaults('Report - PBS Hub'), {
@@ -1504,12 +1586,12 @@ If(!IsBlank(Self.ActionPayload),
                                                 Notify("Report tersimpan, tapi Tier belum terhitung: " & FirstError.Message, NotificationType.Warning)
                                             )
                                         )
-                                    )
-                                );
-                                ClearCollect(colSdSch, Filter('Schedule - PBS Hub', HostID = varMe.Title, Date = varSchDate));
-                                ClearCollect(colSdRep, Filter('Report - PBS Hub', HostID = varMe.Title, LiveDate = varSchDate));
-                                Set(varSdResult, JSON({requestId: rid, status: "ok", message: If(Boolean(p.liveBreak), "Absen tercatat. Live Break: report 0 dibuat otomatis.", "Absen tercatat untuk " & Text(p.scheduleId) & ".")}, JSONFormat.Compact)),
-                                Set(varSdResult, JSON({requestId: rid, status: "error", message: "Gagal absen: " & FirstError.Message}, JSONFormat.Compact))
+                                    );
+                                    ClearCollect(colSdSch, Filter('Schedule - PBS Hub', HostID = varMe.Title, Date = varSchDate));
+                                    ClearCollect(colSdRep, Filter('Report - PBS Hub', HostID = varMe.Title, LiveDate = varSchDate));
+                                    Set(varSdResult, JSON({requestId: rid, status: "ok", message: If(lb, "Absen tercatat. Live Break: report 0 dibuat otomatis.", "Absen tercatat untuk " & Text(p.scheduleId) & ". Status jadwal: " & st & ".")}, JSONFormat.Compact)),
+                                    Set(varSdResult, JSON({requestId: rid, status: "error", message: "Gagal absen: " & FirstError.Message}, JSONFormat.Compact))
+                                )
                             )
                         ),
                     "SUBMIT_REPORT",
