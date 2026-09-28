@@ -230,6 +230,14 @@
                     reply(req.requestId, "ok", ids.length + " jadwal dihapus.", {});
                 });
                 return;
+            case "OPEN_ATTACHMENTS":
+                later(400, function () {
+                    reply(req.requestId, "ok", "", {
+                        schedule: [{ name: "brief-" + p.scheduleId + ".pdf", url: "https://example.com/brief.pdf" }],
+                        reports: (p.reportIds || []).map(function (id) { return { reportId: id, files: [{ name: id + "_TikTok_ACC-01.png", url: "https://example.com/" + id + ".png" }] }; })
+                    });
+                });
+                return;
             case "REMIND_HOST":
                 later(400, function () { reply(req.requestId, "ok", "Pengingat terkirim (contoh).", {}); });
                 return;

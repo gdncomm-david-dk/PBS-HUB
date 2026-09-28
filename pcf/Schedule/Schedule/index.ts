@@ -148,6 +148,7 @@ export class Schedule implements ComponentFramework.StandardControl<IInputs, IOu
             height: context.mode.allocatedHeight > 0 ? context.mode.allocatedHeight : 0,
             emit: this.emit,
             onSelect: this.onSelect,
+            openUrl: this.openUrl,
         };
         this.root.render(React.createElement(App, props));
     }
@@ -157,6 +158,14 @@ export class Schedule implements ComponentFramework.StandardControl<IInputs, IOu
         this.actionPayload = JSON.stringify({ action, requestId, payload });
         this.notifyOutputChanged();
         return requestId;
+    };
+
+    private openUrl = (url: string): void => {
+        try {
+            this.context.navigation.openUrl(url);
+        } catch {
+            window.open(url, "_blank", "noopener");
+        }
     };
 
     private onSelect = (scheduleId: string): void => {

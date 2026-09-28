@@ -29,6 +29,7 @@ export interface AppProps {
     height: number;
     emit: (action: ActionName, payload: Record<string, unknown>) => string;
     onSelect: (scheduleId: string) => void;
+    openUrl: (url: string) => void;
 }
 
 const REQUEST_TIMEOUT_MS = 30000;
@@ -174,6 +175,7 @@ export function App(props: AppProps): React.ReactElement {
         emit,
         open,
         notify,
+        openUrl: props.openUrl,
     };
 
     const openRow = openId

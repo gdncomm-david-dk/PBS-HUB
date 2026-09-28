@@ -7,6 +7,7 @@ import { Banner, Button, Card, cx, Icon, Pager, usePaged } from "./components";
 import { Env, scheduleStatus, StatusBadge } from "./shared";
 import { DeleteDialog } from "./Dialogs";
 import { ReportReview } from "./ReportReview";
+import { AttachmentsDialog } from "./Attachments";
 
 export function ScheduleDetail(props: { env: Env; schedule: ScheduleRow; onBack: () => void; onEdit: () => void; onDuplicate: () => void }): React.ReactElement {
     const { env, schedule: s } = props;
@@ -15,6 +16,7 @@ export function ScheduleDetail(props: { env: Env; schedule: ScheduleRow; onBack:
     const [sel, setSel] = React.useState<StepId>(firstOpen);
     const [confirmDelete, setConfirmDelete] = React.useState(false);
     const [reminding, setReminding] = React.useState(false);
+    const [showFiles, setShowFiles] = React.useState(false);
     React.useEffect(() => setSel(firstOpen), [s.key]);
 
     const locked = env.ev.isLocked(s);
@@ -30,14 +32,6 @@ export function ScheduleDetail(props: { env: Env; schedule: ScheduleRow; onBack:
     const samePg = usePaged(sameDay, s.key);
     const reports = env.ev.realReportsFor(s);
 
-    // The control cannot read SharePoint attachments; the canvas opens them (see SETUP C4, OPEN_ATTACHMENTS).
-    const openAttachments = (): void =>
-        env.emit("OPEN_ATTACHMENTS", {
-            scheduleId: s.scheduleId,
-            scheduleItemId: s.itemId,
-            reportIds: reports.map((r) => r.reportId),
-            reportItemIds: reports.map((r) => r.itemId).filter((x) => x !== null),
-        });
 
     const remind = async (st: Step): Promise<void> => {
         setReminding(true);
@@ -55,7 +49,7 @@ export function ScheduleDetail(props: { env: Env; schedule: ScheduleRow; onBack:
                 <Button variant="secondary" size="sm" icon={Icon.left(14)} onClick={props.onBack}>
                     Kembali ke Schedule
                 </Button>
-                <Button variant="secondary" size="sm" icon={Icon.file(14)} disabled={!s.scheduleId} title={reports.length ? `Lampiran jadwal dan ${reports.length} report` : "Lampiran jadwal"} onClick={openAttachments}>
+                <Button variant="secondary" size="sm" icon={Icon.file(14)} disabled={!s.scheduleId} title={reports.length ? `Lampiran jadwal dan ${reports.length} report` : "Lampiran jadwal"} onClick={() => setShowFiles(true)}>
                     Lampiran{reports.length ? ` (${reports.length} report)` : ""}
                 </Button>
             </div>
@@ -223,6 +217,7 @@ export function ScheduleDetail(props: { env: Env; schedule: ScheduleRow; onBack:
                     </Card>
                 </div>
             </div>
+            {showFiles && <AttachmentsDialog env={env} schedule={s} onClose={() => setShowFiles(false)} />}
             {confirmDelete && <DeleteDialog env={env} schedule={s} onClose={() => setConfirmDelete(false)} onDeleted={() => { setConfirmDelete(false); props.onBack(); }} />}
         </>
     );

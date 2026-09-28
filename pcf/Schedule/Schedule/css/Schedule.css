@@ -451,3 +451,5 @@
 .sc-attach__row > span { flex: 1; min-width: 0; }
 .sc-btn--dangerline { color: var(--danger-text) !important; border-color: #F5B5B5 !important; }
 .sc-tablewrap > .sc-table--flat + .sc-pager { padding: 10px 14px; }
+.sc-attach__row > .sc-ellipsis { flex: 1; max-width: none; }
+.sc-attach__row > button { margin-left: auto; flex-shrink: 0; }

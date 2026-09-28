@@ -61,6 +61,7 @@ export interface Env {
     emit: (action: ActionName, payload: Record<string, unknown>) => void;
     open: (s: ScheduleRow | null) => void;
     notify: (tone: "success" | "danger" | "warning", text: string) => void;
+    openUrl: (url: string) => void;
 }
 
 export const hostLabel = (lk: Lookups, id: string): string => lk.hosts.get(id.toLowerCase())?.name || id;

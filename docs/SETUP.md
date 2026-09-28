@@ -6,7 +6,7 @@ for the Studio screens and part C for the Schedule screen.
 | Control | Display name | Solution (managed) | Version | Screens |
 |---|---|---|---|---|
 | `pbs_Ops.StudioHub` | PBS Studio Hub | `releases/PBSStudioHub_managed_1.7.0.zip` (`PBSStudioHub`) | 1.7.0 | Studio list, Studio detail |
-| `pbs_Ops.Schedule` | PBS Schedule | `releases/PBSSchedule_managed_1.4.0.zip` (`PBSSchedule`) | 1.4.0 | Schedule board, session detail, create/edit, bulk & AI upload |
+| `pbs_Ops.Schedule` | PBS Schedule | `releases/PBSSchedule_managed_1.4.1.zip` (`PBSSchedule`) | 1.4.1 | Schedule board, session detail, create/edit, bulk & AI upload |
 
 Neither control writes to SharePoint. Each one emits an `ActionPayload` `{ action, requestId, payload }`; the
 canvas app does the `Patch` and replies through `ActionResult` with the same `requestId`. Until that reply
@@ -237,7 +237,7 @@ These are display metrics. Nothing that money depends on is computed in the cont
 
 ---
 
-# C. PBS Schedule (`pbs_Ops.Schedule` 1.4.0)
+# C. PBS Schedule (`pbs_Ops.Schedule` 1.4.1)
 
 The control renders the **Schedule board (S-1)** as a calendar (week × brand lanes, or studio lanes) or a list, grouped by brand and sorted by start time,, and the
 **session detail (S-2)** with the seven-step evidence chain. It also provides three ways to create schedules:
@@ -368,7 +368,7 @@ keeps its `ID`, so SharePoint knows which item to change. Keep in mind:
 - If they are **collections** (`ClearCollect`), re-collect them after a write (for example after `Refresh(...)`),
   otherwise the next action reads stale rows. Named formulas (App › Formulas) update by themselves.
 - `REVIEW_REPORT` still patches `'Report Automation - PBS Hub'` directly (no filtered table for it).
-- `reportFiltered` must include `Attachments` for the Lampiran popup (C4c).
+- `scheduleFiltered` and `reportFiltered` must include `Attachments` for the Lampiran dialog (C4c).
 
 `varSiteID` and `varDriveID` are the site and drive IDs your current Graph upload already uses
 (the `PBS Power Apps` library on `sites/StudioTeamBlibli`).
@@ -466,10 +466,20 @@ If(rid <> varLastSchedRid,
                 Refresh('Schedule - PBS Hub'); true,
                 Set(varSchedOk, false); Set(varSchedErr, FirstError.Message)),
 
-        // Detail › Lampiran. The control cannot read SharePoint attachments; show them in a popup (see C4c).
+        // Detail › Lampiran. The control cannot read SharePoint attachments, so the canvas replies with the
+        // file links; the control lists them and opens the one the user picks (see C4c).
         "OPEN_ATTACHMENTS",
-            Set(varAttachScheduleId, Text(p.scheduleId));
-            Set(varShowAttachments, true),
+            IfError(
+                Set(varSchedResult, JSON({
+                    requestId: rid, status: "ok", message: "",
+                    data: {
+                        schedule: ForAll(LookUp(scheduleFiltered, Title = Text(p.scheduleId)).Attachments As a,
+                            { name: a.DisplayName, url: a.AbsoluteUri }),
+                        reports: ForAll(Filter(reportFiltered, ScheduleID = Text(p.scheduleId)) As r,
+                            { reportId: r.Title,
+                              files: ForAll(r.Attachments As a, { name: a.DisplayName, url: a.AbsoluteUri }) })
+                    } }, JSONFormat.Compact)); true,
+                Set(varSchedOk, false); Set(varSchedErr, FirstError.Message)),
 
         "REFRESH",
             // "Muat ulang" button: reload every list the control is bound to.
@@ -496,35 +506,27 @@ If(rid <> varLastSchedRid,
     );   // ← this closes Switch. Keep it OUTSIDE any /* comment */, or the reply below never runs.
     // Reply for everything else, and for an upload that failed (a good upload already replied above).
     If(action in ["CREATE_SCHEDULE", "EDIT_SCHEDULE", "DELETE_SCHEDULE", "BULK_CREATE_SCHEDULE", "BULK_DELETE_SCHEDULE", "REVIEW_REPORT", "REMIND_HOST"]
-            || (action = "UPLOAD_SCHEDULE_FILE" && !varSchedOk),
+            || (action in ["UPLOAD_SCHEDULE_FILE", "OPEN_ATTACHMENTS"] && !varSchedOk),
         Set(varSchedResult, JSON({
             requestId: rid, status: If(varSchedOk, "ok", "error"),
             message: If(varSchedOk, varSchedMsg, varSchedErr), data: { scheduleId: varSchedId } }, JSONFormat.Compact)))
 )))
 ```
 
-### C4c. Lampiran popup (`OPEN_ATTACHMENTS`)
+### C4c. Lampiran (`OPEN_ATTACHMENTS`)
 
-The **Lampiran** button in the session detail sends the ScheduleID. Add a popup on the Schedule screen:
+**Lampiran** in the session detail opens a dialog inside the control. It sends `OPEN_ATTACHMENTS` and waits up to
+30 seconds for the reply built in C4. Nothing else is needed on the screen: no popup, no gallery.
 
-```powerfx
-// Container conAttachments
-Visible: varShowAttachments
+- `data.schedule`: the attachments of the Schedule item.
+- `data.reports`: one entry per report of the session (`Filter(reportFiltered, ScheduleID = …)`), each with its attachments.
+- **Buka** opens `AbsoluteUri` in a new tab.
 
-// galAttachReports (vertical gallery): one card per report of this session
-Items: Filter(reportFiltered, ScheduleID = varAttachScheduleId)
-//   lblReport.Text: ThisItem.Title
-//   galFiles (nested gallery) Items: ThisItem.Attachments
-//     lblFile.Text: ThisItem.DisplayName        OnSelect: Launch(ThisItem.AbsoluteUri)
+`scheduleFiltered` and `reportFiltered` must carry the `Attachments` column. With a `ShowColumns(...)` add
+`Attachments` to it; a collection made with `ClearCollect` keeps it only if the source includes it.
 
-// Files attached to the Schedule item itself (optional second gallery)
-Items: LookUp(scheduleFiltered, Title = varAttachScheduleId).Attachments
-
-// Close button
-OnSelect: Set(varShowAttachments, false)
-```
-
-Put `Set(varShowAttachments, false)` in the screen's `OnVisible` as well.
+If the dialog says *Aplikasi belum membalas*, the `OPEN_ATTACHMENTS` branch is missing from `OnChange`. If it shows
+a Power Apps error instead, the branch ran but failed, usually because `.Attachments` is not on the filtered table.
 
 **Which flow starts how.** PBS0002A (AI) starts on *When a file is created*, so the upload alone is enough.
 PBS0001A (bulk) has a Power Apps trigger (that is why `.Run()` compiles): without the `.Run()` the file lands in
@@ -717,6 +719,7 @@ file was uploaded.
 | Upload dialog: *Aplikasi tidak membalas dalam 180 detik* / *belum dikonfirmasi*, but the file and the flow are fine | The reply (`varSchedResult`) is never set (the final `If(action in [...])` block commented out or missing), or set after `PBS0001A….Run()` | Use the C4 handler: upload branch sets the message only, `.Run()` at the bottom after the reply. Check that `"UPLOAD_SCHEDULE_FILE"` is in the `If(action in [...])` list and that `ActionResult` = `varSchedResult` |
 | Upload works, but the reply never comes (or only REVIEW_REPORT replies) | The `)` that closes `Switch(` sits inside a `/* … */` comment, so the reply block became part of the last Switch branch | Keep `);` after the last branch outside any comment (C4) |
 | Schedule opens a session detail straight away instead of the list | Before Schedule 1.4.0 the bound `SelectedScheduleId` reopened the last session on return | Import 1.4.0: the control always starts on the list |
+| Lampiran: *Aplikasi belum membalas*, or an error in the dialog | No reply: the `OPEN_ATTACHMENTS` branch is missing. Error: the filtered tables lack `Attachments` | Add the branch from C4 and include `Attachments` (C4c) |
 | Bulk Duplikat / Hapus shows *tidak membalas* | `BULK_CREATE_SCHEDULE` / `BULK_DELETE_SCHEDULE` are missing from the Switch or from the reply list | Add both branches and both names as in C4 |
 | New schedules from a flow do not appear | Canvas apps are not pushed SharePoint changes | Press **Muat ulang**, or add the Timer in C4 *Auto update* |
 | Bulk: notification OK and file in *Bulk Schedule*, but no schedules | `PBS0001A….Run()` was removed; the flow has a Power Apps trigger | Keep the `.Run()` at the bottom of the C4 handler |
