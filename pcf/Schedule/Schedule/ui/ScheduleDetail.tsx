@@ -49,8 +49,8 @@ export function ScheduleDetail(props: { env: Env; schedule: ScheduleRow; onBack:
                 <Button variant="secondary" size="sm" icon={Icon.left(14)} onClick={props.onBack}>
                     Kembali ke Schedule
                 </Button>
-                <Button variant="secondary" size="sm" icon={Icon.file(14)} disabled={!s.scheduleId} title={reports.length ? `Lampiran jadwal dan ${reports.length} report` : "Lampiran jadwal"} onClick={() => setShowFiles(true)}>
-                    Lampiran{reports.length ? ` (${reports.length} report)` : ""}
+                <Button variant="secondary" size="sm" icon={Icon.file(14)} disabled={reports.length === 0} title={reports.length ? `Lampiran dari ${reports.length} report` : "Belum ada report, jadi belum ada lampiran"} onClick={() => setShowFiles(true)}>
+                    Lampiran report{reports.length > 1 ? ` (${reports.length})` : ""}
                 </Button>
             </div>
 

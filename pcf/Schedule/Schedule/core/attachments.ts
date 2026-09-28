@@ -17,6 +17,7 @@ const files = (v: unknown): FileLink[] =>
 
 /** Reads the canvas reply: { schedule: [{name,url}], reports: [{reportId, files: [{name,url}]}] }. */
 export function parseAttachments(data: Record<string, unknown>, scheduleId: string): Group[] {
+    // Attachments live on the Report items; `schedule` is still read if a canvas sends it.
     const out: Group[] = [{ source: `Jadwal ${scheduleId}`, files: files(data.schedule) }];
     for (const r of Array.isArray(data.reports) ? (data.reports as Record<string, unknown>[]) : []) out.push({ source: `Report ${str(r?.reportId)}`, files: files(r?.files) });
     return out;

@@ -233,7 +233,7 @@
             case "OPEN_ATTACHMENTS":
                 later(400, function () {
                     reply(req.requestId, "ok", "", {
-                        schedule: [{ name: "brief-" + p.scheduleId + ".pdf", url: "https://example.com/brief.pdf" }],
+                        
                         reports: (p.reportIds || []).map(function (id) { return { reportId: id, files: [{ name: id + "_TikTok_ACC-01.png", url: "https://example.com/" + id + ".png" }] }; })
                     });
                 });

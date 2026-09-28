@@ -40,7 +40,7 @@ export function AttachmentsDialog(props: { env: Env; schedule: ScheduleRow; onCl
     const total = state.groups.reduce((n, g) => n + g.files.length, 0);
     return (
         <Modal
-            title={`Lampiran ${s.scheduleId}`}
+            title={`Lampiran report ${s.scheduleId}`}
             width={560}
             onClose={props.onClose}
             footer={
@@ -54,7 +54,7 @@ export function AttachmentsDialog(props: { env: Env; schedule: ScheduleRow; onCl
             ) : state.error ? (
                 <Banner tone="danger">{state.error}</Banner>
             ) : total === 0 ? (
-                <p className="sc-emptyline">Belum ada lampiran di jadwal ini maupun di report-nya.</p>
+                <p className="sc-emptyline">Report sesi ini belum punya lampiran.</p>
             ) : (
                 <div className="sc-attach">
                     {state.groups
