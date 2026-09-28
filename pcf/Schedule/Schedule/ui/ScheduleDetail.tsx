@@ -3,7 +3,7 @@ import { ScheduleRow } from "../core/types";
 import { phaseOf, sortSessions, timeRange } from "../core/schedule";
 import { buildTimeline, Step, StepId } from "../core/timeline";
 import { formatDateLong } from "../core/time";
-import { Banner, Button, Card, cx, Icon } from "./components";
+import { Banner, Button, Card, cx, Icon, Pager, usePaged } from "./components";
 import { Env, scheduleStatus, StatusBadge } from "./shared";
 import { DeleteDialog } from "./Dialogs";
 import { ReportReview } from "./ReportReview";
@@ -27,6 +27,17 @@ export function ScheduleDetail(props: { env: Env; schedule: ScheduleRow; onBack:
     const sameDay = env.schedules
         .filter((o) => o.key !== s.key && o.dateKey === s.dateKey && (o.hostId.toLowerCase() === s.hostId.toLowerCase() || o.studioId.toLowerCase() === s.studioId.toLowerCase()))
         .sort(sortSessions);
+    const samePg = usePaged(sameDay, s.key);
+    const reports = env.ev.realReportsFor(s);
+
+    // The control cannot read SharePoint attachments; the canvas opens them (see SETUP C4, OPEN_ATTACHMENTS).
+    const openAttachments = (): void =>
+        env.emit("OPEN_ATTACHMENTS", {
+            scheduleId: s.scheduleId,
+            scheduleItemId: s.itemId,
+            reportIds: reports.map((r) => r.reportId),
+            reportItemIds: reports.map((r) => r.itemId).filter((x) => x !== null),
+        });
 
     const remind = async (st: Step): Promise<void> => {
         setReminding(true);
@@ -40,9 +51,14 @@ export function ScheduleDetail(props: { env: Env; schedule: ScheduleRow; onBack:
 
     return (
         <>
-            <button type="button" className="sc-back" onClick={props.onBack}>
-                {Icon.left()} Schedule
-            </button>
+            <div className="sc-detailbar">
+                <Button variant="secondary" size="sm" icon={Icon.left(14)} onClick={props.onBack}>
+                    Kembali ke Schedule
+                </Button>
+                <Button variant="secondary" size="sm" icon={Icon.file(14)} disabled={!s.scheduleId} title={reports.length ? `Lampiran jadwal dan ${reports.length} report` : "Lampiran jadwal"} onClick={openAttachments}>
+                    Lampiran{reports.length ? ` (${reports.length} report)` : ""}
+                </Button>
+            </div>
 
             <Card className="sc-record">
                 <div className="sc-record__id sc-mono">{s.scheduleId || "ID belum terisi"}</div>
@@ -181,9 +197,10 @@ export function ScheduleDetail(props: { env: Env; schedule: ScheduleRow; onBack:
                         {sameDay.length === 0 ? (
                             <p className="sc-emptyline">Tidak ada sesi lain untuk host atau studio ini di hari yang sama.</p>
                         ) : (
+                            <>
                             <table className="sc-table sc-table--flat">
                                 <tbody>
-                                    {sameDay.map((o) => (
+                                    {samePg.rows.map((o) => (
                                         <tr key={o.key} className="sc-row" onClick={() => env.open(o)}>
                                             <td className="sc-mono sc-nowrap">{timeRange(o)}</td>
                                             <td>
@@ -200,6 +217,8 @@ export function ScheduleDetail(props: { env: Env; schedule: ScheduleRow; onBack:
                                     ))}
                                 </tbody>
                             </table>
+                            <Pager {...samePg} onPage={samePg.setPage} unit="sesi" />
+                            </>
                         )}
                     </Card>
                 </div>

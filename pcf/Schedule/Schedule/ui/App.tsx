@@ -56,7 +56,8 @@ function useNow(intervalMs: number): Date {
 export function App(props: AppProps): React.ReactElement {
     const now = useNow(30000);
     const todayKey = toDateKey(now);
-    const [openId, setOpenId] = React.useState(props.selectedScheduleId || "");
+    // Start on the board; only a SelectedScheduleId that changes after load opens a session.
+    const [openId, setOpenId] = React.useState("");
     const [pending, setPending] = React.useState<Pending | null>(null);
     const [banner, setBanner] = React.useState<{ tone: "success" | "danger" | "warning"; text: string } | null>(null);
     const [dialog, setDialog] = React.useState<Dialog | null>(null);

@@ -69,7 +69,10 @@ export class Schedule implements ComponentFramework.StandardControl<IInputs, IOu
         this.context = context;
         this.notifyOutputChanged = notifyOutputChanged;
         context.mode.trackContainerResize(true);
-        this.selectedScheduleId = context.parameters.SelectedScheduleId?.raw ?? "";
+        // Always start on the Schedule board. A bound SelectedScheduleId keeps its last value when the
+        // user leaves and returns to the screen, which used to reopen that session straight away.
+        this.selectedScheduleId = "";
+        if (context.parameters.SelectedScheduleId?.raw) window.setTimeout(() => this.notifyOutputChanged(), 0);
         for (const name of DATASETS) {
             try {
                 this.ds(context, name)?.paging?.setPageSize?.(PAGE_SIZE);

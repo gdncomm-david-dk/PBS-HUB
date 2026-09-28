@@ -83,7 +83,7 @@ export function buildTimeline(s: ScheduleRow, ev: Evidence, now: Date): Step[] {
         const tag = exempt === "livebreak" ? "Live Break" : "Co-Host";
         steps.push({ id: "report", label: "Report host", state: "skipped", when: tag, detail: why, record: [] });
         steps.push({ id: "evidence", label: "Bukti AI", state: "skipped", when: "", detail: why, record: [] });
-        steps.push({ id: "verdict", label: "Verdict", state: "skipped", when: "", detail: why, record: [] });
+        steps.push({ id: "verdict", label: "Hasil review", state: "skipped", when: "", detail: why, record: [] });
         steps.push({ id: "payroll", label: "Baris payroll", state: "skipped", when: "", detail: "Dihitung saat payroll run bulanan dari Clock In (HKTugas, Insentif, Streak).", record: [] });
         return steps;
     }
@@ -107,7 +107,7 @@ const STEP_LABELS: [StepId, string][] = [
     ["absen", "Absen"],
     ["report", "Report host"],
     ["evidence", "Bukti AI"],
-    ["verdict", "Verdict"],
+    ["verdict", "Hasil review"],
     ["payroll", "Baris payroll"],
 ];
 
@@ -239,12 +239,12 @@ function evidenceStep(ev: EvidenceRow[], reports: ReportRow[]): Step {
 }
 
 function verdictStep(reports: ReportRow[], ev: EvidenceRow[]): Step {
-    const base = { id: "verdict" as const, label: "Verdict" };
+    const base = { id: "verdict" as const, label: "Hasil review" };
     if (!reports.length) return { ...base, state: "pending", when: "", detail: "Menunggu report.", record: [] };
     const st = reports.map((r) => approvalKind(r.approvalStatus));
     const record = [
         {
-            section: "Verdict",
+            section: "Hasil review",
             rows: reports.flatMap((r) => [
                 [r.reportId || "Report", `${r.approvalStatus || "—"} · ${r.match || ev[0]?.status || "belum dicocokkan"}`],
                 ...(r.approvalComment ? [["Komentar", r.approvalComment]] : []),

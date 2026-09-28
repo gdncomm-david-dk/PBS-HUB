@@ -5,8 +5,8 @@ for the Studio screens and part C for the Schedule screen.
 
 | Control | Display name | Solution (managed) | Version | Screens |
 |---|---|---|---|---|
-| `pbs_Ops.StudioHub` | PBS Studio Hub | `releases/PBSStudioHub_managed_1.6.1.zip` (`PBSStudioHub`) | 1.6.1 | Studio list, Studio detail |
-| `pbs_Ops.Schedule` | PBS Schedule | `releases/PBSSchedule_managed_1.3.2.zip` (`PBSSchedule`) | 1.3.2 | Schedule board, session detail, create/edit, bulk & AI upload |
+| `pbs_Ops.StudioHub` | PBS Studio Hub | `releases/PBSStudioHub_managed_1.7.0.zip` (`PBSStudioHub`) | 1.7.0 | Studio list, Studio detail |
+| `pbs_Ops.Schedule` | PBS Schedule | `releases/PBSSchedule_managed_1.4.0.zip` (`PBSSchedule`) | 1.4.0 | Schedule board, session detail, create/edit, bulk & AI upload |
 
 Neither control writes to SharePoint. Each one emits an `ActionPayload` `{ action, requestId, payload }`; the
 canvas app does the `Patch` and replies through `ActionResult` with the same `requestId`. Until that reply
@@ -27,7 +27,7 @@ arrives the control stays locked. It gives up after 30 seconds for a save, or 3 
 **Check the version.** From 1.5.0 the Studio control is a new component, **PBS Studio Hub**
 (`pbs_Ops.StudioHub`, solution `PBSStudioHub`), so the app cannot keep running a cached older build. Delete the old
 *PBS Studio Master* / *PBS Studio Directory* control from the screen, insert *PBS Studio Hub* and set the same
-properties and `OnChange` on it. The header then shows `pbs_Ops.StudioHub 1.6.1`.
+properties and `OnChange` on it. The header then shows `pbs_Ops.StudioHub 1.7.0`.
 
 The old solutions `PBSStudioMaster`, `PBSHubStudio` and `PBSStudioDirectory` can be deleted once the app runs
 `pbs_Ops.StudioHub`.
@@ -69,7 +69,7 @@ in the tables below.
 
 ---
 
-# B. PBS Studio Hub (`pbs_Ops.StudioHub` 1.6.1)
+# B. PBS Studio Hub (`pbs_Ops.StudioHub` 1.7.0)
 
 ## B1. Period variables
 
@@ -237,7 +237,7 @@ These are display metrics. Nothing that money depends on is computed in the cont
 
 ---
 
-# C. PBS Schedule (`pbs_Ops.Schedule` 1.3.2)
+# C. PBS Schedule (`pbs_Ops.Schedule` 1.4.0)
 
 The control renders the **Schedule board (S-1)** as a calendar (week × brand lanes, or studio lanes) or a list, grouped by brand and sorted by start time,, and the
 **session detail (S-2)** with the seven-step evidence chain. It also provides three ways to create schedules:
@@ -300,7 +300,7 @@ the dataset.
 | `Context` | see below |
 | `Mode` | `If(userRole.Value = "PBS_Team", "Admin", "ReadOnly")` |
 | `ActionResult` | `varSchedResult` |
-| `SelectedScheduleId` | blank for the board, or a ScheduleID to deep-link. Read it back to know which session is open |
+| `SelectedScheduleId` | Read it back to know which session is open. The control always starts on the board and clears a value left over from an earlier visit; setting it to a ScheduleID **after** the screen has loaded opens that session |
 
 ```powerfx
 JSON({
@@ -405,9 +405,50 @@ If(rid <> varLastSchedRid,
                         "/root:/" & EncodeUrl(Text(p.folder)) & "/" & EncodeUrl(Text(p.fileName)) & ":/content",
                     "PUT",
                     "data:" & Text(p.mimeType) & ";base64," & Text(p.contentBase64));
-                // BULK: PBS0001A is run at the bottom, after the reply. AI: PBS0002A starts on its own (When a file is created).
-                Set(varSchedMsg, If(Text(p.kind) = "BULK", "Terunggah, PBS0001A dijalankan", "Terunggah, AI Schedule berjalan")),
+                // Reply NOW: the dialog shows "Terunggah" without waiting for the flow.
+                Set(varSchedResult, JSON({ requestId: rid, status: "ok",
+                    message: If(Text(p.kind) = "BULK", "Terunggah, PBS0001A berjalan", "Terunggah, AI Schedule berjalan"),
+                    data: { scheduleId: "" } }, JSONFormat.Compact));
+                // BULK: PBS0001A has a Power Apps trigger, so it only starts from this Run (one run per file).
+                // AI: PBS0002A starts on its own (When a file is created).
+                If(Text(p.kind) = "BULK",
+                    IfError('PBS0001A-CreateAutomatedSchedule[AIPowered]'.Run(Text(p.fileName)); true,
+                        Notify("PBS0001A gagal untuk " & Text(p.fileName) & ": " & FirstError.Message, NotificationType.Error)));
+                Refresh('Schedule - PBS Hub'),
                 Set(varSchedOk, false); Set(varSchedErr, FirstError.Message)),
+
+        // List view: tick sessions, then Duplikat. Each item carries the CREATE_SCHEDULE fields plus the new date.
+        "BULK_CREATE_SCHEDULE",
+            IfError(
+                ForAll(Table(p.items) As it,
+                    With({ n: Patch('Schedule - PBS Hub', Defaults('Schedule - PBS Hub'), {
+                            Date: DateValue(Text(it.Value.date)),
+                            BrandID: Text(it.Value.brandId), StudioID: Text(it.Value.studioId), HostID: Text(it.Value.hostId),
+                            Account: Text(it.Value.accountId), Platform: { Value: Text(it.Value.platform) },
+                            StartTime: Text(it.Value.startTime), EndTime: Text(it.Value.endTime),
+                            JamLive: Value(it.Value.jamLive), TotalLiveTime: Value(it.Value.jamLive),
+                            Position: { Value: Text(it.Value.position) },
+                            TotalAccount: Value(it.Value.totalAccount),
+                            Status: { Value: "Planned" } }) },
+                        Patch('Schedule - PBS Hub', n, { Title: "SCD-" & n.ID })));
+                Set(varSchedMsg, CountRows(Table(p.items)) & " jadwal berhasil diduplikat.");
+                Refresh('Schedule - PBS Hub'); true,
+                Set(varSchedOk, false); Set(varSchedErr, FirstError.Message)),
+
+        // List view: tick sessions, then Hapus. The control already leaves out sessions with a report.
+        "BULK_DELETE_SCHEDULE",
+            IfError(
+                ForAll(Table(p.scheduleIds) As x,
+                    If(IsBlank(LookUp('Report - PBS Hub', ScheduleID = Text(x.Value))),
+                        Remove('Schedule - PBS Hub', LookUp('Schedule - PBS Hub', Title = Text(x.Value)))));
+                Set(varSchedMsg, CountRows(Table(p.scheduleIds)) & " jadwal dihapus.");
+                Refresh('Schedule - PBS Hub'); true,
+                Set(varSchedOk, false); Set(varSchedErr, FirstError.Message)),
+
+        // Detail › Lampiran. The control cannot read SharePoint attachments; show them in a popup (see C4c).
+        "OPEN_ATTACHMENTS",
+            Set(varAttachScheduleId, Text(p.scheduleId));
+            Set(varShowAttachments, true),
 
         "REFRESH",
             // "Muat ulang" button: reload every list the control is bound to.
@@ -428,35 +469,47 @@ If(rid <> varLastSchedRid,
                         ForAll(Filter('Report Automation - PBS Hub', Title = Text(p.reportId)) As ra,
                             Patch('Report Automation - PBS Hub', ra, { Status: { Value: "Unmatch" } })));
                     Set(varSchedMsg, Text(p.reportId) & If(revise, " dikembalikan ke host untuk revisi.", " disetujui."))); true,
-                Set(varSchedOk, false); Set(varSchedErr, FirstError.Message)),
-
-        "REMIND_HOST",
-            // Optional. Any channel you already use; e-mail shown.
-            IfError(
-                Office365Outlook.SendEmailV2(
-                    LookUp('Host - PBS Hub', Title = Text(p.hostId)).Email.Email,
-                    "Pengingat PBS Hub: " & Text(p.scheduleId),
-                    Text(p.reason)); true,
                 Set(varSchedOk, false); Set(varSchedErr, FirstError.Message))
         // NAV_SESSION_DETAIL is informational; SelectedScheduleId already carries the open session.
-    );
-    If(action in ["CREATE_SCHEDULE", "EDIT_SCHEDULE", "DELETE_SCHEDULE", "UPLOAD_SCHEDULE_FILE", "REVIEW_REPORT", "REMIND_HOST"],
+        // REMIND_HOST is optional; add it here only with a channel you use (e.g. Office365Outlook.SendEmailV2).
+    );   // ← this closes Switch. Keep it OUTSIDE any /* comment */, or the reply below never runs.
+    // Reply for everything else, and for an upload that failed (a good upload already replied above).
+    If(action in ["CREATE_SCHEDULE", "EDIT_SCHEDULE", "DELETE_SCHEDULE", "BULK_CREATE_SCHEDULE", "BULK_DELETE_SCHEDULE", "REVIEW_REPORT", "REMIND_HOST"]
+            || (action = "UPLOAD_SCHEDULE_FILE" && !varSchedOk),
         Set(varSchedResult, JSON({
             requestId: rid, status: If(varSchedOk, "ok", "error"),
-            message: If(varSchedOk, varSchedMsg, varSchedErr), data: { scheduleId: varSchedId } }, JSONFormat.Compact)));
-    // The reply is already set, so the dialog shows "Terunggah" while PBS0001A runs.
-    // PBS0001A has a Power Apps trigger: it only starts from this Run (one run per file).
-    If(action = "UPLOAD_SCHEDULE_FILE" && varSchedOk && Text(p.kind) = "BULK",
-        IfError('PBS0001A-CreateAutomatedSchedule[AIPowered]'.Run(Text(p.fileName)); true,
-            Notify("PBS0001A gagal untuk " & Text(p.fileName) & ": " & FirstError.Message, NotificationType.Error)));
-    If(action = "UPLOAD_SCHEDULE_FILE" && varSchedOk, Refresh('Schedule - PBS Hub'))
+            message: If(varSchedOk, varSchedMsg, varSchedErr), data: { scheduleId: varSchedId } }, JSONFormat.Compact)))
 )))
 ```
 
+### C4c. Lampiran popup (`OPEN_ATTACHMENTS`)
+
+The **Lampiran** button in the session detail sends the ScheduleID. Add a popup on the Schedule screen:
+
+```powerfx
+// Container conAttachments
+Visible: varShowAttachments
+
+// galAttachReports (vertical gallery): one card per report of this session
+Items: Filter('Report - PBS Hub', ScheduleID = varAttachScheduleId)
+//   lblReport.Text: ThisItem.Title
+//   galFiles (nested gallery) Items: ThisItem.Attachments
+//     lblFile.Text: ThisItem.DisplayName        OnSelect: Launch(ThisItem.AbsoluteUri)
+
+// Files attached to the Schedule item itself (optional second gallery)
+Items: LookUp('Schedule - PBS Hub', Title = varAttachScheduleId).Attachments
+
+// Close button
+OnSelect: Set(varShowAttachments, false)
+```
+
+Put `Set(varShowAttachments, false)` in the screen's `OnVisible` as well.
+
 **Which flow starts how.** PBS0002A (AI) starts on *When a file is created*, so the upload alone is enough.
 PBS0001A (bulk) has a Power Apps trigger (that is why `.Run()` compiles): without the `.Run()` the file lands in
-the folder but no schedules are created. The `.Run()` sits at the bottom, after `Set(varSchedResult, …)`, so the
-dialog does not wait for the flow.
+the folder but no schedules are created. The upload branch sets `varSchedResult` **before** the `.Run()`, so the
+dialog shows *Terunggah* right away. If the dialog still waits for the flow, remove *Respond to a PowerApp* from
+PBS0001A so `.Run()` returns at once.
 
 **The reply must always be set.** The control waits for `varSchedResult` with its own `requestId`. If
 `"UPLOAD_SCHEDULE_FILE"` is missing from the `If(action in [...])` list, or `ActionResult` is not
@@ -628,7 +681,7 @@ file was uploaded.
 
 | Symptom | Cause | Fix |
 |---|---|---|
-| Studio header does not show `pbs_Ops.StudioHub 1.6.1` | The screen still holds the old control, or the code component was not updated | Delete the control, insert **PBS Studio Hub**, then save and publish. After an import, accept **Update code components** |
+| Studio header does not show `pbs_Ops.StudioHub 1.7.0` | The screen still holds the old control, or the code component was not updated | Delete the control, insert **PBS Studio Hub**, then save and publish. After an import, accept **Update code components** |
 | *Mapping lokasi* banner: studios not linked | `LocationID` is missing from **Fields** on `studios` or `locations` | Open **Lihat kolom** in the banner to see which columns actually arrive. Add `LocationID` under **Fields → Edit** on both datasets, or use `StudiosJson` as in B2 |
 | *LocationID tidak ditemukan* on a studio | The studio's `LocationID` is not carried by any item in the `locations` dataset (typo, extra space, or the item is filtered out) | Bind the whole `Studio Location - PBS` list, or pick another location in the Geofence tab |
 | Brand or host shows an ID, with a yellow banner | `brands` / `hosts` are not bound, or lack `ID`, `Title`, `BrandID`/`HostID` or the name column | See C2 *Names, not IDs* |
@@ -641,5 +694,8 @@ file was uploaded.
 | Uploaded file is corrupt, or contains `data:` text | The tenant does not convert a data URI into bytes | Use the flow (C4a option B), or `uploadMode: "canvas"` (C4b) |
 | The control stays locked after an action | `ActionResult` is not set to the reply variable, or the reply's `requestId` differs | Check that `ActionResult` = `varStudioResult` / `varSchedResult`, and that the handler echoes `rid` |
 | Upload dialog: *Aplikasi tidak membalas dalam 180 detik* / *belum dikonfirmasi*, but the file and the flow are fine | The reply (`varSchedResult`) is never set (the final `If(action in [...])` block commented out or missing), or set after `PBS0001A….Run()` | Use the C4 handler: upload branch sets the message only, `.Run()` at the bottom after the reply. Check that `"UPLOAD_SCHEDULE_FILE"` is in the `If(action in [...])` list and that `ActionResult` = `varSchedResult` |
+| Upload works, but the reply never comes (or only REVIEW_REPORT replies) | The `)` that closes `Switch(` sits inside a `/* … */` comment, so the reply block became part of the last Switch branch | Keep `);` after the last branch outside any comment (C4) |
+| Schedule opens a session detail straight away instead of the list | Before Schedule 1.4.0 the bound `SelectedScheduleId` reopened the last session on return | Import 1.4.0: the control always starts on the list |
+| Bulk Duplikat / Hapus shows *tidak membalas* | `BULK_CREATE_SCHEDULE` / `BULK_DELETE_SCHEDULE` are missing from the Switch or from the reply list | Add both branches and both names as in C4 |
 | New schedules from a flow do not appear | Canvas apps are not pushed SharePoint changes | Press **Muat ulang**, or add the Timer in C4 *Auto update* |
 | Bulk: notification OK and file in *Bulk Schedule*, but no schedules | `PBS0001A….Run()` was removed; the flow has a Power Apps trigger | Keep the `.Run()` at the bottom of the C4 handler |

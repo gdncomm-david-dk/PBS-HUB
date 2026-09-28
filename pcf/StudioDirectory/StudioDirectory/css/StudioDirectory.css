@@ -416,3 +416,14 @@ button.sd-geo--danger:hover { text-decoration: underline; }
 .sd-diag { margin-top: 8px; display: flex; flex-direction: column; gap: 4px; font: 12px/1.5 ui-monospace, "SF Mono", Menlo, Consolas, monospace; word-break: break-word; }
 .pbs-sd code { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; font-size: 12px; }
 .sd-version { color: var(--text-muted); font-size: 11px; }
+
+/* Pagination (15 rows per page) */
+.sd-pager { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; padding: 10px 14px; border-top: 1px solid var(--border); font-size: 12px; background: #fff; }
+.sd-table--flat + .sd-pager, .sd-pager--flat { padding: 10px 0 0; }
+.sd-pager__nav { display: inline-flex; align-items: center; gap: 2px; }
+.sd-pager__num { min-width: 28px; height: 28px; padding: 0 6px; border: 0; border-radius: 14px; background: transparent; font: inherit; font-weight: 600; color: var(--text-secondary); cursor: pointer; }
+.sd-pager__num:hover { background: var(--surface); color: var(--text-primary); }
+.sd-pager__num.is-on { background: var(--primary); color: #fff; }
+.sd-pager__gap { padding: 0 4px; color: var(--text-muted); }
+.sd-iconbtn:disabled { opacity: .35; cursor: default; background: transparent; }
+

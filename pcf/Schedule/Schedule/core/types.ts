@@ -149,6 +149,9 @@ export type ActionName =
     | "REMIND_HOST"
     | "REVIEW_REPORT"
     | "REFRESH"
+    | "BULK_CREATE_SCHEDULE"
+    | "BULK_DELETE_SCHEDULE"
+    | "OPEN_ATTACHMENTS"
     | "NAV_SESSION_DETAIL";
 
 export interface ActionResult {

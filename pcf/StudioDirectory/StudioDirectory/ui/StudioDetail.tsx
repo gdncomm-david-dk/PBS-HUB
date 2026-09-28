@@ -3,7 +3,7 @@ import { StudioRow } from "../core/types";
 import { formatDateLong, formatDateShort, formatDuration, formatMinutes, formatMonth, monthKeyOf, monthName, shiftDay, toMonthKey } from "../core/time";
 import { effectiveCapacity, hourlySlots, hours, liveInfo, pct, studioDailySeries, studioDay, studioMonth } from "../core/utilization";
 import { occupiesStudio } from "../core/data";
-import { Badge, Bar, Button, Card, cx, DailyChart, Icon, Pill } from "./components";
+import { Badge, Bar, Button, Card, cx, DailyChart, Icon, Pager, Pill, usePaged } from "./components";
 import { Env } from "./App";
 import { GeoCell, geoState, scheduleStatus, statusLabel } from "./shared";
 import { GeofenceTab } from "./GeofenceEditor";
@@ -279,6 +279,7 @@ function Ringkasan(props: { env: Env; studio: StudioRow; onOpenDay: (d: string) 
 function Jadwal(props: { env: Env; studio: StudioRow; dayKey: string; setDayKey: (d: string) => void }): React.ReactElement {
     const { env, studio, dayKey, setDayKey } = props;
     const sessions = env.idx.day(studio.studioId, dayKey);
+    const dayPg = usePaged(sessions, `${studio.studioId}|${dayKey}`);
     const slots = hourlySlots(env.idx, studio, dayKey, env.op);
     const day = studioDay(env.idx, studio, dayKey, env.op);
     const series = studioDailySeries(env.idx, studio, env.monthKey, env.op);
@@ -393,7 +394,7 @@ function Jadwal(props: { env: Env; studio: StudioRow; dayKey: string; setDayKey:
                                     </td>
                                 </tr>
                             ) : (
-                                sessions.map((s) => {
+                                dayPg.rows.map((s) => {
                                     const st = scheduleStatus(s.status);
                                     const g = sessionGmv(env.reports, s, env.todayKey, env.nowMin);
                                     return (
@@ -427,7 +428,7 @@ function Jadwal(props: { env: Env; studio: StudioRow; dayKey: string; setDayKey:
                             )}
                         </tbody>
                     </table>
-                    {sessions.length > 0 && <div className="sd-tablefoot"><span className="sd-end">{sessions.length} sesi · semua sesi hari ini sudah ditampilkan</span></div>}
+                    <Pager {...dayPg} onPage={dayPg.setPage} unit="sesi" />
                 </div>
             </Card>
 

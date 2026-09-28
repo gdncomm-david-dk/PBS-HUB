@@ -13,7 +13,7 @@ import {
     studioDay,
     studioMonth,
 } from "../core/utilization";
-import { Badge, Banner, Bar, Button, Card, cx, DailyChart, Icon, SkeletonRows, utilTone } from "./components";
+import { Badge, Banner, Bar, Button, Card, cx, DailyChart, Icon, Pager, SkeletonRows, usePaged, utilTone } from "./components";
 import { CONTROL_VERSION, Env } from "./App";
 import { GeoCell, geoIssueText, geoState, MIN_SAFE_RADIUS, needsAction, StudioStatusBadge } from "./shared";
 import { hasLocationColumn, locationKey } from "../core/data";
@@ -187,6 +187,7 @@ export function StudioList(props: { env: Env; onCreate: () => void }): React.Rea
         return [s.studioId, s.namaStudio, s.lokasiStudio, s.locationRef, l.loc?.title ?? "", l.loc?.locationId ?? ""].some((v) => v.toLowerCase().includes(q));
     });
     const filtered = filter !== "all" || !!q || !!locFilter;
+    const pg = usePaged(rows, `${filter}|${q}|${locFilter}`);
     const loadingFirst = env.loading.studios && studios.length === 0;
     const loadingMore = env.loading.studios && studios.length > 0;
     const scheduleLoading = env.loading.schedules;
@@ -424,7 +425,7 @@ export function StudioList(props: { env: Env; onCreate: () => void }): React.Rea
                                 </td>
                             </tr>
                         ) : (
-                            rows.map((s) => {
+                            pg.rows.map((s) => {
                                 const { loc, link } = linkOf(s);
                                 const shared = loc ? env.studiosAt(loc).length : 0;
                                 const d = studioDay(idx, s, todayKey, op);
@@ -490,15 +491,14 @@ export function StudioList(props: { env: Env; onCreate: () => void }): React.Rea
                     </tbody>
                 </table>
                 {!loadingFirst && studios.length > 0 && (
-                    <div className="sd-tablefoot">
-                        <span>
-                            Menampilkan {rows.length === 0 ? 0 : 1}–{rows.length} dari {studios.length} studio · {active.length} aktif
-                            {!loadingMore && <span className="sd-end"> · semua data sudah dimuat</span>}
-                        </span>
-                        <span>
-                            Utilisasi = jam terjadwal ÷ (kapasitas × jam operasional {opLabel}). Radius di bawah {MIN_SAFE_RADIUS} m ditandai.
-                        </span>
-                    </div>
+                    <>
+                        <Pager {...pg} onPage={pg.setPage} unit="studio" note={` · ${active.length} aktif${loadingMore ? " · memuat…" : ""}`} />
+                        <div className="sd-tablefoot">
+                            <span>
+                                Utilisasi = jam terjadwal ÷ (kapasitas × jam operasional {opLabel}). Radius di bawah {MIN_SAFE_RADIUS} m ditandai.
+                            </span>
+                        </div>
+                    </>
                 )}
             </div>
         </>

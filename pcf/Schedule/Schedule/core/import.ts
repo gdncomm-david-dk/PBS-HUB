@@ -274,7 +274,7 @@ export const timeText = (r: { startMin: number | null; endMin: number | null }):
 /** CSV of every row that is not plainly valid, for "Unduh daftar error". */
 export function errorCsv(checks: FileCheck[]): string {
     const q = (s: string): string => `"${s.replace(/"/g, '""')}"`;
-    const lines = [["File", "Baris Excel", "Verdict", "Tanggal", "BrandID", "StudioID", "HostID", "Jam", "Alasan"].map(q).join(",")];
+    const lines = [["File", "Baris Excel", "Hasil cek", "Tanggal", "BrandID", "StudioID", "HostID", "Jam", "Alasan"].map(q).join(",")];
     for (const c of checks) {
         if (c.missing.length) lines.push([c.file, "", "Ditolak", "", "", "", "", "", `Kolom tidak ditemukan: ${c.missing.map((f) => FIELD_LABEL[f]).join(", ")}`].map(q).join(","));
         for (const r of c.rows) {

@@ -2,11 +2,10 @@ import * as React from "react";
 import { ScheduleRow } from "../core/types";
 import { applyFilters, distinct, Filters, hasActiveFilter, hoursOf, phaseOf, rangeKeys, sortSessions, timeRange, weekStart } from "../core/schedule";
 import { BULAN_PENDEK, dateKeyToDate, formatDateShort, HARI, shiftDay, toDateKey } from "../core/time";
-import { Banner, Button, Card, cx, Icon, SkeletonRows } from "./components";
+import { Banner, Button, Card, cx, Icon, Pager, SkeletonRows, usePaged } from "./components";
 import { Env, scheduleStatus, StatusBadge } from "./shared";
-import { DeleteDialog } from "./Dialogs";
+import { BulkDeleteDialog, BulkDuplicateDialog, DeleteDialog } from "./Dialogs";
 
-const PAGE = 50;
 const formatHours = (h: number): string => (Math.round(h * 10) / 10).toLocaleString("id-ID");
 
 type View = "calendar" | "list";
@@ -41,8 +40,9 @@ export function ScheduleList(props: {
     const [lanes, setLanes] = React.useState<Lanes>("brand");
     const wk = weekStart(env.todayKey);
     const [f, setF] = React.useState<Filters>({ from: wk, to: shiftDay(wk, 6), brandId: "", hostId: "", studioId: "", platform: "", status: "", q: "", only: "" });
-    const [limit, setLimit] = React.useState(PAGE);
     const [confirmDelete, setConfirmDelete] = React.useState<ScheduleRow | null>(null);
+    const [picked, setPicked] = React.useState<Set<string>>(new Set());
+    const [bulk, setBulk] = React.useState<"" | "duplicate" | "delete">("");
 
     // Canvas re-queries Schedule for the period (delegable Filter on Date).
     const lastRange = React.useRef("");
@@ -51,12 +51,11 @@ export function ScheduleList(props: {
         if (k === lastRange.current) return;
         lastRange.current = k;
         env.emit("SET_FILTER", { periodStart: f.from, periodEnd: f.to });
-        setLimit(PAGE);
     }, [f.from, f.to]);
 
     const set = (patch: Partial<Filters>): void => {
         setF((p) => ({ ...p, ...patch }));
-        setLimit(PAGE);
+        setPicked(new Set());
     };
     const setRange = (from: string, to: string): void => set(from <= to ? { from, to } : { from: to, to: from });
     const setWeek = (anyDay: string): void => {
@@ -98,6 +97,19 @@ export function ScheduleList(props: {
     const studioOpts = distinct([...env.studios.map((s) => s.studioId), ...inRange.map((s) => s.studioId)]).map((id) => ({ v: id, l: `${id}${env.lk.studios.get(id.toLowerCase())?.namaStudio ? " · " + env.studioName(id) : ""}` }));
     const platformOpts = distinct([...env.config.platforms, ...inRange.map((s) => s.platform)]).map((p) => ({ v: p, l: p }));
     const statusOpts = distinct([...env.config.statuses, ...inRange.map((s) => s.status)]).map((s) => ({ v: s, l: scheduleStatus(s).label }));
+
+    const pg = usePaged(rows, JSON.stringify(f));
+    const pickedRows = rows.filter((s) => picked.has(s.key));
+    const pageAll = pg.rows.length > 0 && pg.rows.every((s) => picked.has(s.key));
+    const togglePick = (keys: string[], on: boolean): void =>
+        setPicked((prev) => {
+            const next = new Set(prev);
+            for (const k of keys) {
+                if (on) next.add(k);
+                else next.delete(k);
+            }
+            return next;
+        });
 
     const filtered = hasActiveFilter(f);
     const [mFrom, mTo] = monthRange(env.todayKey);
@@ -267,10 +279,35 @@ export function ScheduleList(props: {
             {view === "calendar" ? (
                 <Calendar env={env} from={f.from} rows={rows} filtered={filtered} lanes={lanes} onCreate={props.onCreate} />
             ) : (
+                <>
+                {env.canEdit && pickedRows.length > 0 && (
+                    <div className="sc-bulkbar" role="region" aria-label="Aksi untuk jadwal terpilih">
+                        <b>{pickedRows.length} jadwal dipilih</b>
+                        {pickedRows.length < rows.length && (
+                            <button type="button" className="sc-link sc-link--sm" onClick={() => togglePick(rows.map((s) => s.key), true)}>
+                                Pilih semua {rows.length}
+                            </button>
+                        )}
+                        <Button variant="secondary" size="sm" icon={Icon.plus(14)} onClick={() => setBulk("duplicate")}>
+                            Duplikat
+                        </Button>
+                        <Button variant="secondary" size="sm" className="sc-btn--dangerline" icon={Icon.trash(14)} onClick={() => setBulk("delete")}>
+                            Hapus
+                        </Button>
+                        <Button variant="ghost" size="sm" onClick={() => setPicked(new Set())}>
+                            Batal pilih
+                        </Button>
+                    </div>
+                )}
                 <div className="sc-tablewrap">
                     <table className="sc-table">
                         <thead>
                             <tr>
+                                {env.canEdit && (
+                                    <th className="sc-selcell">
+                                        <input type="checkbox" aria-label="Pilih semua di halaman ini" checked={pageAll} disabled={pg.rows.length === 0} onChange={(e) => togglePick(pg.rows.map((s) => s.key), e.target.checked)} />
+                                    </th>
+                                )}
                                 <th>Tanggal</th>
                                 <th>Jam</th>
                                 <th>Account</th>
@@ -283,19 +320,19 @@ export function ScheduleList(props: {
                         </thead>
                         <tbody>
                             {env.loading && rows.length === 0 ? (
-                                <SkeletonRows rows={8} cols={8} />
+                                <SkeletonRows rows={8} cols={env.canEdit ? 9 : 8} />
                             ) : rows.length === 0 ? (
                                 <tr>
-                                    <td colSpan={8}>
+                                    <td colSpan={env.canEdit ? 9 : 8}>
                                         <EmptyState env={env} filtered={filtered} onClear={() => set({ brandId: "", hostId: "", studioId: "", platform: "", status: "", q: "", only: "" })} onCreate={() => props.onCreate()} />
                                     </td>
                                 </tr>
                             ) : (
-                                rows.slice(0, limit).map((s, i, shown) => (
+                                pg.rows.map((s, i, shown) => (
                                     <React.Fragment key={s.key}>
                                         {(i === 0 || shown[i - 1].brandName !== s.brandName) && (
                                             <tr className="sc-group">
-                                                <td colSpan={8}>
+                                                <td colSpan={env.canEdit ? 9 : 8}>
                                                     <b>{s.brandName || "Tanpa brand"}</b>
                                                     <span className="sc-muted">
                                                         {groups.get(s.brandName)?.count ?? 0} sesi · {formatHours(groups.get(s.brandName)?.hours ?? 0)} jam
@@ -303,29 +340,18 @@ export function ScheduleList(props: {
                                                 </td>
                                             </tr>
                                         )}
-                                        <ListRow env={env} s={s} onEdit={() => props.onEdit(s)} onDelete={() => setConfirmDelete(s)} />
+                                        <ListRow env={env} s={s} picked={picked.has(s.key)} onPick={(on) => togglePick([s.key], on)} onEdit={() => props.onEdit(s)} onDelete={() => setConfirmDelete(s)} />
                                     </React.Fragment>
                                 ))
                             )}
                         </tbody>
                     </table>
-                    {rows.length > 0 && (
-                        <div className="sc-tablefoot">
-                            <span>
-                                Menampilkan 1–{Math.min(limit, rows.length)} dari {rows.length}
-                                {env.loading ? " · memuat halaman berikutnya…" : ""}
-                            </span>
-                            {limit < rows.length ? (
-                                <Button variant="secondary" size="sm" onClick={() => setLimit((l) => l + PAGE)}>
-                                    Muat lebih banyak
-                                </Button>
-                            ) : (
-                                <span className="sc-end">Semua jadwal sudah ditampilkan</span>
-                            )}
-                        </div>
-                    )}
+                    <Pager {...pg} onPage={pg.setPage} unit="jadwal" note={env.loading ? " · memuat data berikutnya…" : ""} />
                 </div>
+                </>
             )}
+            {bulk === "duplicate" && <BulkDuplicateDialog env={env} rows={pickedRows} onClose={() => setBulk("")} onDone={() => { setBulk(""); setPicked(new Set()); }} />}
+            {bulk === "delete" && <BulkDeleteDialog env={env} rows={pickedRows} onClose={() => setBulk("")} onDone={() => { setBulk(""); setPicked(new Set()); }} />}
             {confirmDelete && <DeleteDialog env={env} schedule={confirmDelete} onClose={() => setConfirmDelete(null)} onDeleted={() => setConfirmDelete(null)} />}
         </>
     );
@@ -371,13 +397,18 @@ function EmptyState(props: { env: Env; filtered: boolean; onClear: () => void; o
     );
 }
 
-function ListRow(props: { env: Env; s: ScheduleRow; onEdit: () => void; onDelete: () => void }): React.ReactElement {
+function ListRow(props: { env: Env; s: ScheduleRow; picked: boolean; onPick: (on: boolean) => void; onEdit: () => void; onDelete: () => void }): React.ReactElement {
     const { env, s } = props;
     const locked = env.ev.isLocked(s);
     const clash = env.conflicts.get(s.key);
     const live = phaseOf(s, env.now) === "live" && scheduleStatus(s.status).chip !== "off";
     return (
-        <tr className={cx("sc-row", s.dateKey === env.todayKey && "is-today", live && "is-live", scheduleStatus(s.status).chip === "off" && "is-inactive")} onClick={() => env.open(s)}>
+        <tr className={cx("sc-row", s.dateKey === env.todayKey && "is-today", live && "is-live", scheduleStatus(s.status).chip === "off" && "is-inactive", props.picked && "is-selected")} onClick={() => env.open(s)}>
+            {env.canEdit && (
+                <td className="sc-selcell" onClick={(e) => e.stopPropagation()}>
+                    <input type="checkbox" aria-label={`Pilih ${s.scheduleId || "jadwal"}`} checked={props.picked} onChange={(e) => props.onPick(e.target.checked)} />
+                </td>
+            )}
             <td className="sc-nowrap">
                 <b>{formatDateShort(s.dateKey)}</b>
                 <div className="sc-muted">{HARI[dateKeyToDate(s.dateKey).getDay()]}</div>

@@ -426,3 +426,28 @@
 .sc-review__prev { margin: 0; }
 .sc-judge { display: flex; flex-direction: column; gap: 8px; }
 .sc-judge__actions { display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end; }
+
+/* Pagination (15 rows per page) */
+.sc-pager { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; padding: 10px 14px; border-top: 1px solid var(--border); font-size: 12px; background: #fff; }
+.sc-table--flat + .sc-pager, .sc-pager--flat { padding: 10px 0 0; }
+.sc-pager__nav { display: inline-flex; align-items: center; gap: 2px; }
+.sc-pager__num { min-width: 28px; height: 28px; padding: 0 6px; border: 0; border-radius: 14px; background: transparent; font: inherit; font-weight: 600; color: var(--text-secondary); cursor: pointer; }
+.sc-pager__num:hover { background: var(--surface); color: var(--text-primary); }
+.sc-pager__num.is-on { background: var(--primary); color: #fff; }
+.sc-pager__gap { padding: 0 4px; color: var(--text-muted); }
+.sc-iconbtn:disabled { opacity: .35; cursor: default; background: transparent; }
+
+/* Row selection + bulk action bar (List view) */
+.sc-table .sc-selcell { width: 36px; padding-right: 0; }
+.sc-selcell input { width: 16px; height: 16px; accent-color: var(--primary); cursor: pointer; margin: 0; vertical-align: middle; }
+.sc-row.is-selected td { background: var(--primary-light); }
+.sc-bulkbar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 10px 14px; border: 1px solid var(--info-border); background: var(--info-bg); border-radius: 12px; font-size: 13px; }
+.sc-bulkbar b { margin-right: auto; }
+
+/* Detail header actions */
+.sc-detailbar { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+.sc-attach { display: flex; flex-direction: column; gap: 8px; }
+.sc-attach__row { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border: 1px solid var(--border); border-radius: 10px; }
+.sc-attach__row > span { flex: 1; min-width: 0; }
+.sc-btn--dangerline { color: var(--danger-text) !important; border-color: #F5B5B5 !important; }
+.sc-tablewrap > .sc-table--flat + .sc-pager { padding: 10px 14px; }

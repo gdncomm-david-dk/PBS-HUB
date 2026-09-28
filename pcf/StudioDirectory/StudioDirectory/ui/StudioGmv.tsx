@@ -3,7 +3,7 @@ import { ScheduleRow, StudioRow } from "../core/types";
 import { formatIdr, formatIdrShort, ReportState, sessionGmv, studioGmv } from "../core/gmv";
 import { hasColumn, occupiesStudio } from "../core/data";
 import { formatDateShort, formatMinutes, formatMonth, HARI, dateKeyToDate, monthDateKeys, monthName, shiftMonth } from "../core/time";
-import { Badge, Banner, Card, cx, Tone } from "./components";
+import { Badge, Banner, Card, cx, Pager, Tone, usePaged } from "./components";
 import { Env } from "./App";
 import { scheduleStatus } from "./shared";
 
@@ -198,14 +198,11 @@ function LiveBreakHint(props: { env: Env; schedHasLb: boolean; reportsHaveStatus
 }
 
 type MonthFilter = "all" | "upcoming" | "done" | "missing" | "cancelled";
-const PAGE = 25;
 
 /** Jadwal: every session booked at this studio in the selected month, with its GMV and report state. */
 export function MonthSchedule(props: { env: Env; studio: StudioRow; selectedDay: string; onPickDay: (d: string) => void }): React.ReactElement {
     const { env, studio } = props;
     const [filter, setFilter] = React.useState<MonthFilter>("all");
-    const [shown, setShown] = React.useState(PAGE);
-    React.useEffect(() => setShown(PAGE), [filter, env.monthKey, studio.studioId]);
 
     const all = monthDateKeys(env.monthKey).flatMap((d) => env.idx.day(studio.studioId, d));
     const rows = all
@@ -219,7 +216,8 @@ export function MonthSchedule(props: { env: Env; studio: StudioRow; selectedDay:
             if (filter === "cancelled") return !occupies;
             return true;
         });
-    const visible = rows.slice(0, shown);
+    const pg = usePaged(rows, `${filter}|${env.monthKey}|${studio.studioId}`);
+    const visible = pg.rows;
     const counts = {
         all: all.length,
         upcoming: all.filter((s) => occupiesStudio(s.status) && (s.dateKey > env.todayKey || (s.dateKey === env.todayKey && (s.endMin ?? 0) > env.nowMin))).length,
@@ -336,19 +334,7 @@ export function MonthSchedule(props: { env: Env; studio: StudioRow; selectedDay:
                         )}
                     </tbody>
                 </table>
-                {rows.length > 0 && (
-                    <div className="sd-tablefoot">
-                        <span>
-                            Menampilkan 1–{visible.length} dari {rows.length} sesi · GMV {formatIdr(totalGmv)}
-                            {visible.length >= rows.length && <span className="sd-end"> · semua jadwal bulan ini sudah ditampilkan</span>}
-                        </span>
-                        {visible.length < rows.length && (
-                            <button type="button" className="sd-link" onClick={() => setShown((n) => n + PAGE)}>
-                                Tampilkan {Math.min(PAGE, rows.length - visible.length)} lagi
-                            </button>
-                        )}
-                    </div>
-                )}
+                <Pager {...pg} onPage={pg.setPage} unit="sesi" note={` · GMV ${formatIdr(totalGmv)}`} />
             </div>
         </Card>
     );

@@ -339,3 +339,55 @@ export function SkeletonRows(props: { rows: number; cols: number }): React.React
     );
 }
 
+
+// ---------------------------------------------------------------------------------------------
+// Pagination: every table shows at most PAGE_SIZE rows per page.
+
+export const PAGE_SIZE = 15;
+
+/** Slices `items` into pages; jumps back to page 1 whenever `resetKey` changes. */
+export function usePaged<T>(items: T[], resetKey = "", size = PAGE_SIZE): { page: number; pages: number; setPage: (p: number) => void; rows: T[]; from: number; to: number; total: number } {
+    const [page, setPage] = React.useState(1);
+    React.useEffect(() => setPage(1), [resetKey]);
+    const pages = Math.max(1, Math.ceil(items.length / size));
+    const cur = Math.min(page, pages);
+    const start = (cur - 1) * size;
+    return { page: cur, pages, setPage, rows: items.slice(start, start + size), from: items.length ? start + 1 : 0, to: Math.min(start + size, items.length), total: items.length };
+}
+
+export function Pager(props: { page: number; pages: number; from: number; to: number; total: number; onPage: (p: number) => void; unit?: string; note?: React.ReactNode }): React.ReactElement | null {
+    const { page, pages } = props;
+    if (props.total === 0) return null;
+    const nums: (number | "…")[] = [];
+    for (let i = 1; i <= pages; i++) {
+        if (i === 1 || i === pages || Math.abs(i - page) <= 1) nums.push(i);
+        else if (nums[nums.length - 1] !== "…") nums.push("…");
+    }
+    return (
+        <div className="sc-pager">
+            <span className="sc-muted">
+                {props.from}–{props.to} dari {props.total} {props.unit ?? "data"}
+                {props.note}
+            </span>
+            {pages > 1 && (
+                <nav className="sc-pager__nav" aria-label="Halaman">
+                    <button type="button" className="sc-iconbtn" aria-label="Halaman sebelumnya" disabled={page <= 1} onClick={() => props.onPage(page - 1)}>
+                        {Icon.left(14)}
+                    </button>
+                    {nums.map((n, i) =>
+                        n === "…" ? (
+                            <span key={`g${i}`} className="sc-pager__gap">…</span>
+                        ) : (
+                            <button key={n} type="button" className={cx("sc-pager__num", n === page && "is-on")} aria-current={n === page ? "page" : undefined} onClick={() => props.onPage(n)}>
+                                {n}
+                            </button>
+                        ),
+                    )}
+                    <button type="button" className="sc-iconbtn" aria-label="Halaman berikutnya" disabled={page >= pages} onClick={() => props.onPage(page + 1)}>
+                        {Icon.right(14)}
+                    </button>
+                </nav>
+            )}
+        </div>
+    );
+}

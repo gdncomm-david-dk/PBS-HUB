@@ -2,7 +2,7 @@ import * as React from "react";
 import { readWorkbook } from "../core/xlsx";
 import { bytesToBase64, checkFile, errorCsv, FIELD_LABEL, FileCheck, ImportRow, timeText, uploadName } from "../core/import";
 import { formatDateShort } from "../core/time";
-import { Badge, Banner, Bar, Button, cx, Icon, Modal } from "./components";
+import { Badge, Banner, Bar, Button, cx, Icon, Modal, Pager, usePaged } from "./components";
 import { Env, UNCONFIRMED } from "./shared";
 
 interface Item {
@@ -59,7 +59,6 @@ export function BulkUpload(props: { env: Env; onClose: () => void }): React.Reac
     const [phase, setPhase] = React.useState<"pick" | "uploading" | "done">("pick");
     const [progress, setProgress] = React.useState({ done: 0, total: 0 });
     const [show, setShow] = React.useState<"all" | "rejected" | "warning">("all");
-    const [limit, setLimit] = React.useState(100);
     const inputRef = React.useRef<HTMLInputElement>(null);
     const maxBytes = env.config.maxUploadMb * 1048576;
 
@@ -101,6 +100,7 @@ export function BulkUpload(props: { env: Env; onClose: () => void }): React.Reac
     const hasProblems = totals.rejected + totals.warning > 0 || checks.some((c) => c.missing.length);
 
     const allRows: ImportRow[] = checks.flatMap((c) => c.rows).filter((r) => show === "all" || r.verdict === show);
+    const rowPg = usePaged(allRows, `${show}|${checks.length}`);
 
     const submit = async (): Promise<void> => {
         const queue = eligible;
@@ -338,7 +338,7 @@ export function BulkUpload(props: { env: Env; onClose: () => void }): React.Reac
                                     <th>Host</th>
                                     <th>Studio</th>
                                     <th>Jam</th>
-                                    <th>Verdict</th>
+                                    <th>Hasil cek</th>
                                     <th>Alasan</th>
                                 </tr>
                             </thead>
@@ -350,7 +350,7 @@ export function BulkUpload(props: { env: Env; onClose: () => void }): React.Reac
                                         </td>
                                     </tr>
                                 ) : (
-                                    allRows.slice(0, limit).map((r) => (
+                                    rowPg.rows.map((r) => (
                                         <tr key={`${r.file}-${r.no}`} className={cx(r.verdict === "rejected" && "is-rejected")}>
                                             <td className="sc-mono">{r.excelRow}</td>
                                             <td className="sc-ellipsis" title={r.file}>{r.file}</td>
@@ -372,16 +372,7 @@ export function BulkUpload(props: { env: Env; onClose: () => void }): React.Reac
                                 )}
                             </tbody>
                         </table>
-                        {allRows.length > limit && (
-                            <div className="sc-tablefoot">
-                                <span>
-                                    Menampilkan 1–{limit} dari {allRows.length}
-                                </span>
-                                <Button variant="secondary" size="sm" onClick={() => setLimit((l) => l + 100)}>
-                                    Muat lebih banyak
-                                </Button>
-                            </div>
-                        )}
+                        <Pager {...rowPg} onPage={rowPg.setPage} unit="baris" />
                     </div>
                 </>
             )}

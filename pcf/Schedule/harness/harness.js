@@ -215,6 +215,21 @@
                 }
                 return reply(req.requestId, "ok", p.decision === "revision" ? p.reportId + " dikembalikan untuk revisi." : p.reportId + " disetujui.");
             }
+            case "BULK_CREATE_SCHEDULE":
+                later(900, function () {
+                    (p.items || []).forEach(function (it) {
+                        add(it.date, it.studioId, it.brandId, it.hostId, 0, 0, it.status, { Account: it.accountId, Platform: { Value: it.platform }, StartTime: it.startTime, EndTime: it.endTime, JamLive: it.jamLive, Position: { Value: it.position } });
+                    });
+                    reply(req.requestId, "ok", (p.items || []).length + " jadwal diduplikat.", { created: (p.items || []).length });
+                });
+                return;
+            case "BULK_DELETE_SCHEDULE":
+                later(700, function () {
+                    var ids = p.scheduleIds || [];
+                    schedules = schedules.filter(function (s) { return ids.indexOf(s.Title) < 0; });
+                    reply(req.requestId, "ok", ids.length + " jadwal dihapus.", {});
+                });
+                return;
             case "REMIND_HOST":
                 later(400, function () { reply(req.requestId, "ok", "Pengingat terkirim (contoh).", {}); });
                 return;
