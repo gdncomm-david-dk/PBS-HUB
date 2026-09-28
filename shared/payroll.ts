@@ -69,16 +69,22 @@ export function parsePeriod(text: string): Period | null {
   return null;
 }
 
-export const periodKey = (p: Period): string => `${p.year}-${String(p.month + 1).padStart(2, "0")}`;
-export const fmtPeriod = (p: Period | null): string => (p ? `${monthName(p.month)} ${p.year}` : "—");
-export const samePeriod = (a: Period | null, b: Period | null): boolean => !!a && !!b && a.year === b.year && a.month === b.month;
+export const periodKey = (p: Period): string =>
+  `${p.year}-${String(p.month + 1).padStart(2, "0")}`;
+export const fmtPeriod = (p: Period | null): string =>
+  p ? `${monthName(p.month)} ${p.year}` : "—";
+export const samePeriod = (a: Period | null, b: Period | null): boolean =>
+  !!a && !!b && a.year === b.year && a.month === b.month;
 
 export function addMonths(p: Period, n: number): Period {
   const t = p.year * 12 + p.month + n;
   return { year: Math.floor(t / 12), month: ((t % 12) + 12) % 12 };
 }
 
-export const periodOf = (d: Date): Period => ({ year: d.getFullYear(), month: d.getMonth() });
+export const periodOf = (d: Date): Period => ({
+  year: d.getFullYear(),
+  month: d.getMonth(),
+});
 
 export function inPeriod(d: Date | null, p: Period): boolean {
   return !!d && d.getFullYear() === p.year && d.getMonth() === p.month;
@@ -107,16 +113,31 @@ export const GATE_LABEL: Record<GateKey, string> = {
   FINANCE: "Finance",
 };
 
-const GATE_ORDER: GateKey[] = ["PBS_INTERNAL", "HC", "HEAD_PBS", "FAS", "FINANCE"];
+const GATE_ORDER: GateKey[] = [
+  "PBS_INTERNAL",
+  "HC",
+  "HEAD_PBS",
+  "FAS",
+  "FINANCE",
+];
 
 /** "Approved by Asih" → {decision: "done", who: "Asih"}. */
-function readDecision(text: string): { decision: "done" | "rejected" | null; who: string } {
+function readDecision(text: string): {
+  decision: "done" | "rejected" | null;
+  who: string;
+} {
   const t = text.trim();
   if (!t) return { decision: null, who: "" };
-  const m = t.match(/^(approved|rejected|disetujui|ditolak)(?:\s+(?:by|oleh))?\s*[:-]?\s*(.*)$/i);
+  const m = t.match(
+    /^(approved|rejected|disetujui|ditolak)(?:\s+(?:by|oleh))?\s*[:-]?\s*(.*)$/i,
+  );
   if (m) {
     const verb = (m[1] ?? "").toLowerCase();
-    return { decision: verb.startsWith("approv") || verb === "disetujui" ? "done" : "rejected", who: (m[2] ?? "").trim() };
+    return {
+      decision:
+        verb.startsWith("approv") || verb === "disetujui" ? "done" : "rejected",
+      who: (m[2] ?? "").trim(),
+    };
   }
   if (/reject|tolak/i.test(t)) return { decision: "rejected", who: "" };
   if (/approv|setuju/i.test(t)) return { decision: "done", who: "" };
@@ -146,9 +167,18 @@ export function readGates(run: Row): GateReading {
   const s = status.toLowerCase();
   const modified = date(run, "Modified");
   const g: Record<GateKey, Gate> = {} as Record<GateKey, Gate>;
-  for (const k of GATE_ORDER) g[k] = { key: k, label: GATE_LABEL[k], state: "pending", approver: "", comment: "", at: null };
+  for (const k of GATE_ORDER)
+    g[k] = {
+      key: k,
+      label: GATE_LABEL[k],
+      state: "pending",
+      approver: "",
+      comment: "",
+      at: null,
+    };
 
-  const pass = (...keys: GateKey[]) => keys.forEach((k) => (g[k].state = "done"));
+  const pass = (...keys: GateKey[]) =>
+    keys.forEach((k) => (g[k].state = "done"));
   let unknown = false;
   let current: GateKey | null = null;
 
@@ -211,24 +241,37 @@ export function readGates(run: Row): GateReading {
       g[k].state = decision;
       // A later gate cannot have decided unless the earlier ones passed.
       const idx = GATE_ORDER.indexOf(k);
-      for (const prev of GATE_ORDER.slice(0, Math.min(idx, 2))) if (g[prev].state !== "rejected") g[prev].state = "done";
+      for (const prev of GATE_ORDER.slice(0, Math.min(idx, 2)))
+        if (g[prev].state !== "rejected") g[prev].state = "done";
     }
   }
 
   const rejectedAt = GATE_ORDER.find((k) => g[k].state === "rejected") ?? null;
   if (rejectedAt) {
     // The flow terminates on a rejection: everything still open is cancelled.
-    for (const k of GATE_ORDER) if (g[k].state === "pending" || g[k].state === "active") g[k].state = "skipped";
+    for (const k of GATE_ORDER)
+      if (g[k].state === "pending" || g[k].state === "active")
+        g[k].state = "skipped";
   } else {
     // Activate the next open gate(s). Head of PBS and FAS run in parallel after HC.
-    if (g.PBS_INTERNAL.state === "done" && g.HC.state === "pending") g.HC.state = "active";
+    if (g.PBS_INTERNAL.state === "done" && g.HC.state === "pending")
+      g.HC.state = "active";
     if (g.HC.state === "done") {
       if (g.HEAD_PBS.state === "pending") g.HEAD_PBS.state = "active";
       if (g.FAS.state === "pending") g.FAS.state = "active";
     }
-    if (g.HEAD_PBS.state === "done" && g.FAS.state === "done" && g.FINANCE.state === "pending") g.FINANCE.state = "active";
+    if (
+      g.HEAD_PBS.state === "done" &&
+      g.FAS.state === "done" &&
+      g.FINANCE.state === "pending"
+    )
+      g.FINANCE.state = "active";
   }
-  if (current && (g[current].state === "done" || g[current].state === "rejected")) g[current].at = modified;
+  if (
+    current &&
+    (g[current].state === "done" || g[current].state === "rejected")
+  )
+    g[current].at = modified;
 
   const done = GATE_ORDER.every((k) => g[k].state === "done");
   return { gates: GATE_ORDER.map((k) => g[k]), rejectedAt, done, unknown };
@@ -281,7 +324,11 @@ export interface RunOptions {
   assemblyMinutes: number;
 }
 
-export const DEFAULT_RUN_OPTIONS = (now: Date): RunOptions => ({ now, labelOffset: -1, assemblyMinutes: 30 });
+export const DEFAULT_RUN_OPTIONS = (now: Date): RunOptions => ({
+  now,
+  labelOffset: -1,
+  assemblyMinutes: 30,
+});
 
 export type SlipState = "GENERATED" | "SENT" | "FAILED" | "BOUNCED" | "UNKNOWN";
 
@@ -298,15 +345,22 @@ export const SLIP_LABEL: Record<SlipState, { label: string; tone: Tone }> = {
   GENERATED: { label: "Dibuat", tone: "neutral" },
   SENT: { label: "Terkirim", tone: "success" },
   FAILED: { label: "Gagal", tone: "danger" },
-  BOUNCED: { label: "Bounce", tone: "warning" },
+  BOUNCED: { label: "Terpental", tone: "warning" },
   UNKNOWN: { label: "—", tone: "neutral" },
 };
 
-const runKey = (row: Row): string => str(row, "payroll_id", "PayrollID", "PayrollTitle");
+const runKey = (row: Row): string =>
+  str(row, "payroll_id", "PayrollID", "PayrollTitle");
 
 function summariseSlips(rows: Row[], lineCount: number): SlipSummary | null {
   if (rows.length === 0) return null;
-  const s: SlipSummary = { total: Math.max(lineCount, rows.length), generated: 0, sent: 0, failed: 0, bounced: 0 };
+  const s: SlipSummary = {
+    total: Math.max(lineCount, rows.length),
+    generated: 0,
+    sent: 0,
+    failed: 0,
+    bounced: 0,
+  };
   for (const r of rows) {
     const st = slipState(r);
     if (st === "SENT") s.sent++;
@@ -333,7 +387,12 @@ export function lineGross(line: Row): number | null {
   return num(line, "TotalGaji", "Bruto", "NetTHP");
 }
 
-export function buildRun(run: Row, lines: Row[], slips: Row[], opts: RunOptions): RunModel {
+export function buildRun(
+  run: Row,
+  lines: Row[],
+  slips: Row[],
+  opts: RunOptions,
+): RunModel {
   const title = str(run, "Title");
   const label = str(run, "Periode") || str(run, "PayrollName");
   const labelPeriod = parsePeriod(label);
@@ -344,10 +403,17 @@ export function buildRun(run: Row, lines: Row[], slips: Row[], opts: RunOptions)
   let phase: RunPhase;
   if (reading.rejectedAt) phase = "REJECTED";
   else if (reading.done) phase = "DONE";
-  else if (reading.gates[0]?.state === "active" && created && opts.now.getTime() - created.getTime() < opts.assemblyMinutes * 60000) phase = "ASSEMBLING";
+  else if (
+    reading.gates[0]?.state === "active" &&
+    created &&
+    opts.now.getTime() - created.getTime() < opts.assemblyMinutes * 60000
+  )
+    phase = "ASSEMBLING";
   else phase = "WAITING";
 
-  const active = reading.gates.filter((g) => g.state === "active").map((g) => g.label);
+  const active = reading.gates
+    .filter((g) => g.state === "active")
+    .map((g) => g.label);
   const statusText =
     phase === "REJECTED"
       ? `Ditolak di ${GATE_LABEL[reading.rejectedAt as GateKey]}`
@@ -358,7 +424,14 @@ export function buildRun(run: Row, lines: Row[], slips: Row[], opts: RunOptions)
           : reading.unknown
             ? status
             : `Menunggu ${active.join(" & ") || "approval"}`;
-  const tone: Tone = phase === "REJECTED" ? "danger" : phase === "DONE" ? "success" : phase === "ASSEMBLING" ? "info" : "warning";
+  const tone: Tone =
+    phase === "REJECTED"
+      ? "danger"
+      : phase === "DONE"
+        ? "success"
+        : phase === "ASSEMBLING"
+          ? "info"
+          : "warning";
 
   let lineTotal: number | null = null;
   for (const l of lines) {
@@ -381,7 +454,9 @@ export function buildRun(run: Row, lines: Row[], slips: Row[], opts: RunOptions)
     rejectedAt: reading.rejectedAt,
     created,
     modified: date(run, "Modified"),
-    manual: /manual/i.test(str(run, "PayrollName")) || /manual/i.test(str(run, "Trigger")),
+    manual:
+      /manual/i.test(str(run, "PayrollName")) ||
+      /manual/i.test(str(run, "Trigger")),
     lineTotal,
     lineCount: lines.length,
     fieldTotal: num(run, "TotalPayroll"),
@@ -390,18 +465,33 @@ export function buildRun(run: Row, lines: Row[], slips: Row[], opts: RunOptions)
   };
 }
 
-export function buildRuns(runs: Row[], lines: Row[], slips: Row[], opts: RunOptions): RunModel[] {
+export function buildRuns(
+  runs: Row[],
+  lines: Row[],
+  slips: Row[],
+  opts: RunOptions,
+): RunModel[] {
   const byRunLines = groupBy(lines, runKey);
   const byRunSlips = groupBy(slips, runKey);
   return runs
     .map((r) => {
       const t = str(r, "Title");
-      return buildRun(r, byRunLines.get(t) ?? [], byRunSlips.get(t) ?? [], opts);
+      return buildRun(
+        r,
+        byRunLines.get(t) ?? [],
+        byRunSlips.get(t) ?? [],
+        opts,
+      );
     })
-    .sort((a, b) => (b.created?.getTime() ?? 0) - (a.created?.getTime() ?? 0) || Number(b.id) - Number(a.id));
+    .sort(
+      (a, b) =>
+        (b.created?.getTime() ?? 0) - (a.created?.getTime() ?? 0) ||
+        Number(b.id) - Number(a.id),
+    );
 }
 
-export const isOpen = (r: RunModel): boolean => r.phase === "ASSEMBLING" || r.phase === "WAITING";
+export const isOpen = (r: RunModel): boolean =>
+  r.phase === "ASSEMBLING" || r.phase === "WAITING";
 
 // ---- preflight ------------------------------------------------------------------------------------
 
@@ -446,14 +536,17 @@ export interface PreflightInput {
   previousMonthOnly: boolean;
 }
 
-const isActiveHost = (h: Row): boolean => /^(active|aktif)$/i.test(str(h, "Status"));
+const isActiveHost = (h: Row): boolean =>
+  /^(active|aktif)$/i.test(str(h, "Status"));
 
 function mode(values: number[]): number | null {
   const counts = new Map<number, number>();
   for (const v of values) if (v > 0) counts.set(v, (counts.get(v) ?? 0) + 1);
   let best: number | null = null;
   let bestN = 0;
-  for (const [v, n] of counts) if (n > bestN || (n === bestN && best !== null && v > best)) [best, bestN] = [v, n];
+  for (const [v, n] of counts)
+    if (n > bestN || (n === bestN && best !== null && v > best))
+      [best, bestN] = [v, n];
   return best;
 }
 
@@ -462,7 +555,8 @@ export function tierOf(row: Row): 1 | 2 | 3 | null {
   return t ? (Number(t[0]) as 1 | 2 | 3) : null;
 }
 
-export const clockInDay = (c: Row): Date | null => date(c, "ClockInDate", "CheckInTime");
+export const clockInDay = (c: Row): Date | null =>
+  date(c, "ClockInDate", "CheckInTime");
 
 const onDay = (day: Date | null, clock: string): Date | null => {
   const m = parseClock(clock);
@@ -474,31 +568,48 @@ const onDay = (day: Date | null, clock: string): Date | null => {
 
 /** Clock-in moment: CheckInTime (GPS), else ClockInTime (Date and Time, or a text clock on ClockInDate). */
 export const clockInAt = (c: Row | undefined): Date | null =>
-  !c ? null : dateTime(c, "CheckInTime", "ClockInTime") ?? date(c, "CheckInTime") ?? onDay(clockInDay(c), str(c, "ClockInTime", "JamMasuk"));
+  !c
+    ? null
+    : (dateTime(c, "CheckInTime", "ClockInTime") ??
+      date(c, "CheckInTime") ??
+      onDay(clockInDay(c), str(c, "ClockInTime", "JamMasuk")));
 
 /** Clock-out moment, same fallbacks; a text clock earlier than clock-in is read as past midnight. */
 export function clockOutAt(c: Row | undefined): Date | null {
   if (!c) return null;
-  const out = dateTime(c, "CheckOutTime", "ClockOutTime") ?? date(c, "CheckOutTime") ?? onDay(date(c, "ClockOutDate") ?? clockInDay(c), str(c, "ClockOutTime", "JamKeluar"));
+  const out =
+    dateTime(c, "CheckOutTime", "ClockOutTime") ??
+    date(c, "CheckOutTime") ??
+    onDay(
+      date(c, "ClockOutDate") ?? clockInDay(c),
+      str(c, "ClockOutTime", "JamKeluar"),
+    );
   const inAt = clockInAt(c);
   return out && inAt && out < inAt ? new Date(out.getTime() + 864e5) : out;
 }
 
 export function clockInValue(c: Row): number {
-  return (num(c, "HKTugas") ?? 0) + (num(c, "Insentif") ?? 0) + (num(c, "Streak") ?? 0);
+  return (
+    (num(c, "HKTugas") ?? 0) +
+    (num(c, "Insentif") ?? 0) +
+    (num(c, "Streak") ?? 0)
+  );
 }
 
 export function hasBank(host: Row): boolean | null {
   const flag = bool(host, "HasRekening");
   if (flag !== null) return flag;
-  if ("NorekLast4" in host || "Bank" in host) return str(host, "NorekLast4") !== "" || str(host, "Bank") !== "";
+  if ("NorekLast4" in host || "Bank" in host)
+    return str(host, "NorekLast4") !== "" || str(host, "Bank") !== "";
   return null;
 }
 
 export function runPreflight(input: PreflightInput): PreflightResult {
   const { period } = input;
   const checks: PreflightCheck[] = [];
-  const hostName = new Map(input.hosts.map((h) => [str(h, "Title"), str(h, "NamaHost")]));
+  const hostName = new Map(
+    input.hosts.map((h) => [str(h, "Title"), str(h, "NamaHost")]),
+  );
   const active = input.hosts.filter(isActiveHost);
   const activeIds = new Set(active.map((h) => str(h, "Title")).filter(Boolean));
   const rows = input.clockIns.filter((c) => inPeriod(clockInDay(c), period));
@@ -540,20 +651,41 @@ export function runPreflight(input: PreflightInput): PreflightResult {
       code: "REJECTED_BEFORE",
       level: "warn",
       text: `Periode ini pernah dijalankan dan ${rejected.statusText.toLowerCase()} (${rejected.title}).`,
-      link: { target: "OPEN_RUN", payrollId: rejected.id, title: rejected.title },
+      link: {
+        target: "OPEN_RUN",
+        payrollId: rejected.id,
+        title: rejected.title,
+      },
     });
   }
 
   // Hosts and attendance.
   checks.push(
     active.length > 0
-      ? { code: "ACTIVE_HOSTS", level: "pass", text: `${active.length} host aktif` }
-      : { code: "ACTIVE_HOSTS", level: "block", text: "Tidak ada host aktif di list Host." },
+      ? {
+          code: "ACTIVE_HOSTS",
+          level: "pass",
+          text: `${active.length} host aktif`,
+        }
+      : {
+          code: "ACTIVE_HOSTS",
+          level: "block",
+          text: "Tidak ada host aktif di list Host.",
+        },
   );
   if (attended.size > 0) {
-    checks.push({ code: "ATTENDANCE", level: "pass", text: `${attended.size} punya catatan kehadiran di ${label}` });
+    checks.push({
+      code: "ATTENDANCE",
+      level: "pass",
+      text: `${attended.size} punya catatan kehadiran di ${label}`,
+    });
   } else if (active.length > 0) {
-    checks.push({ code: "ATTENDANCE", level: "block", text: `Belum ada catatan kehadiran di ${label}.`, link: { target: "CLOCKIN" } });
+    checks.push({
+      code: "ATTENDANCE",
+      level: "block",
+      text: `Belum ada catatan kehadiran di ${label}.`,
+      link: { target: "CLOCKIN" },
+    });
   }
   const without = active.length - attended.size;
   if (attended.size > 0 && without > 0) {
@@ -564,9 +696,13 @@ export function runPreflight(input: PreflightInput): PreflightResult {
       link: { target: "CLOCKIN", label: "lihat" },
     });
   }
-  const noBank = active.filter((h) => attended.has(str(h, "Title")) && hasBank(h) === false);
+  const noBank = active.filter(
+    (h) => attended.has(str(h, "Title")) && hasBank(h) === false,
+  );
   if (noBank.length > 0) {
-    const names = noBank.slice(0, 3).map((h) => str(h, "NamaHost") || str(h, "Title"));
+    const names = noBank
+      .slice(0, 3)
+      .map((h) => str(h, "NamaHost") || str(h, "Title"));
     checks.push({
       code: "NO_BANK",
       level: "block",
@@ -574,10 +710,14 @@ export function runPreflight(input: PreflightInput): PreflightResult {
       link: { target: "HOSTS", label: "lengkapi" },
     });
   }
-  const inactiveRows = rows.filter((c) => !activeIds.has(str(c, "HostID")) && str(c, "HostID") !== "");
+  const inactiveRows = rows.filter(
+    (c) => !activeIds.has(str(c, "HostID")) && str(c, "HostID") !== "",
+  );
   const inactiveHosts = new Set(inactiveRows.map((c) => str(c, "HostID")));
   if (inactiveHosts.size > 0) {
-    const names = [...inactiveHosts].slice(0, 3).map((id) => hostName.get(id) || id);
+    const names = [...inactiveHosts]
+      .slice(0, 3)
+      .map((id) => hostName.get(id) || id);
     checks.push({
       code: "INACTIVE_ATTENDANCE",
       level: "warn",
@@ -585,7 +725,12 @@ export function runPreflight(input: PreflightInput): PreflightResult {
       link: { target: "HOSTS", label: "lihat" },
     });
   }
-  const openShifts = activeRows.filter((c) => str(c, "CheckInTime") !== "" && str(c, "CheckOutTime") === "" && str(c, "ClockOutTime") === "");
+  const openShifts = activeRows.filter(
+    (c) =>
+      str(c, "CheckInTime") !== "" &&
+      str(c, "CheckOutTime") === "" &&
+      str(c, "ClockOutTime") === "",
+  );
   if (openShifts.length > 0) {
     checks.push({
       code: "OPEN_SHIFT",
@@ -594,7 +739,9 @@ export function runPreflight(input: PreflightInput): PreflightResult {
       link: { target: "CLOCKIN", label: "lihat" },
     });
   }
-  const outside = activeRows.filter((c) => bool(c, "IsInsideGeofence") === false);
+  const outside = activeRows.filter(
+    (c) => bool(c, "IsInsideGeofence") === false,
+  );
   if (outside.length > 0) {
     checks.push({
       code: "OUTSIDE_GEOFENCE",
@@ -603,17 +750,33 @@ export function runPreflight(input: PreflightInput): PreflightResult {
       link: { target: "CLOCKIN", label: "lihat" },
     });
   }
-  const unreviewed = input.reports.filter((r) => inPeriod(date(r, "LiveDate"), period) && ["WAITING", "REVISION"].includes(reviewState(r)));
+  const unreviewed = input.reports.filter(
+    (r) =>
+      inPeriod(date(r, "LiveDate"), period) &&
+      ["WAITING", "REVISION"].includes(reviewState(r)),
+  );
   if (unreviewed.length > 0) {
-    checks.push({ code: "UNREVIEWED", level: "warn", text: `${unreviewed.length} report ${label} belum direview.`, link: { target: "REVIEW", label: "lihat" } });
+    checks.push({
+      code: "UNREVIEWED",
+      level: "warn",
+      text: `${unreviewed.length} report ${label} belum direview.`,
+      link: { target: "REVIEW", label: "lihat" },
+    });
   } else if (input.reports.length > 0 || attended.size > 0) {
-    checks.push({ code: "UNREVIEWED", level: "pass", text: `Semua report ${label} sudah direview` });
+    checks.push({
+      code: "UNREVIEWED",
+      level: "pass",
+      text: `Semua report ${label} sudah direview`,
+    });
   }
 
   const order: Record<CheckLevel, number> = { block: 0, warn: 1, pass: 2 };
   checks.sort((a, b) => order[a.level] - order[b.level]);
 
-  const byTier = (t: 1 | 2 | 3) => mode(rows.filter((c) => tierOf(c) === t).map((c) => num(c, "Insentif") ?? 0));
+  const byTier = (t: 1 | 2 | 3) =>
+    mode(
+      rows.filter((c) => tierOf(c) === t).map((c) => num(c, "Insentif") ?? 0),
+    );
   return {
     period,
     checks,
@@ -696,10 +859,18 @@ export interface RunDetail {
 
 const lower = (s: string) => s.trim().toLowerCase();
 
-export function buildRunDetail(runRow: Row | undefined, lineRows: Row[], clockIns: Row[], slips: Row[], opts: RunOptions): RunDetail {
+export function buildRunDetail(
+  runRow: Row | undefined,
+  lineRows: Row[],
+  clockIns: Row[],
+  slips: Row[],
+  opts: RunOptions,
+): RunDetail {
   const run = runRow ? buildRun(runRow, lineRows, slips, opts) : null;
   const dataPeriod = run?.dataPeriod ?? null;
-  const periodRows = dataPeriod ? clockIns.filter((c) => inPeriod(clockInDay(c), dataPeriod)) : clockIns;
+  const periodRows = dataPeriod
+    ? clockIns.filter((c) => inPeriod(clockInDay(c), dataPeriod))
+    : clockIns;
   const byHost = new Map<string, Row[]>();
   for (const c of periodRows) {
     const k = str(c, "HostID");
@@ -708,12 +879,20 @@ export function buildRunDetail(runRow: Row | undefined, lineRows: Row[], clockIn
     if (list) list.push(c);
     else byHost.set(k, [c]);
   }
-  for (const list of byHost.values()) list.sort((a, b) => (clockInDay(a)?.getTime() ?? 0) - (clockInDay(b)?.getTime() ?? 0));
+  for (const list of byHost.values())
+    list.sort(
+      (a, b) =>
+        (clockInDay(a)?.getTime() ?? 0) - (clockInDay(b)?.getTime() ?? 0),
+    );
   const haveClockIns = clockIns.length > 0;
 
   const slipIndex = new Map<string, Row>();
   for (const s of slips) {
-    for (const k of [str(s, "LineID", "payroll_item_id", "Title"), str(s, "Employee_Email", "Email"), str(s, "HostID")]) {
+    for (const k of [
+      str(s, "LineID", "payroll_item_id", "Title"),
+      str(s, "Employee_Email", "Email"),
+      str(s, "HostID"),
+    ]) {
       if (k && !slipIndex.has(lower(k))) slipIndex.set(lower(k), s);
     }
   }
@@ -727,24 +906,45 @@ export function buildRunDetail(runRow: Row | undefined, lineRows: Row[], clockIn
     const rows = byHost.get(hostId) ?? [];
     const periodeLabel = str(l, "Periode");
     const linePeriod = parsePeriod(periodeLabel);
-    const slipRow = slipIndex.get(lower(id)) ?? (email ? slipIndex.get(lower(email)) : undefined) ?? (hostId ? slipIndex.get(lower(hostId)) : undefined);
+    const slipRow =
+      slipIndex.get(lower(id)) ??
+      (email ? slipIndex.get(lower(email)) : undefined) ??
+      (hostId ? slipIndex.get(lower(hostId)) : undefined);
     const bruto = lineGross(l);
     const hk = num(l, "JumlahHari", "HK");
     const bank = str(l, "Bank");
     const norekLast4 = str(l, "NorekLast4");
     const flagBank = bool(l, "HasRekening");
-    const lineHasBank = flagBank !== null ? flagBank : "Bank" in l || "NorekLast4" in l ? bank !== "" && norekLast4 !== "" : null;
-    const sourceTotal = haveClockIns && hostId ? rows.reduce((s, c) => s + clockInValue(c), 0) : null;
+    const lineHasBank =
+      flagBank !== null
+        ? flagBank
+        : "Bank" in l || "NorekLast4" in l
+          ? bank !== "" && norekLast4 !== ""
+          : null;
+    const sourceTotal =
+      haveClockIns && hostId
+        ? rows.reduce((s, c) => s + clockInValue(c), 0)
+        : null;
 
     const flags: LineFlag[] = [];
     if (lineHasBank === false) flags.push("NO_BANK");
     if ((hk ?? 0) === 0 && (bruto ?? 0) === 0) flags.push("ZERO_ATTENDANCE");
     // Run-level problem (P2 stamps every row alike): reported once as a banner, not on each line.
-    if (periodeLabel && dataPeriod && linePeriod && !samePeriod(linePeriod, dataPeriod)) {
+    if (
+      periodeLabel &&
+      dataPeriod &&
+      linePeriod &&
+      !samePeriod(linePeriod, dataPeriod)
+    ) {
       mismatchLabels.add(periodeLabel);
       mismatchCount++;
     }
-    if (sourceTotal !== null && bruto !== null && Math.abs(sourceTotal - bruto) >= 1) flags.push("SOURCE_MISMATCH");
+    if (
+      sourceTotal !== null &&
+      bruto !== null &&
+      Math.abs(sourceTotal - bruto) >= 1
+    )
+      flags.push("SOURCE_MISMATCH");
 
     return {
       id,
@@ -774,7 +974,8 @@ export function buildRunDetail(runRow: Row | undefined, lineRows: Row[], clockIn
   });
 
   lines.sort((a, b) => a.name.localeCompare(b.name));
-  const sum = (f: (l: PayLine) => number | null) => lines.reduce((s, l) => s + (f(l) ?? 0), 0);
+  const sum = (f: (l: PayLine) => number | null) =>
+    lines.reduce((s, l) => s + (f(l) ?? 0), 0);
   const totals: LineTotals = {
     hk: sum((l) => l.hk),
     uangKehadiran: sum((l) => l.uangKehadiran),
@@ -792,15 +993,34 @@ export function buildRunDetail(runRow: Row | undefined, lineRows: Row[], clockIn
     lines,
     totals,
     periodMismatch: { labels: [...mismatchLabels], count: mismatchCount },
-    totalMismatch: !!run && run.fieldTotal !== null && lines.length > 0 && Math.abs(run.fieldTotal - totals.bruto) >= 1,
+    totalMismatch:
+      !!run &&
+      run.fieldTotal !== null &&
+      lines.length > 0 &&
+      Math.abs(run.fieldTotal - totals.bruto) >= 1,
     pphAllZero: lines.length > 0 && lines.every((l) => (l.pph21 ?? 0) === 0),
     attention: lines.filter((l) => l.flags.length > 0).length,
     slipsTracked: slips.length > 0,
   };
 }
 
-export const LINE_FLAG: Record<LineFlag, { label: string; tone: Tone; hint: string }> = {
-  NO_BANK: { label: "Tanpa rekening", tone: "danger", hint: "Host tidak punya data bank: transfer dan slip gagal. Lengkapi di list Host sebelum approval." },
-  ZERO_ATTENDANCE: { label: "Tanpa kehadiran", tone: "warning", hint: "Baris Rp0: host aktif tanpa Clock In di periode ini." },
-  SOURCE_MISMATCH: { label: "Tidak cocok Clock In", tone: "danger", hint: "Bruto berbeda dari jumlah HKTugas + Insentif + Streak di Clock In periode ini." },
+export const LINE_FLAG: Record<
+  LineFlag,
+  { label: string; tone: Tone; hint: string }
+> = {
+  NO_BANK: {
+    label: "Tanpa rekening",
+    tone: "danger",
+    hint: "Host tidak punya data bank: transfer dan slip gagal. Lengkapi di list Host sebelum approval.",
+  },
+  ZERO_ATTENDANCE: {
+    label: "Tanpa kehadiran",
+    tone: "warning",
+    hint: "Baris Rp0: host aktif tanpa Clock In di periode ini.",
+  },
+  SOURCE_MISMATCH: {
+    label: "Tidak cocok Clock In",
+    tone: "danger",
+    hint: "Bruto berbeda dari jumlah HKTugas + Insentif + Streak di Clock In periode ini.",
+  },
 };

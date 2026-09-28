@@ -2,11 +2,50 @@ import * as React from "react";
 import { ModuleContext, UseActionResult } from "../../../shared/contract";
 import { Row } from "../../../shared/data";
 import { fmtDayMonth, fmtNumber, fmtTime } from "../../../shared/format";
-import { ScoreBand, ScoreTx, bandOf, buildHost, buildLedger, parseBands, scoreDefaults } from "../../../shared/host";
-import { ScorePoint, ScoreRule, TX_FILTERS, TxFilter, marginBelow, matchesFilter, nextBand, scoreRules, scoreSeries, summarize, txInPeriod } from "../../../shared/hostScore";
-import { Period, addMonths, fmtPeriod, inPeriod, parsePeriod, periodKey, periodOf } from "../../../shared/payroll";
+import {
+  ScoreBand,
+  ScoreTx,
+  bandOf,
+  buildHost,
+  buildLedger,
+  parseBands,
+  scoreDefaults,
+} from "../../../shared/host";
+import {
+  ScorePoint,
+  ScoreRule,
+  TX_FILTERS,
+  TxFilter,
+  marginBelow,
+  matchesFilter,
+  nextBand,
+  scoreRules,
+  scoreSeries,
+  summarize,
+  txInPeriod,
+} from "../../../shared/hostScore";
+import {
+  Period,
+  addMonths,
+  fmtPeriod,
+  inPeriod,
+  parsePeriod,
+  periodKey,
+  periodOf,
+} from "../../../shared/payroll";
 import { BandChart } from "../../../shared/scoreUi";
-import { Badge, Button, EmptyState, EndOfData, Icon, IconName, ResultBanner, Skeleton, Spinner, TONE_DOT } from "../../../shared/ui";
+import {
+  Badge,
+  Button,
+  EmptyState,
+  Icon,
+  IconName,
+  Pager,
+  ResultBanner,
+  Skeleton,
+  TONE_DOT,
+  usePaged,
+} from "../../../shared/ui";
 
 export interface CreditScoreProps {
   ctx: ModuleContext;
@@ -22,11 +61,25 @@ export interface CreditScoreProps {
   action: UseActionResult;
 }
 
-const BAND_TEXT: Record<string, string> = { success: "pbs-t-ok", danger: "pbs-t-bad", warning: "pbs-t-warn", info: "pbs-t-info", neutral: "" };
+const BAND_TEXT: Record<string, string> = {
+  success: "pbs-t-ok",
+  danger: "pbs-t-bad",
+  warning: "pbs-t-warn",
+  info: "pbs-t-info",
+  neutral: "",
+};
 const ALL = "All";
 
-const signed = (n: number | null) => (n === null ? "—" : `${n > 0 ? "+" : n < 0 ? "−" : "±"}${fmtNumber(Math.abs(n))}`);
-const range = (b: ScoreBand) => (b.max === null ? `${fmtNumber(b.min)} ke atas` : b.min === null ? `sampai ${fmtNumber(b.max)}` : `${fmtNumber(b.min)}–${fmtNumber(b.max)}`);
+const signed = (n: number | null) =>
+  n === null
+    ? "—"
+    : `${n > 0 ? "+" : n < 0 ? "−" : "±"}${fmtNumber(Math.abs(n))}`;
+const range = (b: ScoreBand) =>
+  b.max === null
+    ? `${fmtNumber(b.min)} ke atas`
+    : b.min === null
+      ? `sampai ${fmtNumber(b.max)}`
+      : `${fmtNumber(b.min)}–${fmtNumber(b.max)}`;
 
 /** "" → this month, "All" → every month, yyyy-mm → that month. */
 function periodFrom(text: string, now: Date): Period | null {
@@ -36,17 +89,32 @@ function periodFrom(text: string, now: Date): Period | null {
 
 export function CreditScoreView(props: CreditScoreProps): React.ReactElement {
   const { ctx, now, action } = props;
-  const bands = React.useMemo(() => parseBands(props.thresholds), [props.thresholds]);
+  const bands = React.useMemo(
+    () => parseBands(props.thresholds),
+    [props.thresholds],
+  );
   const defaults = React.useMemo(() => scoreDefaults(ctx.config), [ctx]);
   const hostRow = props.host[0];
-  const h = React.useMemo(() => (hostRow ? buildHost(hostRow, bands, defaults) : null), [hostRow, bands, defaults]);
+  const h = React.useMemo(
+    () => (hostRow ? buildHost(hostRow, bands, defaults) : null),
+    [hostRow, bands, defaults],
+  );
   const ledger = React.useMemo(() => buildLedger(props.txs), [props.txs]);
-  const rules = React.useMemo(() => scoreRules(props.rules, ledger), [props.rules, ledger]);
+  const rules = React.useMemo(
+    () => scoreRules(props.rules, ledger),
+    [props.rules, ledger],
+  );
 
   // Month and filter work on the rows already here; canvas only hears about them (it may reload).
-  const [period, setPeriod] = React.useState<Period | null>(() => periodFrom(props.period, now));
-  React.useEffect(() => setPeriod(periodFrom(props.period, now)), [props.period]);
-  const initialFilter = (TX_FILTERS.find((f) => f.key === props.defaultFilter)?.key ?? "All") as TxFilter;
+  const [period, setPeriod] = React.useState<Period | null>(() =>
+    periodFrom(props.period, now),
+  );
+  React.useEffect(
+    () => setPeriod(periodFrom(props.period, now)),
+    [props.period],
+  );
+  const initialFilter = (TX_FILTERS.find((f) => f.key === props.defaultFilter)
+    ?.key ?? "All") as TxFilter;
   const [filter, setFilter] = React.useState<TxFilter>(initialFilter);
   React.useEffect(() => setFilter(initialFilter), [initialFilter]);
 
@@ -68,10 +136,17 @@ export function CreditScoreView(props: CreditScoreProps): React.ReactElement {
 
   const inScope = ledger.filter((t) => txInPeriod(t, period));
   const sum = summarize(inScope);
-  const monthNet = summarize(ledger.filter((t) => inPeriod(t.when, thisMonth))).net;
-  const count = (f: TxFilter) => inScope.filter((t) => matchesFilter(t, f)).length;
+  const monthNet = summarize(
+    ledger.filter((t) => inPeriod(t.when, thisMonth)),
+  ).net;
+  const count = (f: TxFilter) =>
+    inScope.filter((t) => matchesFilter(t, f)).length;
   const visible = inScope.filter((t) => matchesFilter(t, filter));
   const scopeLabel = period ? fmtPeriod(period) : "semua waktu";
+  const paged = usePaged(
+    visible,
+    `${period ? periodKey(period) : ALL}|${filter}`,
+  );
 
   const choosePeriod = (key: string) => {
     const p = key === ALL ? null : parsePeriod(key);
@@ -80,7 +155,10 @@ export function CreditScoreView(props: CreditScoreProps): React.ReactElement {
   };
   const chooseFilter = (f: TxFilter) => {
     setFilter(f);
-    action.fire("FILTER_CHANGED", { filter: f, period: period ? periodKey(period) : ALL });
+    action.fire("FILTER_CHANGED", {
+      filter: f,
+      period: period ? periodKey(period) : ALL,
+    });
   };
 
   const firstLoad = props.loading && !h && ledger.length === 0;
@@ -95,13 +173,24 @@ export function CreditScoreView(props: CreditScoreProps): React.ReactElement {
             {firstLoad
               ? "Memuat skor…"
               : h
-                ? [h.name, h.code !== h.name ? h.code : "", h.pkg ? `Paket ${h.pkg}` : "", `${fmtNumber(ledger.filter((t) => t.active).length)}${props.hasMore ? "+" : ""} transaksi skor`].filter(Boolean).join(" · ")
+                ? [
+                    h.name,
+                    h.code !== h.name ? h.code : "",
+                    h.pkg ? `Paket ${h.pkg}` : "",
+                    `${fmtNumber(ledger.filter((t) => t.active).length)}${props.hasMore ? "+" : ""} transaksi skor`,
+                  ]
+                    .filter(Boolean)
+                    .join(" · ")
                 : "Data host belum terkirim ke layar ini."}
           </p>
         </div>
         <label className="pbs-chip">
           <span className="pbs-sr">Bulan</span>
-          <select aria-label="Bulan" value={period ? periodKey(period) : ALL} onChange={(e) => choosePeriod(e.target.value)}>
+          <select
+            aria-label="Bulan"
+            value={period ? periodKey(period) : ALL}
+            onChange={(e) => choosePeriod(e.target.value)}
+          >
             <option value={ALL}>Semua waktu</option>
             {months.map((m) => (
               <option key={periodKey(m)} value={periodKey(m)}>
@@ -117,23 +206,82 @@ export function CreditScoreView(props: CreditScoreProps): React.ReactElement {
 
       <div className="hc-split">
         <div className="hc-main">
-          {firstLoad ? <HeroSkeleton /> : <Hero score={h?.score ?? null} min={h?.min ?? null} max={h?.max ?? null} bands={bands} ledger={ledger} monthNet={monthNet} />}
+          {firstLoad ? (
+            <HeroSkeleton />
+          ) : (
+            <Hero
+              score={h?.score ?? null}
+              min={h?.min ?? null}
+              max={h?.max ?? null}
+              bands={bands}
+              ledger={ledger}
+              monthNet={monthNet}
+            />
+          )}
 
           <div className="hc-kpis" style={{ marginBottom: 0 }}>
-            <SumCard icon="plus" tone="ok" label="Reward" value={sum.reward === 0 ? "0" : signed(sum.reward)} sub={`${fmtNumber(sum.rewardCount)} kali`} loading={listLoading} onClick={sum.rewardCount ? () => chooseFilter("Reward") : undefined} />
-            <SumCard icon="alert" tone="bad" label="Penalty" value={sum.penalty === 0 ? "0" : signed(sum.penalty)} sub={`${fmtNumber(sum.penaltyCount)} kali`} loading={listLoading} onClick={sum.penaltyCount ? () => chooseFilter("Penalty") : undefined} />
-            <SumCard icon="sparkle" tone="" label="Perubahan" value={sum.net === 0 ? "0" : signed(sum.net)} sub="bersih" loading={listLoading} />
-            <SumCard icon="x" tone="warn" label="Dibatalkan" value={fmtNumber(sum.voidCount)} sub="transaksi" loading={listLoading} onClick={sum.voidCount ? () => chooseFilter("Void") : undefined} />
+            <SumCard
+              icon="plus"
+              tone="ok"
+              label="Reward"
+              value={sum.reward === 0 ? "0" : signed(sum.reward)}
+              sub={`${fmtNumber(sum.rewardCount)} kali`}
+              loading={listLoading}
+              onClick={
+                sum.rewardCount ? () => chooseFilter("Reward") : undefined
+              }
+            />
+            <SumCard
+              icon="alert"
+              tone="bad"
+              label="Penalty"
+              value={sum.penalty === 0 ? "0" : signed(sum.penalty)}
+              sub={`${fmtNumber(sum.penaltyCount)} kali`}
+              loading={listLoading}
+              onClick={
+                sum.penaltyCount ? () => chooseFilter("Penalty") : undefined
+              }
+            />
+            <SumCard
+              icon="sparkle"
+              tone=""
+              label="Perubahan"
+              value={sum.net === 0 ? "0" : signed(sum.net)}
+              sub="bersih"
+              loading={listLoading}
+            />
+            <SumCard
+              icon="x"
+              tone="warn"
+              label="Dibatalkan"
+              value={fmtNumber(sum.voidCount)}
+              sub="transaksi"
+              loading={listLoading}
+              onClick={sum.voidCount ? () => chooseFilter("Void") : undefined}
+            />
           </div>
 
           <div>
-            <div className="hc-chips" role="tablist" aria-label="Jenis transaksi">
+            <div
+              className="hc-chips"
+              role="tablist"
+              aria-label="Jenis transaksi"
+            >
               {TX_FILTERS.map((f) => {
                 const n = count(f.key);
-                if (f.key === "Void" && n === 0 && filter !== "Void") return null;
+                if (f.key === "Void" && n === 0 && filter !== "Void")
+                  return null;
                 return (
-                  <button key={f.key} type="button" role="tab" aria-selected={filter === f.key} className={`hc-chip${filter === f.key ? " on" : ""}`} onClick={() => chooseFilter(f.key)}>
-                    {f.label} <span className="n">{listLoading ? "" : fmtNumber(n)}</span>
+                  <button
+                    key={f.key}
+                    type="button"
+                    role="tab"
+                    aria-selected={filter === f.key}
+                    className={`hc-chip${filter === f.key ? " on" : ""}`}
+                    onClick={() => chooseFilter(f.key)}
+                  >
+                    {f.label}{" "}
+                    <span className="n">{listLoading ? "" : fmtNumber(n)}</span>
                   </button>
                 );
               })}
@@ -155,7 +303,7 @@ export function CreditScoreView(props: CreditScoreProps): React.ReactElement {
                       <Skeleton w={60} />
                     </div>
                   ))
-                : visible.map((t) => <TxRow key={t.id || t.txId} t={t} />)}
+                : paged.rows.map((t) => <TxRow key={t.id || t.txId} t={t} />)}
             </div>
 
             {listLoading ? null : visible.length === 0 ? (
@@ -171,7 +319,11 @@ export function CreditScoreView(props: CreditScoreProps): React.ReactElement {
                         ? `Tidak ada transaksi di ${scopeLabel}`
                         : `Tidak ada transaksi “${TX_FILTERS.find((f) => f.key === filter)?.label ?? ""}” di ${scopeLabel}`
                 }
-                text={ledger.length === 0 ? "Skor kamu masih nilai awal. Reward dan penalty dari tim studio akan tercatat di sini." : `${fmtNumber(ledger.length)} transaksi lain ada di bulan lain atau tab Semua.`}
+                text={
+                  ledger.length === 0
+                    ? "Skor kamu masih nilai awal. Reward dan penalty dari tim studio akan tercatat di sini."
+                    : `${fmtNumber(ledger.length)} transaksi lain ada di bulan lain atau tab Semua.`
+                }
                 action={
                   ledger.length > 0 && (filter !== "All" || period !== null) ? (
                     <Button
@@ -187,22 +339,17 @@ export function CreditScoreView(props: CreditScoreProps): React.ReactElement {
                   ) : undefined
                 }
               />
-            ) : props.hasMore ? (
-              <div className="pbs-foot">
-                <span>{fmtNumber(ledger.length)} transaksi dimuat · masih ada data lama di server</span>
-                <span className="line" />
-                <Button variant="secondary" size="sm" disabled={props.loading} onClick={() => action.fire("LOAD_MORE", { loaded: props.txs.length })}>
-                  {props.loading ? (
-                    <>
-                      <Spinner small /> Memuat…
-                    </>
-                  ) : (
-                    "Muat lebih banyak"
-                  )}
-                </Button>
-              </div>
             ) : (
-              <EndOfData text={`Total ${fmtNumber(visible.length)} transaksi · ${scopeLabel}`} />
+              <Pager
+                paged={paged}
+                unit="transaksi"
+                suffix={` · ${scopeLabel}`}
+                hasMore={props.hasMore}
+                loading={props.loading}
+                onLoadMore={() =>
+                  action.fire("LOAD_MORE", { loaded: props.txs.length })
+                }
+              />
             )}
           </div>
         </div>
@@ -213,7 +360,9 @@ export function CreditScoreView(props: CreditScoreProps): React.ReactElement {
           <div className="hc-card hc-sc-note">
             <Icon name="info" size={16} />
             <p>
-              Skor berubah setiap kali tim studio mencatat reward atau penalty. Transaksi yang dibatalkan tidak mengubah skor. Ada yang tidak sesuai? Hubungi PIC studio kamu.
+              Skor berubah setiap kali tim studio mencatat reward atau penalty.
+              Transaksi yang dibatalkan tidak mengubah skor. Ada yang tidak
+              sesuai? Hubungi PIC studio kamu.
             </p>
           </div>
         </div>
@@ -222,16 +371,30 @@ export function CreditScoreView(props: CreditScoreProps): React.ReactElement {
   );
 }
 
-function Hero(props: { score: number | null; min: number | null; max: number | null; bands: ScoreBand[]; ledger: ScoreTx[]; monthNet: number }): React.ReactElement {
+function Hero(props: {
+  score: number | null;
+  min: number | null;
+  max: number | null;
+  bands: ScoreBand[];
+  ledger: ScoreTx[];
+  monthNet: number;
+}): React.ReactElement {
   const { score, bands } = props;
   const band = bandOf(score, bands);
   const next = nextBand(score, bands);
   const margin = marginBelow(score, band);
-  const series = React.useMemo(() => scoreSeries(props.ledger, score), [props.ledger, score]);
+  const series = React.useMemo(
+    () => scoreSeries(props.ledger, score),
+    [props.ledger, score],
+  );
   if (score === null) {
     return (
       <div className="hc-card">
-        <EmptyState icon="info" title="Skor belum tersedia" text="Skor awal belum diatur untuk akun kamu. Hubungi PIC studio." />
+        <EmptyState
+          icon="info"
+          title="Skor belum tersedia"
+          text="Skor awal belum diatur untuk akun kamu. Hubungi PIC studio."
+        />
       </div>
     );
   }
@@ -239,22 +402,33 @@ function Hero(props: { score: number | null; min: number | null; max: number | n
     <div className="hc-card hc-sc-hero">
       <div className="hc-sc-top">
         <div style={{ minWidth: 0 }}>
-          <div className="pbs-muted" style={{ fontSize: 12.5, fontWeight: 600 }}>
+          <div
+            className="pbs-muted"
+            style={{ fontSize: 12.5, fontWeight: 600 }}
+          >
             Skor kredit saat ini
           </div>
           <div className="hc-scorec-n">
-            <span className={`pbs-num ${band ? BAND_TEXT[band.tone] : ""}`}>{fmtNumber(score)}</span>
+            <span className={`pbs-num ${band ? BAND_TEXT[band.tone] : ""}`}>
+              {fmtNumber(score)}
+            </span>
             {band ? <Badge tone={band.tone}>{band.label}</Badge> : null}
           </div>
           {props.monthNet !== 0 ? (
-            <div className={`hc-score-d ${props.monthNet > 0 ? "pbs-t-ok" : "pbs-t-bad"}`}>
+            <div
+              className={`hc-score-d ${props.monthNet > 0 ? "pbs-t-ok" : "pbs-t-bad"}`}
+            >
               {props.monthNet > 0 ? "▲ +" : "▼ "}
               {fmtNumber(props.monthNet)} bulan ini
             </div>
           ) : (
-            <div className="hc-score-d pbs-muted">Belum ada perubahan bulan ini</div>
+            <div className="hc-score-d pbs-muted">
+              Belum ada perubahan bulan ini
+            </div>
           )}
-          {band?.description ? <p className="hc-sc-desc">{band.description}</p> : null}
+          {band?.description ? (
+            <p className="hc-sc-desc">{band.description}</p>
+          ) : null}
         </div>
         {series.length >= 2 ? <Spark points={series} /> : null}
       </div>
@@ -262,7 +436,8 @@ function Hero(props: { score: number | null; min: number | null; max: number | n
       <p className="hc-sc-next">
         {next ? (
           <>
-            <b>{fmtNumber(next.gap)} poin lagi</b> ke level <b>{next.band.label}</b>.
+            <b>{fmtNumber(next.gap)} poin lagi</b> ke level{" "}
+            <b>{next.band.label}</b>.
           </>
         ) : band ? (
           <>
@@ -271,7 +446,13 @@ function Hero(props: { score: number | null; min: number | null; max: number | n
         ) : (
           "Level skor belum diatur."
         )}
-        {margin !== null && band && margin < 10 ? <span className="pbs-t-warn"> Turun {fmtNumber(margin + 1)} poin lagi, level kamu turun dari {band.label}.</span> : null}
+        {margin !== null && band && margin < 10 ? (
+          <span className="pbs-t-warn">
+            {" "}
+            Turun {fmtNumber(margin + 1)} poin lagi, level kamu turun dari{" "}
+            {band.label}.
+          </span>
+        ) : null}
       </p>
     </div>
   );
@@ -296,19 +477,48 @@ function Spark(props: { points: ScorePoint[] }): React.ReactElement {
   const lo = Math.min(...vals);
   const hi = Math.max(...vals);
   const span = hi - lo || 1;
-  const x = (i: number) => (pts.length === 1 ? W : (i / (pts.length - 1)) * (W - 8) + 4);
+  const x = (i: number) =>
+    pts.length === 1 ? W : (i / (pts.length - 1)) * (W - 8) + 4;
   const y = (v: number) => H - 6 - ((v - lo) / span) * (H - 12);
-  const d = pts.map((p, i) => `${i ? "L" : "M"}${x(i).toFixed(1)} ${y(p.score).toFixed(1)}`).join(" ");
+  const d = pts
+    .map(
+      (p, i) => `${i ? "L" : "M"}${x(i).toFixed(1)} ${y(p.score).toFixed(1)}`,
+    )
+    .join(" ");
   const last = pts[pts.length - 1];
   const first = pts[0];
   return (
-    <figure className="hc-spark" aria-label={`Tren skor: ${fmtNumber(first?.score)} ke ${fmtNumber(last?.score)}`}>
-      <svg viewBox={`0 0 ${W} ${H}`} width={W} height={H} role="img" aria-hidden="true">
-        <path d={d} fill="none" stroke="var(--p)" strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" />
-        {last ? <circle cx={x(pts.length - 1)} cy={y(last.score)} r={3.5} fill="var(--p)" /> : null}
+    <figure
+      className="hc-spark"
+      aria-label={`Tren skor: ${fmtNumber(first?.score)} ke ${fmtNumber(last?.score)}`}
+    >
+      <svg
+        viewBox={`0 0 ${W} ${H}`}
+        width={W}
+        height={H}
+        role="img"
+        aria-hidden="true"
+      >
+        <path
+          d={d}
+          fill="none"
+          stroke="var(--p)"
+          strokeWidth={2}
+          strokeLinejoin="round"
+          strokeLinecap="round"
+        />
+        {last ? (
+          <circle
+            cx={x(pts.length - 1)}
+            cy={y(last.score)}
+            r={3.5}
+            fill="var(--p)"
+          />
+        ) : null}
       </svg>
       <figcaption>
-        Tren {fmtNumber(pts.length)} transaksi terakhir{first ? ` · sejak ${fmtDayMonth(first.when)}` : ""}
+        Tren {fmtNumber(pts.length)} transaksi terakhir
+        {first ? ` · sejak ${fmtDayMonth(first.when)}` : ""}
       </figcaption>
     </figure>
   );
@@ -321,27 +531,45 @@ function TxRow(props: { t: ScoreTx }): React.ReactElement {
     <div className={`hc-row tx${t.active || t.reversal ? "" : " void"}`}>
       <span className="pbs-num">
         {fmtDayMonth(t.when)}
-        <span className="pbs-muted" style={{ display: "block", fontSize: 11.5 }}>
+        <span
+          className="pbs-muted"
+          style={{ display: "block", fontSize: 11.5 }}
+        >
           {fmtTime(t.when)}
         </span>
       </span>
       <span style={{ minWidth: 0 }}>
         <b className="hc-tx-r">{t.rule}</b>
         {t.reversal ? (
-          <Badge tone="info" small title="Pembatalan transaksi lain; skor kembali seperti sebelum transaksi itu">
+          <Badge
+            tone="info"
+            small
+            title="Pembatalan transaksi lain; skor kembali seperti sebelum transaksi itu"
+          >
             Koreksi
           </Badge>
         ) : !t.active ? (
-          <Badge tone="neutral" small title={t.statusText ? `Status: ${t.statusText}` : undefined}>
+          <Badge
+            tone="neutral"
+            small
+            title={t.statusText ? `Status: ${t.statusText}` : undefined}
+          >
             Dibatalkan
           </Badge>
         ) : null}
         {t.notes ? <span className="hc-tx-n">{t.notes}</span> : null}
-        <span className="pbs-muted" style={{ display: "block", fontSize: 11.5 }}>
+        <span
+          className="pbs-muted"
+          style={{ display: "block", fontSize: 11.5 }}
+        >
           {[t.txId, t.by ? `oleh ${t.by}` : ""].filter(Boolean).join(" · ")}
         </span>
       </span>
-      <span className={`r pbs-num hc-tx-p ${t.active || t.reversal ? (up ? "pbs-t-ok" : "pbs-t-bad") : ""}`}>{signed(t.point)}</span>
+      <span
+        className={`r pbs-num hc-tx-p ${t.active || t.reversal ? (up ? "pbs-t-ok" : "pbs-t-bad") : ""}`}
+      >
+        {signed(t.point)}
+      </span>
       <span className="r pbs-num hide-s">
         {(t.active || t.reversal) && t.after !== null ? (
           <>
@@ -356,7 +584,11 @@ function TxRow(props: { t: ScoreTx }): React.ReactElement {
   );
 }
 
-function Levels(props: { bands: ScoreBand[]; score: number | null; loading: boolean }): React.ReactElement | null {
+function Levels(props: {
+  bands: ScoreBand[];
+  score: number | null;
+  loading: boolean;
+}): React.ReactElement | null {
   const current = bandOf(props.score, props.bands);
   if (!props.loading && props.bands.length === 0) return null;
   const list = [...props.bands].reverse();
@@ -375,9 +607,13 @@ function Levels(props: { bands: ScoreBand[]; score: number | null; loading: bool
               <div style={{ minWidth: 0 }}>
                 <div className="t">
                   {b.label}
-                  {current?.id === b.id ? <span className="hc-tag">Kamu di sini</span> : null}
+                  {current?.id === b.id ? (
+                    <span className="hc-tag">Kamu di sini</span>
+                  ) : null}
                 </div>
-                {b.description ? <div className="x">{b.description}</div> : null}
+                {b.description ? (
+                  <div className="x">{b.description}</div>
+                ) : null}
               </div>
               <span className="pbs-num v">{range(b)}</span>
             </li>
@@ -388,7 +624,10 @@ function Levels(props: { bands: ScoreBand[]; score: number | null; loading: bool
   );
 }
 
-function Rules(props: { rules: ScoreRule[]; loading: boolean }): React.ReactElement | null {
+function Rules(props: {
+  rules: ScoreRule[];
+  loading: boolean;
+}): React.ReactElement | null {
   if (!props.loading && props.rules.length === 0) return null;
   const rewards = props.rules.filter((r) => r.type !== "PENALTY");
   const penalties = props.rules.filter((r) => r.type === "PENALTY");
@@ -401,9 +640,22 @@ function Rules(props: { rules: ScoreRule[]; loading: boolean }): React.ReactElem
             <li key={r.id || r.name}>
               <div style={{ minWidth: 0 }}>
                 <div className="t">{r.name}</div>
-                {r.description || r.count ? <div className="x">{[r.description, r.count ? `${fmtNumber(r.count)}× untuk kamu` : ""].filter(Boolean).join(" · ")}</div> : null}
+                {r.description || r.count ? (
+                  <div className="x">
+                    {[
+                      r.description,
+                      r.count ? `${fmtNumber(r.count)}× untuk kamu` : "",
+                    ]
+                      .filter(Boolean)
+                      .join(" · ")}
+                  </div>
+                ) : null}
               </div>
-              <span className={`pbs-num v ${r.type === "PENALTY" ? "pbs-t-bad" : "pbs-t-ok"}`}>{signed(r.point)}</span>
+              <span
+                className={`pbs-num v ${r.type === "PENALTY" ? "pbs-t-bad" : "pbs-t-ok"}`}
+              >
+                {signed(r.point)}
+              </span>
             </li>
           ))}
         </ul>
@@ -426,7 +678,15 @@ function Rules(props: { rules: ScoreRule[]; loading: boolean }): React.ReactElem
   );
 }
 
-function SumCard(props: { icon: IconName; tone: "" | "ok" | "warn" | "bad"; label: string; value: string; sub: string; loading: boolean; onClick?: () => void }): React.ReactElement {
+function SumCard(props: {
+  icon: IconName;
+  tone: "" | "ok" | "warn" | "bad";
+  label: string;
+  value: string;
+  sub: string;
+  loading: boolean;
+  onClick?: () => void;
+}): React.ReactElement {
   const body = (
     <>
       <span className={`hc-ic${props.tone ? ` ${props.tone}` : ""}`}>

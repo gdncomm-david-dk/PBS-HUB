@@ -8,6 +8,16 @@ const assert = (c, m) => { if (!c) { console.log("FAIL", m); process.exitCode = 
   const p = await b.newPage({ viewport: { width: 1120, height: 1100 } });
   p.on("pageerror", (e) => { console.log("PAGEERROR", e.message); process.exitCode = 1; });
   const go = async (q) => { await p.goto("file://" + path.join(__dirname, "index.html") + "?" + q); await p.waitForTimeout(400); };
+  // Tables show 15 rows a page: page forward until the row is there.
+  const pageTo = async (loc) => {
+    for (let i = 0; i < 20 && (await loc.count()) === 0; i++) {
+      const next = p.getByRole("button", { name: "Halaman berikutnya" }).first();
+      if ((await next.count()) === 0 || (await next.isDisabled())) break;
+      await next.click();
+      await p.waitForTimeout(80);
+    }
+    return loc;
+  };
   const payloads = () => p.evaluate(() => window.__payloads);
   const shot = (n) => p.$("#stage").then((e) => e.screenshot({ path: path.join(out, n + ".png") }));
   // Absen asks "Live Break?" first; answer and send.
@@ -376,7 +386,7 @@ const assert = (c, m) => { if (!c) { console.log("FAIL", m); process.exitCode = 
   await p.selectOption("select[aria-label='Bulan kehadiran']", "2026-08");
   await p.waitForTimeout(150);
   assert(await p.getByText(/sudah memakai kehadiran Agustus 2026/).isVisible(), "payroll run using August is named before editing");
-  const augRow = p.locator("tr", { hasText: "Senin, 3 Agustus" });
+  const augRow = await pageTo(p.locator("tr", { hasText: "Senin, 3 Agustus" }));
   await augRow.getByRole("button", { name: "Edit", exact: true }).click();
   const adj = p.getByRole("dialog");
   const saveAdj = adj.getByRole("button", { name: "Simpan perubahan" });
@@ -404,7 +414,7 @@ const assert = (c, m) => { if (!c) { console.log("FAIL", m); process.exitCode = 
   assert(await p.getByText(/Kehadiran 2026-08-03 disesuaikan/).isVisible(), "canvas message shown");
   assert(await p.locator("tr", { hasText: "Senin, 3 Agustus" }).getByText("Disesuaikan").isVisible(), "row marked as adjusted");
   await go("c=HostDetail&h=HST-001&tab=Attendance");
-  await p.locator("tr", { hasText: "Senin, 14 September" }).getByRole("button", { name: "Edit", exact: true }).click();
+  await (await pageTo(p.locator("tr", { hasText: "Senin, 14 September" }))).getByRole("button", { name: "Edit", exact: true }).click();
   await p.fill("#pbs-adj-in", "10:00");
   await p.fill("#pbs-adj-out", "02:00");
   assert(await p.getByText(/lewat tengah malam/).isVisible(), "clock out before clock in means the next day");
@@ -429,14 +439,14 @@ const assert = (c, m) => { if (!c) { console.log("FAIL", m); process.exitCode = 
   const inView = async () => p.getByRole("dialog").evaluate((el) => { const r = el.getBoundingClientRect(); return r.top >= -1 && r.bottom <= window.innerHeight + 1 && r.height > 100; });
   await go("c=HostDetail&h=HST-001&tab=Attendance");
   await p.selectOption("select[aria-label='Bulan kehadiran']", "2026-08");
-  await p.locator("tr", { hasText: "Sabtu, 1 Agustus" }).getByRole("button", { name: "Edit", exact: true }).click();
+  await (await pageTo(p.locator("tr", { hasText: "Sabtu, 1 Agustus" }))).getByRole("button", { name: "Edit", exact: true }).click();
   await p.waitForTimeout(150);
   assert(await inView(), "edit popup for a row far down is inside the visible area");
   await shot("f-adjust-lowrow");
   await p.keyboard.press("Escape");
   await go("c=HostDetail&h=HST-001&tab=Attendance&ht=700");
   await p.selectOption("select[aria-label='Bulan kehadiran']", "2026-08");
-  await p.locator("tr", { hasText: "Sabtu, 1 Agustus" }).getByRole("button", { name: "Edit", exact: true }).click();
+  await (await pageTo(p.locator("tr", { hasText: "Sabtu, 1 Agustus" }))).getByRole("button", { name: "Edit", exact: true }).click();
   await p.waitForTimeout(150);
   assert(await inView(), "same when the control scrolls inside a short screen");
   await p.keyboard.press("Escape");
@@ -491,7 +501,7 @@ const assert = (c, m) => { if (!c) { console.log("FAIL", m); process.exitCode = 
   await p.locator(".pbs-sc-kpi", { hasText: "Kritis" }).click();
   assert((await p.locator(".pbs-sc-list tbody tr").count()) === 1, "band KPI filters the list");
   await p.locator(".pbs-sc-kpi", { hasText: "Kritis" }).click();
-  await p.locator("tr", { hasText: "PBSH-001" }).getByRole("button", { name: "Ledger" }).click();
+  await (await pageTo(p.locator("tr", { hasText: "PBSH-001" }))).getByRole("button", { name: "Ledger" }).click();
   await p.waitForTimeout(200);
   pl = await payloads();
   assert(pl.some((x) => x.action === "OPEN_LEDGER" && x.payload.hostId === "HST-001"), "OPEN_LEDGER with hostId");
@@ -602,12 +612,12 @@ const assert = (c, m) => { if (!c) { console.log("FAIL", m); process.exitCode = 
   // ---- Host app: submit report with screenshot --------------------------------------------------
   const png = await p.screenshot({ clip: { x: 0, y: 0, width: 600, height: 900 } });
   await go("c=MyReportDetail&sch=SCD-3302");
-  const submit = p.getByRole("button", { name: "Send Report", exact: true });
+  const submit = p.getByRole("button", { name: "Kirim report", exact: true });
   assert(await submit.isDisabled(), "submit disabled on an empty form");
   assert((await p.locator("#hc-m-AddToCart").count()) === 0 && (await p.locator("#hc-m-Share").count()) === 0, "TikTok: no AddToCart, no Share");
   const vals = { LiveID: "7400112233", Durasi: "120", Playbook: "Payday", Pesanan: "120", Penjualan: "4.250.000", ProdukTerjual: "150", JumlahPembeli: "101", CTR: "3,6", PeakViewer: "1300", TotalViewer: "15800", CTOR: "8,9", Comment: "420" };
   await fillReport({ ...vals, Comment: "" });
-  assert(await p.getByText(/Belum bisa submit: .*Isi Comment/).isVisible(), "every listed metric is required");
+  assert(await p.getByText(/Belum bisa dikirim: .*Isi Comment/).isVisible(), "every listed metric is required");
   await fillReport({ Comment: "420" });
   assert(await submit.isDisabled(), "still disabled without a screenshot");
   await p.setInputFiles("input[type=file]", { name: "Screenshot 2026-09-12.png", mimeType: "image/png", buffer: png });
@@ -671,7 +681,10 @@ const assert = (c, m) => { if (!c) { console.log("FAIL", m); process.exitCode = 
   // ---- Host app: my schedule --------------------------------------------------------------------
   await go("c=MySchedule&view=List");
   const schRows = () => p.locator(".hc-row.sch:not(.head)").count();
-  assert((await schRows()) === 20, "20 sessions in September, cancelled included");
+  assert((await schRows()) === 15 && (await p.getByText("Menampilkan 1–15 dari 20 sesi pada September 2026").isVisible()), "20 sessions in September, cancelled included, 15 a page");
+  await p.getByRole("button", { name: "Halaman 2" }).click();
+  assert((await schRows()) === 5, "page 2 holds the last 5");
+  await p.getByRole("button", { name: "Halaman 1" }).click();
   assert(await p.getByText("Planned").first().isVisible() && (await p.getByText("Finished").first().isVisible()), "Planned / Finished status words");
   await p.selectOption("select[aria-label=Status]", "ACTION");
   assert((await schRows()) === 7, "Perlu tindakan filter");
@@ -683,7 +696,7 @@ const assert = (c, m) => { if (!c) { console.log("FAIL", m); process.exitCode = 
   pl = await payloads();
   assert(pl.some((x) => x.action === "OPEN_SCHEDULE" && x.payload.scheduleId === "SCD-3302" && x.payload.liveDate === "2026-09-12"), "OPEN_SCHEDULE from the table");
   await p.getByRole("button", { name: "Reset" }).click();
-  assert((await schRows()) === 20, "reset clears the filters");
+  assert((await schRows()) === 15 && (await p.getByText(/dari 20 sesi/).isVisible()), "reset clears the filters");
   await p.getByRole("button", { name: "Absen", exact: true }).click();
   await absenDialog(false);
   pl = await payloads();
@@ -703,15 +716,15 @@ const assert = (c, m) => { if (!c) { console.log("FAIL", m); process.exitCode = 
   // ---- Host app: schedule detail ----------------------------------------------------------------
   await go("c=ScheduleDetail&sch=SCD-3201");
   assert(await p.getByText("Sesi sedang live — absen sekarang").isVisible(), "live session asks for absen");
-  assert(await p.getByRole("button", { name: "Send Report", exact: true }).isDisabled(), "Send Report disabled before absen (Schedule.Status still Planned)");
+  assert(await p.getByRole("button", { name: "Kirim report", exact: true }).isDisabled(), "Kirim report disabled before absen (Schedule.Status still Planned)");
   await p.getByRole("button", { name: "Absen", exact: true }).first().click();
   await absenDialog(false);
   assert(await p.getByText("Absen tercatat untuk SCD-3201.").isVisible() && (await p.getByText("Kirim report sesi ini").isVisible()), "after absen the next step is the report");
-  assert((await p.locator("#hc-report").count()) === 0, "the form stays closed until Send Report");
-  await p.locator(".hc-ph-a").getByRole("button", { name: "Send Report" }).click();
+  assert((await p.locator("#hc-report").count()) === 0, "the form stays closed until Kirim report");
+  await p.locator(".hc-ph-a").getByRole("button", { name: "Kirim report" }).click();
   await p.waitForTimeout(200);
-  assert((await p.locator("#hc-report").count()) === 1 && (await p.locator("#hc-m-LiveID").isVisible()), "Send Report opens the form");
-  const sdSubmit = p.locator("#hc-report").getByRole("button", { name: "Send Report", exact: true });
+  assert((await p.locator("#hc-report").count()) === 1 && (await p.locator("#hc-m-LiveID").isVisible()), "Kirim report opens the form");
+  const sdSubmit = p.locator("#hc-report").getByRole("button", { name: "Kirim report", exact: true });
   await fillReport(vals);
   await p.setInputFiles("input[type=file]", { name: "Screenshot 2026-09-14.png", mimeType: "image/png", buffer: png });
   await p.waitForTimeout(600);
@@ -723,7 +736,7 @@ const assert = (c, m) => { if (!c) { console.log("FAIL", m); process.exitCode = 
   assert(sds && sds.payload.scheduleId === "SCD-3201" && sds.payload.metrics.Penjualan === 4250000 && sds.payload.absId === "ABS-8899", "SUBMIT_REPORT from the schedule detail");
   assert(await p.getByText(/UploadData \d+ KB base64 JPEG/).isVisible(), "detail sends the screenshot on UploadData");
   assert(await p.getByText("Report terkirim, menunggu review").isVisible() && (await p.getByText(/Durasi sesi terpenuhi/).isVisible()), "sent: duration covered, waiting for review");
-  assert((await p.locator(".hc-ph-a").getByRole("button", { name: /Send Report/ }).count()) === 0, "Send Report gone once Durasi covers the session");
+  assert((await p.locator(".hc-ph-a").getByRole("button", { name: /Kirim report/ }).count()) === 0, "Kirim report gone once Durasi covers the session");
   await p.getByRole("button", { name: /16:00–18:00/ }).click();
   await p.waitForTimeout(200);
   assert(await p.getByRole("heading", { name: /Somethinc/ }).isVisible(), "other session of the day opens in place");
@@ -749,7 +762,7 @@ const assert = (c, m) => { if (!c) { console.log("FAIL", m); process.exitCode = 
   await go("c=ScheduleDetail&sch=SCD-3313");
   assert(await p.getByText("Report belum lengkap — kurang 2 jam").isVisible() && (await p.getByText("Kurang 120 menit").isVisible()), "short of minutes: still Waiting Report, how much is missing");
   assert((await p.locator(".hc-part").count()) === 1 && (await p.getByText(/120 dari 240 menit/).first().isVisible()), "the parts sent so far are listed");
-  await p.locator(".hc-ph-a").getByRole("button", { name: "Send Report berikutnya" }).click();
+  await p.locator(".hc-ph-a").getByRole("button", { name: "Kirim report berikutnya" }).click();
   await p.waitForTimeout(200);
   assert(await p.locator("#hc-m-AddToCart").isVisible(), "Shopee: AddToCart asked");
   const shopee = { ...vals, AddToCart: "380", Durasi: "60" };
@@ -759,29 +772,29 @@ const assert = (c, m) => { if (!c) { console.log("FAIL", m); process.exitCode = 
   assert(await p.getByText(/Setelah ini masih kurang 1 jam — status tetap Waiting Report/).isVisible(), "footer says what stays owed");
   await p.setInputFiles("#hc-report input[type=file]", { name: "part2.png", mimeType: "image/png", buffer: png });
   await p.waitForTimeout(600);
-  await p.locator("#hc-report").getByRole("button", { name: "Send Report", exact: true }).click();
+  await p.locator("#hc-report").getByRole("button", { name: "Kirim report", exact: true }).click();
   await p.waitForTimeout(800);
   pl = await payloads();
   let part = pl.filter((x) => x.action === "SUBMIT_REPORT").pop();
   assert(part && part.payload.part === 2 && part.payload.remainingMin === 60 && part.payload.complete === false && part.payload.scheduleStatus === "Waiting Report" && part.payload.metrics.AddToCart === 380, "part 2 of 240 min: 60 still owed, Waiting Report");
   assert(await p.getByText(/masih kurang/).first().isVisible() && (await p.getByText("Report ke-2 terkirim").isVisible()), "sent card: minutes still missing, send the next");
-  await p.getByRole("button", { name: "Kirim report berikutnya" }).click();
+  await p.getByRole("button", { name: "Isi report berikutnya", exact: true }).click();
   await p.waitForTimeout(200);
   assert((await p.inputValue("#hc-m-LiveID")) === "" && (await p.locator(".hc-part").count()) === 2, "next part starts blank, two parts listed");
   await fillReport({ ...shopee, LiveID: "7412093399", Durasi: "75" });
   await p.setInputFiles("#hc-report input[type=file]", { name: "part3.png", mimeType: "image/png", buffer: png });
   await p.waitForTimeout(600);
-  await p.locator("#hc-report").getByRole("button", { name: "Send Report", exact: true }).click();
+  await p.locator("#hc-report").getByRole("button", { name: "Kirim report", exact: true }).click();
   await p.waitForTimeout(800);
   pl = await payloads();
   part = pl.filter((x) => x.action === "SUBMIT_REPORT").pop();
   assert(part && part.payload.part === 3 && part.payload.complete === true && part.payload.scheduleStatus === "Finished" && part.payload.reportedMin === 255, "part 3 covers the session (255 of 240): Finished");
-  assert((await p.locator(".hc-ph-a").getByRole("button", { name: /Send Report/ }).count()) === 0, "no more Send Report once covered");
+  assert((await p.locator(".hc-ph-a").getByRole("button", { name: /Kirim report/ }).count()) === 0, "no more Kirim report once covered");
   await shot("f-host-split");
 
   // Report opens only while Schedule.Status is Waiting Report.
   await go("c=ScheduleDetail&sch=SCD-3314");
-  assert(await p.getByText("Menunggu status Waiting Report").isVisible() && (await p.getByRole("button", { name: "Send Report", exact: true }).isDisabled()), "absen done but status Planned: Send Report disabled");
+  assert(await p.getByText("Menunggu status Waiting Report").isVisible() && (await p.getByRole("button", { name: "Kirim report", exact: true }).isDisabled()), "absen done but status Planned: Kirim report disabled");
 
   // Canvas says ok but AbsenceJson never gets the row: the Absen button must not stay clickable.
   await go("c=ScheduleDetail&sch=SCD-3201&stale=1");
@@ -797,7 +810,7 @@ const assert = (c, m) => { if (!c) { console.log("FAIL", m); process.exitCode = 
   pl = await payloads();
   const lbAbs = pl.filter((x) => x.action === "ABSEN").pop();
   assert(lbAbs && lbAbs.payload.liveBreak === true && lbAbs.payload.scheduleStatus === "Finished" && lbAbs.payload.report.approvalStatus === "LiveBreak" && Object.values(lbAbs.payload.report.metrics).every((v) => v === 0), "LiveBreak ABSEN payload: Finished + report of zeros");
-  assert((await p.locator(".hc-ph-a").getByRole("button", { name: /Send Report/ }).count()) === 0 && (await p.getByText("Live break · tanpa report").isVisible()), "live break: no Send Report");
+  assert((await p.locator(".hc-ph-a").getByRole("button", { name: /Kirim report/ }).count()) === 0 && (await p.getByText("Live break · tanpa report").isVisible()), "live break: no Kirim report");
   assert(await p.locator(".hc-part").getByText("Live break").isVisible(), "the LiveBreak report row is listed");
 
   // MySchedule calendar view: toggle, day cells, day list opens the session.

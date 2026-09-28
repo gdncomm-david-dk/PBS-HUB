@@ -176,7 +176,7 @@ Kartu dashboard dan sumbernya:
 | Pengecualian GPS | Clock In bulan ini dengan `IsInsideGeofence = false` (v1 tidak memverifikasi ulang — UC-1) |
 | Shift belum clock out | `CheckInTime` terisi, `CheckOutTime`/`ClockOutTime` kosong, lebih dari `maxShiftHours` |
 | Report belum masuk | Schedule lewat `missingReportDays` hari, status bukan Cancelled/Leave, tidak ada Report dengan `ScheduleID` itu |
-| Sesi hari ini | Schedule `Date` = hari ini; status: Sedang live / Waiting report / Belum dimulai / Report masuk |
+| Sesi hari ini | Schedule `Date` = hari ini; status: Sedang live / Menunggu report / Belum dimulai / Report masuk |
 | Konflik minggu ini | Host dengan jam tumpang tindih di hari yang sama; studio dengan sesi bersamaan > `KapasitasHost` |
 | Payroll | host aktif, punya Clock In bulan ini, report belum direview, host tanpa rekening, run `Payroll` terakhir |
 
@@ -693,7 +693,7 @@ If(!IsBlank(Self.ActionPayload),
 
 Aksi: `BACK`, `RELOAD` (`{payrollId, title}`) tidak mengunci. `RESEND_PAYSLIPS`
 (`{payrollId, title, items: [{lineId, name, email, hostId}]}`) mengunci dan wajib dibalas; tombolnya
-hanya muncul untuk `PAYROLL_RUN` dan hanya aktif kalau ada slip Gagal/Bounce di `PayslipJson`.
+hanya muncul untuk `PAYROLL_RUN` dan hanya aktif kalau ada slip Gagal/Terpental di `PayslipJson`.
 
 ## 8. Host
 
@@ -1252,7 +1252,7 @@ belum ada di v1, bulk approve tidak akan muncul — itu disengaja.
 
 1. Power Platform admin center → environment → **Settings → Product → Features** → aktifkan
    *Allow publishing of canvas apps with code components*.
-2. make.powerapps.com → **Solutions → Import solution** → `PBSHubOpsPCF_1_6_6_0_managed.zip`
+2. make.powerapps.com → **Solutions → Import solution** → `PBSHubOpsPCF_1_6_7_0_managed.zip`
    (sudah pernah import versi lama? Import ini meng-**upgrade** solusi yang sama — pilih *Upgrade*, bukan
    *Stage for upgrade* yang belum di-*Apply*).
 3. Di canvas app: **Insert → Get more components → Code** → pilih `PBS Ops Dashboard`,
@@ -1265,8 +1265,8 @@ belum ada di v1, bulk approve tidak akan muncul — itu disengaja.
 disisipkan. Setelah upgrade solusi: buka app di Studio → akan muncul banner *"Updated code components
 detected"* → **Update**. Kalau banner tidak muncul: tutup Studio, hard refresh browser (Ctrl+Shift+R), buka
 lagi. Lalu **Save + Publish** app. Pastikan juga di Solutions → PBS Hub Ops PCF → History bahwa versi
-1.6.6.0 benar-benar terpasang. Versi control di solusi ini: Dashboard 1.3.5, ReportReview / ReportDetail
-1.4.4, PayrollRuns 1.2.6, PayrollRunDetail 1.2.5, HostList 1.2.7, HostDetail 1.3.10, HostScore 1.0.2. ReportReview dan
+1.6.7.0 benar-benar terpasang. Versi control di solusi ini: Dashboard 1.3.6, ReportReview / ReportDetail
+1.4.5, PayrollRuns 1.2.7, PayrollRunDetail 1.2.6, HostList 1.2.8, HostDetail 1.3.11, HostScore 1.0.3. ReportReview dan
 ReportDetail 1.4.0 punya properti baru `SchedulesJson` — isi di canvas supaya kolom *Jam live* terisi.
 
 **Tampilan rusak di app (tabel tidak full, tombol tanpa border, checkbox hilang)?** Itu CSS global Power

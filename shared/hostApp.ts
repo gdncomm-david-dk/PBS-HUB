@@ -1,7 +1,29 @@
-import { Row, clockText, date, localDayKey, nameIndex, noReportReason, num, parseClock, reportScheduleId, rowId, startOfDay, str } from "./data";
+import {
+  Row,
+  clockText,
+  date,
+  localDayKey,
+  nameIndex,
+  noReportReason,
+  num,
+  parseClock,
+  reportScheduleId,
+  rowId,
+  startOfDay,
+  str,
+} from "./data";
 import { clockInAt, clockInDay } from "./payroll";
 import { sessionStatus } from "./host";
-import { ALL_METRICS, MetricDef, NO_STATUS, ReviewState, Tone, isResubmitted, readMetric, reviewState } from "./reconcile";
+import {
+  ALL_METRICS,
+  MetricDef,
+  NO_STATUS,
+  ReviewState,
+  Tone,
+  isResubmitted,
+  readMetric,
+  reviewState,
+} from "./reconcile";
 
 /**
  * Host self-service (pbs_HostApp.*): what a host has to do right now. Everything here is derived from
@@ -30,7 +52,12 @@ export interface HostOptions {
   playbooks: string[];
 }
 
-export const DEFAULT_PLAYBOOKS = ["Flash Sale", "Payday", "Launching Produk", "Reguler"];
+export const DEFAULT_PLAYBOOKS = [
+  "Flash Sale",
+  "Payday",
+  "Launching Produk",
+  "Reguler",
+];
 
 export const DEFAULT_HOST_OPTIONS: HostOptions = {
   absenLeadMin: 30,
@@ -44,14 +71,27 @@ export const DEFAULT_HOST_OPTIONS: HostOptions = {
 };
 
 const off = (v: unknown) => v === false || v === "false";
-const text = (v: unknown, d: string) => (typeof v === "string" && v.trim() ? v.trim() : d);
+const text = (v: unknown, d: string) =>
+  typeof v === "string" && v.trim() ? v.trim() : d;
 
 /** A list from config: an array of strings / {Value} rows, or "a, b, c". */
 export function choiceList(v: unknown): string[] {
-  const raw = Array.isArray(v) ? v : typeof v === "string" ? v.split(/[,;\n]/) : [];
+  const raw = Array.isArray(v)
+    ? v
+    : typeof v === "string"
+      ? v.split(/[,;\n]/)
+      : [];
   const out: string[] = [];
   for (const x of raw) {
-    const t = (x && typeof x === "object" ? String((x as Record<string, unknown>).Value ?? (x as Record<string, unknown>).Title ?? "") : String(x ?? "")).trim();
+    const t = (
+      x && typeof x === "object"
+        ? String(
+            (x as Record<string, unknown>).Value ??
+              (x as Record<string, unknown>).Title ??
+              "",
+          )
+        : String(x ?? "")
+    ).trim();
     if (t && !out.includes(t)) out.push(t);
   }
   return out;
@@ -60,17 +100,30 @@ export function choiceList(v: unknown): string[] {
 export function hostOptions(config: Record<string, unknown>): HostOptions {
   const n = (k: string, d: number) => {
     const v = Number(config[k]);
-    return config[k] !== undefined && config[k] !== "" && Number.isFinite(v) ? v : d;
+    return config[k] !== undefined && config[k] !== "" && Number.isFinite(v)
+      ? v
+      : d;
   };
   return {
     absenLeadMin: n("absenLeadMin", DEFAULT_HOST_OPTIONS.absenLeadMin),
-    reportDeadlineDays: n("reportDeadlineDays", DEFAULT_HOST_OPTIONS.reportDeadlineDays),
+    reportDeadlineDays: n(
+      "reportDeadlineDays",
+      DEFAULT_HOST_OPTIONS.reportDeadlineDays,
+    ),
     maxShiftHours: n("maxShiftHours", DEFAULT_HOST_OPTIONS.maxShiftHours),
     requireAbsen: !off(config.requireAbsen),
     requireWaitingStatus: !off(config.requireWaitingStatus),
-    waitingStatus: text(config.scheduleWaitingStatus, DEFAULT_HOST_OPTIONS.waitingStatus),
-    doneStatus: text(config.scheduleDoneStatus, DEFAULT_HOST_OPTIONS.doneStatus),
-    playbooks: choiceList(config.playbooks).length ? choiceList(config.playbooks) : DEFAULT_PLAYBOOKS,
+    waitingStatus: text(
+      config.scheduleWaitingStatus,
+      DEFAULT_HOST_OPTIONS.waitingStatus,
+    ),
+    doneStatus: text(
+      config.scheduleDoneStatus,
+      DEFAULT_HOST_OPTIONS.doneStatus,
+    ),
+    playbooks: choiceList(config.playbooks).length
+      ? choiceList(config.playbooks)
+      : DEFAULT_PLAYBOOKS,
   };
 }
 
@@ -89,7 +142,9 @@ export interface Shift {
 }
 
 const checkIn = (c: Row): Date | null => clockInAt(c);
-const checkOut = (c: Row): Date | null => date(c, "CheckOutTime") ?? withClock(date(c, "ClockOutDate") ?? clockInDay(c), str(c, "ClockOutTime"));
+const checkOut = (c: Row): Date | null =>
+  date(c, "CheckOutTime") ??
+  withClock(date(c, "ClockOutDate") ?? clockInDay(c), str(c, "ClockOutTime"));
 
 function withClock(day: Date | null, clock: string): Date | null {
   const m = parseClock(clock);
@@ -109,15 +164,28 @@ export function clockedDays(clockIns: Row[]): Set<string> {
   return s;
 }
 
-export function shiftToday(clockIns: Row[], now: Date, opts: HostOptions = DEFAULT_HOST_OPTIONS): Shift {
+export function shiftToday(
+  clockIns: Row[],
+  now: Date,
+  opts: HostOptions = DEFAULT_HOST_OPTIONS,
+): Shift {
   const today = localDayKey(now);
   const rows = clockIns.filter((c) => {
     const d = clockInDay(c);
     return d && localDayKey(d) === today;
   });
   // A shift still open from yesterday counts too: that is the forgotten clock-out case.
-  const open = clockIns.find((c) => checkIn(c) && !checkOut(c) && (now.getTime() - (checkIn(c)?.getTime() ?? 0)) / 36e5 < 36);
-  const row = open ?? rows.sort((a, b) => (checkIn(b)?.getTime() ?? 0) - (checkIn(a)?.getTime() ?? 0))[0];
+  const open = clockIns.find(
+    (c) =>
+      checkIn(c) &&
+      !checkOut(c) &&
+      (now.getTime() - (checkIn(c)?.getTime() ?? 0)) / 36e5 < 36,
+  );
+  const row =
+    open ??
+    rows.sort(
+      (a, b) => (checkIn(b)?.getTime() ?? 0) - (checkIn(a)?.getTime() ?? 0),
+    )[0];
   if (!row)
     return {
       state: "NOT_IN",
@@ -132,7 +200,9 @@ export function shiftToday(clockIns: Row[], now: Date, opts: HostOptions = DEFAU
   const until = checkOut(row);
   const office = str(row, "CheckInOffice", "Office", "StudioName");
   if (!until) {
-    const minutes = since ? Math.max(0, Math.round((now.getTime() - since.getTime()) / 60000)) : 0;
+    const minutes = since
+      ? Math.max(0, Math.round((now.getTime() - since.getTime()) / 60000))
+      : 0;
     return {
       state: "IN",
       since,
@@ -143,7 +213,9 @@ export function shiftToday(clockIns: Row[], now: Date, opts: HostOptions = DEFAU
       row,
     };
   }
-  const minutes = since ? Math.max(0, Math.round((until.getTime() - since.getTime()) / 60000)) : 0;
+  const minutes = since
+    ? Math.max(0, Math.round((until.getTime() - since.getTime()) / 60000))
+    : 0;
   return { state: "OUT", since, until, minutes, overdue: false, office, row };
 }
 
@@ -162,7 +234,10 @@ export function streakDays(clockIns: Row[], now: Date): number {
 
 // ---- Report status as the host sees it ----------------------------------------------------------
 
-export const HOST_REPORT_STATE: Record<ReviewState, { label: string; tone: Tone }> = {
+export const HOST_REPORT_STATE: Record<
+  ReviewState,
+  { label: string; tone: Tone }
+> = {
   WAITING: { label: "Menunggu review", tone: "neutral" },
   REVISION: { label: "Perlu revisi", tone: "danger" },
   DONE_AUTO: { label: "Otomatis disetujui", tone: "info" },
@@ -172,8 +247,12 @@ export const HOST_REPORT_STATE: Record<ReviewState, { label: string; tone: Tone 
 };
 
 /** Host wording, with the corrected report (`Waiting Approval Revision`) told apart. */
-export function hostReportBadge(report: Row | undefined, state: ReviewState): { label: string; tone: Tone } {
-  if (state === "WAITING" && isResubmitted(report)) return { label: "Menunggu review ulang", tone: "info" };
+export function hostReportBadge(
+  report: Row | undefined,
+  state: ReviewState,
+): { label: string; tone: Tone } {
+  if (state === "WAITING" && isResubmitted(report))
+    return { label: "Menunggu review ulang", tone: "info" };
   if (state === "OTHER" && !str(report, "ApprovalStatus")) return NO_STATUS;
   return HOST_REPORT_STATE[state];
 }
@@ -191,17 +270,18 @@ export type SessionPhase =
   | "REPORTED" // report submitted: waiting or done
   | "CANCELLED";
 
-export const PHASE_LABEL: Record<SessionPhase, { label: string; tone: Tone }> = {
-  UPCOMING: { label: "Belum dimulai", tone: "neutral" },
-  NOW: { label: "Sekarang", tone: "info" },
-  NEEDS_CLOCKIN: { label: "Belum clock in", tone: "warning" },
-  NEEDS_ABSEN: { label: "Perlu absen", tone: "info" },
-  NEEDS_REPORT: { label: "Belum dikirim", tone: "warning" },
-  NO_REPORT: { label: "Tanpa report", tone: "success" },
-  REVISION: { label: "Perlu revisi", tone: "danger" },
-  REPORTED: { label: "Report masuk", tone: "success" },
-  CANCELLED: { label: "Dibatalkan", tone: "neutral" },
-};
+export const PHASE_LABEL: Record<SessionPhase, { label: string; tone: Tone }> =
+  {
+    UPCOMING: { label: "Belum dimulai", tone: "neutral" },
+    NOW: { label: "Sekarang", tone: "info" },
+    NEEDS_CLOCKIN: { label: "Belum clock in", tone: "warning" },
+    NEEDS_ABSEN: { label: "Perlu absen", tone: "info" },
+    NEEDS_REPORT: { label: "Belum dikirim", tone: "warning" },
+    NO_REPORT: { label: "Tanpa report", tone: "success" },
+    REVISION: { label: "Perlu revisi", tone: "danger" },
+    REPORTED: { label: "Report masuk", tone: "success" },
+    CANCELLED: { label: "Dibatalkan", tone: "neutral" },
+  };
 
 export interface HostSession {
   row: Row;
@@ -263,7 +343,11 @@ export interface HostData {
   studios: Row[];
 }
 
-export function buildHostSessions(d: HostData, now: Date, opts: HostOptions = DEFAULT_HOST_OPTIONS): HostSession[] {
+export function buildHostSessions(
+  d: HostData,
+  now: Date,
+  opts: HostOptions = DEFAULT_HOST_OPTIONS,
+): HostSession[] {
   const brands = nameIndex(d.brands, ["NamaBrand", "BrandName"]);
   const studios = nameIndex(d.studios, ["NamaStudio", "StudioName"]);
   const days = clockedDays(d.clockIns);
@@ -283,16 +367,30 @@ export function buildHostSessions(d: HostData, now: Date, opts: HostOptions = DE
       const title = str(s, "Title");
       const absence = absBySchedule.get(title.toLowerCase());
       const reports = repBySchedule.get(title.toLowerCase()) ?? [];
-      const report = reports.find((r) => reviewState(r) === "REVISION") ?? reports[reports.length - 1];
+      const report =
+        reports.find((r) => reviewState(r) === "REVISION") ??
+        reports[reports.length - 1];
       const reportState = report ? reviewState(report) : null;
       const cover = reportCoverage(reports, scheduledMin(start, end, s));
       const noReport = noReportReason(s);
       const clockedIn = !!dayKey && days.has(dayKey);
       const brandId = str(s, "BrandID");
       const studioId = str(s, "StudioID");
-      const opens = start ? start.getTime() - opts.absenLeadMin * 60000 : day ? startOfDay(day).getTime() : Infinity;
-      const endT = end?.getTime() ?? (day ? startOfDay(day).getTime() + 864e5 - 1 : Infinity);
-      const due = day ? new Date(startOfDay(day).getTime() + (opts.reportDeadlineDays + 1) * 864e5 - 1) : null;
+      const opens = start
+        ? start.getTime() - opts.absenLeadMin * 60000
+        : day
+          ? startOfDay(day).getTime()
+          : Infinity;
+      const endT =
+        end?.getTime() ??
+        (day ? startOfDay(day).getTime() + 864e5 - 1 : Infinity);
+      const due = day
+        ? new Date(
+            startOfDay(day).getTime() +
+              (opts.reportDeadlineDays + 1) * 864e5 -
+              1,
+          )
+        : null;
 
       let phase: SessionPhase;
       const hasAbsen = !!absence || !opts.requireAbsen;
@@ -304,7 +402,8 @@ export function buildHostSessions(d: HostData, now: Date, opts: HostOptions = DE
       else if (t < opens) phase = "UPCOMING";
       else if (noReport && sessionStatus(s) === "DONE")
         phase = "NO_REPORT"; // closed by ops, nothing owed
-      else if (hasAbsen && clockedIn) phase = noReport ? "NO_REPORT" : "NEEDS_REPORT";
+      else if (hasAbsen && clockedIn)
+        phase = noReport ? "NO_REPORT" : "NEEDS_REPORT";
       else if (!clockedIn) phase = t <= endT ? "NOW" : "NEEDS_CLOCKIN";
       else phase = t <= endT && !absence ? "NOW" : "NEEDS_ABSEN";
 
@@ -319,9 +418,13 @@ export function buildHostSessions(d: HostData, now: Date, opts: HostOptions = DE
         startText,
         endText,
         brandId,
-        brand: brands.get(brandId) ?? (str(s, "BrandName", "NamaBrand") || brandId || "—"),
+        brand:
+          brands.get(brandId) ??
+          (str(s, "BrandName", "NamaBrand") || brandId || "—"),
         studioId,
-        studio: studios.get(studioId) ?? (str(s, "StudioName", "NamaStudio") || studioId || "—"),
+        studio:
+          studios.get(studioId) ??
+          (str(s, "StudioName", "NamaStudio") || studioId || "—"),
         platform: str(s, "Platform"),
         accountId: str(s, "AccountID", "Account"),
         account: str(s, "AccountName", "Account") || str(s, "AccountID"),
@@ -335,10 +438,20 @@ export function buildHostSessions(d: HostData, now: Date, opts: HostOptions = DE
         noReport,
         due,
         late: !!due && phase === "NEEDS_REPORT" && t > due.getTime(),
-        canAbsen: opts.requireAbsen && !absence && !report && clockedIn && t >= opens && phase !== "CANCELLED",
+        canAbsen:
+          opts.requireAbsen &&
+          !absence &&
+          !report &&
+          clockedIn &&
+          t >= opens &&
+          phase !== "CANCELLED",
       };
     })
-    .sort((a, b) => (a.start?.getTime() ?? a.day?.getTime() ?? 0) - (b.start?.getTime() ?? b.day?.getTime() ?? 0));
+    .sort(
+      (a, b) =>
+        (a.start?.getTime() ?? a.day?.getTime() ?? 0) -
+        (b.start?.getTime() ?? b.day?.getTime() ?? 0),
+    );
 }
 
 const created = (r: Row) => date(r, "Created", "CreatedDate")?.getTime() ?? 0;
@@ -356,15 +469,21 @@ export function reportsBySchedule(reports: Row[]): Map<string, Row[]> {
   return m;
 }
 
-function scheduledMin(start: Date | null, end: Date | null, s: Row): number | null {
-  if (start && end) return Math.round((end.getTime() - start.getTime()) / 60000);
+function scheduledMin(
+  start: Date | null,
+  end: Date | null,
+  s: Row,
+): number | null {
+  if (start && end)
+    return Math.round((end.getTime() - start.getTime()) / 60000);
   const h = num(s, "JamLive", "TotalLiveTime");
   return h === null || h <= 0 ? null : Math.round(h * 60);
 }
 
 const DURASI = ALL_METRICS.find((d) => d.key === "Durasi");
 /** Durasi(Min) of one report; null when blank. */
-export const reportMinutes = (r: Row): number | null => (DURASI ? readMetric(r, DURASI) : null);
+export const reportMinutes = (r: Row): number | null =>
+  DURASI ? readMetric(r, DURASI) : null;
 
 /**
  * How far the reports cover the scheduled minutes. A live that dropped halfway is reported in
@@ -382,8 +501,14 @@ export function reportCoverage(
 } {
   const reportedMin = reports.reduce((a, r) => a + (reportMinutes(r) ?? 0), 0);
   // Live break closes the session; so does an older report sent before Durasi was required.
-  const closed = reports.some((r) => reviewState(r) === "LIVE_BREAK" || reportMinutes(r) === null);
-  const remainingMin = !reports.length ? (requiredMin ?? 0) : closed || requiredMin === null ? 0 : Math.max(0, requiredMin - reportedMin);
+  const closed = reports.some(
+    (r) => reviewState(r) === "LIVE_BREAK" || reportMinutes(r) === null,
+  );
+  const remainingMin = !reports.length
+    ? (requiredMin ?? 0)
+    : closed || requiredMin === null
+      ? 0
+      : Math.max(0, requiredMin - reportedMin);
   return {
     requiredMin,
     reportedMin,
@@ -404,9 +529,13 @@ export function statusAfterReport(
   totalMin: number;
   remainingMin: number;
 } {
-  const others = replacing ? s.reports.filter((r) => r !== replacing) : s.reports;
-  const totalMin = others.reduce((a, r) => a + (reportMinutes(r) ?? 0), 0) + minutes;
-  const remainingMin = s.requiredMin === null ? 0 : Math.max(0, s.requiredMin - totalMin);
+  const others = replacing
+    ? s.reports.filter((r) => r !== replacing)
+    : s.reports;
+  const totalMin =
+    others.reduce((a, r) => a + (reportMinutes(r) ?? 0), 0) + minutes;
+  const remainingMin =
+    s.requiredMin === null ? 0 : Math.max(0, s.requiredMin - totalMin);
   const complete = remainingMin === 0;
   return {
     status: complete ? opts.doneStatus : opts.waitingStatus,
@@ -417,12 +546,25 @@ export function statusAfterReport(
 }
 
 /** Schedule.Status allows a report: Waiting Report (or the check is off in config). */
-export const statusAllowsReport = (s: HostSession, opts: HostOptions): boolean => !opts.requireWaitingStatus || sessionStatus(s.row) === "WAITING_REPORT";
+export const statusAllowsReport = (
+  s: HostSession,
+  opts: HostOptions,
+): boolean =>
+  !opts.requireWaitingStatus || sessionStatus(s.row) === "WAITING_REPORT";
 
-export type ReportBlocker = "CLOCKIN" | "ABSEN" | "NOT_STARTED" | "STATUS" | "NO_REPORT" | "COMPLETE";
+export type ReportBlocker =
+  | "CLOCKIN"
+  | "ABSEN"
+  | "NOT_STARTED"
+  | "STATUS"
+  | "NO_REPORT"
+  | "COMPLETE";
 
 /** What blocks a (next) report for this session, in the order the host has to fix it. */
-export function reportBlocker(s: HostSession, opts: HostOptions = DEFAULT_HOST_OPTIONS): ReportBlocker | null {
+export function reportBlocker(
+  s: HostSession,
+  opts: HostOptions = DEFAULT_HOST_OPTIONS,
+): ReportBlocker | null {
   if (s.noReport) return "NO_REPORT";
   if (s.phase === "UPCOMING") return "NOT_STARTED";
   if (!s.clockedIn) return "CLOCKIN";
@@ -455,10 +597,17 @@ export const fmtMinutes = (m: number): string => {
  * `scheduleStatus` is what canvas writes to Schedule.Status: Waiting Report when a report is owed,
  * Done for a live break or a Co-Host.
  */
-export function absenPayload(s: HostSession, host: Row | undefined, liveBreak = false, opts: HostOptions = DEFAULT_HOST_OPTIONS): Record<string, unknown> {
+export function absenPayload(
+  s: HostSession,
+  host: Row | undefined,
+  liveBreak = false,
+  opts: HostOptions = DEFAULT_HOST_OPTIONS,
+): Record<string, unknown> {
   const coHost = noReportReason(s.row) === "CO_HOST";
   const hostId = str(host, "Title") || str(s.row, "HostID");
-  const zeros = metricColumns(Object.fromEntries(ALL_METRICS.map((d) => [d.key, 0])));
+  const zeros = metricColumns(
+    Object.fromEntries(ALL_METRICS.map((d) => [d.key, 0])),
+  );
   return {
     scheduleId: s.title,
     scheduleItemId: s.id,
@@ -501,14 +650,23 @@ export function flaggedFromComment(comment: string): MetricDef[] {
     .split(/[,;]/)
     .map((x) => norm(x))
     .filter(Boolean);
-  return ALL_METRICS.filter((d) => names.includes(norm(d.label)) || names.includes(norm(d.key)) || d.fields.some((f) => names.includes(norm(f))));
+  return ALL_METRICS.filter(
+    (d) =>
+      names.includes(norm(d.label)) ||
+      names.includes(norm(d.key)) ||
+      d.fields.some((f) => names.includes(norm(f))),
+  );
 }
 
 /** The reviewer's note without the machine-written metric line. */
 export function reviewerNote(comment: string): string {
   return comment
     .split("\n")
-    .filter((l) => !/^\s*metrik yang perlu dibetulkan\s*:/i.test(l) && !/^\s*\[sanggahan host\]/i.test(l))
+    .filter(
+      (l) =>
+        !/^\s*metrik yang perlu dibetulkan\s*:/i.test(l) &&
+        !/^\s*\[sanggahan host\]/i.test(l),
+    )
     .join("\n")
     .replace(/^\s*\[(eskalasi|tanpa bukti)\]\s*/i, "")
     .trim();
@@ -535,7 +693,12 @@ export function parseMetricInput(text: string, def: MetricDef): number | null {
   if (!s) return null;
   let v: number;
   // Percent: a comma is the decimal mark; without one, a single dot is too ("3.6" is 3,6%, not 36%).
-  if (def.format === "pct") v = Number(s.includes(",") || (s.match(/\./g) ?? []).length > 1 ? s.replace(/\./g, "").replace(",", ".") : s);
+  if (def.format === "pct")
+    v = Number(
+      s.includes(",") || (s.match(/\./g) ?? []).length > 1
+        ? s.replace(/\./g, "").replace(",", ".")
+        : s,
+    );
   else v = Number(s.replace(/[.,]/g, ""));
   return Number.isFinite(v) ? v : null;
 }
@@ -546,7 +709,10 @@ export interface SanityWarning {
 }
 
 /** Warnings only — the host can still submit (brief 33). */
-export function sanityWarnings(v: MetricValues, history: MetricValues[]): SanityWarning[] {
+export function sanityWarnings(
+  v: MetricValues,
+  history: MetricValues[],
+): SanityWarning[] {
   const out: SanityWarning[] = [];
   const g = (k: string) => v[k] ?? null;
   for (const k of ["CTR", "CTOR"]) {
@@ -578,27 +744,36 @@ export function sanityWarnings(v: MetricValues, history: MetricValues[]): Sanity
       text: "Peak viewer lebih besar dari total viewer.",
     });
   const sales = g("Penjualan");
-  if (sales !== null && sales > 0 && orders === 0) out.push({ key: "Pesanan", text: "Ada penjualan tapi pesanan 0." });
+  if (sales !== null && sales > 0 && orders === 0)
+    out.push({ key: "Pesanan", text: "Ada penjualan tapi pesanan 0." });
   // Far from the host's own average (last reports) — the design's "Rata-rata kamu 1,8% — cek lagi".
   for (const k of ["CTR", "CTOR", "Penjualan"]) {
     const x = g(k);
-    const past = history.map((h) => h[k]).filter((n): n is number => n !== null && n !== undefined && n > 0);
+    const past = history
+      .map((h) => h[k])
+      .filter((n): n is number => n !== null && n !== undefined && n > 0);
     if (x === null || x <= 0 || past.length < 3) continue;
     const avg = past.reduce((a, b) => a + b, 0) / past.length;
     if (x > avg * 3)
       out.push({
         key: k,
-        text: `${labelOf(k)} jauh di atas rata-rata kamu (${fmtAvg(avg, k)}). Peringatan ini tidak memblokir submit — periksa dulu screenshot-nya.`,
+        text: `${labelOf(k)} jauh di atas rata-rata kamu (${fmtAvg(avg, k)}). Peringatan ini tidak menghalangi pengiriman — periksa dulu screenshot-nya.`,
       });
   }
   return out;
 }
 
 const labelOf = (k: string) => ALL_METRICS.find((d) => d.key === k)?.label ?? k;
-const fmtAvg = (n: number, k: string) => (k === "Penjualan" ? `Rp${Math.round(n).toLocaleString("id-ID")}` : `${n.toLocaleString("id-ID", { maximumFractionDigits: 1 })}%`);
+const fmtAvg = (n: number, k: string) =>
+  k === "Penjualan"
+    ? `Rp${Math.round(n).toLocaleString("id-ID")}`
+    : `${n.toLocaleString("id-ID", { maximumFractionDigits: 1 })}%`;
 
 /** Filled metrics, missing required ones. Durasi … Share may stay empty. */
-export function missingMetrics(v: MetricValues, required: MetricDef[]): MetricDef[] {
+export function missingMetrics(
+  v: MetricValues,
+  required: MetricDef[],
+): MetricDef[] {
   return required.filter((d) => v[d.key] === null || v[d.key] === undefined);
 }
 
@@ -614,17 +789,25 @@ export function metricColumns(v: MetricValues): Record<string, number | null> {
  * host now only picks an image; this builds the name. For a new report the ID does not exist yet,
  * so canvas substitutes it after the Report row is created.
  */
-export function evidenceFileName(reportTitle: string, platform: string, accountId: string, ext: string): string {
+export function evidenceFileName(
+  reportTitle: string,
+  platform: string,
+  accountId: string,
+  ext: string,
+): string {
   const clean = (s: string) => s.trim().replace(/[\\/:*?"<>|#%\s]+/g, "-");
   return `${clean(reportTitle || "REP-{ID}")}_${clean(platform || "Platform")}_${clean(accountId || "Akun")}.${ext}`;
 }
 
 export function avg(rows: MetricValues[], key: string): number | null {
-  const xs = rows.map((r) => r[key]).filter((n): n is number => typeof n === "number");
+  const xs = rows
+    .map((r) => r[key])
+    .filter((n): n is number => typeof n === "number");
   return xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : null;
 }
 
-export const hostName = (host: Row | undefined, ctxName: string): string => str(host, "NamaHost", "HostName") || ctxName;
+export const hostName = (host: Row | undefined, ctxName: string): string =>
+  str(host, "NamaHost", "HostName") || ctxName;
 
 export function greeting(now: Date): string {
   const h = now.getHours();
@@ -634,14 +817,26 @@ export function greeting(now: Date): string {
   return "Selamat malam";
 }
 
-export const scoreOf = (host: Row | undefined): number | null => num(host, "CurrentScore", "Score", "InitialScore");
+export const scoreOf = (host: Row | undefined): number | null =>
+  num(host, "CurrentScore", "Score", "InitialScore");
 
 // ---- Report form fields -------------------------------------------------------------------------
 
 export const isShopee = (platform: string): boolean => /shopee/i.test(platform);
 
 /** The order of the report form (Seller Center). AddToCart only exists on Shopee; Share is not asked. */
-const FORM_ORDER = ["AddToCart", "Pesanan", "Penjualan", "ProdukTerjual", "JumlahPembeli", "CTR", "PeakViewer", "TotalViewer", "CTOR", "Comment"];
+const FORM_ORDER = [
+  "AddToCart",
+  "Pesanan",
+  "Penjualan",
+  "ProdukTerjual",
+  "JumlahPembeli",
+  "CTR",
+  "PeakViewer",
+  "TotalViewer",
+  "CTOR",
+  "Comment",
+];
 
 /** Metric inputs of the report form for this platform, Durasi excluded (it sits with Live ID). */
 export function reportMetricDefs(platform: string): MetricDef[] {
@@ -657,7 +852,8 @@ export function requiredReportDefs(platform: string): MetricDef[] {
 }
 
 /** Report.LiveID (text). */
-export const reportLiveId = (r: Row | undefined): string => str(r, "LiveID", "LiveId", "Live ID", "Live_x0020_ID");
+export const reportLiveId = (r: Row | undefined): string =>
+  str(r, "LiveID", "LiveId", "Live ID", "Live_x0020_ID");
 
 let lastPlaybooks: { raw: string; list: string[] } = { raw: "", list: [] };
 /** PlaybooksJson: Choices(...) rows, a JSON string array, or "a, b". Stable array per input. */
@@ -670,7 +866,13 @@ export function parsePlaybooks(raw: string | null | undefined): string[] {
   } catch {
     /* plain text list */
   }
-  const list = choiceList(Array.isArray(v) ? v : v && typeof v === "object" ? (v as Record<string, unknown>).value : v);
+  const list = choiceList(
+    Array.isArray(v)
+      ? v
+      : v && typeof v === "object"
+        ? (v as Record<string, unknown>).value
+        : v,
+  );
   lastPlaybooks = { raw: s, list };
   return list;
 }

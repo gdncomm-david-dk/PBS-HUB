@@ -59,7 +59,7 @@ Kalau di list kamu `Account` ternyata teks biasa, `Choices` akan error — ganti
 
 `data: Self.UploadData` dibaca sekali di awal: control mengisi `UploadData` (screenshot) bersamaan dengan
 `ActionPayload` dan mengosongkannya di aksi berikutnya. Selama durasi sesi belum terpenuhi (`p.complete = false`)
-`varMrdRep` sengaja tidak diisi, jadi form tetap di layar dengan tombol *Send Report berikutnya*.
+`varMrdRep` sengaja tidak diisi, jadi form tetap di layar dengan tombol *Kirim report berikutnya*.
 
 ```powerfx
 %MRD%

@@ -1,6 +1,15 @@
 import * as React from "react";
 import { ModuleContext, UseActionResult } from "./contract";
-import { Row, clockText, date, localDayKey, num, parseClock, startOfDay, str } from "./data";
+import {
+  Row,
+  clockText,
+  date,
+  localDayKey,
+  num,
+  parseClock,
+  startOfDay,
+  str,
+} from "./data";
 import { fmtClock, fmtLongDate, fmtRupiah } from "./format";
 import { clockInDay } from "./payroll";
 import { sessionStatus } from "./host";
@@ -181,174 +190,170 @@ export function ClockInModal(props: {
 
   return (
     <Overlay onClose={props.onClose} busy={pending} labelledBy="pbs-ci-title">
-        <div className="pbs-modal-h">
-          <h2 id="pbs-ci-title">Clock in manual · {props.hostCode}</h2>
-          <button
-            type="button"
-            className="pbs-x"
-            onClick={props.onClose}
-            disabled={pending}
-            aria-label="Tutup"
-          >
-            <Icon name="x" />
-          </button>
-        </div>
-        {dates.length === 0 ? (
-          <>
-            <div className="pbs-modal-b">
-              <InfoBanner icon="check">
-                {hasSchedule ? (
-                  <>
-                    <b>{props.hostName}</b> sudah clock in di semua jadwalnya
-                    sampai hari ini. Tidak ada tanggal yang perlu ditambahkan.
-                  </>
-                ) : (
-                  <>
-                    <b>{props.hostName}</b> belum punya jadwal sampai hari ini,
-                    jadi tidak ada tanggal untuk clock in.
-                  </>
-                )}
-              </InfoBanner>
-            </div>
-            <div className="pbs-modal-f">
-              <Button variant="secondary" onClick={props.onClose}>
-                Tutup
-              </Button>
-            </div>
-          </>
-        ) : (
-          <>
-            <div className="pbs-modal-b">
-              <p style={{ margin: 0 }}>
-                Untuk host yang lupa clock in, sehingga tidak bisa submit
-                report. Hanya tanggal yang ada jadwalnya dan belum ada clock in
-                yang bisa dipilih.
-              </p>
-              <div className="pbs-field">
-                <label className="pbs-label" htmlFor="pbs-ci-date">
-                  Tanggal
-                </label>
-                <select
-                  id="pbs-ci-date"
-                  value={key}
-                  onChange={(e) => choose(e.target.value)}
-                  disabled={pending}
-                >
-                  <option value="">Pilih tanggal jadwal…</option>
-                  {dates.map((d) => (
-                    <option key={d.key} value={d.key}>
-                      {fmtLongDate(d.day)}
-                      {d.start !== null
-                        ? ` · ${fmtClock(d.start)}–${fmtClock(d.end)}`
-                        : ""}
-                      {d.sessions.length > 1
-                        ? ` · ${d.sessions.length} sesi`
-                        : ""}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div className="pbs-two">
-                <div className="pbs-field">
-                  <label className="pbs-label" htmlFor="pbs-ci-in">
-                    Jam clock in
-                  </label>
-                  <select
-                    id="pbs-ci-in"
-                    value={tin}
-                    onChange={(e) => setTin(e.target.value)}
-                    disabled={pending || !picked}
-                  >
-                    <option value="">—</option>
-                    {options.map((m) => (
-                      <option key={m} value={m}>
-                        {fmtClock(m)}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div className="pbs-field">
-                  <label className="pbs-label" htmlFor="pbs-ci-out">
-                    Jam clock out
-                  </label>
-                  <select
-                    id="pbs-ci-out"
-                    value={tout}
-                    onChange={(e) => setTout(e.target.value)}
-                    disabled={pending || !picked}
-                  >
-                    <option value="">—</option>
-                    {options.map((m) => (
-                      <option key={m} value={m}>
-                        {fmtClock(m)}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-              <div className="pbs-field">
-                <label className="pbs-label" htmlFor="pbs-ci-status">
-                  Status
-                </label>
-                <select
-                  id="pbs-ci-status"
-                  value={status}
-                  onChange={(e) => setStatus(e.target.value)}
-                  disabled={pending}
-                >
-                  <option value="">Pilih status…</option>
-                  {statuses.map((s) => (
-                    <option key={s.label} value={s.label}>
-                      {s.label}
-                    </option>
-                  ))}
-                </select>
-                {st ? (
-                  <div className="pbs-hint">HKTugas {fmtRupiah(st.hk)}</div>
-                ) : null}
-              </div>
-              {order ? (
-                <InfoBanner tone="warn">
-                  Jam clock out harus setelah jam clock in.
-                </InfoBanner>
-              ) : null}
-              {res ? (
-                <InfoBanner tone="err">
-                  {res.status === "conflict"
-                    ? res.message ||
-                      "Host ini sudah punya clock in di tanggal itu. Muat ulang lalu coba lagi."
-                    : res.message || "Gagal menyimpan clock in. Coba lagi."}
-                </InfoBanner>
-              ) : null}
-            </div>
-            <div className="pbs-modal-f">
-              <Button
-                variant="ghost"
-                onClick={props.onClose}
+      <div className="pbs-modal-h">
+        <h2 id="pbs-ci-title">Clock in manual · {props.hostCode}</h2>
+        <button
+          type="button"
+          className="pbs-x"
+          onClick={props.onClose}
+          disabled={pending}
+          aria-label="Tutup"
+        >
+          <Icon name="x" />
+        </button>
+      </div>
+      {dates.length === 0 ? (
+        <>
+          <div className="pbs-modal-b">
+            <InfoBanner icon="check">
+              {hasSchedule ? (
+                <>
+                  <b>{props.hostName}</b> sudah clock in di semua jadwalnya
+                  sampai hari ini. Tidak ada tanggal yang perlu ditambahkan.
+                </>
+              ) : (
+                <>
+                  <b>{props.hostName}</b> belum punya jadwal sampai hari ini,
+                  jadi tidak ada tanggal untuk clock in.
+                </>
+              )}
+            </InfoBanner>
+          </div>
+          <div className="pbs-modal-f">
+            <Button variant="secondary" onClick={props.onClose}>
+              Tutup
+            </Button>
+          </div>
+        </>
+      ) : (
+        <>
+          <div className="pbs-modal-b">
+            <p style={{ margin: 0 }}>
+              Untuk host yang lupa clock in, sehingga tidak bisa mengirim
+              report. Hanya tanggal yang ada jadwalnya dan belum ada clock in
+              yang bisa dipilih.
+            </p>
+            <div className="pbs-field">
+              <label className="pbs-label" htmlFor="pbs-ci-date">
+                Tanggal
+              </label>
+              <select
+                id="pbs-ci-date"
+                value={key}
+                onChange={(e) => choose(e.target.value)}
                 disabled={pending}
               >
-                Batal
-              </Button>
-              <Button
-                onClick={submit}
-                disabled={!ok || pending}
-                title={
-                  !ok
-                    ? "Isi tanggal, jam clock in, jam clock out dan status"
-                    : undefined
-                }
-              >
-                {pending ? (
-                  <>
-                    <Spinner small /> Menyimpan…
-                  </>
-                ) : (
-                  "Simpan clock in"
-                )}
-              </Button>
+                <option value="">Pilih tanggal jadwal…</option>
+                {dates.map((d) => (
+                  <option key={d.key} value={d.key}>
+                    {fmtLongDate(d.day)}
+                    {d.start !== null
+                      ? ` · ${fmtClock(d.start)}–${fmtClock(d.end)}`
+                      : ""}
+                    {d.sessions.length > 1
+                      ? ` · ${d.sessions.length} sesi`
+                      : ""}
+                  </option>
+                ))}
+              </select>
             </div>
-          </>
-        )}
+            <div className="pbs-two">
+              <div className="pbs-field">
+                <label className="pbs-label" htmlFor="pbs-ci-in">
+                  Jam clock in
+                </label>
+                <select
+                  id="pbs-ci-in"
+                  value={tin}
+                  onChange={(e) => setTin(e.target.value)}
+                  disabled={pending || !picked}
+                >
+                  <option value="">—</option>
+                  {options.map((m) => (
+                    <option key={m} value={m}>
+                      {fmtClock(m)}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="pbs-field">
+                <label className="pbs-label" htmlFor="pbs-ci-out">
+                  Jam clock out
+                </label>
+                <select
+                  id="pbs-ci-out"
+                  value={tout}
+                  onChange={(e) => setTout(e.target.value)}
+                  disabled={pending || !picked}
+                >
+                  <option value="">—</option>
+                  {options.map((m) => (
+                    <option key={m} value={m}>
+                      {fmtClock(m)}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+            <div className="pbs-field">
+              <label className="pbs-label" htmlFor="pbs-ci-status">
+                Status
+              </label>
+              <select
+                id="pbs-ci-status"
+                value={status}
+                onChange={(e) => setStatus(e.target.value)}
+                disabled={pending}
+              >
+                <option value="">Pilih status…</option>
+                {statuses.map((s) => (
+                  <option key={s.label} value={s.label}>
+                    {s.label}
+                  </option>
+                ))}
+              </select>
+              {st ? (
+                <div className="pbs-hint">HKTugas {fmtRupiah(st.hk)}</div>
+              ) : null}
+            </div>
+            {order ? (
+              <InfoBanner tone="warn">
+                Jam clock out harus setelah jam clock in.
+              </InfoBanner>
+            ) : null}
+            {res ? (
+              <InfoBanner tone="err">
+                {res.status === "conflict"
+                  ? res.message ||
+                    "Host ini sudah punya clock in di tanggal itu. Muat ulang lalu coba lagi."
+                  : res.message || "Gagal menyimpan clock in. Coba lagi."}
+              </InfoBanner>
+            ) : null}
+          </div>
+          <div className="pbs-modal-f">
+            <Button variant="ghost" onClick={props.onClose} disabled={pending}>
+              Batal
+            </Button>
+            <Button
+              onClick={submit}
+              disabled={!ok || pending}
+              title={
+                !ok
+                  ? "Isi tanggal, jam clock in, jam clock out dan status"
+                  : undefined
+              }
+            >
+              {pending ? (
+                <>
+                  <Spinner small /> Menyimpan…
+                </>
+              ) : (
+                "Simpan clock in"
+              )}
+            </Button>
+          </div>
+        </>
+      )}
     </Overlay>
   );
 }

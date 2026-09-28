@@ -26,12 +26,53 @@ import { ALL_METRICS, COMPARED_METRICS } from "../shared/reconcile";
 
 const now = new Date(2026, 8, 14, 11, 42); // Monday 14 Sep 2026 11:42 local
 const def = (k: string) => ALL_METRICS.find((d) => d.key === k)!;
-const sch = (id: number, date: string, start: string, end: string, extra: Record<string, unknown> = {}) => ({ ID: id, Title: `SCD-${id}`, Date: date, StartTime: start, EndTime: end, HostID: "H1", BrandID: "B1", StudioID: "S1", ...extra });
-const empty: HostData = { schedules: [], clockIns: [], absences: [], reports: [], brands: [{ Title: "B1", NamaBrand: "Hanasui" }], studios: [] };
-const phases = (d: Partial<HostData>, at = now, opts = DEFAULT_HOST_OPTIONS) => Object.fromEntries(buildHostSessions({ ...empty, ...d }, at, opts).map((s) => [s.title, s.phase]));
+const sch = (
+  id: number,
+  date: string,
+  start: string,
+  end: string,
+  extra: Record<string, unknown> = {},
+) => ({
+  ID: id,
+  Title: `SCD-${id}`,
+  Date: date,
+  StartTime: start,
+  EndTime: end,
+  HostID: "H1",
+  BrandID: "B1",
+  StudioID: "S1",
+  ...extra,
+});
+const empty: HostData = {
+  schedules: [],
+  clockIns: [],
+  absences: [],
+  reports: [],
+  brands: [{ Title: "B1", NamaBrand: "Hanasui" }],
+  studios: [],
+};
+const phases = (d: Partial<HostData>, at = now, opts = DEFAULT_HOST_OPTIONS) =>
+  Object.fromEntries(
+    buildHostSessions({ ...empty, ...d }, at, opts).map((s) => [
+      s.title,
+      s.phase,
+    ]),
+  );
 
 describe("buildHostSessions", () => {
-  const clockIns = [{ HostID: "H1", ClockInDate: "2026-09-14", CheckInTime: "2026-09-14T06:55:00" }, { HostID: "H1", ClockInDate: "2026-09-12", CheckInTime: "2026-09-12T08:00:00", CheckOutTime: "2026-09-12T22:00:00" }];
+  const clockIns = [
+    {
+      HostID: "H1",
+      ClockInDate: "2026-09-14",
+      CheckInTime: "2026-09-14T06:55:00",
+    },
+    {
+      HostID: "H1",
+      ClockInDate: "2026-09-12",
+      CheckInTime: "2026-09-12T08:00:00",
+      CheckOutTime: "2026-09-12T22:00:00",
+    },
+  ];
   it("walks a session through clock-in, absen and report", () => {
     const schedules = [
       sch(1, "2026-09-14", "16:00", "18:00"), // later today
@@ -41,19 +82,50 @@ describe("buildHostSessions", () => {
       sch(5, "2026-09-12", "10:00", "12:00"), // past, clocked in, no absen
       sch(6, "2026-09-12", "13:00", "15:00"), // reported
       sch(7, "2026-09-12", "15:00", "17:00"), // revision
-      sch(8, "2026-09-12", "17:00", "18:00", { Status: { Value: "Cancelled" } }),
+      sch(8, "2026-09-12", "17:00", "18:00", {
+        Status: { Value: "Cancelled" },
+      }),
     ];
     const absences = [{ ScheduleID: "SCD-3" }, { ScheduleID: "scd-6" }];
     const reports = [
-      { Title: "R6", ScheduleID: "SCD-6", ApprovalStatus: { Value: "Waiting Approval" } },
-      { Title: "R7", ScheduleID: "SCD-7", ApprovalStatus: { Value: "Need Revision" } },
+      {
+        Title: "R6",
+        ScheduleID: "SCD-6",
+        ApprovalStatus: { Value: "Waiting Approval" },
+      },
+      {
+        Title: "R7",
+        ScheduleID: "SCD-7",
+        ApprovalStatus: { Value: "Need Revision" },
+      },
     ];
     expect(phases({ schedules, clockIns, absences, reports })).toEqual({
-      "SCD-1": "UPCOMING", "SCD-2": "NOW", "SCD-3": "NEEDS_REPORT", "SCD-4": "NEEDS_CLOCKIN", "SCD-5": "NEEDS_ABSEN", "SCD-6": "REPORTED", "SCD-7": "REVISION", "SCD-8": "CANCELLED",
+      "SCD-1": "UPCOMING",
+      "SCD-2": "NOW",
+      "SCD-3": "NEEDS_REPORT",
+      "SCD-4": "NEEDS_CLOCKIN",
+      "SCD-5": "NEEDS_ABSEN",
+      "SCD-6": "REPORTED",
+      "SCD-7": "REVISION",
+      "SCD-8": "CANCELLED",
     });
   });
   it("opens the absen window before the start and marks late reports", () => {
-    const s = buildHostSessions({ ...empty, schedules: [sch(1, "2026-09-14", "12:05", "14:00"), sch(2, "2026-09-10", "10:00", "12:00")], clockIns: [...clockIns, { ClockInDate: "2026-09-10", CheckInTime: "2026-09-10T08:00:00" }], absences: [{ ScheduleID: "SCD-2" }] }, now);
+    const s = buildHostSessions(
+      {
+        ...empty,
+        schedules: [
+          sch(1, "2026-09-14", "12:05", "14:00"),
+          sch(2, "2026-09-10", "10:00", "12:00"),
+        ],
+        clockIns: [
+          ...clockIns,
+          { ClockInDate: "2026-09-10", CheckInTime: "2026-09-10T08:00:00" },
+        ],
+        absences: [{ ScheduleID: "SCD-2" }],
+      },
+      now,
+    );
     const [late, soon] = s;
     expect(soon?.canAbsen).toBe(true); // 23 min before start, inside the 30 min lead
     expect(late?.phase).toBe("NEEDS_REPORT");
@@ -62,18 +134,51 @@ describe("buildHostSessions", () => {
   });
   it("requireAbsen=false unlocks the report on clock-in alone", () => {
     const opts = { ...DEFAULT_HOST_OPTIONS, requireAbsen: false };
-    const s = buildHostSessions({ ...empty, schedules: [sch(5, "2026-09-12", "10:00", "12:00", { Status: { Value: "Waiting Report" } })], clockIns }, now, opts)[0]!;
+    const s = buildHostSessions(
+      {
+        ...empty,
+        schedules: [
+          sch(5, "2026-09-12", "10:00", "12:00", {
+            Status: { Value: "Waiting Report" },
+          }),
+        ],
+        clockIns,
+      },
+      now,
+      opts,
+    )[0]!;
     expect(s.phase).toBe("NEEDS_REPORT");
     expect(reportBlocker(s, opts)).toBeNull();
   });
   it("opens the report only while Schedule.Status is Waiting Report", () => {
     const opts = { ...DEFAULT_HOST_OPTIONS, requireAbsen: false };
-    const planned = buildHostSessions({ ...empty, schedules: [sch(5, "2026-09-12", "10:00", "12:00")], clockIns }, now, opts)[0]!;
+    const planned = buildHostSessions(
+      {
+        ...empty,
+        schedules: [sch(5, "2026-09-12", "10:00", "12:00")],
+        clockIns,
+      },
+      now,
+      opts,
+    )[0]!;
     expect(reportBlocker(planned, opts)).toBe("STATUS");
-    expect(reportBlocker(planned, { ...opts, requireWaitingStatus: false })).toBeNull();
+    expect(
+      reportBlocker(planned, { ...opts, requireWaitingStatus: false }),
+    ).toBeNull();
   });
   it("names the blocker in the order the host fixes it", () => {
-    const [noClock, noAbsen, upcoming] = buildHostSessions({ ...empty, schedules: [sch(4, "2026-09-10", "10:00", "12:00"), sch(5, "2026-09-12", "10:00", "12:00"), sch(1, "2026-09-14", "16:00", "18:00")], clockIns }, now);
+    const [noClock, noAbsen, upcoming] = buildHostSessions(
+      {
+        ...empty,
+        schedules: [
+          sch(4, "2026-09-10", "10:00", "12:00"),
+          sch(5, "2026-09-12", "10:00", "12:00"),
+          sch(1, "2026-09-14", "16:00", "18:00"),
+        ],
+        clockIns,
+      },
+      now,
+    );
     expect(reportBlocker(noClock!)).toBe("CLOCKIN");
     expect(reportBlocker(noAbsen!)).toBe("ABSEN");
     expect(reportBlocker(upcoming!)).toBe("NOT_STARTED");
@@ -82,21 +187,38 @@ describe("buildHostSessions", () => {
 
 describe("shift and streak", () => {
   it("reads an open shift, a closed one and none", () => {
-    const open = shiftToday([{ ClockInDate: "2026-09-14", CheckInTime: "2026-09-14T06:55:00" }], now);
+    const open = shiftToday(
+      [{ ClockInDate: "2026-09-14", CheckInTime: "2026-09-14T06:55:00" }],
+      now,
+    );
     expect(open.state).toBe("IN");
     expect(open.minutes).toBe(287);
-    const closed = shiftToday([{ ClockInDate: "2026-09-14", ClockInTime: "07:00", ClockOutTime: "11:00" }], now);
+    const closed = shiftToday(
+      [
+        {
+          ClockInDate: "2026-09-14",
+          ClockInTime: "07:00",
+          ClockOutTime: "11:00",
+        },
+      ],
+      now,
+    );
     expect(closed.state).toBe("OUT");
     expect(closed.minutes).toBe(240);
     expect(shiftToday([], now).state).toBe("NOT_IN");
   });
   it("flags a shift left open past the limit, even from yesterday", () => {
-    const s = shiftToday([{ ClockInDate: "2026-09-13", CheckInTime: "2026-09-13T20:00:00" }], now);
+    const s = shiftToday(
+      [{ ClockInDate: "2026-09-13", CheckInTime: "2026-09-13T20:00:00" }],
+      now,
+    );
     expect(s.state).toBe("IN");
     expect(s.overdue).toBe(true);
   });
   it("counts consecutive days, starting yesterday when today is not in yet", () => {
-    const rows = ["2026-09-10", "2026-09-11", "2026-09-12", "2026-09-13"].map((d) => ({ ClockInDate: d }));
+    const rows = ["2026-09-10", "2026-09-11", "2026-09-12", "2026-09-13"].map(
+      (d) => ({ ClockInDate: d }),
+    );
     expect(streakDays(rows, now)).toBe(4);
     expect(streakDays([...rows, { ClockInDate: "2026-09-14" }], now)).toBe(5);
     expect(streakDays([{ ClockInDate: "2026-09-11" }], now)).toBe(0);
@@ -104,10 +226,19 @@ describe("shift and streak", () => {
 });
 
 describe("revision comment", () => {
-  const c = "Angka penjualan beda dengan screenshot.\nMetrik yang perlu dibetulkan: Penjualan, CTOR, Peak viewer\n[Sanggahan host] Angka saya dari seller center";
+  const c =
+    "Angka penjualan beda dengan screenshot.\nMetrik yang perlu dibetulkan: Penjualan, CTOR, Peak viewer\n[Sanggahan host] Angka saya dari seller center";
   it("parses flagged metrics by label or key", () => {
-    expect(flaggedFromComment(c).map((d) => d.key)).toEqual(["Penjualan", "CTOR", "PeakViewer"]);
-    expect(flaggedFromComment("metrik yang perlu dibetulkan: ProdukTerjual; Durasi(Min)").map((d) => d.key)).toEqual(["ProdukTerjual", "Durasi"]);
+    expect(flaggedFromComment(c).map((d) => d.key)).toEqual([
+      "Penjualan",
+      "CTOR",
+      "PeakViewer",
+    ]);
+    expect(
+      flaggedFromComment(
+        "metrik yang perlu dibetulkan: ProdukTerjual; Durasi(Min)",
+      ).map((d) => d.key),
+    ).toEqual(["ProdukTerjual", "Durasi"]);
     expect(flaggedFromComment("Tolong cek")).toEqual([]);
   });
   it("separates the reviewer note and the host dispute", () => {
@@ -130,22 +261,46 @@ describe("submit form", () => {
     expect(parseMetricInput("abc", def("Pesanan"))).toBeNull();
   });
   it("warns without blocking", () => {
-    const v = { Penjualan: 5e6, Pesanan: 10, JumlahPembeli: 20, ProdukTerjual: 5, CTR: 180, CTOR: 9, PeakViewer: 100, TotalViewer: 50 };
-    expect(sanityWarnings(v, []).map((w) => w.key)).toEqual(["CTR", "JumlahPembeli", "ProdukTerjual", "PeakViewer"]);
+    const v = {
+      Penjualan: 5e6,
+      Pesanan: 10,
+      JumlahPembeli: 20,
+      ProdukTerjual: 5,
+      CTR: 180,
+      CTOR: 9,
+      PeakViewer: 100,
+      TotalViewer: 50,
+    };
+    expect(sanityWarnings(v, []).map((w) => w.key)).toEqual([
+      "CTR",
+      "JumlahPembeli",
+      "ProdukTerjual",
+      "PeakViewer",
+    ]);
     const hist = [{ CTOR: 2 }, { CTOR: 2.5 }, { CTOR: 1.5 }];
-    expect(sanityWarnings({ CTOR: 9 }, hist).map((w) => w.key)).toEqual(["CTOR"]);
+    expect(sanityWarnings({ CTOR: 9 }, hist).map((w) => w.key)).toEqual([
+      "CTOR",
+    ]);
     expect(sanityWarnings({ CTOR: 9 }, hist.slice(0, 2))).toEqual([]);
   });
   it("lists missing required metrics and maps to column names", () => {
-    expect(missingMetrics({ Penjualan: 1, Pesanan: 0 }, COMPARED_METRICS).map((d) => d.key)).toEqual(["ProdukTerjual", "JumlahPembeli", "CTR", "CTOR", "PeakViewer"]);
+    expect(
+      missingMetrics({ Penjualan: 1, Pesanan: 0 }, COMPARED_METRICS).map(
+        (d) => d.key,
+      ),
+    ).toEqual(["ProdukTerjual", "JumlahPembeli", "CTR", "CTOR", "PeakViewer"]);
     const cols = metricColumns({ Penjualan: 1, Durasi: 120 });
     expect(cols["Durasi(Min)"]).toBe(120);
     expect(cols.Penjualan).toBe(1);
     expect(Object.keys(cols)).toHaveLength(12);
   });
   it("builds the evidence file name", () => {
-    expect(evidenceFileName("REP-20901", "Shopee", "ACC-003", "jpg")).toBe("REP-20901_Shopee_ACC-003.jpg");
-    expect(evidenceFileName("", "TikTok", "wings official/store", "jpg")).toBe("REP-{ID}_TikTok_wings-official-store.jpg");
+    expect(evidenceFileName("REP-20901", "Shopee", "ACC-003", "jpg")).toBe(
+      "REP-20901_Shopee_ACC-003.jpg",
+    );
+    expect(evidenceFileName("", "TikTok", "wings official/store", "jpg")).toBe(
+      "REP-{ID}_TikTok_wings-official-store.jpg",
+    );
   });
 });
 
@@ -162,66 +317,191 @@ describe("image sizing", () => {
 });
 
 describe("split live: reports in parts until Durasi covers the session", () => {
-  const clockIns = [{ HostID: "H1", ClockInDate: "2026-09-12", CheckInTime: "2026-09-12T08:00:00" }];
-  const four = sch(9, "2026-09-12", "19:00", "23:00", { Status: { Value: "Waiting Report" }, Platform: { Value: "Shopee" } });
-  const part = (t: string, min: number | null, status = "Waiting Approval", created = "2026-09-12T21:00:00") => ({ Title: t, ScheduleID: "SCD-9", ApprovalStatus: { Value: status }, "Durasi(Min)": min, Created: created });
-  const build = (reports: Record<string, unknown>[]) => buildHostSessions({ ...empty, schedules: [four], clockIns, absences: [{ ScheduleID: "SCD-9" }], reports }, now)[0]!;
+  const clockIns = [
+    {
+      HostID: "H1",
+      ClockInDate: "2026-09-12",
+      CheckInTime: "2026-09-12T08:00:00",
+    },
+  ];
+  const four = sch(9, "2026-09-12", "19:00", "23:00", {
+    Status: { Value: "Waiting Report" },
+    Platform: { Value: "Shopee" },
+  });
+  const part = (
+    t: string,
+    min: number | null,
+    status = "Waiting Approval",
+    created = "2026-09-12T21:00:00",
+  ) => ({
+    Title: t,
+    ScheduleID: "SCD-9",
+    ApprovalStatus: { Value: status },
+    "Durasi(Min)": min,
+    Created: created,
+  });
+  const build = (reports: Record<string, unknown>[]) =>
+    buildHostSessions(
+      {
+        ...empty,
+        schedules: [four],
+        clockIns,
+        absences: [{ ScheduleID: "SCD-9" }],
+        reports,
+      },
+      now,
+    )[0]!;
 
   it("60 of 240 minutes: still owed, the schedule stays Waiting Report", () => {
     const s = build([part("R1", 60)]);
-    expect(s).toMatchObject({ phase: "NEEDS_REPORT", requiredMin: 240, reportedMin: 60, remainingMin: 180, partial: true });
+    expect(s).toMatchObject({
+      phase: "NEEDS_REPORT",
+      requiredMin: 240,
+      reportedMin: 60,
+      remainingMin: 180,
+      partial: true,
+    });
     expect(reportBlocker(s)).toBeNull();
-    expect(statusAfterReport(s, 120, DEFAULT_HOST_OPTIONS)).toEqual({ status: "Waiting Report", complete: false, totalMin: 180, remainingMin: 60 });
-    expect(statusAfterReport(s, 200, DEFAULT_HOST_OPTIONS)).toMatchObject({ status: "Finished", complete: true, remainingMin: 0 });
+    expect(statusAfterReport(s, 120, DEFAULT_HOST_OPTIONS)).toEqual({
+      status: "Waiting Report",
+      complete: false,
+      totalMin: 180,
+      remainingMin: 60,
+    });
+    expect(statusAfterReport(s, 200, DEFAULT_HOST_OPTIONS)).toMatchObject({
+      status: "Finished",
+      complete: true,
+      remainingMin: 0,
+    });
   });
-  it("covered (or more): reported, no more Send Report", () => {
-    const s = build([part("R1", 120, "Waiting Approval", "2026-09-12T21:00:00"), part("R2", 130, "Done", "2026-09-12T23:10:00")]);
-    expect(s).toMatchObject({ phase: "REPORTED", remainingMin: 0, partial: false });
+  it("covered (or more): reported, no more Kirim report", () => {
+    const s = build([
+      part("R1", 120, "Waiting Approval", "2026-09-12T21:00:00"),
+      part("R2", 130, "Done", "2026-09-12T23:10:00"),
+    ]);
+    expect(s).toMatchObject({
+      phase: "REPORTED",
+      remainingMin: 0,
+      partial: false,
+    });
     expect(s.report?.Title).toBe("R2");
     expect(reportBlocker(s)).toBe("COMPLETE");
   });
   it("a part sent back for revision is the one the host acts on", () => {
-    const s = build([part("R1", 120, "Need Revision"), part("R2", 60, "Waiting Approval", "2026-09-12T23:10:00")]);
+    const s = build([
+      part("R1", 120, "Need Revision"),
+      part("R2", 60, "Waiting Approval", "2026-09-12T23:10:00"),
+    ]);
     expect(s.phase).toBe("REVISION");
     expect(s.report?.Title).toBe("R1");
     expect(s.partial).toBe(true);
     // Revising R1 to 180 minutes covers the session.
-    expect(statusAfterReport(s, 180, DEFAULT_HOST_OPTIONS, s.report)).toMatchObject({ complete: true, totalMin: 240 });
+    expect(
+      statusAfterReport(s, 180, DEFAULT_HOST_OPTIONS, s.report),
+    ).toMatchObject({ complete: true, totalMin: 240 });
   });
   it("live break and old reports without Durasi close the session", () => {
-    expect(reportCoverage([part("R1", 0, "LiveBreak")], 240)).toMatchObject({ remainingMin: 0, partial: false });
-    expect(reportCoverage([part("R1", null)], 240)).toMatchObject({ remainingMin: 0, partial: false });
-    expect(reportCoverage([], 240)).toMatchObject({ remainingMin: 240, partial: false });
-    expect(reportCoverage([part("R1", 30)], null)).toMatchObject({ remainingMin: 0, partial: false });
+    expect(reportCoverage([part("R1", 0, "LiveBreak")], 240)).toMatchObject({
+      remainingMin: 0,
+      partial: false,
+    });
+    expect(reportCoverage([part("R1", null)], 240)).toMatchObject({
+      remainingMin: 0,
+      partial: false,
+    });
+    expect(reportCoverage([], 240)).toMatchObject({
+      remainingMin: 240,
+      partial: false,
+    });
+    expect(reportCoverage([part("R1", 30)], null)).toMatchObject({
+      remainingMin: 0,
+      partial: false,
+    });
   });
 });
 
 describe("absen payload", () => {
-  const s = buildHostSessions({ ...empty, schedules: [sch(2, "2026-09-14", "10:00", "12:00", { Platform: { Value: "TikTok" }, AccountName: "brand.official" })] }, now)[0]!;
+  const s = buildHostSessions(
+    {
+      ...empty,
+      schedules: [
+        sch(2, "2026-09-14", "10:00", "12:00", {
+          Platform: { Value: "TikTok" },
+          AccountName: "brand.official",
+        }),
+      ],
+    },
+    now,
+  )[0]!;
   it("normal live: Waiting Report, no report row", () => {
-    expect(absenPayload(s, { Title: "H1", NamaHost: "Dinda" })).toMatchObject({ scheduleId: "SCD-2", hostId: "H1", liveBreak: false, scheduleStatus: "Waiting Report", report: null, accountName: "brand.official" });
+    expect(absenPayload(s, { Title: "H1", NamaHost: "Dinda" })).toMatchObject({
+      scheduleId: "SCD-2",
+      hostId: "H1",
+      liveBreak: false,
+      scheduleStatus: "Waiting Report",
+      report: null,
+      accountName: "brand.official",
+    });
   });
   it("live break: Finished plus a Report row of zeros with ApprovalStatus LiveBreak", () => {
     const p = absenPayload(s, undefined, true);
-    expect(p).toMatchObject({ liveBreak: true, scheduleStatus: "Finished", report: { approvalStatus: "LiveBreak" } });
+    expect(p).toMatchObject({
+      liveBreak: true,
+      scheduleStatus: "Finished",
+      report: { approvalStatus: "LiveBreak" },
+    });
     const metrics = (p.report as { metrics: Record<string, number> }).metrics;
     expect(Object.values(metrics).every((v) => v === 0)).toBe(true);
     expect(metrics["Durasi(Min)"]).toBe(0);
   });
   it("Co-Host: Finished, never a report", () => {
-    const co = buildHostSessions({ ...empty, schedules: [sch(2, "2026-09-14", "10:00", "12:00", { Position: { Value: "Co-Host" } })] }, now)[0]!;
-    expect(absenPayload(co, undefined, false, hostOptions({ scheduleDoneStatus: "Finished" }))).toMatchObject({ scheduleStatus: "Finished", report: null });
+    const co = buildHostSessions(
+      {
+        ...empty,
+        schedules: [
+          sch(2, "2026-09-14", "10:00", "12:00", {
+            Position: { Value: "Co-Host" },
+          }),
+        ],
+      },
+      now,
+    )[0]!;
+    expect(
+      absenPayload(
+        co,
+        undefined,
+        false,
+        hostOptions({ scheduleDoneStatus: "Finished" }),
+      ),
+    ).toMatchObject({ scheduleStatus: "Finished", report: null });
   });
 });
 
 describe("report form fields", () => {
   it("AddToCart only on Shopee; Share is not asked; Durasi is required", () => {
-    expect(reportMetricDefs("Shopee").map((d) => d.key)).toEqual(["AddToCart", "Pesanan", "Penjualan", "ProdukTerjual", "JumlahPembeli", "CTR", "PeakViewer", "TotalViewer", "CTOR", "Comment"]);
-    expect(reportMetricDefs("TikTok").map((d) => d.key)).not.toContain("AddToCart");
+    expect(reportMetricDefs("Shopee").map((d) => d.key)).toEqual([
+      "AddToCart",
+      "Pesanan",
+      "Penjualan",
+      "ProdukTerjual",
+      "JumlahPembeli",
+      "CTR",
+      "PeakViewer",
+      "TotalViewer",
+      "CTOR",
+      "Comment",
+    ]);
+    expect(reportMetricDefs("TikTok").map((d) => d.key)).not.toContain(
+      "AddToCart",
+    );
     expect(requiredReportDefs("TikTok")[0]?.key).toBe("Durasi");
   });
   it("playbook choices from Choices(), strings or text", () => {
-    expect(parsePlaybooks(JSON.stringify([{ Value: "Flash Sale" }, { Value: "Payday" }]))).toEqual(["Flash Sale", "Payday"]);
+    expect(
+      parsePlaybooks(
+        JSON.stringify([{ Value: "Flash Sale" }, { Value: "Payday" }]),
+      ),
+    ).toEqual(["Flash Sale", "Payday"]);
     expect(parsePlaybooks('["A","B","A"]')).toEqual(["A", "B"]);
     expect(parsePlaybooks("Reguler, Payday")).toEqual(["Reguler", "Payday"]);
     expect(parsePlaybooks("")).toEqual([]);

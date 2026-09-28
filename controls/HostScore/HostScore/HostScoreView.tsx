@@ -1,8 +1,30 @@
 import * as React from "react";
-import { ModuleContext, UseActionResult, configNumber, hasPermission } from "../../../shared/contract";
+import {
+  ModuleContext,
+  UseActionResult,
+  configNumber,
+  hasPermission,
+} from "../../../shared/contract";
 import { Row } from "../../../shared/data";
-import { fmtDateTimeShort, fmtDayMonth, fmtNumber, shortName } from "../../../shared/format";
-import { HOST_STATUS, HostModel, HostStatus, ScoreBand, ScoreTx, TxType, buildHosts, buildLedger, checkLedger, parseBands, scoreDefaults } from "../../../shared/host";
+import {
+  fmtDateTimeShort,
+  fmtDayMonth,
+  fmtNumber,
+  shortName,
+} from "../../../shared/format";
+import {
+  HOST_STATUS,
+  HostModel,
+  HostStatus,
+  ScoreBand,
+  ScoreTx,
+  TxType,
+  buildHosts,
+  buildLedger,
+  checkLedger,
+  parseBands,
+  scoreDefaults,
+} from "../../../shared/host";
 import { TX_FILTERS, TxFilter, matchesFilter } from "../../../shared/hostScore";
 import {
   AdminRule,
@@ -26,7 +48,22 @@ import {
   signedPoint,
   VOID_REASON,
 } from "../../../shared/scoreAdmin";
-import { Badge, Button, EmptyState, EndOfData, FilterSelect, Icon, InfoBanner, ModuleHeader, Overlay, ResultBanner, SkeletonRows, Spinner, TONE_DOT } from "../../../shared/ui";
+import {
+  Badge,
+  Button,
+  EmptyState,
+  FilterSelect,
+  Icon,
+  InfoBanner,
+  ModuleHeader,
+  Overlay,
+  Pager,
+  ResultBanner,
+  SkeletonRows,
+  Spinner,
+  TONE_DOT,
+  usePaged,
+} from "../../../shared/ui";
 
 export interface HostScoreProps {
   ctx: ModuleContext;
@@ -42,45 +79,116 @@ export interface HostScoreProps {
   action: UseActionResult;
 }
 
-type Dialog = { kind: "add"; type: TxType; host: HostModel | null } | { kind: "void"; tx: ScoreTx; host: HostModel };
+type Dialog =
+  | { kind: "add"; type: TxType; host: HostModel | null }
+  | { kind: "void"; tx: ScoreTx; host: HostModel };
 
-const BAND_TEXT: Record<string, string> = { success: "pbs-t-ok", danger: "pbs-t-bad", warning: "pbs-t-warn", info: "pbs-t-info", neutral: "" };
+const BAND_TEXT: Record<string, string> = {
+  success: "pbs-t-ok",
+  danger: "pbs-t-bad",
+  warning: "pbs-t-warn",
+  info: "pbs-t-info",
+  neutral: "",
+};
 
-const range = (b: ScoreBand) => (b.min !== null && b.max !== null ? `${fmtNumber(b.min)}–${fmtNumber(b.max)}` : b.min !== null ? `≥ ${fmtNumber(b.min)}` : b.max !== null ? `≤ ${fmtNumber(b.max)}` : "");
-const pointClass = (p: number | null) => (p === null ? "" : p >= 0 ? "pbs-t-ok" : "pbs-t-bad");
+const range = (b: ScoreBand) =>
+  b.min !== null && b.max !== null
+    ? `${fmtNumber(b.min)}–${fmtNumber(b.max)}`
+    : b.min !== null
+      ? `≥ ${fmtNumber(b.min)}`
+      : b.max !== null
+        ? `≤ ${fmtNumber(b.max)}`
+        : "";
+const pointClass = (p: number | null) =>
+  p === null ? "" : p >= 0 ? "pbs-t-ok" : "pbs-t-bad";
 
 export function HostScoreView(props: HostScoreProps): React.ReactElement {
   const { ctx, action } = props;
-  const bands = React.useMemo(() => parseBands(props.thresholds), [props.thresholds]);
+  const bands = React.useMemo(
+    () => parseBands(props.thresholds),
+    [props.thresholds],
+  );
   const defaults = React.useMemo(() => scoreDefaults(ctx.config), [ctx]);
-  const hosts = React.useMemo(() => buildHosts(props.hosts, bands, defaults), [props.hosts, bands, defaults]);
-  const rules = React.useMemo(() => parseAdminRules(props.rules), [props.rules]);
+  const hosts = React.useMemo(
+    () => buildHosts(props.hosts, bands, defaults),
+    [props.hosts, bands, defaults],
+  );
+  const rules = React.useMemo(
+    () => parseAdminRules(props.rules),
+    [props.rules],
+  );
   const canEdit = hasPermission(ctx, "SCORE_EDIT");
-  const host = props.hostId ? hosts.find((h) => h.hostId.toLowerCase() === props.hostId.toLowerCase()) ?? null : null;
+  const host = props.hostId
+    ? (hosts.find(
+        (h) => h.hostId.toLowerCase() === props.hostId.toLowerCase(),
+      ) ?? null)
+    : null;
 
   const [dialog, setDialog] = React.useState<Dialog | null>(null);
   React.useEffect(() => {
     const r = action.lastResult;
-    if (r && r.status === "ok" && (r.action === "ADD_SCORE" || r.action === "VOID_SCORE")) setDialog(null);
+    if (
+      r &&
+      r.status === "ok" &&
+      (r.action === "ADD_SCORE" || r.action === "VOID_SCORE")
+    )
+      setDialog(null);
   }, [action.lastResult]);
   const open = (d: Dialog) => {
-    if (action.lastResult && action.lastResult.action !== "LOAD_MORE") action.clearResult();
+    if (action.lastResult && action.lastResult.action !== "LOAD_MORE")
+      action.clearResult();
     setDialog(d);
   };
   // A failed save stays in its dialog; the page banner only shows it once the dialog is closed.
-  const bannerResult = dialog && (action.lastResult?.action === "ADD_SCORE" || action.lastResult?.action === "VOID_SCORE") ? null : action.lastResult;
+  const bannerResult =
+    dialog &&
+    (action.lastResult?.action === "ADD_SCORE" ||
+      action.lastResult?.action === "VOID_SCORE")
+      ? null
+      : action.lastResult;
 
   return (
     <div className="pbs-page pbs-sc">
       {props.hostId ? (
-        <LedgerPage {...props} host={host} bands={bands} canEdit={canEdit} bannerResult={bannerResult} onDialog={open} />
+        <LedgerPage
+          {...props}
+          host={host}
+          bands={bands}
+          canEdit={canEdit}
+          bannerResult={bannerResult}
+          onDialog={open}
+        />
       ) : (
-        <ListPage {...props} hosts={hosts} bands={bands} canEdit={canEdit} bannerResult={bannerResult} onAdd={() => open({ kind: "add", type: "REWARD", host: null })} />
+        <ListPage
+          {...props}
+          hosts={hosts}
+          bands={bands}
+          canEdit={canEdit}
+          bannerResult={bannerResult}
+          onAdd={() => open({ kind: "add", type: "REWARD", host: null })}
+        />
       )}
       {dialog?.kind === "add" ? (
-        <ScoreModal ctx={ctx} hosts={hosts} host={dialog.host} type={dialog.type} rules={rules} bands={bands} now={props.now} action={action} onClose={() => setDialog(null)} />
+        <ScoreModal
+          ctx={ctx}
+          hosts={hosts}
+          host={dialog.host}
+          type={dialog.type}
+          rules={rules}
+          bands={bands}
+          now={props.now}
+          action={action}
+          onClose={() => setDialog(null)}
+        />
       ) : dialog?.kind === "void" ? (
-        <VoidModal host={dialog.host} tx={dialog.tx} bands={bands} now={props.now} action={action} onClose={() => setDialog(null)} />
+        <VoidModal
+          host={dialog.host}
+          tx={dialog.tx}
+          bands={bands}
+          now={props.now}
+          action={action}
+          onClose={() => setDialog(null)}
+        />
       ) : null}
     </div>
   );
@@ -102,13 +210,24 @@ const SORTS: { value: SortKey; label: string }[] = [
   { value: "code", label: "Urut: kode host" },
   { value: "recent", label: "Urut: transaksi terbaru" },
 ];
-const STATUS_OPTIONS = (["ACTIVE", "INACTIVE", "UNKNOWN"] as HostStatus[]).map((s) => ({ value: s, label: HOST_STATUS[s].label }));
+const STATUS_OPTIONS = (["ACTIVE", "INACTIVE", "UNKNOWN"] as HostStatus[]).map(
+  (s) => ({ value: s, label: HOST_STATUS[s].label }),
+);
 
 function ListPage(
-  props: Omit<HostScoreProps, "hosts"> & { hosts: HostModel[]; bands: ScoreBand[]; canEdit: boolean; bannerResult: UseActionResult["lastResult"]; onAdd: () => void },
+  props: Omit<HostScoreProps, "hosts"> & {
+    hosts: HostModel[];
+    bands: ScoreBand[];
+    canEdit: boolean;
+    bannerResult: UseActionResult["lastResult"];
+    onAdd: () => void;
+  },
 ): React.ReactElement {
   const { hosts, bands, action } = props;
-  const recent = React.useMemo(() => lastTxByHost(buildLedger(props.recent)), [props.recent]);
+  const recent = React.useMemo(
+    () => lastTxByHost(buildLedger(props.recent)),
+    [props.recent],
+  );
   const [filters, setFilters] = React.useState<ListFilters>(NO_FILTERS);
   const [sort, setSort] = React.useState<SortKey>("scoreDesc");
   const filterActive = Object.values(filters).some((v) => v !== "");
@@ -120,33 +239,58 @@ function ListPage(
   const q = filters.q.trim().toLowerCase();
   const rows = hosts
     .filter((h) => {
-      if (q && ![h.code, h.hostId, h.name].some((s) => s.toLowerCase().includes(q))) return false;
+      if (
+        q &&
+        ![h.code, h.hostId, h.name].some((s) => s.toLowerCase().includes(q))
+      )
+        return false;
       if (filters.status && h.status !== filters.status) return false;
       if (filters.band === "drift") return h.drift;
-      if (filters.band === "none" ? h.band !== null : filters.band && h.band?.id !== filters.band) return false;
+      if (
+        filters.band === "none"
+          ? h.band !== null
+          : filters.band && h.band?.id !== filters.band
+      )
+        return false;
       return true;
     })
     .sort((a, b) => {
       switch (sort) {
         case "scoreAsc":
-          return (a.score ?? Infinity) - (b.score ?? Infinity) || a.code.localeCompare(b.code);
+          return (
+            (a.score ?? Infinity) - (b.score ?? Infinity) ||
+            a.code.localeCompare(b.code)
+          );
         case "code":
           return a.code.localeCompare(b.code, undefined, { numeric: true });
         case "recent":
-          return (recent.get(b.hostId)?.when?.getTime() ?? 0) - (recent.get(a.hostId)?.when?.getTime() ?? 0);
+          return (
+            (recent.get(b.hostId)?.when?.getTime() ?? 0) -
+            (recent.get(a.hostId)?.when?.getTime() ?? 0)
+          );
         default:
-          return (b.score ?? -Infinity) - (a.score ?? -Infinity) || a.code.localeCompare(b.code);
+          return (
+            (b.score ?? -Infinity) - (a.score ?? -Infinity) ||
+            a.code.localeCompare(b.code)
+          );
       }
     });
 
+  const paged = usePaged(rows, JSON.stringify([filters, sort]));
   const counts = bandCounts(hosts, bands);
   const drifted = hosts.filter((h) => h.drift).length;
   const avg = averageScore(hosts);
   const firstLoad = props.loading && hosts.length === 0;
   const bandOptions = bands
     .map((b) => ({ value: b.id, label: b.label }))
-    .concat(hosts.some((h) => h.band === null) ? [{ value: "none", label: "Tanpa band" }] : [])
-    .concat(drifted ? [{ value: "drift", label: "Tidak sinkron dengan ledger" }] : []);
+    .concat(
+      hosts.some((h) => h.band === null)
+        ? [{ value: "none", label: "Tanpa band" }]
+        : [],
+    )
+    .concat(
+      drifted ? [{ value: "drift", label: "Tidak sinkron dengan ledger" }] : [],
+    );
 
   return (
     <>
@@ -160,11 +304,17 @@ function ListPage(
         }
         actions={
           <>
-            <Button variant="secondary" onClick={() => action.fire("NAV", { target: "RULES" })}>
+            <Button
+              variant="secondary"
+              onClick={() => action.fire("NAV", { target: "RULES" })}
+            >
               Aturan skor
             </Button>
             {props.canEdit ? (
-              <Button onClick={props.onAdd} disabled={hosts.length === 0 || !!action.pending}>
+              <Button
+                onClick={props.onAdd}
+                disabled={hosts.length === 0 || !!action.pending}
+              >
                 <Icon name="plus" size={15} /> Tambah transaksi
               </Button>
             ) : null}
@@ -176,7 +326,9 @@ function ListPage(
 
       {bands.length === 0 && !firstLoad ? (
         <InfoBanner tone="warn">
-          <span className="pbs-mono">ThresholdsJson</span> kosong: band skor tidak bisa ditentukan. Kirim baris aktif dari <b>[FAS STUDIO] HostScoreThreshold</b>.
+          <span className="pbs-mono">ThresholdsJson</span> kosong: band skor
+          tidak bisa ditentukan. Kirim baris aktif dari{" "}
+          <b>[FAS STUDIO] HostScoreThreshold</b>.
         </InfoBanner>
       ) : null}
 
@@ -186,13 +338,29 @@ function ListPage(
             const id = c.band?.id ?? "none";
             const on = filters.band === id;
             return (
-              <button key={id} type="button" className={`pbs-kpi pbs-sc-kpi${on ? " on" : ""}`} aria-pressed={on} onClick={() => apply({ ...filters, band: on ? "" : id })}>
+              <button
+                key={id}
+                type="button"
+                className={`pbs-kpi pbs-sc-kpi${on ? " on" : ""}`}
+                aria-pressed={on}
+                onClick={() => apply({ ...filters, band: on ? "" : id })}
+              >
                 <span className="l">
-                  <span className="pbs-sc-sq" style={{ background: TONE_DOT[c.band?.tone ?? "neutral"] }} aria-hidden="true" />
-                  {c.band ? `${c.band.label}${range(c.band) ? ` · ${range(c.band)}` : ""}` : "Tanpa band"}
+                  <span
+                    className="pbs-sc-sq"
+                    style={{ background: TONE_DOT[c.band?.tone ?? "neutral"] }}
+                    aria-hidden="true"
+                  />
+                  {c.band
+                    ? `${c.band.label}${range(c.band) ? ` · ${range(c.band)}` : ""}`
+                    : "Tanpa band"}
                 </span>
-                <span className="v">{firstLoad ? "—" : fmtNumber(c.count)}</span>
-                <span className="n">host · {Math.round(c.share * 100)}% dari total</span>
+                <span className="v">
+                  {firstLoad ? "—" : fmtNumber(c.count)}
+                </span>
+                <span className="n">
+                  host · {Math.round(c.share * 100)}% dari total
+                </span>
               </button>
             );
           })}
@@ -203,31 +371,62 @@ function ListPage(
         <InfoBanner
           tone="warn"
           action={
-            <Button variant="secondary" size="sm" onClick={() => apply({ ...filters, band: "drift" })}>
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => apply({ ...filters, band: "drift" })}
+            >
               Tampilkan
             </Button>
           }
         >
-          <b>{drifted} host</b> punya skor tersimpan yang berbeda dari jumlah ledger. Buka ledger-nya untuk melihat transaksi yang belum ikut dihitung.
+          <b>{drifted} host</b> punya skor tersimpan yang berbeda dari jumlah
+          ledger. Buka ledger-nya untuk melihat transaksi yang belum ikut
+          dihitung.
         </InfoBanner>
       ) : null}
 
       <div className="pbs-filters">
         <label className="pbs-search">
           <Icon name="search" size={14} />
-          <input type="search" value={filters.q} placeholder="Cari HostCode atau nama" aria-label="Cari host" onChange={(e) => apply({ ...filters, q: e.target.value })} />
+          <input
+            type="search"
+            value={filters.q}
+            placeholder="Cari HostCode atau nama"
+            aria-label="Cari host"
+            onChange={(e) => apply({ ...filters, q: e.target.value })}
+          />
         </label>
-        <FilterSelect label="Band" value={filters.band} options={bandOptions} onChange={(v) => apply({ ...filters, band: v })} />
-        <FilterSelect label="Status" value={filters.status} options={STATUS_OPTIONS} onChange={(v) => apply({ ...filters, status: v })} />
+        <FilterSelect
+          label="Band"
+          value={filters.band}
+          options={bandOptions}
+          onChange={(v) => apply({ ...filters, band: v })}
+        />
+        <FilterSelect
+          label="Status"
+          value={filters.status}
+          options={STATUS_OPTIONS}
+          onChange={(v) => apply({ ...filters, status: v })}
+        />
         {filterActive ? (
-          <button type="button" className="pbs-link" onClick={() => apply(NO_FILTERS)} style={{ marginLeft: 4 }}>
+          <button
+            type="button"
+            className="pbs-link"
+            onClick={() => apply(NO_FILTERS)}
+            style={{ marginLeft: 4 }}
+          >
             Hapus filter
           </button>
         ) : null}
         <span style={{ flex: 1 }} />
         <label className="pbs-chip">
           <span className="pbs-sr">Urutkan</span>
-          <select value={sort} aria-label="Urutkan" onChange={(e) => setSort(e.target.value as SortKey)}>
+          <select
+            value={sort}
+            aria-label="Urutkan"
+            onChange={(e) => setSort(e.target.value as SortKey)}
+          >
             {SORTS.map((s) => (
               <option key={s.value} value={s.value}>
                 {s.label}
@@ -256,17 +455,31 @@ function ListPage(
               {firstLoad ? (
                 <SkeletonRows rows={8} cols={7} />
               ) : (
-                rows.map((h) => {
+                paged.rows.map((h) => {
                   const t = recent.get(h.hostId);
-                  const openLedger = () => action.fire("OPEN_LEDGER", { hostId: h.hostId, id: h.id });
+                  const openLedger = () =>
+                    action.fire("OPEN_LEDGER", { hostId: h.hostId, id: h.id });
                   return (
-                    <tr key={h.hostId} className={h.drift ? "pbs-sc-drift" : h.status === "INACTIVE" ? "muted" : undefined}>
+                    <tr
+                      key={h.hostId}
+                      className={
+                        h.drift
+                          ? "pbs-sc-drift"
+                          : h.status === "INACTIVE"
+                            ? "muted"
+                            : undefined
+                      }
+                    >
                       <td className="pbs-mono" style={{ whiteSpace: "nowrap" }}>
                         {h.code}
                       </td>
                       <td>
                         <span className="pbs-sc-name">
-                          <button type="button" className="pbs-link" onClick={openLedger}>
+                          <button
+                            type="button"
+                            className="pbs-link"
+                            onClick={openLedger}
+                          >
                             {h.name}
                           </button>
                           {h.drift ? (
@@ -281,7 +494,15 @@ function ListPage(
                           ) : null}
                         </span>
                       </td>
-                      <td className={`r pbs-num pbs-sc-score ${h.band ? BAND_TEXT[h.band.tone] : ""}`}>{h.score === null ? <span className="pbs-muted">—</span> : fmtNumber(h.score)}</td>
+                      <td
+                        className={`r pbs-num pbs-sc-score ${h.band ? BAND_TEXT[h.band.tone] : ""}`}
+                      >
+                        {h.score === null ? (
+                          <span className="pbs-muted">—</span>
+                        ) : (
+                          fmtNumber(h.score)
+                        )}
+                      </td>
                       <td>
                         {h.band ? (
                           <Badge tone={h.band.tone} small>
@@ -294,22 +515,43 @@ function ListPage(
                       <td style={{ whiteSpace: "normal", minWidth: 200 }}>
                         {h.drift ? (
                           <span className="pbs-t-bad">
-                            Jumlah ledger {fmtNumber(h.ledgerScore)}, tersimpan {fmtNumber(h.storedScore)}
+                            Jumlah ledger {fmtNumber(h.ledgerScore)}, tersimpan{" "}
+                            {fmtNumber(h.storedScore)}
                           </span>
                         ) : t ? (
                           <span className={t.active ? undefined : "pbs-muted"}>
-                            {t.rule} <b className={t.active || t.reversal ? pointClass(t.point) : ""}>{signed(t.point)}</b>
-                            {t.reversal ? " · koreksi" : !t.active ? " · dibatalkan" : ""}
+                            {t.rule}{" "}
+                            <b
+                              className={
+                                t.active || t.reversal
+                                  ? pointClass(t.point)
+                                  : ""
+                              }
+                            >
+                              {signed(t.point)}
+                            </b>
+                            {t.reversal
+                              ? " · koreksi"
+                              : !t.active
+                                ? " · dibatalkan"
+                                : ""}
                           </span>
                         ) : (
                           <span className="pbs-muted">Belum ada transaksi</span>
                         )}
                       </td>
-                      <td className="pbs-num pbs-muted" style={{ whiteSpace: "nowrap" }}>
+                      <td
+                        className="pbs-num pbs-muted"
+                        style={{ whiteSpace: "nowrap" }}
+                      >
                         {t ? fmtDayMonth(t.when) : "—"}
                       </td>
                       <td className="r">
-                        <button type="button" className="pbs-link" onClick={openLedger}>
+                        <button
+                          type="button"
+                          className="pbs-link"
+                          onClick={openLedger}
+                        >
                           {h.drift ? "Periksa" : "Ledger"}
                         </button>
                       </td>
@@ -326,68 +568,100 @@ function ListPage(
               icon="filterX"
               title="Tidak ada host yang cocok dengan filter"
               action={
-                <Button variant="secondary" size="sm" onClick={() => apply(NO_FILTERS)}>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => apply(NO_FILTERS)}
+                >
                   Hapus filter
                 </Button>
               }
             />
           ) : (
-            <EmptyState icon="user" title="Belum ada host" text="Host dari list Host - PBS Hub akan muncul di sini dengan skornya." />
+            <EmptyState
+              icon="user"
+              title="Belum ada host"
+              text="Host dari list Host - PBS Hub akan muncul di sini dengan skornya."
+            />
           )
         ) : (
-          <div className="pbs-foot">
-            <span>
-              Menampilkan {fmtNumber(rows.length)} dari {fmtNumber(hosts.length)}
-              {props.hasMore ? "+" : ""} host. Skor di kolom ini adalah nilai tersimpan di Host{drifted || hosts.some((h) => h.ledgerScore !== null) ? "; jumlah ledger dihitung ulang saat halaman dibuka, dan bedanya ditandai" : ""}.
-            </span>
-            <span className="line" />
-            {props.hasMore ? (
-              <Button variant="secondary" size="sm" disabled={props.loading} onClick={() => action.fire("LOAD_MORE", { loaded: hosts.length, filters, sort })}>
-                {props.loading ? (
-                  <>
-                    <Spinner small /> Memuat…
-                  </>
-                ) : (
-                  "Muat lebih banyak"
-                )}
-              </Button>
-            ) : null}
-          </div>
+          <Pager
+            paged={paged}
+            unit="host"
+            hasMore={props.hasMore}
+            loading={props.loading}
+            onLoadMore={() =>
+              action.fire("LOAD_MORE", { loaded: hosts.length, filters, sort })
+            }
+          />
         )}
       </div>
+      <p className="pbs-muted pbs-sc-note">
+        Skor di kolom ini adalah nilai tersimpan di Host
+        {drifted || hosts.some((h) => h.ledgerScore !== null)
+          ? "; jumlah ledger dihitung ulang saat halaman dibuka, dan selisihnya ditandai"
+          : ""}
+        .
+      </p>
     </>
   );
 }
 
 // ---- SL-2 ledger of one host --------------------------------------------------------------------
 
-const PAGE = 25;
-
 function LedgerPage(
-  props: HostScoreProps & { host: HostModel | null; bands: ScoreBand[]; canEdit: boolean; bannerResult: UseActionResult["lastResult"]; onDialog: (d: Dialog) => void },
+  props: HostScoreProps & {
+    host: HostModel | null;
+    bands: ScoreBand[];
+    canEdit: boolean;
+    bannerResult: UseActionResult["lastResult"];
+    onDialog: (d: Dialog) => void;
+  },
 ): React.ReactElement {
   const { host: h, action } = props;
   const ledger = React.useMemo(() => buildLedger(props.ledger), [props.ledger]);
   const reversals = React.useMemo(() => reversalsByTx(ledger), [ledger]);
   const check = h ? checkLedger(h, ledger) : null;
   const [filter, setFilter] = React.useState<TxFilter | "Reversal">("All");
-  const [shown, setShown] = React.useState(PAGE);
-  const rows = ledger.filter((t) => (filter === "Reversal" ? t.reversal : matchesFilter(t, filter)));
-  const visible = rows.slice(0, shown);
+  const rows = ledger.filter((t) =>
+    filter === "Reversal" ? t.reversal : matchesFilter(t, filter),
+  );
+  const paged = usePaged(rows, filter);
+  const visible = paged.rows;
   const firstLoad = props.loading && (!h || ledger.length === 0);
   const back = () => action.fire("BACK", {});
   const busy = !!action.pending;
   const reversalCount = ledger.filter((t) => t.reversal).length;
   const chips: { key: TxFilter | "Reversal"; label: string; n: number }[] = [
-    ...TX_FILTERS.map((f) => ({ key: f.key, label: f.label, n: ledger.filter((t) => matchesFilter(t, f.key)).length })),
+    ...TX_FILTERS.map((f) => ({
+      key: f.key,
+      label: f.label,
+      n: ledger.filter((t) => matchesFilter(t, f.key)).length,
+    })),
     { key: "Reversal", label: "Koreksi", n: reversalCount },
   ];
 
   if (!h && !props.loading) {
     return (
       <>
-        <ModuleHeader crumb={<button type="button" onClick={back}>Skor host</button>} title="Ledger skor" />
-        <EmptyState icon="user" title="Host tidak ditemukan" text={`${props.hostId} tidak ada di HostsJson. Kirim baris host itu, atau kembali ke daftar.`} action={<Button variant="secondary" size="sm" onClick={back}>Kembali</Button>} />
+        <ModuleHeader
+          crumb={
+            <button type="button" onClick={back}>
+              Skor host
+            </button>
+          }
+          title="Ledger skor"
+        />
+        <EmptyState
+          icon="user"
+          title="Host tidak ditemukan"
+          text={`${props.hostId} tidak ada di HostsJson. Kirim baris host itu, atau kembali ke daftar.`}
+          action={
+            <Button variant="secondary" size="sm" onClick={back}>
+              Kembali
+            </Button>
+          }
+        />
       </>
     );
   }
@@ -404,7 +678,7 @@ function LedgerPage(
           </>
         }
         title="Ledger skor"
-        subtitle="Append-only: baris yang salah dibatalkan, tidak disunting. Skor sebelum / sesudah selalu ikut tercatat."
+        subtitle="Riwayat tidak pernah diubah: transaksi yang salah dibatalkan, bukan disunting. Skor sebelum dan sesudah selalu tercatat."
       />
 
       <ResultBanner result={props.bannerResult} onClose={action.clearResult} />
@@ -417,7 +691,11 @@ function LedgerPage(
             label="Skor sekarang"
             value={
               <span className="pbs-sc-now">
-                <b className={`pbs-num ${h?.band ? BAND_TEXT[h.band.tone] : ""}`}>{fmtNumber(h?.score)}</b>
+                <b
+                  className={`pbs-num ${h?.band ? BAND_TEXT[h.band.tone] : ""}`}
+                >
+                  {fmtNumber(h?.score)}
+                </b>
                 {h?.band ? (
                   <Badge tone={h.band.tone} small>
                     {h.band.label}
@@ -431,7 +709,11 @@ function LedgerPage(
             value={
               check && check.expected !== null ? (
                 <span className={check.drift ? "pbs-t-bad" : undefined}>
-                  {fmtNumber(check.expected)} · {check.drift ? `tidak sinkron (${signed(check.diff === null ? null : Math.round(check.diff))})` : "sinkron"} · {fmtNumber(ledger.length)} transaksi
+                  {fmtNumber(check.expected)} ·{" "}
+                  {check.drift
+                    ? `tidak sinkron (${signed(check.diff === null ? null : Math.round(check.diff))})`
+                    : "sinkron"}{" "}
+                  · {fmtNumber(ledger.length)} transaksi
                 </span>
               ) : (
                 `${fmtNumber(ledger.length)} transaksi`
@@ -441,10 +723,21 @@ function LedgerPage(
         </div>
         {props.canEdit && h ? (
           <div className="pbs-actions">
-            <Button variant="secondary" onClick={() => props.onDialog({ kind: "add", type: "PENALTY", host: h })} disabled={busy || h.score === null}>
+            <Button
+              variant="secondary"
+              onClick={() =>
+                props.onDialog({ kind: "add", type: "PENALTY", host: h })
+              }
+              disabled={busy || h.score === null}
+            >
               Kurangi poin
             </Button>
-            <Button onClick={() => props.onDialog({ kind: "add", type: "REWARD", host: h })} disabled={busy || h.score === null}>
+            <Button
+              onClick={() =>
+                props.onDialog({ kind: "add", type: "REWARD", host: h })
+              }
+              disabled={busy || h.score === null}
+            >
               Tambah poin
             </Button>
           </div>
@@ -453,8 +746,12 @@ function LedgerPage(
 
       {check?.drift && h ? (
         <InfoBanner tone="warn">
-          <b>Skor tersimpan tidak cocok dengan ledger.</b> CurrentScore {fmtNumber(h.storedScore)}, sedangkan awal {fmtNumber(h.initial)} + {check.activeCount} transaksi aktif = {fmtNumber(check.expected)}. Transaksi baru dihitung
-          dari skor tersimpan; minta admin menyamakan <span className="pbs-mono">CurrentScore</span> dulu kalau selisihnya bukan disengaja.
+          <b>Skor tersimpan tidak cocok dengan ledger.</b> CurrentScore{" "}
+          {fmtNumber(h.storedScore)}, sedangkan awal {fmtNumber(h.initial)} +{" "}
+          {check.activeCount} transaksi aktif = {fmtNumber(check.expected)}.
+          Transaksi baru dihitung dari skor tersimpan; minta admin menyamakan{" "}
+          <span className="pbs-mono">CurrentScore</span> dulu kalau selisihnya
+          bukan disengaja.
         </InfoBanner>
       ) : null}
 
@@ -470,7 +767,6 @@ function LedgerPage(
               className={`pbs-btn sm ${filter === c.key ? "primary" : "secondary"}`}
               onClick={() => {
                 setFilter(c.key);
-                setShown(PAGE);
               }}
             >
               {c.label} <span className="pbs-num">{fmtNumber(c.n)}</span>
@@ -499,15 +795,31 @@ function LedgerPage(
                 <SkeletonRows rows={6} cols={9} />
               ) : (
                 visible.map((t) => {
-                  const rev = !t.active && !t.reversal ? reversals.get(t.txId) : undefined;
+                  const rev =
+                    !t.active && !t.reversal
+                      ? reversals.get(t.txId)
+                      : undefined;
                   return (
-                    <tr key={t.id || t.txId} className={t.reversal ? "pbs-sc-rev" : t.active ? undefined : "void"}>
+                    <tr
+                      key={t.id || t.txId}
+                      className={
+                        t.reversal
+                          ? "pbs-sc-rev"
+                          : t.active
+                            ? undefined
+                            : "void"
+                      }
+                    >
                       <td className="pbs-num" style={{ whiteSpace: "nowrap" }}>
                         {fmtDateTimeShort(t.when)}
                       </td>
                       <td style={{ whiteSpace: "normal", minWidth: 160 }}>
                         <b className="pbs-sc-rule">{t.rule}</b>
-                        {t.txId ? <span className="pbs-mono pbs-muted pbs-sc-id">{t.txId}</span> : null}
+                        {t.txId ? (
+                          <span className="pbs-mono pbs-muted pbs-sc-id">
+                            {t.txId}
+                          </span>
+                        ) : null}
                       </td>
                       <td>
                         {t.reversal ? (
@@ -515,7 +827,15 @@ function LedgerPage(
                             Koreksi
                           </Badge>
                         ) : !t.active ? (
-                          <Badge tone="neutral" small title={t.statusText ? `Status: ${t.statusText}` : undefined}>
+                          <Badge
+                            tone="neutral"
+                            small
+                            title={
+                              t.statusText
+                                ? `Status: ${t.statusText}`
+                                : undefined
+                            }
+                          >
                             Dibatalkan
                           </Badge>
                         ) : t.type === "PENALTY" ? (
@@ -528,22 +848,57 @@ function LedgerPage(
                           </Badge>
                         )}
                       </td>
-                      <td className={`r pbs-num ${t.active || t.reversal ? pointClass(t.point) : ""}`} style={{ fontWeight: 700 }}>
+                      <td
+                        className={`r pbs-num ${t.active || t.reversal ? pointClass(t.point) : ""}`}
+                        style={{ fontWeight: 700 }}
+                      >
                         {signed(t.point)}
                       </td>
-                      <td className="r pbs-num pbs-muted">{fmtNumber(t.before)}</td>
-                      <td className="r pbs-num" style={{ fontWeight: t.active || t.reversal ? 600 : undefined }}>
+                      <td className="r pbs-num pbs-muted">
+                        {fmtNumber(t.before)}
+                      </td>
+                      <td
+                        className="r pbs-num"
+                        style={{
+                          fontWeight: t.active || t.reversal ? 600 : undefined,
+                        }}
+                      >
                         {fmtNumber(t.after)}
                       </td>
-                      <td className="keep" style={{ whiteSpace: "normal", minWidth: 200 }}>
-                        {[t.notes, rev ? `dibatalkan ${fmtDayMonth(rev.when)}${rev.by ? ` oleh ${shortName(rev.by)}` : ""}` : ""].filter(Boolean).join(" · ") || <span className="pbs-muted">—</span>}
+                      <td
+                        className="keep"
+                        style={{ whiteSpace: "normal", minWidth: 200 }}
+                      >
+                        {[
+                          t.notes,
+                          rev
+                            ? `dibatalkan ${fmtDayMonth(rev.when)}${rev.by ? ` oleh ${shortName(rev.by)}` : ""}`
+                            : "",
+                        ]
+                          .filter(Boolean)
+                          .join(" · ") || <span className="pbs-muted">—</span>}
                       </td>
-                      <td className="keep" style={{ whiteSpace: "nowrap" }} title={t.by || undefined}>
-                        {t.by ? shortName(t.by) : <span className="pbs-muted">otomatis</span>}
+                      <td
+                        className="keep"
+                        style={{ whiteSpace: "nowrap" }}
+                        title={t.by || undefined}
+                      >
+                        {t.by ? (
+                          shortName(t.by)
+                        ) : (
+                          <span className="pbs-muted">otomatis</span>
+                        )}
                       </td>
                       <td className="r">
                         {props.canEdit && h && canVoid(t) ? (
-                          <Button variant="secondary" size="sm" disabled={busy} onClick={() => props.onDialog({ kind: "void", tx: t, host: h })}>
+                          <Button
+                            variant="secondary"
+                            size="sm"
+                            disabled={busy}
+                            onClick={() =>
+                              props.onDialog({ kind: "void", tx: t, host: h })
+                            }
+                          >
                             Batalkan
                           </Button>
                         ) : null}
@@ -556,30 +911,29 @@ function LedgerPage(
           </table>
         </div>
         {firstLoad ? null : ledger.length === 0 ? (
-          <EmptyState icon="inbox" title="Belum ada transaksi skor" text="Skor host masih nilai awal. Reward dan penalty yang diberikan akan tercatat di sini." />
-        ) : rows.length > visible.length ? (
-          <div className="pbs-foot">
-            <span>
-              Menampilkan {fmtNumber(visible.length)} dari {fmtNumber(rows.length)} transaksi · urut terbaru
-            </span>
-            <span className="line" />
-            <Button variant="secondary" size="sm" onClick={() => setShown((n) => n + PAGE)}>
-              Muat lebih banyak
-            </Button>
-          </div>
+          <EmptyState
+            icon="inbox"
+            title="Belum ada transaksi skor"
+            text="Skor host masih nilai awal. Reward dan penalty yang diberikan akan tercatat di sini."
+          />
         ) : (
-          <EndOfData text={`${fmtNumber(rows.length)} transaksi · urut terbaru`} />
+          <Pager paged={paged} unit="transaksi" suffix=" · urut terbaru" />
         )}
       </div>
       <p className="pbs-muted pbs-sc-note">
-        Ledger tidak pernah disunting. Baris yang salah dibatalkan, dan pembatalannya masuk sebagai transaksi baru dengan poin berlawanan. Baris yang dibatalkan dan baris koreksinya tidak ikut
-        dijumlah, sehingga jumlah ledger tetap sama dengan skor tersimpan.
+        Ledger tidak pernah disunting. Baris yang salah dibatalkan, dan
+        pembatalannya masuk sebagai transaksi baru dengan poin berlawanan. Baris
+        yang dibatalkan dan baris koreksinya tidak ikut dijumlah, sehingga
+        jumlah ledger tetap sama dengan skor tersimpan.
       </p>
     </>
   );
 }
 
-function Meta(props: { label: string; value: React.ReactNode }): React.ReactElement {
+function Meta(props: {
+  label: string;
+  value: React.ReactNode;
+}): React.ReactElement {
   return (
     <div className="pbs-rec-m">
       <span className="l">{props.label}</span>
@@ -590,33 +944,66 @@ function Meta(props: { label: string; value: React.ReactNode }): React.ReactElem
 
 // ---- dialogs ------------------------------------------------------------------------------------
 
-function PreviewBox(props: { p: ScorePreview; label?: string }): React.ReactElement {
+function PreviewBox(props: {
+  p: ScorePreview;
+  label?: string;
+}): React.ReactElement {
   const { p } = props;
-  if (p.after === null) return <div className="pbs-sc-prev muted">{p.before === null ? "Skor host belum ada" : "Isi poin untuk melihat skor baru"}</div>;
-  const move = p.bandMove > 0 ? `naik dari ${p.bandBefore?.label ?? "—"}` : p.bandMove < 0 ? `turun dari ${p.bandBefore?.label ?? "—"}` : p.bandAfter ? `tetap ${p.bandAfter.label}` : "";
+  if (p.after === null)
+    return (
+      <div className="pbs-sc-prev muted">
+        {p.before === null
+          ? "Skor host belum ada"
+          : "Isi poin untuk melihat skor baru"}
+      </div>
+    );
+  const move =
+    p.bandMove > 0
+      ? `naik dari ${p.bandBefore?.label ?? "—"}`
+      : p.bandMove < 0
+        ? `turun dari ${p.bandBefore?.label ?? "—"}`
+        : p.bandAfter
+          ? `tetap ${p.bandAfter.label}`
+          : "";
   return (
     <div className="pbs-sc-prev" aria-live="polite">
       <span className="pbs-num pbs-muted">{fmtNumber(p.before)}</span>
-      <Icon name="arrowLeft" size={14} style={{ transform: "rotate(180deg)" }} />
-      <b className={`pbs-num ${p.bandAfter ? BAND_TEXT[p.bandAfter.tone] : ""}`}>{fmtNumber(p.after)}</b>
+      <Icon
+        name="arrowLeft"
+        size={14}
+        style={{ transform: "rotate(180deg)" }}
+      />
+      <b
+        className={`pbs-num ${p.bandAfter ? BAND_TEXT[p.bandAfter.tone] : ""}`}
+      >
+        {fmtNumber(p.after)}
+      </b>
       {p.bandAfter ? (
         <Badge tone={p.bandAfter.tone} small>
           {p.bandAfter.label}
         </Badge>
       ) : null}
       <span className="pbs-muted" style={{ fontSize: 12 }}>
-        {[move, p.clamped ? "dibatasi min/maks skor" : ""].filter(Boolean).join(" · ")}
+        {[move, p.clamped ? "dibatasi min/maks skor" : ""]
+          .filter(Boolean)
+          .join(" · ")}
       </span>
     </div>
   );
 }
 
-function SaveError(props: { action: UseActionResult; name: string }): React.ReactElement | null {
+function SaveError(props: {
+  action: UseActionResult;
+  name: string;
+}): React.ReactElement | null {
   const r = props.action.lastResult;
   if (!r || r.action !== props.name || r.status === "ok") return null;
   return (
     <InfoBanner tone="err">
-      {r.status === "conflict" ? r.message || "Skor host sudah berubah sejak halaman dibuka. Tutup, muat ulang, lalu coba lagi." : r.message || "Gagal menyimpan. Coba lagi."}
+      {r.status === "conflict"
+        ? r.message ||
+          "Skor host sudah berubah sejak halaman dibuka. Tutup, muat ulang, lalu coba lagi."
+        : r.message || "Gagal menyimpan. Coba lagi."}
     </InfoBanner>
   );
 }
@@ -648,12 +1035,26 @@ function ScoreModal(props: {
   const options = rulesFor(rules, type, category);
   const rule = options.find((r) => r.id === ruleId) ?? null;
   const point = signedPoint(pointText, type);
-  const preview = previewScore(h ?? { score: null, min: null, max: null }, point, bands);
+  const preview = previewScore(
+    h ?? { score: null, min: null, max: null },
+    point,
+    bands,
+  );
   const bigPenalty = configNumber(props.ctx, "bigPenaltyPoints", 10);
   const minSchedule = configNumber(props.ctx, "scheduleMinScore", NaN);
   const override = isOverride(rule, point);
   const ack1 = needsAck(point, preview, bigPenalty);
-  const missing = h ? addScoreMissing({ rule, point, overrideReason, notes, acknowledged: ack, preview, bigPenalty }) : ["host"];
+  const missing = h
+    ? addScoreMissing({
+        rule,
+        point,
+        overrideReason,
+        notes,
+        acknowledged: ack,
+        preview,
+        bigPenalty,
+      })
+    : ["host"];
 
   const pickType = (t: TxType) => {
     setType(t);
@@ -665,12 +1066,24 @@ function ScoreModal(props: {
   const pickRule = (id: string) => {
     setRuleId(id);
     const r = rules.find((x) => x.id === id);
-    setPointText(r?.point !== null && r?.point !== undefined ? signed(r.point).replace("−", "-") : "");
+    setPointText(
+      r?.point !== null && r?.point !== undefined
+        ? signed(r.point).replace("−", "-")
+        : "",
+    );
     setAck(false);
   };
 
   const submit = () => {
-    if (!h || !rule || point === null || preview.after === null || missing.length > 0 || pending) return;
+    if (
+      !h ||
+      !rule ||
+      point === null ||
+      preview.after === null ||
+      missing.length > 0 ||
+      pending
+    )
+      return;
     action.dispatch("ADD_SCORE", {
       hostId: h.hostId,
       hostItemId: h.id,
@@ -687,7 +1100,11 @@ function ScoreModal(props: {
       overridden: override,
       overrideReason: override ? overrideReason.trim() : "",
       notes: notes.trim(),
-      notesText: composeNotes(notes, override ? { from: rule.point, reason: overrideReason } : null, ack1 && ack),
+      notesText: composeNotes(
+        notes,
+        override ? { from: rule.point, reason: overrideReason } : null,
+        ack1 && ack,
+      ),
       acknowledged: ack1 ? ack : false,
       expectedScore: h.score,
       scoreBefore: preview.before,
@@ -698,8 +1115,12 @@ function ScoreModal(props: {
   };
 
   const title = type === "PENALTY" ? "Kurangi poin" : "Tambah poin";
-  const hostOptions = props.hosts.filter((x) => x.status !== "INACTIVE").sort((a, b) => a.code.localeCompare(b.code, undefined, { numeric: true }));
-  const missingText = missing.length ? `Belum lengkap: ${missing.join(", ")}` : "";
+  const hostOptions = props.hosts
+    .filter((x) => x.status !== "INACTIVE")
+    .sort((a, b) => a.code.localeCompare(b.code, undefined, { numeric: true }));
+  const missingText = missing.length
+    ? `Belum lengkap: ${missing.join(", ")}`
+    : "";
 
   return (
     <Overlay onClose={props.onClose} busy={pending} labelledBy="pbs-sc-add">
@@ -707,10 +1128,18 @@ function ScoreModal(props: {
         <div>
           <h2 id="pbs-sc-add">{title}</h2>
           <div className="pbs-muted" style={{ fontSize: 12.5, marginTop: 2 }}>
-            {h ? `${h.code} · ${h.name} · skor sekarang ${fmtNumber(h.score)}` : "Pilih host dulu"}
+            {h
+              ? `${h.code} · ${h.name} · skor sekarang ${fmtNumber(h.score)}`
+              : "Pilih host dulu"}
           </div>
         </div>
-        <button type="button" className="pbs-x" onClick={props.onClose} disabled={pending} aria-label="Tutup">
+        <button
+          type="button"
+          className="pbs-x"
+          onClick={props.onClose}
+          disabled={pending}
+          aria-label="Tutup"
+        >
           <Icon name="x" />
         </button>
       </div>
@@ -720,7 +1149,12 @@ function ScoreModal(props: {
             <label className="pbs-label" htmlFor="pbs-sc-host">
               Host
             </label>
-            <select id="pbs-sc-host" value={hostId} onChange={(e) => setHostId(e.target.value)} disabled={pending}>
+            <select
+              id="pbs-sc-host"
+              value={hostId}
+              onChange={(e) => setHostId(e.target.value)}
+              disabled={pending}
+            >
               <option value="">Pilih host</option>
               {hostOptions.map((x) => (
                 <option key={x.hostId} value={x.hostId}>
@@ -731,18 +1165,37 @@ function ScoreModal(props: {
           </div>
         )}
 
-        <div className="pbs-sc-seg" role="radiogroup" aria-label="Jenis transaksi">
-          <button type="button" role="radio" aria-checked={type === "REWARD"} className={type === "REWARD" ? "on ok" : ""} onClick={() => pickType("REWARD")} disabled={pending}>
+        <div
+          className="pbs-sc-seg"
+          role="radiogroup"
+          aria-label="Jenis transaksi"
+        >
+          <button
+            type="button"
+            role="radio"
+            aria-checked={type === "REWARD"}
+            className={type === "REWARD" ? "on ok" : ""}
+            onClick={() => pickType("REWARD")}
+            disabled={pending}
+          >
             Reward · tambah
           </button>
-          <button type="button" role="radio" aria-checked={type === "PENALTY"} className={type === "PENALTY" ? "on bad" : ""} onClick={() => pickType("PENALTY")} disabled={pending}>
+          <button
+            type="button"
+            role="radio"
+            aria-checked={type === "PENALTY"}
+            className={type === "PENALTY" ? "on bad" : ""}
+            onClick={() => pickType("PENALTY")}
+            disabled={pending}
+          >
             Penalty · kurangi
           </button>
         </div>
 
         {rules.length === 0 ? (
           <InfoBanner tone="warn">
-            <span className="pbs-mono">RulesJson</span> kosong: tidak ada rule aktif yang bisa dipilih. Setiap transaksi harus memakai rule.
+            <span className="pbs-mono">RulesJson</span> kosong: tidak ada rule
+            aktif yang bisa dipilih. Setiap transaksi harus memakai rule.
           </InfoBanner>
         ) : null}
 
@@ -775,8 +1228,15 @@ function ScoreModal(props: {
           <label className="pbs-label" htmlFor="pbs-sc-rule">
             Rule
           </label>
-          <select id="pbs-sc-rule" value={ruleId} onChange={(e) => pickRule(e.target.value)} disabled={pending || options.length === 0}>
-            <option value="">{options.length ? "Pilih rule" : "Tidak ada rule untuk jenis ini"}</option>
+          <select
+            id="pbs-sc-rule"
+            value={ruleId}
+            onChange={(e) => pickRule(e.target.value)}
+            disabled={pending || options.length === 0}
+          >
+            <option value="">
+              {options.length ? "Pilih rule" : "Tidak ada rule untuk jenis ini"}
+            </option>
             {options.map((r) => (
               <option key={r.id} value={r.id}>
                 {r.id} · {r.name}
@@ -785,7 +1245,13 @@ function ScoreModal(props: {
           </select>
           <div className="pbs-sc-hint">
             {rule
-              ? [rule.severity ? `Severity: ${rule.severity}` : "", `poin default ${signed(rule.point)}`, rule.description].filter(Boolean).join(" · ")
+              ? [
+                  rule.severity ? `Severity: ${rule.severity}` : "",
+                  `poin default ${signed(rule.point)}`,
+                  rule.description,
+                ]
+                  .filter(Boolean)
+                  .join(" · ")
               : "Hanya rule aktif yang tampil. Rule menentukan poin default dan severity."}
           </div>
         </div>
@@ -802,7 +1268,9 @@ function ScoreModal(props: {
               className={`pbs-sc-pt ${type === "PENALTY" ? "bad" : "ok"}`}
               value={pointText}
               onChange={(e) => setPointText(e.target.value)}
-              onBlur={() => point !== null && setPointText(signed(point).replace("−", "-"))}
+              onBlur={() =>
+                point !== null && setPointText(signed(point).replace("−", "-"))
+              }
               placeholder={type === "PENALTY" ? "-5" : "+2"}
               disabled={pending || !rule}
             />
@@ -819,14 +1287,27 @@ function ScoreModal(props: {
               <Icon name="info" size={15} />
               <b>Poin diubah dari default rule ({signed(rule.point)})</b>
               <span style={{ flex: 1 }} />
-              <button type="button" className="pbs-link" onClick={() => pickRule(rule.id)} disabled={pending}>
+              <button
+                type="button"
+                className="pbs-link"
+                onClick={() => pickRule(rule.id)}
+                disabled={pending}
+              >
                 Kembalikan
               </button>
             </div>
             <label className="pbs-label" htmlFor="pbs-sc-ovr">
               Alasan override · wajib
             </label>
-            <input id="pbs-sc-ovr" type="text" className="pbs-sc-input" value={overrideReason} onChange={(e) => setOverrideReason(e.target.value)} disabled={pending} placeholder="Mis. menggantikan dua sesi sekaligus" />
+            <input
+              id="pbs-sc-ovr"
+              type="text"
+              className="pbs-sc-input"
+              value={overrideReason}
+              onChange={(e) => setOverrideReason(e.target.value)}
+              disabled={pending}
+              placeholder="Mis. menggantikan dua sesi sekaligus"
+            />
           </div>
         ) : null}
 
@@ -835,7 +1316,8 @@ function ScoreModal(props: {
             <div className="pbs-sc-box-h">
               <Icon name="alert" size={15} />
               <span>
-                Skor turun {fmtNumber(preview.before)} → {fmtNumber(preview.after)},{" "}
+                Skor turun {fmtNumber(preview.before)} →{" "}
+                {fmtNumber(preview.after)},{" "}
                 {preview.bandMove < 0 ? (
                   <>
                     turun ke band <b>{preview.bandAfter?.label ?? "—"}</b>.
@@ -845,11 +1327,19 @@ function ScoreModal(props: {
                     tetap di band <b>{preview.bandAfter?.label ?? "—"}</b>.
                   </>
                 )}
-                {Number.isFinite(minSchedule) && preview.after < minSchedule ? ` Di bawah ${fmtNumber(minSchedule)}, host tidak bisa dijadwalkan sampai skornya naik.` : ""}
+                {Number.isFinite(minSchedule) && preview.after < minSchedule
+                  ? ` Di bawah ${fmtNumber(minSchedule)}, host tidak bisa dijadwalkan sampai skornya naik.`
+                  : ""}
               </span>
             </div>
             <label className="pbs-sc-ack">
-              <input type="checkbox" className="pbs-check" checked={ack} onChange={(e) => setAck(e.target.checked)} disabled={pending} />
+              <input
+                type="checkbox"
+                className="pbs-check"
+                checked={ack}
+                onChange={(e) => setAck(e.target.checked)}
+                disabled={pending}
+              />
               <b>Saya sudah memberi tahu host dan atasannya</b>
             </label>
           </div>
@@ -857,17 +1347,29 @@ function ScoreModal(props: {
 
         <div>
           <label className="pbs-label" htmlFor="pbs-sc-notes">
-            Catatan{rule?.severity === "berat" ? " · wajib untuk severity berat" : ""}
+            Catatan
+            {rule?.severity === "berat" ? " · wajib untuk severity berat" : ""}
           </label>
-          <textarea id="pbs-sc-notes" className="pbs-textarea" value={notes} onChange={(e) => setNotes(e.target.value)} disabled={pending} placeholder="Tulis kejadiannya, tanggal, dan sesi yang terdampak…" />
+          <textarea
+            id="pbs-sc-notes"
+            className="pbs-textarea"
+            value={notes}
+            onChange={(e) => setNotes(e.target.value)}
+            disabled={pending}
+            placeholder="Tulis kejadiannya, tanggal, dan sesi yang terdampak…"
+          />
         </div>
         <div className="pbs-sc-hint">
-          Transaksi ini masuk ledger atas nama {props.ctx.userName || "Anda"} dan tidak bisa disunting setelah tersimpan — hanya bisa dibatalkan. Catatan tampil juga di aplikasi host.
+          Transaksi ini masuk ledger atas nama {props.ctx.userName || "Anda"}{" "}
+          dan tidak bisa disunting setelah tersimpan — hanya bisa dibatalkan.
+          Catatan tampil juga di aplikasi host.
         </div>
         <SaveError action={action} name="ADD_SCORE" />
       </div>
       <div className="pbs-modal-f">
-        {missingText ? <span className="pbs-muted pbs-sc-miss">{missingText}</span> : null}
+        {missingText ? (
+          <span className="pbs-muted pbs-sc-miss">{missingText}</span>
+        ) : null}
         <Button variant="ghost" onClick={props.onClose} disabled={pending}>
           Batal
         </Button>
@@ -885,14 +1387,28 @@ function ScoreModal(props: {
   );
 }
 
-function VoidModal(props: { host: HostModel; tx: ScoreTx; bands: ScoreBand[]; now: Date; action: UseActionResult; onClose: () => void }): React.ReactElement {
+function VoidModal(props: {
+  host: HostModel;
+  tx: ScoreTx;
+  bands: ScoreBand[];
+  now: Date;
+  action: UseActionResult;
+  onClose: () => void;
+}): React.ReactElement {
   const { host: h, tx: t, action } = props;
   const [reason, setReason] = React.useState("");
   const pending = action.pending?.action === "VOID_SCORE";
   const back = t.point === null ? null : -t.point;
   const preview = previewScore(h, back, props.bands);
   const ok = reason.trim().length >= 5 && preview.after !== null;
-  const bandText = preview.bandMove > 0 ? `naik ke ${preview.bandAfter?.label}` : preview.bandMove < 0 ? `turun ke ${preview.bandAfter?.label}` : preview.bandAfter ? `tetap ${preview.bandAfter.label}` : "";
+  const bandText =
+    preview.bandMove > 0
+      ? `naik ke ${preview.bandAfter?.label}`
+      : preview.bandMove < 0
+        ? `turun ke ${preview.bandAfter?.label}`
+        : preview.bandAfter
+          ? `tetap ${preview.bandAfter.label}`
+          : "";
   const submit = () => {
     if (!ok || pending || back === null) return;
     action.dispatch("VOID_SCORE", {
@@ -919,41 +1435,85 @@ function VoidModal(props: { host: HostModel; tx: ScoreTx; bands: ScoreBand[]; no
         <div>
           <h2 id="pbs-sc-void">Batalkan transaksi</h2>
           <div className="pbs-muted" style={{ fontSize: 12.5, marginTop: 2 }}>
-            {[t.txId, t.rule, `${signed(t.point)} poin`, fmtDateTimeShort(t.when)].filter(Boolean).join(" · ")}
+            {[
+              t.txId,
+              t.rule,
+              `${signed(t.point)} poin`,
+              fmtDateTimeShort(t.when),
+            ]
+              .filter(Boolean)
+              .join(" · ")}
           </div>
         </div>
-        <button type="button" className="pbs-x" onClick={props.onClose} disabled={pending} aria-label="Tutup">
+        <button
+          type="button"
+          className="pbs-x"
+          onClick={props.onClose}
+          disabled={pending}
+          aria-label="Tutup"
+        >
           <Icon name="x" />
         </button>
       </div>
       <div className="pbs-modal-b">
         <InfoBanner>
-          Transaksi tidak dihapus. Pembatalan masuk ledger sebagai baris baru <b>{signed(back)} poin</b>, dan baris aslinya ditandai Dibatalkan.
+          Transaksi tidak dihapus. Pembatalan masuk ledger sebagai baris baru{" "}
+          <b>{signed(back)} poin</b>, dan baris aslinya ditandai Dibatalkan.
         </InfoBanner>
         <div className="pbs-sc-void">
           <div>
             <span className="l">Skor sekarang</span>
             <b className="pbs-num">{fmtNumber(preview.before)}</b>
           </div>
-          <Icon name="arrowLeft" size={16} style={{ transform: "rotate(180deg)" }} />
+          <Icon
+            name="arrowLeft"
+            size={16}
+            style={{ transform: "rotate(180deg)" }}
+          />
           <div>
             <span className="l">Setelah dibatalkan</span>
-            <b className={`pbs-num ${preview.bandAfter ? BAND_TEXT[preview.bandAfter.tone] : ""}`}>{fmtNumber(preview.after)}</b>
+            <b
+              className={`pbs-num ${preview.bandAfter ? BAND_TEXT[preview.bandAfter.tone] : ""}`}
+            >
+              {fmtNumber(preview.after)}
+            </b>
           </div>
           <span style={{ flex: 1 }} />
           {bandText ? (
-            <Badge tone={preview.bandMove < 0 ? "danger" : preview.bandAfter?.tone ?? "neutral"} small>
+            <Badge
+              tone={
+                preview.bandMove < 0
+                  ? "danger"
+                  : (preview.bandAfter?.tone ?? "neutral")
+              }
+              small
+            >
               {bandText}
             </Badge>
           ) : null}
         </div>
-        {preview.clamped ? <div className="pbs-sc-hint">Skor dibatasi min/maks host, jadi perubahannya {signed(preview.moved)}, bukan {signed(back)}.</div> : null}
+        {preview.clamped ? (
+          <div className="pbs-sc-hint">
+            Skor dibatasi min/maks host, jadi perubahannya{" "}
+            {signed(preview.moved)}, bukan {signed(back)}.
+          </div>
+        ) : null}
         <div>
           <label className="pbs-label" htmlFor="pbs-sc-vr">
             Alasan pembatalan · wajib
           </label>
-          <textarea id="pbs-sc-vr" className="pbs-textarea" value={reason} onChange={(e) => setReason(e.target.value)} disabled={pending} placeholder="Mis. report sebenarnya terkirim tepat waktu, upload gagal karena gangguan" />
-          <div className="pbs-sc-hint">Alasan ini tampil di ledger host dan di aplikasi host, jadi tulis yang bisa dibaca host.</div>
+          <textarea
+            id="pbs-sc-vr"
+            className="pbs-textarea"
+            value={reason}
+            onChange={(e) => setReason(e.target.value)}
+            disabled={pending}
+            placeholder="Mis. report sebenarnya terkirim tepat waktu, upload gagal karena gangguan"
+          />
+          <div className="pbs-sc-hint">
+            Alasan ini tampil di ledger host dan di aplikasi host, jadi tulis
+            yang bisa dibaca host.
+          </div>
         </div>
         <SaveError action={action} name="VOID_SCORE" />
       </div>
@@ -961,7 +1521,11 @@ function VoidModal(props: { host: HostModel; tx: ScoreTx; bands: ScoreBand[]; no
         <Button variant="ghost" onClick={props.onClose} disabled={pending}>
           Tutup
         </Button>
-        <Button onClick={submit} disabled={!ok || pending} title={!ok ? "Isi alasan minimal 5 karakter" : undefined}>
+        <Button
+          onClick={submit}
+          disabled={!ok || pending}
+          title={!ok ? "Isi alasan minimal 5 karakter" : undefined}
+        >
           {pending ? (
             <>
               <Spinner small /> Menyimpan…
@@ -974,4 +1538,3 @@ function VoidModal(props: { host: HostModel; tx: ScoreTx; bands: ScoreBand[]; no
     </Overlay>
   );
 }
-

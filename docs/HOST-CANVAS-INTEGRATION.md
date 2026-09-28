@@ -1,6 +1,6 @@
 # Integrasi canvas — PBS Hub Host App
 
-Solusi terpisah dari Ops Console: **`PBSHubHostApp`** (managed, `dist/PBSHubHostApp_1_0_7_0_managed.zip`), berisi
+Solusi terpisah dari Ops Console: **`PBSHubHostApp`** (managed, `dist/PBSHubHostApp_1_0_8_0_managed.zip`), berisi
 ketujuh control host dengan identifier baru `pbs_HostApp.*`. Solusi ini menggantikan `PBSHubHostPCF` +
 `PBSHubHostSchedulePCF` (control lama `pbs_Host.*`). Karena nama solusi dan namespace control berbeda, solusi baru
 bisa diimport berdampingan dengan yang lama tanpa bentrok. Publisher dan prefix tetap sama (`PBSHub` / `pbs`).
@@ -72,7 +72,7 @@ Set(varHdResult, "");  Set(varMrdResult, ""); Set(varMsResult, ""); Set(varSdRes
 | Properti | List | Field (bentuk lewat `ForAll`) |
 |---|---|---|
 | `HostJson` | `Host - PBS Hub` | `Title, HostCode, NamaHost, Package, CurrentScore, InitialScore` |
-| `SchedulesJson` / `ScheduleJson` | `Schedule - PBS Hub` | `ID, Title, Date (yyyy-mm-dd), StartTime, EndTime, BrandID, StudioID, HostID, Platform, Account` (dikirim sebagai `AccountID`), `AccountName` (lookup `Schedule.Account` → `Title` list Account, ambil `AccountName`), `LiveBreak` (Choice Yes/No, kosong = No), `Position (Position.Value), Status (Status.Value)`. Sesi dengan `LiveBreak = Yes` atau `Position = Co-Host` **tidak perlu report**: tampil *Tanpa report* / *Finished*, tanpa tombol Send Report. Report hanya bisa dikirim saat `Status = Waiting Report` (lihat *Report per sesi* di bawah) |
+| `SchedulesJson` / `ScheduleJson` | `Schedule - PBS Hub` | `ID, Title, Date (yyyy-mm-dd), StartTime, EndTime, BrandID, StudioID, HostID, Platform, Account` (dikirim sebagai `AccountID`), `AccountName` (lookup `Schedule.Account` → `Title` list Account, ambil `AccountName`), `LiveBreak` (Choice Yes/No, kosong = No), `Position (Position.Value), Status (Status.Value)`. Sesi dengan `LiveBreak = Yes` atau `Position = Co-Host` **tidak perlu report**: tampil *Tanpa report* / *Finished*, tanpa tombol Kirim report. Report hanya bisa dikirim saat `Status = Waiting Report` (lihat *Report per sesi* di bawah) |
 | `ClockInJson` | `Clock In - PBS Hub` | `ID, ClockInDate, CheckInTime, CheckOutTime, ClockInTime, ClockOutTime, CheckInOffice` |
 | `AbsenceJson` | `Host Absence - PBS Hub` | `Title, ScheduleID, LiveDate, Status, Created` |
 | `ReportsJson` / `ReportJson` / `HistoryJson` | `Report - PBS Hub` | sama dengan Ops (`ID, Title, ScheduleID, HostID, BrandID, AccountID, Account, Platform, LiveDate`, `LiveID`, `Playbook: Playbook.Value` (Choice), 12 metrik, `ApprovalStatus, Match, ApprovalComment, Approver, ApproverEmail, Attachment, Created, Modified`). List dan detail menampilkan Rep ID (`Title`), Schedule ID, jam live (dari `SchedulesJson`), kolom *Status* = `ApprovalStatus` apa adanya, dan `Playbook`. `ApprovalStatus` kosong tampil *Belum ada status* (bukan menunggu review) |
@@ -91,15 +91,15 @@ Status sesi yang dilihat host dihitung dari data di atas (aturan v1 tetap):
 | Belum dikirim / Terlambat | clock in + absen ada, belum ada Report; *Terlambat* setelah H+`reportDeadlineDays` |
 | Menunggu review / Menunggu review ulang / Perlu revisi / Selesai / Otomatis disetujui / Live break | dari `Report.ApprovalStatus` (`Waiting Approval`, `Waiting Approval Revision`, `Need Revision`, `Done`, `LiveBreak`) + `ApprovalComment` (sama dengan Ops) |
 
-### Report per sesi (Send Report, live terputus, Live Break)
+### Report per sesi (Kirim report, live terputus, Live Break)
 
 | Aturan | Detail |
 |---|---|
-| Kapan bisa report | sudah clock in, absen tercatat, sesi sudah mulai, **dan** `Schedule.Status = Waiting Report`. Canvas mengisi status itu saat ABSEN (`p.scheduleStatus`). Status lain (mis. *Planned*) → tombol **Send Report** nonaktif dengan keterangan |
+| Kapan bisa report | sudah clock in, absen tercatat, sesi sudah mulai, **dan** `Schedule.Status = Waiting Report`. Canvas mengisi status itu saat ABSEN (`p.scheduleStatus`). Status lain (mis. *Planned*) → tombol **Kirim report** nonaktif dengan keterangan |
 | Isian | Live ID (teks), `Durasi(Min)`, Playbook (dropdown), `AddToCart` (**hanya Shopee**; TikTok dan lainnya tidak ditanya, dikirim `null`), Pesanan, Penjualan, ProdukTerjual, JumlahPembeli, CTR, PeakViewer, TotalViewer, CTOR, Comment, screenshot. Semua wajib. `Share` tidak dipakai lagi |
 | Co-Host | tidak perlu report; absen langsung menulis `Status = Finished` |
 | Live Break | saat absen host ditanya *Live Break atau bukan*. **Ya** → tidak perlu report, tapi canvas tetap membuat baris Report dengan semua angka 0 dan `ApprovalStatus = LiveBreak`, `Schedule.Status = Done`, `LiveBreak = Yes` |
-| Live terputus | satu sesi boleh punya beberapa Report (satu per Live ID). Control menjumlahkan `Durasi(Min)` semua report sesi itu dan membandingkannya dengan durasi jadwal (`EndTime − StartTime`). Kurang → status tetap `Waiting Report`, host melihat *kurang X menit, silakan report berikutnya*. Total ≥ durasi jadwal → `Status = Finished`, tombol Send Report hilang |
+| Live terputus | satu sesi boleh punya beberapa Report (satu per Live ID). Control menjumlahkan `Durasi(Min)` semua report sesi itu dan membandingkannya dengan durasi jadwal (`EndTime − StartTime`). Kurang → status tetap `Waiting Report`, host melihat *kurang X menit, silakan report berikutnya*. Total ≥ durasi jadwal → `Status = Finished`, tombol Kirim report hilang |
 | Revisi | report yang `Need Revision` bisa diperbaiki termasuk Live ID, Playbook dan Durasi; status jadwal dihitung ulang dengan durasi baru |
 
 Nama status bisa diganti lewat `Context.config`: `scheduleWaitingStatus` (default `Waiting Report`),
@@ -200,7 +200,7 @@ muncul di *Hari ini* dan *Jadwal saya*, bukan di sini.
 
 ## 5. MyReportDetail (kirim / revisi / lihat)
 
-Mode dipilih dari data: `ReportJson` kosong → **form Send Report** untuk `ScheduleJson` (juga untuk report bagian berikutnya dari live yang terputus); report `Need Revision`
+Mode dipilih dari data: `ReportJson` kosong → **form Kirim report** untuk `ScheduleJson` (juga untuk report bagian berikutnya dari live yang terputus); report `Need Revision`
 → **layar revisi**; selain itu → **read-only**.
 
 ```powerfx
@@ -363,7 +363,7 @@ Status yang dilihat host (sama dengan dashboard, dengan kata dari app v1):
 | **Finished** | report disetujui (manual atau otomatis), atau `Schedule.Status = Finished` tanpa report yang masih menunggu |
 | Dibatalkan | `Schedule.Status` Cancelled / Leave |
 
-KPI: *Live schedule* (sesi bulan ini, tanpa yang batal), *Jam live* (jam sesi yang sudah lewat dari total jam
+KPI: *Jadwal live* (sesi bulan ini, tanpa yang batal), *Jam live* (jam sesi yang sudah lewat dari total jam
 terjadwal), *Absen hari ini*, *Hari clock in* (hari berjadwal sampai hari ini yang punya Clock In).
 
 | Aksi | Canvas |
@@ -417,7 +417,7 @@ Set(varSdLoading, false);
 | Aksi | Canvas |
 |---|---|
 | `ABSEN` 🔒 | pop-up Live Break lalu sama dengan HostDashboard (balas ke `varSdResult`, muat ulang `colSdAbs`, `colSdSch`, `colSdRep`) |
-| `SUBMIT_REPORT` 🔒 | tombol **Send Report** di kepala halaman. Handler yang sama dengan MyReportDetail (flow upload dengan `ScheduleDetail.UploadData`, Patch Report + `Schedule.Status`), balas ke `varSdResult`, lalu muat ulang `colSdSch` dan `colSdRep` supaya daftar report dan sisa durasi terbarui |
+| `SUBMIT_REPORT` 🔒 | tombol **Kirim report** di kepala halaman. Handler yang sama dengan MyReportDetail (flow upload dengan `ScheduleDetail.UploadData`, Patch Report + `Schedule.Status`), balas ke `varSdResult`, lalu muat ulang `colSdSch` dan `colSdRep` supaya daftar report dan sisa durasi terbarui |
 | `RESUBMIT_REPORT` 🔒, `DISPUTE_REVIEW` 🔒 | sama dengan MyReportDetail, balas ke `varSdResult`, lalu `ClearCollect(colSdRep, …)` |
 | `CLOCK_IN` | `Navigate(scrClockIn)` |
 | `OPEN_REPORT`, `OPEN_EVIDENCE` | sama dengan MyReportDetail / HostDashboard (report yang sudah selesai dibuka read-only) |
@@ -425,20 +425,20 @@ Set(varSdLoading, false);
 | `BACK` | `Back()` |
 
 Tata letak mengikuti desain 10–11: kepala halaman (breadcrumb *Jadwal saya / SCD-…*, judul brand, tombol **Absen**,
-**Clock in**, **Send Report** di kanan), baris ringkas sesi (tanggal, jam, platform, posisi, status), kolom utama 8/12
+**Clock in**, **Kirim report** di kanan), baris ringkas sesi (tanggal, jam, platform, posisi, status), kolom utama 8/12
 (langkah berikutnya, form report, revisi, daftar report per bagian, waktu & tempat) dan kolom samping 4/12 (durasi
 report, langkah sesi, sesi lain hari itu).
 
-**Send Report** hanya aktif kalau `Schedule.Status = Waiting Report` (plus clock in, absen, sesi sudah mulai);
+**Kirim report** hanya aktif kalau `Schedule.Status = Waiting Report` (plus clock in, absen, sesi sudah mulai);
 kalau tidak, tombolnya nonaktif dengan keterangan kenapa. Co-Host dan Live Break tidak punya tombol ini
 (*tanpa report*). Setelah report terkirim dan durasinya belum mencukupi, halaman menampilkan *kurang X menit* dan
-tombol berubah jadi **Send Report berikutnya**; setelah total durasi ≥ durasi jadwal tombol hilang dan status
+tombol berubah jadi **Kirim report berikutnya**; setelah total durasi ≥ durasi jadwal tombol hilang dan status
 menjadi `Finished`. Report yang perlu revisi dibuka di tempat (angka, Live ID, Playbook, durasi; perbaiki atau sanggah).
 Sesi tanpa clock in diarahkan minta clock in manual ke tim PBS, sesi batal hanya diberi keterangan.
 
 ## 8. Pemasangan
 
-1. Import `dist/PBSHubHostApp_1_0_7_0_managed.zip` (Solutions → Import). Bisa di environment yang sama dengan
+1. Import `dist/PBSHubHostApp_1_0_8_0_managed.zip` (Solutions → Import). Bisa di environment yang sama dengan
    `PBSHubOpsPCF` dan dengan solusi host lama.
    **Pindah dari solusi lama** (`PBSHubHostPCF` / `PBSHubHostSchedulePCF`, control `pbs_Host.*`): control baru tidak
    otomatis menggantikan yang lama di canvas. Di tiap layar hapus control lama, tambahkan control `pbs_HostApp.*`
@@ -858,7 +858,7 @@ If(!IsBlank(Self.ActionPayload),
 
 `data: Self.UploadData` dibaca sekali di awal: control mengisi `UploadData` (screenshot) bersamaan dengan
 `ActionPayload` dan mengosongkannya di aksi berikutnya. Selama durasi sesi belum terpenuhi (`p.complete = false`)
-`varMrdRep` sengaja tidak diisi, jadi form tetap di layar dengan tombol *Send Report berikutnya*.
+`varMrdRep` sengaja tidak diisi, jadi form tetap di layar dengan tombol *Kirim report berikutnya*.
 
 ```powerfx
 If(!IsBlank(Self.ActionPayload),

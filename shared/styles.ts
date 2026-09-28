@@ -93,6 +93,13 @@ font-family:"Blibli","Helvetica Neue",Arial,sans-serif;font-size:13px;line-heigh
 .pbs-table-scroll{overflow-x:auto}
 .pbs-foot{display:flex;align-items:center;gap:14px;padding:14px 16px;border-top:1px solid var(--row);font-size:12px;color:var(--tx2)}
 .pbs-foot .line{flex:1;height:1px;background:var(--bd)}
+.pbs-pager{flex-wrap:wrap;row-gap:8px}
+.pbs-pages{display:inline-flex;align-items:center;gap:4px}
+.pbs-pg{min-width:32px;height:32px;padding:0 8px;border:1px solid var(--bd);border-radius:8px;background:#fff;color:var(--tx);font-size:12.5px;font-weight:600;cursor:pointer;font-variant-numeric:tabular-nums}
+.pbs-pg:hover:not(:disabled){border-color:var(--p);color:var(--p-dk)}
+.pbs-pg.on{background:var(--p);border-color:var(--p);color:#fff}
+.pbs-pg:disabled{opacity:.4;cursor:not-allowed}
+.pbs-pg-gap{padding:0 2px;color:var(--tx2)}
 .pbs-sk{background:linear-gradient(90deg,#F0F0F0 0%,#F7F7F7 50%,#F0F0F0 100%);background-size:200% 100%;animation:pbs-sh 1.3s linear infinite;border-radius:6px}
 @keyframes pbs-sh{from{background-position:200% 0}to{background-position:-200% 0}}
 .pbs-empty{display:flex;flex-direction:column;align-items:center;text-align:center;padding:36px 24px;gap:6px}

@@ -1,12 +1,47 @@
 import * as React from "react";
 import { ModuleContext, UseActionResult } from "../../../shared/contract";
-import { Row, date, nameIndex, reportPlaybook, reportScheduleId, rowId, str } from "../../../shared/data";
+import {
+  Row,
+  date,
+  nameIndex,
+  reportPlaybook,
+  reportScheduleId,
+  rowId,
+  str,
+} from "../../../shared/data";
 import { fmtDayMonth, fmtNumber, fmtRupiah } from "../../../shared/format";
-import { buildHostSessions, hostOptions, hostReportBadge } from "../../../shared/hostApp";
+import {
+  buildHostSessions,
+  hostOptions,
+  hostReportBadge,
+} from "../../../shared/hostApp";
 import { liveWindow } from "../../../shared/reportItems";
-import { Period, addMonths, fmtPeriod, inPeriod, parsePeriod, periodKey, periodOf } from "../../../shared/payroll";
-import { ALL_METRICS, ReviewState, readMetric, reviewState } from "../../../shared/reconcile";
-import { Badge, Button, EmptyState, EndOfData, Icon, IconName, ResultBanner, Skeleton, Spinner } from "../../../shared/ui";
+import {
+  Period,
+  addMonths,
+  fmtPeriod,
+  inPeriod,
+  parsePeriod,
+  periodKey,
+  periodOf,
+} from "../../../shared/payroll";
+import {
+  ALL_METRICS,
+  ReviewState,
+  readMetric,
+  reviewState,
+} from "../../../shared/reconcile";
+import {
+  Badge,
+  Button,
+  EmptyState,
+  Icon,
+  IconName,
+  Pager,
+  ResultBanner,
+  Skeleton,
+  usePaged,
+} from "../../../shared/ui";
 
 export interface MyReportsProps {
   ctx: ModuleContext;
@@ -51,14 +86,21 @@ const penjualan = ALL_METRICS.find((d) => d.key === "Penjualan");
 export function MyReportsView(props: MyReportsProps): React.ReactElement {
   const { now, action } = props;
   const period: Period = parsePeriod(props.period) ?? periodOf(now);
-  const months = Array.from({ length: 6 }, (_, i) => addMonths(periodOf(now), -i));
-  if (!months.some((m) => periodKey(m) === periodKey(period))) months.push(period);
+  const months = Array.from({ length: 6 }, (_, i) =>
+    addMonths(periodOf(now), -i),
+  );
+  if (!months.some((m) => periodKey(m) === periodKey(period)))
+    months.push(period);
 
-  const initial = (FILTERS.find((f) => f.key === props.defaultFilter)?.key ?? "All") as Filter;
+  const initial = (FILTERS.find((f) => f.key === props.defaultFilter)?.key ??
+    "All") as Filter;
   const [filter, setFilter] = React.useState<Filter>(initial);
   React.useEffect(() => setFilter(initial), [initial]);
 
-  const brands = React.useMemo(() => nameIndex(props.brands, ["NamaBrand", "BrandName"]), [props.brands]);
+  const brands = React.useMemo(
+    () => nameIndex(props.brands, ["NamaBrand", "BrandName"]),
+    [props.brands],
+  );
   const items = React.useMemo((): Item[] => {
     const bySchedule = new Map<string, Row>();
     for (const x of props.schedules) {
@@ -87,22 +129,48 @@ export function MyReportsView(props: MyReportsProps): React.ReactElement {
       .sort((a, b) => (b.day?.getTime() ?? 0) - (a.day?.getTime() ?? 0));
   }, [props.schedules, props.reports, brands, period]);
 
-  const count = (f: (typeof FILTERS)[number]) => (f.key === "All" ? items.length : items.filter((i) => f.states?.includes(i.state)).length);
+  const count = (f: (typeof FILTERS)[number]) =>
+    f.key === "All"
+      ? items.length
+      : items.filter((i) => f.states?.includes(i.state)).length;
   const active = FILTERS.find((f) => f.key === filter) ?? FILTERS[0];
-  const filtered = !active || active.key === "All" ? items : items.filter((i) => active.states?.includes(i.state));
-  // Every loaded row is rendered: a partial list was read as the whole total.
-  const visible = filtered;
+  const filtered =
+    !active || active.key === "All"
+      ? items
+      : items.filter((i) => active.states?.includes(i.state));
+  const paged = usePaged(filtered, `${periodKey(period)}|${filter}`);
+  const visible = paged.rows;
   const revision = items.filter((i) => i.state === "REVISION").length;
   const waiting = items.filter((i) => i.state === "WAITING").length;
-  const approved = items.filter((i) => i.state === "DONE_AUTO" || i.state === "DONE_MANUAL").length;
+  const approved = items.filter(
+    (i) => i.state === "DONE_AUTO" || i.state === "DONE_MANUAL",
+  ).length;
   // Sessions of the month that still owe a report (none sent, or a split live still short of minutes).
   const opts = React.useMemo(() => hostOptions(props.ctx.config), [props.ctx]);
   const owed = React.useMemo(
     () =>
-      buildHostSessions({ schedules: props.schedules, clockIns: props.clockIns, absences: props.absences, reports: props.reports, brands: props.brands, studios: [] }, now, opts).filter(
-        (s) => s.phase === "NEEDS_REPORT" && inPeriod(s.day, period),
-      ),
-    [props.schedules, props.clockIns, props.absences, props.reports, props.brands, now, opts, period],
+      buildHostSessions(
+        {
+          schedules: props.schedules,
+          clockIns: props.clockIns,
+          absences: props.absences,
+          reports: props.reports,
+          brands: props.brands,
+          studios: [],
+        },
+        now,
+        opts,
+      ).filter((s) => s.phase === "NEEDS_REPORT" && inPeriod(s.day, period)),
+    [
+      props.schedules,
+      props.clockIns,
+      props.absences,
+      props.reports,
+      props.brands,
+      now,
+      opts,
+      period,
+    ],
   );
   const lateOwed = owed.filter((s) => s.late).length;
 
@@ -110,7 +178,12 @@ export function MyReportsView(props: MyReportsProps): React.ReactElement {
     setFilter(f);
     action.fire("FILTER_CHANGED", { filter: f, period: periodKey(period) });
   };
-  const open = (i: Item) => action.fire("OPEN_REPORT", { reportId: rowId(i.report), title: str(i.report, "Title"), scheduleId: reportScheduleId(i.report) });
+  const open = (i: Item) =>
+    action.fire("OPEN_REPORT", {
+      reportId: rowId(i.report),
+      title: str(i.report, "Title"),
+      scheduleId: reportScheduleId(i.report),
+    });
 
   const firstLoad = props.loading && items.length === 0;
 
@@ -119,7 +192,11 @@ export function MyReportsView(props: MyReportsProps): React.ReactElement {
       <div className="hc-hi">
         <div>
           <h1>Report saya</h1>
-          <p>{firstLoad ? "Memuat report…" : `${fmtNumber(items.length)}${props.hasMore ? "+" : ""} report pada ${fmtPeriod(period)}${revision ? ` · ${revision} perlu revisi` : ""}`}</p>
+          <p>
+            {firstLoad
+              ? "Memuat report…"
+              : `${fmtNumber(items.length)}${props.hasMore ? "+" : ""} report pada ${fmtPeriod(period)}${revision ? ` · ${revision} perlu revisi` : ""}`}
+          </p>
         </div>
         <label className="pbs-chip">
           <span className="pbs-sr">Bulan</span>
@@ -148,29 +225,73 @@ export function MyReportsView(props: MyReportsProps): React.ReactElement {
           tone="bad"
           label="Belum dikirim"
           value={owed.length}
-          sub={lateOwed ? `${lateOwed} lewat batas` : owed.some((s) => s.partial) ? "termasuk report belum lengkap" : "sesi"}
+          sub={
+            lateOwed
+              ? `${lateOwed} lewat batas`
+              : owed.some((s) => s.partial)
+                ? "termasuk report belum lengkap"
+                : "sesi"
+          }
           loading={firstLoad}
           onClick={
             owed[0]
               ? () => {
                   const s = owed[0];
-                  if (s) action.fire("NEW_REPORT", { scheduleId: s.title, scheduleItemId: s.id, liveDate: s.dayKey });
+                  if (s)
+                    action.fire("NEW_REPORT", {
+                      scheduleId: s.title,
+                      scheduleItemId: s.id,
+                      liveDate: s.dayKey,
+                    });
                 }
               : undefined
           }
         />
-        <SumCard icon="alert" tone="warn" label="Perlu revisi" value={revision} sub="perbaiki atau sanggah" loading={firstLoad} onClick={() => choose("Revision")} />
-        <SumCard icon="clock" tone="" label="Menunggu review" value={waiting} sub="oleh tim PBS" loading={firstLoad} onClick={() => choose("Waiting")} />
-        <SumCard icon="check" tone="ok" label="Disetujui" value={approved} sub={fmtPeriod(period)} loading={firstLoad} onClick={() => choose("Done")} />
+        <SumCard
+          icon="alert"
+          tone="warn"
+          label="Perlu revisi"
+          value={revision}
+          sub="perbaiki atau sanggah"
+          loading={firstLoad}
+          onClick={() => choose("Revision")}
+        />
+        <SumCard
+          icon="clock"
+          tone=""
+          label="Menunggu review"
+          value={waiting}
+          sub="oleh tim PBS"
+          loading={firstLoad}
+          onClick={() => choose("Waiting")}
+        />
+        <SumCard
+          icon="check"
+          tone="ok"
+          label="Disetujui"
+          value={approved}
+          sub={fmtPeriod(period)}
+          loading={firstLoad}
+          onClick={() => choose("Done")}
+        />
       </div>
 
       <div className="hc-chips" role="tablist" aria-label="Status">
         {FILTERS.map((f) => {
           const n = count(f);
-          if (f.key === "LiveBreak" && n === 0 && filter !== "LiveBreak") return null;
+          if (f.key === "LiveBreak" && n === 0 && filter !== "LiveBreak")
+            return null;
           return (
-            <button key={f.key} type="button" role="tab" aria-selected={filter === f.key} className={`hc-chip${filter === f.key ? " on" : ""}`} onClick={() => choose(f.key)}>
-              {f.label} <span className="n">{firstLoad ? "" : fmtNumber(n)}</span>
+            <button
+              key={f.key}
+              type="button"
+              role="tab"
+              aria-selected={filter === f.key}
+              className={`hc-chip${filter === f.key ? " on" : ""}`}
+              onClick={() => choose(f.key)}
+            >
+              {f.label}{" "}
+              <span className="n">{firstLoad ? "" : fmtNumber(n)}</span>
             </button>
           );
         })}
@@ -194,39 +315,53 @@ export function MyReportsView(props: MyReportsProps): React.ReactElement {
                 <Skeleton w={30} />
               </div>
             ))
-          : visible.map((i) => <ReportRow key={i.key} i={i} onOpen={() => open(i)} />)}
+          : visible.map((i) => (
+              <ReportRow key={i.key} i={i} onOpen={() => open(i)} />
+            ))}
       </div>
 
       {firstLoad ? null : filtered.length === 0 ? (
         <EmptyState
           icon={filter === "All" ? "inbox" : "filterX"}
           good={filter === "Revision"}
-          title={filter === "All" ? `Belum ada report di ${fmtPeriod(period)}` : filter === "Revision" ? "Tidak ada report yang perlu revisi" : `Tidak ada report “${active?.label ?? ""}”`}
-          text={filter === "All" ? "Report yang kamu kirim setelah sesi live akan muncul di sini." : `${fmtNumber(items.length)} report lain di bulan ini ada di tab Semua.`}
+          title={
+            filter === "All"
+              ? `Belum ada report di ${fmtPeriod(period)}`
+              : filter === "Revision"
+                ? "Tidak ada report yang perlu revisi"
+                : `Tidak ada report “${active?.label ?? ""}”`
+          }
+          text={
+            filter === "All"
+              ? "Report yang kamu kirim setelah sesi live akan muncul di sini."
+              : `${fmtNumber(items.length)} report lain di bulan ini ada di tab Semua.`
+          }
           action={
             filter !== "All" ? (
-              <Button variant="secondary" size="sm" onClick={() => choose("All")}>
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => choose("All")}
+              >
                 Lihat semua
               </Button>
             ) : undefined
           }
         />
-      ) : props.hasMore ? (
-        <div className="pbs-foot">
-          <span>Total {fmtNumber(filtered.length)} report dimuat · masih ada data lain di server</span>
-          <span className="line" />
-          <Button variant="secondary" size="sm" disabled={props.loading} onClick={() => action.fire("LOAD_MORE", { period: periodKey(period), loaded: props.reports.length })}>
-            {props.loading ? (
-              <>
-                <Spinner small /> Memuat…
-              </>
-            ) : (
-              "Muat lebih banyak"
-            )}
-          </Button>
-        </div>
       ) : (
-        <EndOfData text={`Total ${fmtNumber(filtered.length)} report pada ${fmtPeriod(period)}`} />
+        <Pager
+          paged={paged}
+          unit="report"
+          suffix={props.hasMore ? "" : ` pada ${fmtPeriod(period)}`}
+          hasMore={props.hasMore}
+          loading={props.loading}
+          onLoadMore={() =>
+            action.fire("LOAD_MORE", {
+              period: periodKey(period),
+              loaded: props.reports.length,
+            })
+          }
+        />
       )}
     </div>
   );
@@ -243,21 +378,42 @@ function ReportRow(props: { i: Item; onOpen: () => void }): React.ReactElement {
       <span style={{ minWidth: 0 }}>
         <b style={{ fontWeight: 600 }}>{i.brand}</b>
         {i.platform ? <span className="pbs-muted"> · {i.platform}</span> : null}
-        <span className="pbs-muted" style={{ display: "block", fontSize: 11.5 }}>
-          {[str(i.report, "Title"), reportScheduleId(i.report), time].filter(Boolean).map((t, n) => (
-            <React.Fragment key={n}>
-              {n ? " · " : ""}
-              <span style={{ whiteSpace: "nowrap" }}>{t}</span>
-            </React.Fragment>
-          ))}
+        <span
+          className="pbs-muted"
+          style={{ display: "block", fontSize: 11.5 }}
+        >
+          {[str(i.report, "Title"), reportScheduleId(i.report), time]
+            .filter(Boolean)
+            .map((t, n) => (
+              <React.Fragment key={n}>
+                {n ? " · " : ""}
+                <span style={{ whiteSpace: "nowrap" }}>{t}</span>
+              </React.Fragment>
+            ))}
         </span>
         {playbook ? (
-          <span className="pbs-muted" style={{ display: "block", fontSize: 11.5, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={playbook}>
+          <span
+            className="pbs-muted"
+            style={{
+              display: "block",
+              fontSize: 11.5,
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+              whiteSpace: "nowrap",
+            }}
+            title={playbook}
+          >
             Playbook: {playbook}
           </span>
         ) : null}
       </span>
-      <span className="r pbs-num hide-s">{i.sales === null ? <span className="pbs-muted">—</span> : fmtRupiah(i.sales)}</span>
+      <span className="r pbs-num hide-s">
+        {i.sales === null ? (
+          <span className="pbs-muted">—</span>
+        ) : (
+          fmtRupiah(i.sales)
+        )}
+      </span>
       <span>
         <Badge tone={st.tone} title={st.label}>
           {str(i.report, "ApprovalStatus") || "Belum ada status"}
@@ -272,7 +428,15 @@ function ReportRow(props: { i: Item; onOpen: () => void }): React.ReactElement {
   );
 }
 
-function SumCard(props: { icon: IconName; tone: "" | "ok" | "warn" | "bad"; label: string; value: number; sub: string; loading: boolean; onClick?: () => void }): React.ReactElement {
+function SumCard(props: {
+  icon: IconName;
+  tone: "" | "ok" | "warn" | "bad";
+  label: string;
+  value: number;
+  sub: string;
+  loading: boolean;
+  onClick?: () => void;
+}): React.ReactElement {
   const body = (
     <>
       <span className={`hc-ic${props.tone ? ` ${props.tone}` : ""}`}>

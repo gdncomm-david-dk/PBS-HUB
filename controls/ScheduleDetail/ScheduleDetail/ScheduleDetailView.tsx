@@ -1,7 +1,21 @@
 import * as React from "react";
 import { ModuleContext, UseActionResult } from "../../../shared/contract";
-import { NO_REPORT_LABEL, Row, date, localDayKey, reportPlaybook, reportScheduleId, rowId, str } from "../../../shared/data";
-import { fmtDayMonth, fmtLongDate, fmtRupiah, fmtTime } from "../../../shared/format";
+import {
+  NO_REPORT_LABEL,
+  Row,
+  date,
+  localDayKey,
+  reportPlaybook,
+  reportScheduleId,
+  rowId,
+  str,
+} from "../../../shared/data";
+import {
+  fmtDayMonth,
+  fmtLongDate,
+  fmtRupiah,
+  fmtTime,
+} from "../../../shared/format";
 import {
   BLOCKER_TEXT,
   HOST_REPORT_STATE,
@@ -17,11 +31,41 @@ import {
   reportMinutes,
   reviewerNote,
 } from "../../../shared/hostApp";
-import { SCHEDULE_STATE, SessionStep, StepState, clockInOf, durationMin, fmtHours, isLive, positionOf, scheduleState, sessionSteps } from "../../../shared/hostSchedule";
-import { ALL_METRICS, readMetric, reviewState } from "../../../shared/reconcile";
-import { Coverage, PageHead, Revision, SubmitReport } from "../../../shared/hostReport";
+import {
+  SCHEDULE_STATE,
+  SessionStep,
+  StepState,
+  clockInOf,
+  durationMin,
+  fmtHours,
+  isLive,
+  positionOf,
+  scheduleState,
+  sessionSteps,
+} from "../../../shared/hostSchedule";
+import {
+  ALL_METRICS,
+  readMetric,
+  reviewState,
+} from "../../../shared/reconcile";
+import {
+  Coverage,
+  PageHead,
+  Revision,
+  SubmitReport,
+} from "../../../shared/hostReport";
 import { useAbsen, useAbsenceMemory } from "../../../shared/hostAbsen";
-import { Badge, Button, EmptyState, Icon, IconName, InfoBanner, ResultBanner, Skeleton, Spinner } from "../../../shared/ui";
+import {
+  Badge,
+  Button,
+  EmptyState,
+  Icon,
+  IconName,
+  InfoBanner,
+  ResultBanner,
+  Skeleton,
+  Spinner,
+} from "../../../shared/ui";
 
 export interface ScheduleDetailProps {
   ctx: ModuleContext;
@@ -70,7 +114,8 @@ function until(from: Date, to: Date): string {
   return `${Math.round(m / 1440)} hari lagi`;
 }
 
-const dayText = (d: Date | null): string => (d ? `${fmtLongDate(d).split(",")[0]} ${fmtDayMonth(d)}` : "—");
+const dayText = (d: Date | null): string =>
+  d ? `${fmtLongDate(d).split(",")[0]} ${fmtDayMonth(d)}` : "—";
 
 const STEP_ICON: Record<StepState, IconName> = {
   done: "check",
@@ -81,7 +126,9 @@ const STEP_ICON: Record<StepState, IconName> = {
   skip: "x",
 };
 
-export function ScheduleDetailView(props: ScheduleDetailProps): React.ReactElement {
+export function ScheduleDetailView(
+  props: ScheduleDetailProps,
+): React.ReactElement {
   const { ctx, now, action } = props;
   const opts = React.useMemo(() => hostOptions(ctx.config), [ctx]);
   const absMemo = useAbsenceMemory(action, props.absences);
@@ -100,10 +147,24 @@ export function ScheduleDetailView(props: ScheduleDetailProps): React.ReactEleme
         now,
         opts,
       ),
-    [props.schedules, props.clockIns, absMemo.absences, props.reports, props.brands, props.studios, now, opts],
+    [
+      props.schedules,
+      props.clockIns,
+      absMemo.absences,
+      props.reports,
+      props.brands,
+      props.studios,
+      now,
+      opts,
+    ],
   );
   const want = props.scheduleId.trim().toLowerCase();
-  const s = want ? sessions.find((x) => x.title.toLowerCase() === want || x.id === props.scheduleId.trim()) : sessions[0];
+  const s = want
+    ? sessions.find(
+        (x) =>
+          x.title.toLowerCase() === want || x.id === props.scheduleId.trim(),
+      )
+    : sessions[0];
   const back = () => action.fire("BACK", {});
   const absen = useAbsen(action, host, opts, absMemo.remember);
   const [formOpen, setFormOpen] = React.useState(false);
@@ -113,7 +174,9 @@ export function ScheduleDetailView(props: ScheduleDetailProps): React.ReactEleme
     const el = formRef.current;
     if (!scrollTo || !el) return;
     el.scrollIntoView?.({ behavior: "smooth", block: "start" });
-    el.querySelector<HTMLElement>("input:not([disabled]), select:not([disabled]), button:not([disabled])")?.focus({ preventScroll: true });
+    el.querySelector<HTMLElement>(
+      "input:not([disabled]), select:not([disabled]), button:not([disabled])",
+    )?.focus({ preventScroll: true });
   }, [scrollTo]);
   const toForm = () => {
     setFormOpen(true);
@@ -128,7 +191,11 @@ export function ScheduleDetailView(props: ScheduleDetailProps): React.ReactEleme
         <EmptyState
           icon="calendar"
           title="Jadwal tidak ditemukan"
-          text={props.scheduleId ? `${props.scheduleId} tidak ada di jadwalmu, atau sudah dihapus tim PBS.` : "Pilih sesi dari Jadwal saya."}
+          text={
+            props.scheduleId
+              ? `${props.scheduleId} tidak ada di jadwalmu, atau sudah dihapus tim PBS.`
+              : "Pilih sesi dari Jadwal saya."
+          }
           action={
             <Button variant="secondary" size="sm" onClick={back}>
               Kembali ke Jadwal saya
@@ -146,7 +213,10 @@ export function ScheduleDetailView(props: ScheduleDetailProps): React.ReactEleme
     day: dayText,
   });
   const dur = durationMin(s);
-  const sameDay = sessions.filter((x) => x.dayKey === s.dayKey && x.title !== s.title && x.phase !== "CANCELLED");
+  const sameDay = sessions.filter(
+    (x) =>
+      x.dayKey === s.dayKey && x.title !== s.title && x.phase !== "CANCELLED",
+  );
   const today = s.dayKey === localDayKey(now);
   const busy = action.pending?.action === "ABSEN";
   const position = positionOf(s.row);
@@ -154,7 +224,7 @@ export function ScheduleDetailView(props: ScheduleDetailProps): React.ReactEleme
   const res = action.lastResult;
   const blocker = st === "CANCELLED" ? "NO_REPORT" : reportBlocker(s, opts);
   const justSent = res?.action === "SUBMIT_REPORT" && res.status === "ok";
-  // Send Report: only while Schedule.Status is Waiting Report and minutes are still owed. Gone once
+  // Kirim report: only while Schedule.Status is Waiting Report and minutes are still owed. Gone once
   // the parts cover the session, for a live break and for a Co-Host.
   const sendVisible = blocker !== "NO_REPORT" && blocker !== "COMPLETE";
   const canSend = blocker === null;
@@ -165,7 +235,13 @@ export function ScheduleDetailView(props: ScheduleDetailProps): React.ReactEleme
     host: props.host,
     report: s.report ? [s.report] : [],
     schedule: [s.row],
-    evidence: s.report ? props.evidence.filter((e) => str(e, "Title").toLowerCase() === str(s.report, "Title").toLowerCase()) : [],
+    evidence: s.report
+      ? props.evidence.filter(
+          (e) =>
+            str(e, "Title").toLowerCase() ===
+            str(s.report, "Title").toLowerCase(),
+        )
+      : [],
     clockIns: props.clockIns,
     absences: absMemo.absences,
     onAbsenSent: absMemo.remember,
@@ -180,7 +256,12 @@ export function ScheduleDetailView(props: ScheduleDetailProps): React.ReactEleme
     embedded: true,
     playbooks: props.playbooks,
   };
-  const sendTitle = blocker === "STATUS" ? `Status jadwal masih ${status || "Planned"}. Report hanya bisa dikirim saat status ${opts.waitingStatus}.` : blocker ? BLOCKER_TEXT[blocker] : undefined;
+  const sendTitle =
+    blocker === "STATUS"
+      ? `Status jadwal masih ${status || "Planned"}. Report hanya bisa dikirim saat status ${opts.waitingStatus}.`
+      : blocker
+        ? BLOCKER_TEXT[blocker]
+        : undefined;
 
   return (
     <div className="hc-col">
@@ -198,24 +279,51 @@ export function ScheduleDetailView(props: ScheduleDetailProps): React.ReactEleme
             {s.brand} · {dayText(s.day)}
           </>
         }
-        sub={[`${s.startText || "—"}–${s.endText || "—"}`, s.studio !== "—" ? (/^studio\b/i.test(s.studio) ? s.studio : `Studio ${s.studio}`) : "", s.platform].filter(Boolean).join(" · ")}
+        sub={[
+          `${s.startText || "—"}–${s.endText || "—"}`,
+          s.studio !== "—"
+            ? /^studio\b/i.test(s.studio)
+              ? s.studio
+              : `Studio ${s.studio}`
+            : "",
+          s.platform,
+        ]
+          .filter(Boolean)
+          .join(" · ")}
         right={
           <>
             {s.canAbsen && s.clockedIn ? (
-              <Button variant="secondary" onClick={() => absen.start(s)} disabled={!!action.pending}>
+              <Button
+                variant="secondary"
+                onClick={() => absen.start(s)}
+                disabled={!!action.pending}
+              >
                 {busy ? <Spinner small /> : null} Absen
               </Button>
-            ) : today && !s.clockedIn && st !== "CANCELLED" && s.phase !== "REPORTED" ? (
-              <Button variant="secondary" onClick={() => action.fire("CLOCK_IN", {})}>
+            ) : today &&
+              !s.clockedIn &&
+              st !== "CANCELLED" &&
+              s.phase !== "REPORTED" ? (
+              <Button
+                variant="secondary"
+                onClick={() => action.fire("CLOCK_IN", {})}
+              >
                 <Icon name="mapPin" size={14} /> Clock in
               </Button>
             ) : null}
             {sendVisible ? (
-              <Button onClick={toForm} disabled={!canSend || showForm} title={sendTitle}>
-                <Icon name="file" size={14} /> {s.partial ? "Send Report berikutnya" : "Send Report"}
+              <Button
+                onClick={toForm}
+                disabled={!canSend || showForm}
+                title={sendTitle}
+              >
+                <Icon name="file" size={14} />{" "}
+                {s.partial ? "Kirim report berikutnya" : "Kirim report"}
               </Button>
             ) : s.noReport ? (
-              <Badge tone="success">{NO_REPORT_LABEL[s.noReport]} · tanpa report</Badge>
+              <Badge tone="success">
+                {NO_REPORT_LABEL[s.noReport]} · tanpa report
+              </Badge>
             ) : null}
           </>
         }
@@ -230,13 +338,25 @@ export function ScheduleDetailView(props: ScheduleDetailProps): React.ReactEleme
         <Rec k="Durasi" v={fmtHours(dur)} />
         {position ? <Rec k="Posisi" v={position} /> : null}
         <span className="hc-rec-r">
-          <Badge tone={SCHEDULE_STATE[st].tone}>{s.partial && st !== "REVISION" ? `Kurang ${s.remainingMin} menit` : SCHEDULE_STATE[st].label}</Badge>
+          <Badge tone={SCHEDULE_STATE[st].tone}>
+            {s.partial && st !== "REVISION"
+              ? `Kurang ${s.remainingMin} menit`
+              : SCHEDULE_STATE[st].label}
+          </Badge>
         </span>
       </div>
 
       <ResultBanner
-        result={res && WRITES.includes(res.action) && res.status !== "ok" ? null : res}
-        okText={res?.action === "ABSEN" ? (s.noReport || s.reports.length ? "Absen tercatat. Sesi ini tidak perlu report." : "Absen tercatat. Sekarang kamu bisa kirim report sesi ini.") : undefined}
+        result={
+          res && WRITES.includes(res.action) && res.status !== "ok" ? null : res
+        }
+        okText={
+          res?.action === "ABSEN"
+            ? s.noReport || s.reports.length
+              ? "Absen tercatat. Sesi ini tidak perlu report."
+              : "Absen tercatat. Sekarang kamu bisa kirim report sesi ini."
+            : undefined
+        }
         onClose={action.clearResult}
       />
 
@@ -256,15 +376,30 @@ export function ScheduleDetailView(props: ScheduleDetailProps): React.ReactEleme
           />
 
           {showForm ? (
-            <section ref={formRef} className="hc-form" id="hc-report" aria-label="Report sesi ini">
+            <section
+              ref={formRef}
+              className="hc-form"
+              id="hc-report"
+              aria-label="Report sesi ini"
+            >
               <div className="pbs-sec" style={{ marginTop: 4 }}>
-                <span className="pbs-sec-l">{s.reports.length ? `Report ke-${s.reports.length + 1}` : "Send Report"}</span>
-                <span className="pbs-sec-r">Live ID · durasi · angka · screenshot</span>
+                <span className="pbs-sec-l">
+                  {s.reports.length
+                    ? `Report ke-${s.reports.length + 1}`
+                    : "Kirim report"}
+                </span>
+                <span className="pbs-sec-r">
+                  Live ID · durasi · angka · screenshot
+                </span>
               </div>
               <SubmitReport key={s.title} {...formProps} />
               {!justSent ? (
                 <div style={{ marginTop: 8 }}>
-                  <Button variant="ghost" size="sm" onClick={() => setFormOpen(false)}>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setFormOpen(false)}
+                  >
                     Tutup form
                   </Button>
                 </div>
@@ -273,16 +408,30 @@ export function ScheduleDetailView(props: ScheduleDetailProps): React.ReactEleme
           ) : null}
 
           {showRevision && s.report ? (
-            <section className="hc-form" id="hc-revision" aria-label="Revisi report">
+            <section
+              className="hc-form"
+              id="hc-revision"
+              aria-label="Revisi report"
+            >
               <div className="pbs-sec" style={{ marginTop: 4 }}>
                 <span className="pbs-sec-l">Revisi report</span>
                 <span className="pbs-sec-r">{str(s.report, "Title")}</span>
               </div>
-              <Revision key={str(s.report, "Title")} {...formProps} report={s.report} />
+              <Revision
+                key={str(s.report, "Title")}
+                {...formProps}
+                report={s.report}
+              />
             </section>
           ) : null}
 
-          {s.reports.length ? <ReportsCard s={s} revising={showRevision ? s.report : undefined} onOpen={(r) => action.fire("OPEN_REPORT", reportRef(r))} /> : null}
+          {s.reports.length ? (
+            <ReportsCard
+              s={s}
+              revising={showRevision ? s.report : undefined}
+              onOpen={(r) => action.fire("OPEN_REPORT", reportRef(r))}
+            />
+          ) : null}
 
           <div className="hc-card">
             <div className="pbs-sec">
@@ -291,25 +440,46 @@ export function ScheduleDetailView(props: ScheduleDetailProps): React.ReactEleme
             <dl className="hc-kv two">
               <Fact k="Tanggal" v={s.day ? fmtLongDate(s.day) : "—"} />
               <Fact k="Studio" v={s.studio} />
-              <Fact k="Jam live" v={`${s.startText || "—"}–${s.endText || "—"}`} />
+              <Fact
+                k="Jam live"
+                v={`${s.startText || "—"}–${s.endText || "—"}`}
+              />
               <Fact k="Akun" v={s.account || "—"} />
-              <Fact k="Absen dibuka" v={s.start ? `${fmtTime(new Date(s.start.getTime() - opts.absenLeadMin * 60000))} (${opts.absenLeadMin} menit sebelum)` : "—"} />
+              <Fact
+                k="Absen dibuka"
+                v={
+                  s.start
+                    ? `${fmtTime(new Date(s.start.getTime() - opts.absenLeadMin * 60000))} (${opts.absenLeadMin} menit sebelum)`
+                    : "—"
+                }
+              />
               <Fact k="Status jadwal" v={status || "Planned"} />
-              <Fact k="Batas report" v={s.noReport ? "Tidak perlu report" : dayText(s.due)} />
+              <Fact
+                k="Batas report"
+                v={s.noReport ? "Tidak perlu report" : dayText(s.due)}
+              />
               {position ? <Fact k="Posisi" v={position} /> : null}
             </dl>
           </div>
         </div>
 
         <aside className="hc-aside">
-          {!s.noReport && st !== "CANCELLED" && s.requiredMin && (s.reports.length || st === "NEEDS_REPORT" || st === "LATE") ? (
+          {!s.noReport &&
+          st !== "CANCELLED" &&
+          s.requiredMin &&
+          (s.reports.length || st === "NEEDS_REPORT" || st === "LATE") ? (
             <div className="hc-card">
               <div className="pbs-sec">
                 <span className="pbs-sec-l">Durasi report</span>
               </div>
               <Coverage session={s} />
-              <p className="pbs-muted" style={{ fontSize: 12, margin: "10px 0 0" }}>
-                Live terputus? Kirim satu report per Live ID. Status jadwal tetap {opts.waitingStatus} sampai total durasi mencapai {s.requiredMin} menit, lalu menjadi {opts.doneStatus}.
+              <p
+                className="pbs-muted"
+                style={{ fontSize: 12, margin: "10px 0 0" }}
+              >
+                Live terputus? Kirim satu report per Live ID. Status jadwal
+                tetap {opts.waitingStatus} sampai total durasi mencapai{" "}
+                {s.requiredMin} menit, lalu menjadi {opts.doneStatus}.
               </p>
             </div>
           ) : null}
@@ -328,21 +498,38 @@ export function ScheduleDetailView(props: ScheduleDetailProps): React.ReactEleme
           {sameDay.length ? (
             <div className="hc-card">
               <div className="pbs-sec">
-                <span className="pbs-sec-l">Sesi lain {today ? "hari ini" : `di ${dayText(s.day)}`}</span>
+                <span className="pbs-sec-l">
+                  Sesi lain {today ? "hari ini" : `di ${dayText(s.day)}`}
+                </span>
               </div>
               <div className="hc-stack" style={{ gap: 0 }}>
                 {sameDay.map((x) => {
                   const xs = scheduleState(x, now);
                   return (
-                    <button key={x.title || x.id} type="button" className="hc-other" onClick={() => action.fire("OPEN_SCHEDULE", scheduleRef(x))}>
+                    <button
+                      key={x.title || x.id}
+                      type="button"
+                      className="hc-other"
+                      onClick={() =>
+                        action.fire("OPEN_SCHEDULE", scheduleRef(x))
+                      }
+                    >
                       <span className="pbs-num hc-b">
                         {x.startText}–{x.endText}
                       </span>
                       <span className="hc-ell">
                         {x.brand}
-                        <span className="pbs-muted"> · {[x.platform, x.studio !== "—" ? x.studio : ""].filter(Boolean).join(" · ")}</span>
+                        <span className="pbs-muted">
+                          {" "}
+                          ·{" "}
+                          {[x.platform, x.studio !== "—" ? x.studio : ""]
+                            .filter(Boolean)
+                            .join(" · ")}
+                        </span>
                       </span>
-                      <Badge tone={SCHEDULE_STATE[xs].tone}>{SCHEDULE_STATE[xs].label}</Badge>
+                      <Badge tone={SCHEDULE_STATE[xs].tone}>
+                        {SCHEDULE_STATE[xs].label}
+                      </Badge>
                     </button>
                   );
                 })}
@@ -356,7 +543,11 @@ export function ScheduleDetailView(props: ScheduleDetailProps): React.ReactEleme
   );
 }
 
-function Rec(props: { k: string; v: string; mono?: boolean }): React.ReactElement {
+function Rec(props: {
+  k: string;
+  v: string;
+  mono?: boolean;
+}): React.ReactElement {
   return (
     <div className="hc-rec-i">
       <span className="k">{props.k}</span>
@@ -373,7 +564,11 @@ function Crumb(props: { onBack: () => void }): React.ReactElement {
   );
 }
 
-function Fact(props: { k: string; v: string; mono?: boolean }): React.ReactElement {
+function Fact(props: {
+  k: string;
+  v: string;
+  mono?: boolean;
+}): React.ReactElement {
   return (
     <div>
       <dt>{props.k}</dt>
@@ -387,7 +582,11 @@ function Step(props: { n: number; step: SessionStep }): React.ReactElement {
   return (
     <li className={`hc-step ${step.state}`}>
       <span className={`hc-dot ${step.state}`} aria-hidden="true">
-        {step.state === "todo" ? props.n : <Icon name={STEP_ICON[step.state]} size={14} />}
+        {step.state === "todo" ? (
+          props.n
+        ) : (
+          <Icon name={STEP_ICON[step.state]} size={14} />
+        )}
       </span>
       <div style={{ minWidth: 0 }}>
         <div className="hc-step-t">{step.label}</div>
@@ -455,7 +654,8 @@ function NextStep(props: {
         tone = "warn";
         icon = "mapPin";
         title = "Clock in dulu";
-        text = "Tanpa clock in di hari ini, absen dan report tidak bisa dikirim.";
+        text =
+          "Tanpa clock in di hari ini, absen dan report tidak bisa dikirim.";
         btn = (
           <Button size="sm" onClick={() => action.fire("CLOCK_IN", {})}>
             <Icon name="mapPin" size={14} /> Clock in
@@ -464,10 +664,12 @@ function NextStep(props: {
       } else if (s.canAbsen) {
         tone = "now";
         icon = "checkSquare";
-        title = isLive(s, now) ? "Sesi sedang live — absen sekarang" : "Absen sekarang";
+        title = isLive(s, now)
+          ? "Sesi sedang live — absen sekarang"
+          : "Absen sekarang";
         text = s.noReport
           ? "Absen menandai kamu hadir di sesi ini. Sesi ini tidak perlu report."
-          : "Absen menandai kamu hadir di sesi ini. Kamu akan ditanya apakah sesi ini Live Break; kalau bukan, kirim report lewat Send Report.";
+          : "Absen menandai kamu hadir di sesi ini. Kamu akan ditanya apakah sesi ini Live Break; kalau bukan, kirim report lewat Kirim report.";
         btn = (
           <Button size="sm" onClick={props.onAbsen} disabled={props.pending}>
             {props.busy ? <Spinner small /> : null} Absen
@@ -482,7 +684,8 @@ function NextStep(props: {
       tone = "warn";
       icon = "mapPin";
       title = "Tidak ada clock in di hari ini";
-      text = "Report tidak bisa dikirim tanpa clock in. Kalau kamu memang live, minta tim PBS menambahkan clock in manual.";
+      text =
+        "Report tidak bisa dikirim tanpa clock in. Kalau kamu memang live, minta tim PBS menambahkan clock in manual.";
       break;
     case "NEEDS_REPORT":
     case "LATE":
@@ -493,17 +696,21 @@ function NextStep(props: {
         text = `Sudah dilaporkan ${s.reportedMin} dari ${s.requiredMin} menit dalam ${s.reports.length} report. Silakan kirim report berikutnya untuk sisa live (Live ID berikutnya).`;
       } else {
         title = st === "LATE" ? "Report terlambat" : "Kirim report sesi ini";
-        text = st === "LATE" ? `Batasnya ${dayText(s.due)}. Kirim sekarang dan jelaskan di catatan.` : `Kirim sebelum ${dayText(s.due)}.`;
-        text += " Tekan Send Report, isi Live ID, durasi, angka, dan screenshot.";
+        text =
+          st === "LATE"
+            ? `Batasnya ${dayText(s.due)}. Kirim sekarang dan jelaskan di catatan.`
+            : `Kirim sebelum ${dayText(s.due)}.`;
+        text +=
+          " Tekan Kirim report, isi Live ID, durasi, angka, dan screenshot.";
       }
       if (props.blocker === "STATUS") {
         tone = "warn";
         title = `Menunggu status ${opts.waitingStatus}`;
-        text = `Status jadwal masih ${str(s.row, "Status") || "Planned"}. Send Report terbuka saat status ${opts.waitingStatus} — biasanya langsung setelah absen. Kalau sudah absen tapi status belum berubah, hubungi tim PBS.`;
+        text = `Status jadwal masih ${str(s.row, "Status") || "Planned"}. Kirim report terbuka saat status ${opts.waitingStatus} — biasanya langsung setelah absen. Kalau sudah absen tapi status belum berubah, hubungi tim PBS.`;
       }
       btn = props.onForm ? (
         <Button size="sm" onClick={props.onForm}>
-          {s.partial ? "Send Report berikutnya" : "Send Report"}
+          {s.partial ? "Kirim report berikutnya" : "Kirim report"}
         </Button>
       ) : null;
       break;
@@ -511,9 +718,17 @@ function NextStep(props: {
       tone = "bad";
       icon = "alert";
       title = "Report perlu revisi";
-      text = "Reviewer mengembalikan report ini. Perbaiki angka yang ditandai atau kirim sanggahan.";
+      text =
+        "Reviewer mengembalikan report ini. Perbaiki angka yang ditandai atau kirim sanggahan.";
       btn = (
-        <Button size="sm" onClick={() => document.getElementById("hc-revision")?.scrollIntoView?.({ behavior: "smooth", block: "start" })}>
+        <Button
+          size="sm"
+          onClick={() =>
+            document
+              .getElementById("hc-revision")
+              ?.scrollIntoView?.({ behavior: "smooth", block: "start" })
+          }
+        >
           Lihat revisi
         </Button>
       );
@@ -535,7 +750,9 @@ function NextStep(props: {
   }
   return (
     <div className={`hc-todo${tone ? ` ${tone}` : ""}`}>
-      <span className={`hc-ic${tone === "bad" ? " bad" : tone === "warn" ? " warn" : tone === "ok" ? " ok" : ""}`}>
+      <span
+        className={`hc-ic${tone === "bad" ? " bad" : tone === "warn" ? " warn" : tone === "ok" ? " ok" : ""}`}
+      >
         <Icon name={icon} size={18} />
       </span>
       <div className="hc-todo-b">
@@ -548,27 +765,40 @@ function NextStep(props: {
 }
 
 /** Every report of the session: a live that dropped has one per Live ID. */
-function ReportsCard(props: { s: HostSession; revising: Row | undefined; onOpen: (r: Row) => void }): React.ReactElement {
+function ReportsCard(props: {
+  s: HostSession;
+  revising: Row | undefined;
+  onOpen: (r: Row) => void;
+}): React.ReactElement {
   const { s } = props;
   const pen = ALL_METRICS.find((d) => d.key === "Penjualan");
   return (
     <div className="hc-card">
       <div className="pbs-sec">
         <span className="pbs-sec-l">Report sesi ini · {s.reports.length}</span>
-        <span className="pbs-sec-r">{s.requiredMin ? `${s.reportedMin} dari ${s.requiredMin} menit` : ""}</span>
+        <span className="pbs-sec-r">
+          {s.requiredMin ? `${s.reportedMin} dari ${s.requiredMin} menit` : ""}
+        </span>
       </div>
       <div className="hc-stack" style={{ gap: 0 }}>
         {s.reports.map((r, i) => {
           const rs = reviewState(r);
           const b = hostReportBadge(r, rs);
-          const note = rs === "REVISION" ? reviewerNote(str(r, "ApprovalComment")) : "";
+          const note =
+            rs === "REVISION" ? reviewerNote(str(r, "ApprovalComment")) : "";
           const min = reportMinutes(r);
           return (
-            <div key={str(r, "Title") || i} className={`hc-part${rs === "REVISION" ? " bad" : ""}`}>
+            <div
+              key={str(r, "Title") || i}
+              className={`hc-part${rs === "REVISION" ? " bad" : ""}`}
+            >
               <span className="n">{i + 1}</span>
               <span style={{ minWidth: 0 }}>
                 <b className="pbs-num">{str(r, "Title") || "Report baru"}</b>
-                <span className="pbs-muted" style={{ display: "block", fontSize: 12, marginTop: 2 }}>
+                <span
+                  className="pbs-muted"
+                  style={{ display: "block", fontSize: 12, marginTop: 2 }}
+                >
                   {[
                     reportLiveId(r) ? `Live ID ${reportLiveId(r)}` : "",
                     min !== null ? `${min} menit` : "durasi kosong",
@@ -580,7 +810,10 @@ function ReportsCard(props: { s: HostSession; revising: Row | undefined; onOpen:
                     .join(" · ")}
                 </span>
                 {note ? (
-                  <span className="pbs-t-bad" style={{ display: "block", fontSize: 12, marginTop: 2 }}>
+                  <span
+                    className="pbs-t-bad"
+                    style={{ display: "block", fontSize: 12, marginTop: 2 }}
+                  >
                     “{note}”
                   </span>
                 ) : null}
@@ -588,8 +821,14 @@ function ReportsCard(props: { s: HostSession; revising: Row | undefined; onOpen:
               <Badge tone={b.tone} title={str(r, "ApprovalStatus")}>
                 {b.label}
               </Badge>
-              <button type="button" className="pbs-link" onClick={() => props.onOpen(r)}>
-                {rs === "REVISION" && props.revising !== r ? "Perbaiki" : "Lihat"}
+              <button
+                type="button"
+                className="pbs-link"
+                onClick={() => props.onOpen(r)}
+              >
+                {rs === "REVISION" && props.revising !== r
+                  ? "Perbaiki"
+                  : "Lihat"}
               </button>
             </div>
           );

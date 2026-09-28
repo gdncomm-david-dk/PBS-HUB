@@ -4,44 +4,191 @@ import type { Tone } from "./reconcile";
 import { MASCOT_CHEER } from "./assets.generated";
 
 export type IconName =
-  | "checkSquare" | "mapPin" | "clock" | "file" | "calendar" | "upload" | "alert" | "check" | "info"
-  | "image" | "zoom" | "refresh" | "x" | "chevronDown" | "arrowLeft" | "external" | "bell" | "sparkle" | "inbox" | "filterX"
-  | "eye" | "eyeOff" | "lock" | "search" | "plus" | "user" | "camera";
+  | "checkSquare"
+  | "mapPin"
+  | "clock"
+  | "file"
+  | "calendar"
+  | "upload"
+  | "alert"
+  | "check"
+  | "info"
+  | "image"
+  | "zoom"
+  | "refresh"
+  | "x"
+  | "chevronDown"
+  | "arrowLeft"
+  | "external"
+  | "bell"
+  | "sparkle"
+  | "inbox"
+  | "filterX"
+  | "eye"
+  | "eyeOff"
+  | "lock"
+  | "search"
+  | "plus"
+  | "user"
+  | "camera";
 
 const PATHS: Record<IconName, React.ReactNode> = {
-  checkSquare: <><path d="M9 11l3 3L22 4" /><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" /></>,
-  mapPin: <><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0z" /><circle cx="12" cy="10" r="3" /></>,
-  clock: <><circle cx="12" cy="12" r="10" /><path d="M12 6v6l4 2" /></>,
-  file: <><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><path d="M14 2v6h6" /></>,
-  calendar: <><rect x="3" y="4" width="18" height="18" rx="2" /><path d="M16 2v4M8 2v4M3 10h18" /></>,
-  upload: <><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><path d="M17 8l-5-5-5 5M12 3v12" /></>,
-  alert: <><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" /><path d="M12 9v4M12 17h.01" /></>,
+  checkSquare: (
+    <>
+      <path d="M9 11l3 3L22 4" />
+      <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
+    </>
+  ),
+  mapPin: (
+    <>
+      <path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0z" />
+      <circle cx="12" cy="10" r="3" />
+    </>
+  ),
+  clock: (
+    <>
+      <circle cx="12" cy="12" r="10" />
+      <path d="M12 6v6l4 2" />
+    </>
+  ),
+  file: (
+    <>
+      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+      <path d="M14 2v6h6" />
+    </>
+  ),
+  calendar: (
+    <>
+      <rect x="3" y="4" width="18" height="18" rx="2" />
+      <path d="M16 2v4M8 2v4M3 10h18" />
+    </>
+  ),
+  upload: (
+    <>
+      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+      <path d="M17 8l-5-5-5 5M12 3v12" />
+    </>
+  ),
+  alert: (
+    <>
+      <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+      <path d="M12 9v4M12 17h.01" />
+    </>
+  ),
   check: <path d="M20 6L9 17l-5-5" />,
-  info: <><circle cx="12" cy="12" r="10" /><path d="M12 16v-4M12 8h.01" /></>,
-  image: <><rect x="3" y="3" width="18" height="18" rx="2" /><circle cx="8.5" cy="8.5" r="1.5" /><path d="M21 15l-5-5L5 21" /></>,
-  zoom: <><circle cx="11" cy="11" r="8" /><path d="M21 21l-4.35-4.35M11 8v6M8 11h6" /></>,
-  refresh: <><path d="M23 4v6h-6M1 20v-6h6" /><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" /></>,
+  info: (
+    <>
+      <circle cx="12" cy="12" r="10" />
+      <path d="M12 16v-4M12 8h.01" />
+    </>
+  ),
+  image: (
+    <>
+      <rect x="3" y="3" width="18" height="18" rx="2" />
+      <circle cx="8.5" cy="8.5" r="1.5" />
+      <path d="M21 15l-5-5L5 21" />
+    </>
+  ),
+  zoom: (
+    <>
+      <circle cx="11" cy="11" r="8" />
+      <path d="M21 21l-4.35-4.35M11 8v6M8 11h6" />
+    </>
+  ),
+  refresh: (
+    <>
+      <path d="M23 4v6h-6M1 20v-6h6" />
+      <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
+    </>
+  ),
   x: <path d="M18 6L6 18M6 6l12 12" />,
   chevronDown: <path d="M6 9l6 6 6-6" />,
   arrowLeft: <path d="M19 12H5M12 19l-7-7 7-7" />,
-  external: <><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" /><path d="M15 3h6v6M10 14L21 3" /></>,
-  bell: <><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" /><path d="M13.73 21a2 2 0 0 1-3.46 0" /></>,
-  sparkle: <path d="M12 3l1.9 5.8L20 11l-6.1 2.2L12 19l-1.9-5.8L4 11l6.1-2.2z" />,
-  inbox: <><path d="M22 12h-6l-2 3h-4l-2-3H2" /><path d="M5.45 5.11L2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z" /></>,
-  filterX: <><path d="M22 3H2l8 9.46V19l4 2v-8.54z" /></>,
-  eye: <><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" /><circle cx="12" cy="12" r="3" /></>,
-  eyeOff: <><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19" /><path d="M1 1l22 22" /></>,
-  lock: <><rect x="3" y="11" width="18" height="11" rx="2" /><path d="M7 11V7a5 5 0 0 1 10 0v4" /></>,
-  search: <><circle cx="11" cy="11" r="8" /><path d="M21 21l-4.35-4.35" /></>,
+  external: (
+    <>
+      <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+      <path d="M15 3h6v6M10 14L21 3" />
+    </>
+  ),
+  bell: (
+    <>
+      <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
+      <path d="M13.73 21a2 2 0 0 1-3.46 0" />
+    </>
+  ),
+  sparkle: (
+    <path d="M12 3l1.9 5.8L20 11l-6.1 2.2L12 19l-1.9-5.8L4 11l6.1-2.2z" />
+  ),
+  inbox: (
+    <>
+      <path d="M22 12h-6l-2 3h-4l-2-3H2" />
+      <path d="M5.45 5.11L2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z" />
+    </>
+  ),
+  filterX: (
+    <>
+      <path d="M22 3H2l8 9.46V19l4 2v-8.54z" />
+    </>
+  ),
+  eye: (
+    <>
+      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+      <circle cx="12" cy="12" r="3" />
+    </>
+  ),
+  eyeOff: (
+    <>
+      <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19" />
+      <path d="M1 1l22 22" />
+    </>
+  ),
+  lock: (
+    <>
+      <rect x="3" y="11" width="18" height="11" rx="2" />
+      <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+    </>
+  ),
+  search: (
+    <>
+      <circle cx="11" cy="11" r="8" />
+      <path d="M21 21l-4.35-4.35" />
+    </>
+  ),
   plus: <path d="M12 5v14M5 12h14" />,
-  user: <><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" /></>,
-  camera: <><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" /><circle cx="12" cy="13" r="4" /></>,
+  user: (
+    <>
+      <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+      <circle cx="12" cy="7" r="4" />
+    </>
+  ),
+  camera: (
+    <>
+      <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
+      <circle cx="12" cy="13" r="4" />
+    </>
+  ),
 };
 
-export function Icon(props: { name: IconName; size?: number; color?: string; style?: React.CSSProperties }): React.ReactElement {
+export function Icon(props: {
+  name: IconName;
+  size?: number;
+  color?: string;
+  style?: React.CSSProperties;
+}): React.ReactElement {
   const s = props.size ?? 16;
   return (
-    <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={props.color ?? "currentColor"} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style={{ flex: "none", ...props.style }}>
+    <svg
+      width={s}
+      height={s}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke={props.color ?? "currentColor"}
+      strokeWidth={2}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+      style={{ flex: "none", ...props.style }}
+    >
       {PATHS[props.name]}
     </svg>
   );
@@ -56,23 +203,47 @@ export function Button(props: {
   title?: string;
   children: React.ReactNode;
 }): React.ReactElement {
-  const cls = ["pbs-btn", props.variant ?? "primary", props.size === "sm" ? "sm" : "", props.wide ? "wide" : ""].filter(Boolean).join(" ");
+  const cls = [
+    "pbs-btn",
+    props.variant ?? "primary",
+    props.size === "sm" ? "sm" : "",
+    props.wide ? "wide" : "",
+  ]
+    .filter(Boolean)
+    .join(" ");
   return (
-    <button type="button" className={cls} disabled={props.disabled} onClick={props.onClick} title={props.title}>
+    <button
+      type="button"
+      className={cls}
+      disabled={props.disabled}
+      onClick={props.onClick}
+      title={props.title}
+    >
       {props.children}
     </button>
   );
 }
 
-export function Badge(props: { tone: Tone; children: React.ReactNode; small?: boolean; title?: string }): React.ReactElement {
+export function Badge(props: {
+  tone: Tone;
+  children: React.ReactNode;
+  small?: boolean;
+  title?: string;
+}): React.ReactElement {
   return (
-    <span className={`pbs-badge ${props.tone}${props.small ? " sm" : ""}`} title={props.title}>
+    <span
+      className={`pbs-badge ${props.tone}${props.small ? " sm" : ""}`}
+      title={props.title}
+    >
       {props.children}
     </span>
   );
 }
 
-export function Pill(props: { tone: Tone; children: React.ReactNode }): React.ReactElement {
+export function Pill(props: {
+  tone: Tone;
+  children: React.ReactNode;
+}): React.ReactElement {
   return <span className={`pbs-pill ${props.tone}`}>{props.children}</span>;
 }
 
@@ -85,19 +256,35 @@ export const TONE_DOT: Record<Tone, string> = {
 };
 
 export function Dot(props: { tone: Tone }): React.ReactElement {
-  return <span className="pbs-dot" style={{ background: TONE_DOT[props.tone] }} aria-hidden="true" />;
+  return (
+    <span
+      className="pbs-dot"
+      style={{ background: TONE_DOT[props.tone] }}
+      aria-hidden="true"
+    />
+  );
 }
 
-export function SectionHeader(props: { label: string; right?: React.ReactNode }): React.ReactElement {
+export function SectionHeader(props: {
+  label: string;
+  right?: React.ReactNode;
+}): React.ReactElement {
   return (
     <div className="pbs-sec">
       <span className="pbs-sec-l">{props.label}</span>
-      {props.right !== undefined ? <span className="pbs-sec-r">{props.right}</span> : null}
+      {props.right !== undefined ? (
+        <span className="pbs-sec-r">{props.right}</span>
+      ) : null}
     </div>
   );
 }
 
-export function ModuleHeader(props: { crumb?: React.ReactNode; title: string; subtitle?: React.ReactNode; actions?: React.ReactNode }): React.ReactElement {
+export function ModuleHeader(props: {
+  crumb?: React.ReactNode;
+  title: string;
+  subtitle?: React.ReactNode;
+  actions?: React.ReactNode;
+}): React.ReactElement {
   return (
     <div className="pbs-mh">
       <div style={{ minWidth: 0 }}>
@@ -105,7 +292,9 @@ export function ModuleHeader(props: { crumb?: React.ReactNode; title: string; su
         <h1 className="pbs-h1">{props.title}</h1>
         {props.subtitle ? <p className="pbs-sub">{props.subtitle}</p> : null}
       </div>
-      {props.actions ? <div className="pbs-actions">{props.actions}</div> : null}
+      {props.actions ? (
+        <div className="pbs-actions">{props.actions}</div>
+      ) : null}
     </div>
   );
 }
@@ -115,7 +304,11 @@ export function ModuleHeader(props: { crumb?: React.ReactNode; title: string; su
  * stays until dismissed and names the record, because a silent failure is how v1 lost writes
  * (ScreenPayroll.pa.yaml:4437 notified success unconditionally).
  */
-export function ResultBanner(props: { result: (ActionResult & { action: string }) | null; onClose: () => void; okText?: string }): React.ReactElement | null {
+export function ResultBanner(props: {
+  result: (ActionResult & { action: string }) | null;
+  onClose: () => void;
+  okText?: string;
+}): React.ReactElement | null {
   const { result, onClose } = props;
   React.useEffect(() => {
     if (result?.status === "ok") {
@@ -127,32 +320,72 @@ export function ResultBanner(props: { result: (ActionResult & { action: string }
   if (!result || result.status === "conflict") return null;
   const ok = result.status === "ok";
   return (
-    <div className={`pbs-banner ${ok ? "ok" : "err"}`} role={ok ? "status" : "alert"}>
+    <div
+      className={`pbs-banner ${ok ? "ok" : "err"}`}
+      role={ok ? "status" : "alert"}
+    >
       <Icon name={ok ? "check" : "alert"} />
-      <div className="grow">{result.message || (ok ? props.okText ?? "Tersimpan." : "Gagal menyimpan. Coba lagi.")}</div>
-      <button type="button" className="pbs-x" onClick={onClose} aria-label="Tutup">
+      <div className="grow">
+        {result.message ||
+          (ok ? (props.okText ?? "Tersimpan.") : "Gagal menyimpan. Coba lagi.")}
+      </div>
+      <button
+        type="button"
+        className="pbs-x"
+        onClick={onClose}
+        aria-label="Tutup"
+      >
         <Icon name="x" size={14} />
       </button>
     </div>
   );
 }
 
-export function InfoBanner(props: { tone?: "info" | "warn" | "err"; children: React.ReactNode; action?: React.ReactNode; icon?: IconName }): React.ReactElement {
+export function InfoBanner(props: {
+  tone?: "info" | "warn" | "err";
+  children: React.ReactNode;
+  action?: React.ReactNode;
+  icon?: IconName;
+}): React.ReactElement {
   const tone = props.tone ?? "info";
   return (
-    <div className={`pbs-banner ${tone}`} role={tone === "err" ? "alert" : "status"}>
-      <Icon name={props.icon ?? (tone === "info" ? "info" : "alert")} color={tone === "info" ? "#0072FF" : undefined} />
+    <div
+      className={`pbs-banner ${tone}`}
+      role={tone === "err" ? "alert" : "status"}
+    >
+      <Icon
+        name={props.icon ?? (tone === "info" ? "info" : "alert")}
+        color={tone === "info" ? "#0072FF" : undefined}
+      />
       <div className="grow">{props.children}</div>
       {props.action}
     </div>
   );
 }
 
-export function Skeleton(props: { w?: number | string; h?: number; r?: number; style?: React.CSSProperties }): React.ReactElement {
-  return <div className="pbs-sk" style={{ width: props.w ?? "100%", height: props.h ?? 12, borderRadius: props.r ?? 6, ...props.style }} />;
+export function Skeleton(props: {
+  w?: number | string;
+  h?: number;
+  r?: number;
+  style?: React.CSSProperties;
+}): React.ReactElement {
+  return (
+    <div
+      className="pbs-sk"
+      style={{
+        width: props.w ?? "100%",
+        height: props.h ?? 12,
+        borderRadius: props.r ?? 6,
+        ...props.style,
+      }}
+    />
+  );
 }
 
-export function SkeletonRows(props: { rows: number; cols: number }): React.ReactElement {
+export function SkeletonRows(props: {
+  rows: number;
+  cols: number;
+}): React.ReactElement {
   return (
     <>
       {Array.from({ length: props.rows }, (_, i) => (
@@ -169,7 +402,13 @@ export function SkeletonRows(props: { rows: number; cols: number }): React.React
 }
 
 /** Empty state. `good` renders the mascot: an empty queue is good news, not an error. */
-export function EmptyState(props: { good?: boolean; icon?: IconName; title: string; text?: React.ReactNode; action?: React.ReactNode }): React.ReactElement {
+export function EmptyState(props: {
+  good?: boolean;
+  icon?: IconName;
+  title: string;
+  text?: React.ReactNode;
+  action?: React.ReactNode;
+}): React.ReactElement {
   return (
     <div className="pbs-empty">
       {props.good ? (
@@ -181,7 +420,9 @@ export function EmptyState(props: { good?: boolean; icon?: IconName; title: stri
       )}
       <h3>{props.title}</h3>
       {props.text ? <p>{props.text}</p> : null}
-      {props.action ? <div style={{ marginTop: 10 }}>{props.action}</div> : null}
+      {props.action ? (
+        <div style={{ marginTop: 10 }}>{props.action}</div>
+      ) : null}
     </div>
   );
 }
@@ -196,12 +437,21 @@ export function EndOfData(props: { text: string }): React.ReactElement {
   );
 }
 
-export function FilterSelect(props: { label: string; value: string; options: { value: string; label: string }[]; onChange: (v: string) => void }): React.ReactElement {
+export function FilterSelect(props: {
+  label: string;
+  value: string;
+  options: { value: string; label: string }[];
+  onChange: (v: string) => void;
+}): React.ReactElement {
   const on = props.value !== "";
   return (
     <label className={`pbs-chip${on ? " on" : ""}`}>
       <span className="pbs-sr">{props.label}</span>
-      <select value={props.value} onChange={(e) => props.onChange(e.target.value)} aria-label={props.label}>
+      <select
+        value={props.value}
+        onChange={(e) => props.onChange(e.target.value)}
+        aria-label={props.label}
+      >
         <option value="">{props.label}</option>
         {props.options.map((o) => (
           <option key={o.value} value={o.value}>
@@ -214,17 +464,35 @@ export function FilterSelect(props: { label: string; value: string; options: { v
   );
 }
 
-export function FilterDate(props: { label: string; value: string; onChange: (v: string) => void }): React.ReactElement {
+export function FilterDate(props: {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+}): React.ReactElement {
   return (
-    <label className={`pbs-chip${props.value ? " on" : ""}`} title={props.label}>
+    <label
+      className={`pbs-chip${props.value ? " on" : ""}`}
+      title={props.label}
+    >
       <span className="pbs-sr">{props.label}</span>
-      <input type="date" value={props.value} onChange={(e) => props.onChange(e.target.value)} aria-label={props.label} />
+      <input
+        type="date"
+        value={props.value}
+        onChange={(e) => props.onChange(e.target.value)}
+        aria-label={props.label}
+      />
     </label>
   );
 }
 
 export function Spinner(props: { small?: boolean }): React.ReactElement {
-  return <span className={`pbs-spin${props.small ? " sm" : ""}`} role="progressbar" aria-label="Memuat" />;
+  return (
+    <span
+      className={`pbs-spin${props.small ? " sm" : ""}`}
+      role="progressbar"
+      aria-label="Memuat"
+    />
+  );
 }
 
 /**
@@ -238,33 +506,62 @@ export function Spinner(props: { small?: boolean }): React.ReactElement {
  * than visible), across the shadow boundary, and by the window. The Power Apps player puts the control
  * in scrolling / clipping containers, so the window alone is not enough.
  */
-export function visibleBand(el: HTMLElement): { top: number; bottom: number; left: number; right: number } {
+export function visibleBand(el: HTMLElement): {
+  top: number;
+  bottom: number;
+  left: number;
+  right: number;
+} {
   const r = el.getBoundingClientRect();
   let top = r.top;
   let bottom = r.bottom;
   let left = r.left;
   let right = r.right;
-  let node: Element | null = el.parentElement ?? ((el.getRootNode() as ShadowRoot).host || null);
+  let node: Element | null =
+    el.parentElement ?? ((el.getRootNode() as ShadowRoot).host || null);
   while (node && node !== document.documentElement) {
     const cs = window.getComputedStyle(node);
-    if (/(auto|scroll|hidden|clip)/.test(cs.overflow + cs.overflowX + cs.overflowY)) {
+    if (
+      /(auto|scroll|hidden|clip)/.test(
+        cs.overflow + cs.overflowX + cs.overflowY,
+      )
+    ) {
       const a = node.getBoundingClientRect();
       top = Math.max(top, a.top);
       bottom = Math.min(bottom, a.bottom);
       left = Math.max(left, a.left);
       right = Math.min(right, a.right);
     }
-    const parent: Element | null = node.parentElement ?? ((node.getRootNode() as ShadowRoot).host || null);
+    const parent: Element | null =
+      node.parentElement ?? ((node.getRootNode() as ShadowRoot).host || null);
     node = parent === node ? null : parent;
   }
-  const vw = window.innerWidth || document.documentElement.clientWidth || r.width;
-  const vh = window.innerHeight || document.documentElement.clientHeight || r.height;
-  return { top: Math.max(top, 0), bottom: Math.min(bottom, vh), left: Math.max(left, 0), right: Math.min(right, vw) };
+  const vw =
+    window.innerWidth || document.documentElement.clientWidth || r.width;
+  const vh =
+    window.innerHeight || document.documentElement.clientHeight || r.height;
+  return {
+    top: Math.max(top, 0),
+    bottom: Math.min(bottom, vh),
+    left: Math.max(left, 0),
+    right: Math.min(right, vw),
+  };
 }
 
-export function Overlay(props: { onClose: () => void; busy?: boolean; labelledBy: string; children: React.ReactNode; wide?: boolean }): React.ReactElement {
+export function Overlay(props: {
+  onClose: () => void;
+  busy?: boolean;
+  labelledBy: string;
+  children: React.ReactNode;
+  wide?: boolean;
+}): React.ReactElement {
   const ref = React.useRef<HTMLDivElement>(null);
-  const [box, setBox] = React.useState<{ top: number; height: number; left: number; width: number } | null>(null);
+  const [box, setBox] = React.useState<{
+    top: number;
+    height: number;
+    left: number;
+    width: number;
+  } | null>(null);
   React.useLayoutEffect(() => {
     const el = ref.current;
     const root = el?.closest(".pbs-root") as HTMLElement | null;
@@ -276,7 +573,12 @@ export function Overlay(props: { onClose: () => void; busy?: boolean; labelledBy
       const height = Math.max(240, v.bottom - v.top);
       const width = Math.max(300, v.right - v.left);
       const own = anchor === root;
-      setBox({ top: v.top - a.top + (own ? root.scrollTop : 0), height, left: v.left - a.left + (own ? root.scrollLeft : 0), width });
+      setBox({
+        top: v.top - a.top + (own ? root.scrollTop : 0),
+        height,
+        left: v.left - a.left + (own ? root.scrollLeft : 0),
+        width,
+      });
     };
     const prev = root.style.overflow;
     place();
@@ -293,7 +595,9 @@ export function Overlay(props: { onClose: () => void; busy?: boolean; labelledBy
   close.current = props.busy ? () => undefined : props.onClose;
   React.useEffect(() => {
     // Focus the dialog (not a field: a time input would swallow Escape) and close on Escape anywhere.
-    ref.current?.querySelector<HTMLElement>("[role=dialog]")?.focus({ preventScroll: true });
+    ref.current
+      ?.querySelector<HTMLElement>("[role=dialog]")
+      ?.focus({ preventScroll: true });
     const onKey = (e: KeyboardEvent) => e.key === "Escape" && close.current();
     document.addEventListener("keydown", onKey, true);
     return () => document.removeEventListener("keydown", onKey, true);
@@ -303,10 +607,30 @@ export function Overlay(props: { onClose: () => void; busy?: boolean; labelledBy
       ref={ref}
       className="pbs-overlay"
       role="presentation"
-      style={box ? { top: box.top, height: box.height, left: box.left, width: box.width, bottom: "auto", right: "auto" } : { visibility: "hidden" }}
-      onMouseDown={(e) => e.target === e.currentTarget && !props.busy && props.onClose()}
+      style={
+        box
+          ? {
+              top: box.top,
+              height: box.height,
+              left: box.left,
+              width: box.width,
+              bottom: "auto",
+              right: "auto",
+            }
+          : { visibility: "hidden" }
+      }
+      onMouseDown={(e) =>
+        e.target === e.currentTarget && !props.busy && props.onClose()
+      }
     >
-      <div className={`pbs-modal${props.wide ? " wide" : ""}`} role="dialog" aria-modal="true" aria-labelledby={props.labelledBy} tabIndex={-1} style={{ outline: "none" }}>
+      <div
+        className={`pbs-modal${props.wide ? " wide" : ""}`}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={props.labelledBy}
+        tabIndex={-1}
+        style={{ outline: "none" }}
+      >
         {props.children}
       </div>
     </div>
@@ -314,18 +638,188 @@ export function Overlay(props: { onClose: () => void; busy?: boolean; labelledBy
 }
 
 /** Report.Playbook: a link opens through canvas (Launch), plain text is shown as is. */
-export function PlaybookValue(props: { value: string; onOpen?: (url: string) => void; compact?: boolean }): React.ReactElement {
+export function PlaybookValue(props: {
+  value: string;
+  onOpen?: (url: string) => void;
+  compact?: boolean;
+}): React.ReactElement {
   const v = props.value;
   if (!v) return <span className="pbs-muted">—</span>;
   if (/^https?:\/\//i.test(v) && props.onOpen)
     return (
-      <button type="button" className="pbs-link" title={v} onClick={() => props.onOpen?.(v)} style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
+      <button
+        type="button"
+        className="pbs-link"
+        title={v}
+        onClick={() => props.onOpen?.(v)}
+        style={{ display: "inline-flex", alignItems: "center", gap: 4 }}
+      >
         Buka playbook <Icon name="external" size={12} />
       </button>
     );
   return (
-    <span title={v} style={props.compact ? { display: "inline-block", maxWidth: 150, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", verticalAlign: "bottom" } : { whiteSpace: "pre-wrap" }}>
+    <span
+      title={v}
+      style={
+        props.compact
+          ? {
+              display: "inline-block",
+              maxWidth: 150,
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+              whiteSpace: "nowrap",
+              verticalAlign: "bottom",
+            }
+          : { whiteSpace: "pre-wrap" }
+      }
+    >
       {v}
     </span>
+  );
+}
+
+// ---- pagination ---------------------------------------------------------------------------------
+
+/** Rows per page in every data table. */
+export const PAGE_SIZE = 15;
+
+export interface Paged<T> {
+  rows: T[];
+  page: number;
+  pages: number;
+  from: number;
+  to: number;
+  total: number;
+  setPage: (p: number) => void;
+}
+
+/**
+ * Client-side pages over the rows canvas sent. `resetKey` (filters, tab, sort) sends the user back to
+ * page 1 when it changes; a shorter list clamps to its last page instead of showing an empty one.
+ */
+export function usePaged<T>(
+  rows: T[],
+  resetKey: string,
+  size = PAGE_SIZE,
+): Paged<T> {
+  const [state, setState] = React.useState({ page: 0, key: resetKey });
+  const current = state.key === resetKey ? state.page : 0;
+  const pages = Math.max(1, Math.ceil(rows.length / size));
+  const page = Math.min(current, pages - 1);
+  const start = page * size;
+  return {
+    rows: rows.slice(start, start + size),
+    page,
+    pages,
+    from: rows.length ? start + 1 : 0,
+    to: Math.min(rows.length, start + size),
+    total: rows.length,
+    setPage: (p: number) =>
+      setState({ page: Math.max(0, Math.min(p, pages - 1)), key: resetKey }),
+  };
+}
+
+/** 1 … 4 5 6 … 12: first, last and the neighbours of the current page. */
+export function pageList(page: number, pages: number): (number | null)[] {
+  const out: (number | null)[] = [];
+  for (let i = 0; i < pages; i++) {
+    if (i === 0 || i === pages - 1 || Math.abs(i - page) <= 1) out.push(i);
+    else if (out[out.length - 1] !== null) out.push(null);
+  }
+  return out;
+}
+
+/**
+ * Table footer: "Menampilkan 16–30 dari 42 report", page buttons, and Muat lebih banyak when the
+ * server holds more rows than canvas sent (LOAD_MORE). A single page reads "Total 12 report".
+ */
+export function Pager(props: {
+  paged: Paged<unknown>;
+  unit: string;
+  suffix?: string;
+  hasMore?: boolean;
+  loading?: boolean;
+  onLoadMore?: () => void;
+}): React.ReactElement {
+  const { paged: p, unit, suffix = "" } = props;
+  const more = !!props.hasMore && !!props.onLoadMore;
+  if (p.pages <= 1 && !more)
+    return (
+      <EndOfData
+        text={`Total ${p.total.toLocaleString("id-ID")} ${unit}${suffix}`}
+      />
+    );
+  const n = (v: number) => v.toLocaleString("id-ID");
+  return (
+    <div
+      className="pbs-foot pbs-pager"
+      role="navigation"
+      aria-label="Halaman tabel"
+    >
+      <span>
+        {p.pages > 1
+          ? `Menampilkan ${n(p.from)}–${n(p.to)} dari ${n(p.total)}${more ? "+" : ""} ${unit}`
+          : `Total ${n(p.total)} ${unit} dimuat`}
+        {suffix}
+        {more ? " · masih ada data lain di server" : ""}
+      </span>
+      <span className="line" />
+      {p.pages > 1 ? (
+        <span className="pbs-pages">
+          <button
+            type="button"
+            className="pbs-pg"
+            onClick={() => p.setPage(p.page - 1)}
+            disabled={p.page === 0}
+            aria-label="Halaman sebelumnya"
+          >
+            ‹
+          </button>
+          {pageList(p.page, p.pages).map((i, k) =>
+            i === null ? (
+              <span key={`g${k}`} className="pbs-pg-gap" aria-hidden="true">
+                …
+              </span>
+            ) : (
+              <button
+                key={i}
+                type="button"
+                className={`pbs-pg${i === p.page ? " on" : ""}`}
+                aria-current={i === p.page ? "page" : undefined}
+                aria-label={`Halaman ${i + 1}`}
+                onClick={() => p.setPage(i)}
+              >
+                {i + 1}
+              </button>
+            ),
+          )}
+          <button
+            type="button"
+            className="pbs-pg"
+            onClick={() => p.setPage(p.page + 1)}
+            disabled={p.page >= p.pages - 1}
+            aria-label="Halaman berikutnya"
+          >
+            ›
+          </button>
+        </span>
+      ) : null}
+      {more ? (
+        <Button
+          variant="secondary"
+          size="sm"
+          disabled={props.loading}
+          onClick={props.onLoadMore}
+        >
+          {props.loading ? (
+            <>
+              <Spinner small /> Memuat…
+            </>
+          ) : (
+            "Muat lebih banyak"
+          )}
+        </Button>
+      ) : null}
+    </div>
   );
 }

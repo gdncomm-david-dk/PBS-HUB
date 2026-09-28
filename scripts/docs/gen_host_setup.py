@@ -106,16 +106,16 @@ dengan formula utuh, dan `OnChange` utuh. Tidak ada "seperti layar lain" — cuk
 
 **Cara kerja singkat.** Control tidak pernah menulis ke SharePoint. Tombol di control mengirim JSON lewat output
 `ActionPayload`; formula **OnChange** control membaca JSON itu, melakukan `Patch`, lalu membalas lewat variabel yang
-dipasang di properti `ActionResult`. Tombol yang mengunci (Absen, Send Report, Kirim revisi, Sanggah, Clock in,
+dipasang di properti `ActionResult`. Tombol yang mengunci (Absen, Kirim report, Kirim revisi, Sanggah, Clock in,
 Clock out) memutar spinner sampai balasan itu datang.
 
 ```text
 Clock in
   └─ Absen → pop-up "Live Break?"
        ├─ Tidak   → Schedule.Status = Waiting Report
-       │             └─ Send Report (boleh beberapa kali, satu per Live ID)
+       │             └─ Kirim report (boleh beberapa kali, satu per Live ID)
        │                  ├─ total Durasi < durasi jadwal → tetap Waiting Report ("kurang X menit")
-       │                  └─ total Durasi ≥ durasi jadwal → Status = Finished, tombol Send Report hilang
+       │                  └─ total Durasi ≥ durasi jadwal → Status = Finished, tombol Kirim report hilang
        ├─ Ya      → Status = Finished, LiveBreak = Yes, Report semua 0 (ApprovalStatus LiveBreak)
        └─ Co-Host → (tidak ditanya) Status = Finished, tanpa report
 Ops review → Done / Need Revision → host revisi → Waiting Approval Revision
@@ -172,7 +172,7 @@ belum ada di list lama, cek dulu.
 
     doc.append("""## Langkah 1 — Import solusi dan tambahkan data source
 
-1. Power Apps → **Solutions → Import solution** → pilih `dist/PBSHubHostApp_1_0_7_0_managed.zip` → Import.
+1. Power Apps → **Solutions → Import solution** → pilih `dist/PBSHubHostApp_1_0_8_0_managed.zip` → Import.
 2. Sekali per environment: Power Platform admin center → environment → **Settings → Product → Features** →
    *Allow publishing of canvas apps with code components* = **On**. Tanpa ini control tidak muncul di tab Code.
 3. Panel **Data → Add data → SharePoint** → site PBS Hub → centang semua list di Langkah 0.
@@ -278,7 +278,7 @@ Set(varT2MinInWindow, 120)                                          // ≥ 2 jam
 
     doc.append("""### Aturan Tier (dihitung setiap report terkirim)
 
-Setiap **Send Report**, **Kirim revisi** dan **Absen → Live Break**, OnChange menghitung Tier host itu untuk tanggal
+Setiap **Kirim report**, **Kirim revisi** dan **Absen → Live Break**, OnChange menghitung Tier host itu untuk tanggal
 live tersebut dan menulisnya ke baris `Clock In - PBS Hub` (`HostID` + `ClockInDate`). Belum clock in = belum ada
 baris = dilewati; hitung ulang bulanan yang sudah kamu punya tetap bisa dijalankan dan hasilnya sama.
 
@@ -370,14 +370,14 @@ Set(varSdLoading, false)"""
         ("ReferenceDate", '""', "kosong"),
         ("ActionResult", "varSdResult", ""),
     ]
-    doc.append(screen(6, "Layar Detail sesi (`scrScheduleDetail`) — Absen, Send Report, revisi", "scrScheduleDetail",
+    doc.append(screen(6, "Layar Detail sesi (`scrScheduleDetail`) — Absen, Kirim report, revisi", "scrScheduleDetail",
                       "PBS Host App Schedule Detail",
                       "Layar utama report. Dibuka oleh aksi `OPEN_SCHEDULE` (Hari ini, Jadwal saya) yang mengisi `varSchId` dan "
                       "`varSchDate`. Untuk tes langsung: tombol sementara dengan `Set(varSchId, \"SCD-3313\"); Set(varSchDate, "
                       "DateValue(\"2026-09-13\")); Navigate(scrScheduleDetail)`.",
                       sd_vis, sd_rows, oc.sd,
                       "Absen → pilih *Tidak* → di SharePoint ada baris Host Absence dan `Schedule.Status = Waiting Report`; "
-                      "tombol **Send Report** aktif. Kirim report → baris Report baru + `Attachment` terisi."))
+                      "tombol **Kirim report** aktif. Kirim report → baris Report baru + `Attachment` terisi."))
 
     mr_vis = """
 Set(varMrLoading, true);
@@ -421,7 +421,7 @@ Set(varMrdLoading, false)"""
     mrd_rows = [
         ("Context", "varHostCtx", ""),
         ("HostJson", HOST, ""),
-        ("ReportJson", 'If(IsBlank(varMrdRep), "[]", ' + js("Table(varMrdRep)", REP) + ")", "kosong = form Send Report; `Need Revision` = form revisi; lainnya = baca saja"),
+        ("ReportJson", 'If(IsBlank(varMrdRep), "[]", ' + js("Table(varMrdRep)", REP) + ")", "kosong = form Kirim report; `Need Revision` = form revisi; lainnya = baca saja"),
         ("ScheduleJson", 'If(IsBlank(varMrdSch), "[]", ' + js("Table(varMrdSch)", SCH) + ")", ""),
         ("EvidenceJson", js("colMrdEvi", EVI), ""),
         ("ClockInJson", js("colMrdClk", CLK), ""),
@@ -545,14 +545,14 @@ Pakai satu jadwal milik akunmu (`HostID = varMe.Title`), hari ini, **sudah mulai
 | # | Langkah | Yang terlihat di control | Yang ada di SharePoint |
 |---|---|---|---|
 | 1 | Clock in di `scrClockIn` | *Clock in tersimpan* | Clock In `CLK-…` |
-| 2 | Buka sesi di `scrScheduleDetail` | Send Report nonaktif: *Absen sesi ini belum tercatat* | — |
-| 3 | **Absen** → *Tidak* → Absen | *Absen tercatat … Status jadwal: Waiting Report*, Send Report aktif | Host Absence `ABS-…` dengan `Status = Hadir`; Schedule `Planned` → `Waiting Report` |
-| 4 | **Send Report**: Live ID `111`, Durasi `60`, semua angka, screenshot | *Kurang 60 menit*, tombol jadi **Send Report berikutnya** | Report `REP-…` (`Waiting Approval`, LiveID 111, Attachment); Schedule tetap `Waiting Report` |
+| 2 | Buka sesi di `scrScheduleDetail` | Kirim report nonaktif: *Absen sesi ini belum tercatat* | — |
+| 3 | **Absen** → *Tidak* → Absen | *Absen tercatat … Status jadwal: Waiting Report*, Kirim report aktif | Host Absence `ABS-…` dengan `Status = Hadir`; Schedule `Planned` → `Waiting Report` |
+| 4 | **Kirim report**: Live ID `111`, Durasi `60`, semua angka, screenshot | *Kurang 60 menit*, tombol jadi **Kirim report berikutnya** | Report `REP-…` (`Waiting Approval`, LiveID 111, Attachment); Schedule tetap `Waiting Report` |
 | 5 | Report berikutnya dengan Live ID `111` | ditolak: *Live ID sudah dipakai* | — |
 | 6 | Live ID `222`, Durasi `60` | *Durasi sesi terpenuhi*, tombol hilang | Report kedua; Schedule `Status = Finished` |
 | 7 | Jadwal TikTok | tidak ada kolom AddToCart | `AddToCart` kosong |
 | 8 | Jadwal lain → Absen → *Ya, Live Break* | *Live Break · tanpa report* | Schedule `Finished`, `LiveBreak = Yes`; Report semua 0, `ApprovalStatus = LiveBreak` |
-| 9 | Jadwal `Position = Co-Host` → Absen | tanpa pop-up, tanpa Send Report | Schedule `Finished`, tidak ada Report |
+| 9 | Jadwal `Position = Co-Host` → Absen | tanpa pop-up, tanpa Kirim report | Schedule `Finished`, tidak ada Report |
 | 10 | Ops set report #4 ke `Need Revision` → buka sesi | form revisi (angka, Live ID, Playbook, Durasi) | — |
 | 11 | Durasi jadi `50` → Kirim revisi | *Revisi terkirim* | Report `Waiting Approval Revision`; Schedule kembali `Waiting Report` (110 < 120) |
 | 12 | Setelah langkah 4 buka baris Clock In hari ini | — | `Tier`, `Insentif`, `Reason`, `Total_Jam_Live`, `Schedule`, `LastTierUpdate` terisi |
