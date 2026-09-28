@@ -37,7 +37,7 @@ EVI = """{ID: ID, Title: Title, HostID: HostID, ScheduleID: ScheduleID, AccountI
     CTOR: CTOR, PeakViewer: PeakViewer, DurasiMin: 'Durasi(Min)', AddToCart: AddToCart, TotalViewer: TotalViewer,
     Comment: Comment, Status: Status.Value, Attachment: Attachment, Created: Created}"""
 
-CLK = """{ID: ID, ClockInDate: Text(ClockInDate, "yyyy-mm-dd"), CheckInTime: CheckInTime, CheckOutTime: CheckOutTime,
+CLK = """{ID: ID, ClockInDate: Text(ClockInDate, "yyyy-mm-dd"), CheckInTime: CheckInTime, CheckOutTime: CheckOutTime, ClockOutDate: Text(ClockOutDate, "yyyy-mm-dd"),
     ClockInTime: ClockInTime, ClockOutTime: ClockOutTime, CheckInOffice: CheckInOffice, IsInsideGeofence: IsInsideGeofence}"""
 
 ABS = """{Title: Title, ScheduleID: ScheduleID, LiveDate: Text(LiveDate, "yyyy-mm-dd"), Created: Created}"""
@@ -244,6 +244,14 @@ Set(varHostCtx, JSON({
 
 // 2. Host yang login.
 Set(varMe, LookUp('Host - PBS Hub', Email.Email = User().Email));
+// Koleksi *Filtered: SEMUA LookUp/Filter di OnVisible dan OnChange membaca dari sini, bukan langsung dari list.
+// Tulis tetap ke list (Patch); setiap Patch di OnChange langsung menyalin baris hasilnya ke koleksi yang sama.
+// Rentang: 3 bulan ke belakang, 2 bulan ke depan. Perlebar kalau host perlu buka bulan yang lebih lama.
+Set(varFilterFrom, DateAdd(Today(), -90)); Set(varFilterTo, DateAdd(Today(), 60));
+ClearCollect(scheduleFiltered, Filter('Schedule - PBS Hub', HostID = varMe.Title, Date >= varFilterFrom, Date <= varFilterTo));
+ClearCollect(clockInFiltered, Filter('Clock In - PBS Hub', HostID = varMe.Title, ClockInDate >= varFilterFrom));
+ClearCollect(absenceFiltered, Filter('Host Absence - PBS Hub', HostID = varMe.Title, LiveDate >= varFilterFrom));
+ClearCollect(reportFiltered, Filter('Report - PBS Hub', HostID = varMe.Title, LiveDate >= varFilterFrom));
 
 // 3. Data referensi (sekali).
 ClearCollect(colAccounts, ShowColumns('Account - PBS Hub', Title, AccountName));   // Schedule.Account -> AccountName
@@ -260,8 +268,8 @@ Set(varPicUrl, "mailto:pic-jadwal@contoh.com");                          // tomb
 Set(varSchId, "");     Set(varSchDate, Today());                         // Detail sesi
 Set(varCsPeriod, "");  Set(varCsFilter, "All"); Set(varCsTop, 200);    // Skor saya
 Set(varRptId, Value(Blank())); Set(varRptSchedule, "");                  // Kirim / revisi report
-Set(varMrdRep, LookUp('Report - PBS Hub', ID = -1));                     // record kosong yang bertipe
-Set(varMrdSch, LookUp('Schedule - PBS Hub', ID = -1));
+Set(varMrdRep, LookUp(reportFiltered, ID = -1));                     // record kosong yang bertipe
+Set(varMrdSch, LookUp(scheduleFiltered, ID = -1));
 Set(varHdLoading, false); Set(varMrLoading, false); Set(varMrdLoading, false);
 Set(varMsLoading, false); Set(varSdLoading, false); Set(varCkLoading, false); Set(varCsLoading, false);
 Set(varHdResult, ""); Set(varMrdResult, ""); Set(varMsResult, ""); Set(varSdResult, ""); Set(varCkResult, "");
@@ -318,10 +326,10 @@ Navigasi utama (tab bar atau tombol di header, di luar control): `Navigate(scrHo
 
     hd_vis = """
 Set(varHdLoading, true);
-ClearCollect(colMySch, Filter('Schedule - PBS Hub', HostID = varMe.Title, Date >= Today() - 7, Date <= Today() + 7));
-ClearCollect(colMyClk, Filter('Clock In - PBS Hub', HostID = varMe.Title, ClockInDate >= Today() - 14));
-ClearCollect(colMyAbs, Filter('Host Absence - PBS Hub', HostID = varMe.Title, LiveDate >= Today() - 14));
-ClearCollect(colMyRep, Filter('Report - PBS Hub', HostID = varMe.Title, LiveDate >= Today() - 30));
+ClearCollect(colMySch, Filter(scheduleFiltered, HostID = varMe.Title, Date >= Today() - 7, Date <= Today() + 7));
+ClearCollect(colMyClk, Filter(clockInFiltered, HostID = varMe.Title, ClockInDate >= Today() - 14));
+ClearCollect(colMyAbs, Filter(absenceFiltered, HostID = varMe.Title, LiveDate >= Today() - 14));
+ClearCollect(colMyRep, Filter(reportFiltered, HostID = varMe.Title, LiveDate >= Today() - 30));
 ClearCollect(colMyTx, Filter('[FAS STUDIO] HostScoreTransactions', HostID = varMe.Title, CreatedDate >= Today() - 30));   // hapus kalau tanpa skor
 Set(varHdLoading, false)"""
     hd_rows = [
@@ -346,13 +354,13 @@ Set(varHdLoading, false)"""
 
     sd_vis = """
 Set(varSdLoading, true);
-ClearCollect(colSdSch, Filter('Schedule - PBS Hub', HostID = varMe.Title, Date = varSchDate));
+ClearCollect(colSdSch, Filter(scheduleFiltered, HostID = varMe.Title, Date = varSchDate));
 // hari sebelumnya ikut: shift 22:00 → 03:00 kemarin juga menutup sesi 00:30 hari ini
-ClearCollect(colSdClk, Filter('Clock In - PBS Hub', HostID = varMe.Title, ClockInDate >= DateAdd(varSchDate, -1), ClockInDate <= varSchDate));
-ClearCollect(colSdAbs, Filter('Host Absence - PBS Hub', HostID = varMe.Title, LiveDate = varSchDate));
-ClearCollect(colSdRep, Filter('Report - PBS Hub', HostID = varMe.Title, LiveDate = varSchDate));
+ClearCollect(colSdClk, Filter(clockInFiltered, HostID = varMe.Title, ClockInDate >= DateAdd(varSchDate, -1), ClockInDate <= varSchDate));
+ClearCollect(colSdAbs, Filter(absenceFiltered, HostID = varMe.Title, LiveDate = varSchDate));
+ClearCollect(colSdRep, Filter(reportFiltered, HostID = varMe.Title, LiveDate = varSchDate));
 ClearCollect(colSdEvi, Filter('Report Automation - PBS Hub', HostID = varMe.Title, Title in colSdRep.Title));
-ClearCollect(colSdHist, FirstN(Sort(Filter('Report - PBS Hub', HostID = varMe.Title), ID, SortOrder.Descending), 10));
+ClearCollect(colSdHist, FirstN(Sort(Filter(reportFiltered, HostID = varMe.Title), ID, SortOrder.Descending), 10));
 Set(varSdLoading, false)"""
     sd_rows = [
         ("Context", "varHostCtx", ""),
@@ -383,8 +391,8 @@ Set(varSdLoading, false)"""
     mr_vis = """
 Set(varMrLoading, true);
 With({from: If(IsBlank(varMrPeriod), Date(Year(Today()), Month(Today()), 1), DateValue(varMrPeriod & "-01"))},
-    ClearCollect(colMrRep, Filter('Report - PBS Hub', HostID = varMe.Title, LiveDate >= from, LiveDate < DateAdd(from, 1, TimeUnit.Months)));
-    ClearCollect(colMrSch, Filter('Schedule - PBS Hub', HostID = varMe.Title, Date >= from, Date < DateAdd(from, 1, TimeUnit.Months)))
+    ClearCollect(colMrRep, Filter(reportFiltered, HostID = varMe.Title, LiveDate >= from, LiveDate < DateAdd(from, 1, TimeUnit.Months)));
+    ClearCollect(colMrSch, Filter(scheduleFiltered, HostID = varMe.Title, Date >= from, Date < DateAdd(from, 1, TimeUnit.Months)))
 );
 Set(varMrLoading, false)"""
     mr_rows = [
@@ -409,15 +417,15 @@ Set(varMrLoading, false)"""
 
     mrd_vis = """
 Set(varMrdLoading, true);
-With({rep: If(IsBlank(varRptId), Blank(), LookUp('Report - PBS Hub', ID = varRptId && HostID = varMe.Title))},
+With({rep: If(IsBlank(varRptId), Blank(), LookUp(reportFiltered, ID = varRptId && HostID = varMe.Title))},
     Set(varMrdRep, rep);
-    Set(varMrdSch, LookUp('Schedule - PBS Hub', Title = Coalesce(rep.ScheduleID, varRptSchedule) && HostID = varMe.Title))
+    Set(varMrdSch, LookUp(scheduleFiltered, Title = Coalesce(rep.ScheduleID, varRptSchedule) && HostID = varMe.Title))
 );
-ClearCollect(colMrdClk, Filter('Clock In - PBS Hub', HostID = varMe.Title, ClockInDate >= DateAdd(varMrdSch.Date, -1), ClockInDate <= varMrdSch.Date));
-ClearCollect(colMrdAbs, Filter('Host Absence - PBS Hub', HostID = varMe.Title, ScheduleID = varMrdSch.Title));
+ClearCollect(colMrdClk, Filter(clockInFiltered, HostID = varMe.Title, ClockInDate >= DateAdd(varMrdSch.Date, -1), ClockInDate <= varMrdSch.Date));
+ClearCollect(colMrdAbs, Filter(absenceFiltered, HostID = varMe.Title, ScheduleID = varMrdSch.Title));
 ClearCollect(colMrdEvi, Filter('Report Automation - PBS Hub', Title = varMrdRep.Title));
-ClearCollect(colMrdSesRep, Filter('Report - PBS Hub', HostID = varMe.Title, ScheduleID = varMrdSch.Title));
-ClearCollect(colMrdHist, FirstN(Sort(Filter('Report - PBS Hub', HostID = varMe.Title), ID, SortOrder.Descending), 10));
+ClearCollect(colMrdSesRep, Filter(reportFiltered, HostID = varMe.Title, ScheduleID = varMrdSch.Title));
+ClearCollect(colMrdHist, FirstN(Sort(Filter(reportFiltered, HostID = varMe.Title), ID, SortOrder.Descending), 10));
 Set(varMrdLoading, false)"""
     mrd_rows = [
         ("Context", "varHostCtx", ""),
@@ -446,10 +454,10 @@ Set(varMsLoading, true);
 // bulan lalu + bulan ini + 7 hari bulan depan: panel Bulan lalu, report tertunda, papan minggu
 With({from: DateAdd(If(IsBlank(varMsPeriod), Date(Year(Today()), Month(Today()), 1), DateValue(varMsPeriod & "-01")), -1, TimeUnit.Months)},
     With({to: DateAdd(from, 2, TimeUnit.Months) + 7},
-        ClearCollect(colMsSch, Filter('Schedule - PBS Hub', HostID = varMe.Title, Date >= from, Date < to));
-        ClearCollect(colMsClk, Filter('Clock In - PBS Hub', HostID = varMe.Title, ClockInDate >= from, ClockInDate < to));
-        ClearCollect(colMsAbs, Filter('Host Absence - PBS Hub', HostID = varMe.Title, LiveDate >= from, LiveDate < to));
-        ClearCollect(colMsRep, Filter('Report - PBS Hub', HostID = varMe.Title, LiveDate >= from, LiveDate < to))
+        ClearCollect(colMsSch, Filter(scheduleFiltered, HostID = varMe.Title, Date >= from, Date < to));
+        ClearCollect(colMsClk, Filter(clockInFiltered, HostID = varMe.Title, ClockInDate >= from, ClockInDate < to));
+        ClearCollect(colMsAbs, Filter(absenceFiltered, HostID = varMe.Title, LiveDate >= from, LiveDate < to));
+        ClearCollect(colMsRep, Filter(reportFiltered, HostID = varMe.Title, LiveDate >= from, LiveDate < to))
     )
 );
 Set(varMsLoading, false)"""
@@ -483,9 +491,9 @@ Set(varMsLoading, false)"""
 Set(varCkLoading, true);
 Concurrent(
     ClearCollect(colCkLoc, Filter('Studio Location - PBS', IsActive = true)),
-    ClearCollect(colCkClk, Filter('Clock In - PBS Hub', HostID = varMe.Title, ClockInDate >= Today() - 1)),
-    ClearCollect(colCkSch, Filter('Schedule - PBS Hub', HostID = varMe.Title, Date >= Today() - 1, Date <= Today())),
-    ClearCollect(colCkRep, Filter('Report - PBS Hub', HostID = varMe.Title, LiveDate >= Today() - 1))
+    ClearCollect(colCkClk, Filter(clockInFiltered, HostID = varMe.Title, ClockInDate >= Today() - 1)),
+    ClearCollect(colCkSch, Filter(scheduleFiltered, HostID = varMe.Title, Date >= Today() - 1, Date <= Today())),
+    ClearCollect(colCkRep, Filter(reportFiltered, HostID = varMe.Title, LiveDate >= Today() - 1))
 );
 Set(varCkLoading, false)"""
     ck_rows = [
@@ -564,7 +572,7 @@ Pakai satu jadwal milik akunmu (`HostID = varMe.Title`), hari ini, **sudah mulai
 | Gejala | Penyebab | Perbaikan |
 |---|---|---|
 | *Name isn't valid. 'varXxx' isn't recognized* | variabel belum pernah di-Set | pastikan blok 4 di Langkah 3 ada, lalu **Run OnStart** |
-| *No type found for variable 'varMrdRep'* | variabel record hanya di-Set ke `Blank()` | pakai `LookUp('Report - PBS Hub', ID = -1)` seperti Langkah 3 |
+| *No type found for variable 'varMrdRep'* | variabel record hanya di-Set ke `Blank()` | pakai `LookUp(reportFiltered, ID = -1)` seperti Langkah 3 |
 | *The type of this argument 'Account' does not match the expected type 'Record'* | `Account` di Report / Host Absence adalah Lookup/Choice | formula OnChange sudah memakai `LookUp(Choices([@'…'].Account), …)`; kalau kolomnya ternyata teks, ganti jadi `LookUp(colAccounts, Title = s.Account).AccountName` |
 | Nama akun kosong | `colAccounts` belum dimuat / `Schedule.Account` ≠ `Title` di list Account | Run OnStart; cek isi kedua kolom |
 | Klik tombol, spinner berputar terus | OnChange belum ditempel, atau `ActionResult` bukan variabel layar itu | tempel OnChange langkah layar itu; cek `ActionResult` |

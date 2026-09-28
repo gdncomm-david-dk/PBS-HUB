@@ -29,6 +29,25 @@ app (`BlibliUniversalSidebar`).
   = true, yaitu canvas belum memuat semua baris dari SharePoint (mis. `varRrTop`).
 - Data masuk sebagai **JSON teks** di properti `…Json`. Bentuk baris lewat `ForAll(…, {…})` supaya nama
   field pasti, kolom Choice jadi teks, dan kolom `Attachments` tidak ikut (`JSON()` gagal pada kolom itu).
+- **Semua `LookUp` / `Filter` di OnVisible dan OnChange membaca koleksi, bukan list:** `scheduleFiltered`,
+  `clockInFiltered`, `absenceFiltered`, `reportFiltered` (koleksi app v1). Hanya penulisan (`Patch`,
+  `Defaults`) yang langsung ke list, dan setiap `Patch` di OnChange langsung menyalin baris hasilnya ke koleksi:
+  `With({_upd: Patch('Report - PBS Hub', cur, {…})}, RemoveIf(reportFiltered, ID = _upd.ID); Collect(reportFiltered, _upd); _upd)`
+  (baris baru: `With({_new: Patch(…, Defaults(…), {…})}, Collect(…, _new); _new)`). Jadi koleksi tidak basi
+  setelah tulis, dan cek konflik (mis. "sudah clock in") tetap benar. `RELOAD` membangun ulang koleksinya.
+  Kalau app v1 belum punya, isi di **App.OnStart** (rentang harus mencakup bulan yang dibuka, termasuk bulan data
+  payroll):
+
+  ```powerfx
+  Set(varFilterFrom, DateAdd(Today(), -90)); Set(varFilterTo, DateAdd(Today(), 60));
+  ClearCollect(scheduleFiltered, Filter('Schedule - PBS Hub', Date >= varFilterFrom, Date <= varFilterTo));
+  ClearCollect(clockInFiltered, Filter('Clock In - PBS Hub', ClockInDate >= varFilterFrom));
+  ClearCollect(absenceFiltered, Filter('Host Absence - PBS Hub', LiveDate >= varFilterFrom));
+  ClearCollect(reportFiltered, Filter('Report - PBS Hub', LiveDate >= varFilterFrom));
+  ```
+
+  Perubahan dari luar app (flow PBS0005A memutuskan report, host lain clock in) baru terlihat setelah koleksi
+  dibangun ulang — `RELOAD` di ReportReview/ReportDetail melakukannya untuk `reportFiltered`.
 - **Jangan kirim `KTP`, `NoRekening`, `Alamat`, GPS, atau selfie** ke control mana pun. Dashboard hanya butuh
   `HasRekening` (boolean) yang dihitung di canvas.
 
@@ -190,10 +209,10 @@ Kartu dashboard dan sumbernya:
 ```powerfx
 Set(varDashLoading, true);
 Concurrent(
-    ClearCollect(colDashSchedule, Filter('Schedule - PBS Hub', Date >= DateAdd(Today(), -30), Date <= DateAdd(Today(), 7))),
-    ClearCollect(colDashReport, Filter('Report - PBS Hub', LiveDate >= DateAdd(Today(), -35) || ApprovalStatus.Value = "Waiting Approval" || ApprovalStatus.Value = "Waiting Approval Revision")),
+    ClearCollect(colDashSchedule, Filter(scheduleFiltered, Date >= DateAdd(Today(), -30), Date <= DateAdd(Today(), 7))),
+    ClearCollect(colDashReport, Filter(reportFiltered, LiveDate >= DateAdd(Today(), -35) || ApprovalStatus.Value = "Waiting Approval" || ApprovalStatus.Value = "Waiting Approval Revision")),
     ClearCollect(colDashEvidence, Filter('Report Automation - PBS Hub', Created >= DateAdd(Today(), -35))),
-    ClearCollect(colDashClockIn, Filter('Clock In - PBS Hub', ClockInDate >= DateAdd(Date(Year(Today()), Month(Today()), 1), -7))),
+    ClearCollect(colDashClockIn, Filter(clockInFiltered, ClockInDate >= DateAdd(Date(Year(Today()), Month(Today()), 1), -7))),
     ClearCollect(colDashHost, ShowColumns('Host - PBS Hub', Title, NamaHost, Status, NoRekening)),
     ClearCollect(colDashPayroll, FirstN(Sort('Payroll - PBS Hub', ID, SortOrder.Descending), 3))
 );
@@ -243,11 +262,11 @@ If(!IsBlank(Self.ActionPayload),
 ```powerfx
 Set(varRrTop, 500);
 Set(varRrLoading, true);
-ClearCollect(colRrReport, FirstN(Sort('Report - PBS Hub', ID, SortOrder.Descending), varRrTop));
+ClearCollect(colRrReport, FirstN(Sort(reportFiltered, ID, SortOrder.Descending), varRrTop));
 ClearCollect(colRrEvidence, Filter('Report Automation - PBS Hub', Created >= DateAdd(Today(), -60)));
 // Jam live di list diambil dari Schedule lewat Report.ScheduleID = Schedule.Title
 // (Filter tanggal supaya tetap delegable di SharePoint; `Title in colRrReport.ScheduleID` tidak delegable)
-ClearCollect(colRrSchedule, ShowColumns(Filter('Schedule - PBS Hub', Date >= DateAdd(Today(), -90)), ID, Title, Date, StartTime, EndTime));
+ClearCollect(colRrSchedule, ShowColumns(Filter(scheduleFiltered, Date >= DateAdd(Today(), -90)), ID, Title, Date, StartTime, EndTime));
 Set(varRrLoading, false);
 Clear(colPbsProcessed);
 ```
@@ -297,7 +316,7 @@ If(!IsBlank(Self.ActionPayload),
                 Collect(colPbsProcessed, {Id: rid});
                 Switch(act,
                     "OPEN_EVIDENCE", Launch(Text(p.url)),
-                    "RELOAD", Refresh('Report - PBS Hub'); ClearCollect(colRrReport, FirstN(Sort('Report - PBS Hub', ID, SortOrder.Descending), varRrTop)),
+                    "RELOAD", ClearCollect(reportFiltered, Filter('Report - PBS Hub', LiveDate >= varFilterFrom)); ClearCollect(colRrReport, FirstN(Sort(reportFiltered, ID, SortOrder.Descending), varRrTop)),
                     "REMIND_HOST",
                         IfError(
                             Office365Outlook.SendEmailV2(
@@ -314,20 +333,20 @@ If(!IsBlank(Self.ActionPayload),
                     "LOAD_MORE",
                         Set(varRrTop, varRrTop + 500);
                         Set(varRrLoading, true);
-                        ClearCollect(colRrReport, FirstN(Sort('Report - PBS Hub', ID, SortOrder.Descending), varRrTop));
+                        ClearCollect(colRrReport, FirstN(Sort(reportFiltered, ID, SortOrder.Descending), varRrTop));
                         Set(varRrLoading, false),
                     "NAV",
                         If(Text(p.target) = "TOLERANCE_CONFIG", Navigate(ScreenToleranceConfig)),
                     "BULK_APPROVE",
                         IfError(
                             ForAll(Table(p.items),
-                                With({it: ThisRecord.Value, cur: LookUp('Report - PBS Hub', ID = Value(ThisRecord.Value.reportId))},
+                                With({it: ThisRecord.Value, cur: LookUp(reportFiltered, ID = Value(ThisRecord.Value.reportId))},
                                     // Lewati yang sudah diputuskan orang lain sejak layar dibuka.
                                     If(cur.ApprovalStatus.Value in ["Waiting Approval", "Waiting Approval Revision"],
-                                        Patch('Report - PBS Hub', cur, {
+                                        With({_upd: Patch('Report - PBS Hub', cur, {
                                             ApprovalStatus: {Value: "Done"}, Match: {Value: "Match"},
                                             ApprovalComment: Text(p.comment), ApproverEmail: User().Email
-                                        });
+                                        })}, RemoveIf(reportFiltered, ID = _upd.ID); Collect(reportFiltered, _upd); _upd);
                                         With({ev: If(IsBlank(Text(it.evidenceId)),
                                                     First(Sort(Filter('Report Automation - PBS Hub', Title = cur.Title), ID, SortOrder.Descending)),
                                                     LookUp('Report Automation - PBS Hub', ID = Value(it.evidenceId)))},
@@ -335,8 +354,7 @@ If(!IsBlank(Self.ActionPayload),
                                     )
                                 )
                             );
-                            Refresh('Report - PBS Hub');
-                            ClearCollect(colRrReport, FirstN(Sort('Report - PBS Hub', ID, SortOrder.Descending), varRrTop));
+                            ClearCollect(colRrReport, FirstN(Sort(reportFiltered, ID, SortOrder.Descending), varRrTop));
                             ClearCollect(colRrEvidence, Filter('Report Automation - PBS Hub', Created >= DateAdd(Today(), -60)));
                             Set(varRrResult, JSON({requestId: rid, status: "ok", message: CountRows(Table(p.items)) & " report disetujui."}, JSONFormat.Compact)),
                             Set(varRrResult, JSON({requestId: rid, status: "error", message: "Bulk approve gagal: " & FirstError.Message}, JSONFormat.Compact))
@@ -345,14 +363,14 @@ If(!IsBlank(Self.ActionPayload),
                 );
                 // Keputusan dari popup: logika sama persis dengan ReportDetail (§6), balasan ke varRrResult.
                 If(act in ["APPROVE", "APPROVE_WITHOUT_EVIDENCE", "REQUEST_REVISION"],
-                    With({cur: LookUp('Report - PBS Hub', ID = Value(p.reportId))},
+                    With({cur: LookUp(reportFiltered, ID = Value(p.reportId))},
                         If(
                             !(cur.ApprovalStatus.Value in ["Waiting Approval", "Waiting Approval Revision"]),
                             Set(varRrResult, JSON({requestId: rid, status: "conflict",
                                 decidedBy: Coalesce(cur.Approver.DisplayName, cur.ApproverEmail, "orang lain"),
                                 decidedAt: cur.Modified}, JSONFormat.Compact)),
                             IfError(
-                                Patch('Report - PBS Hub', cur, {
+                                With({_upd: Patch('Report - PBS Hub', cur, {
                                     ApprovalStatus: {Value: Text(p.approvalStatus)},
                                     Match: If(IsBlank(Text(p.match)), cur.Match, {Value: Text(p.match)}),
                                     ApprovalComment: Text(p.comment),
@@ -364,15 +382,14 @@ If(!IsBlank(Self.ActionPayload),
                                         Department: "", JobTitle: "", Picture: ""
                                     },
                                     TanggalRevisi: If(act = "REQUEST_REVISION", Now(), cur.TanggalRevisi)
-                                });
+                                })}, RemoveIf(reportFiltered, ID = _upd.ID); Collect(reportFiltered, _upd); _upd);
                                 // Report Automation: baris dengan Title yang sama (REP-xxx); yang terbaru kalau lebih dari satu.
                                 With({ev: If(IsBlank(Text(p.evidenceId)),
                                             First(Sort(Filter('Report Automation - PBS Hub', Title = cur.Title), ID, SortOrder.Descending)),
                                             LookUp('Report Automation - PBS Hub', ID = Value(p.evidenceId)))},
                                     If(!IsBlank(ev) && !IsBlank(Text(p.match)),
                                         Patch('Report Automation - PBS Hub', ev, {Status: {Value: Text(p.match)}})));
-                                Refresh('Report - PBS Hub');
-                                ClearCollect(colRrReport, FirstN(Sort('Report - PBS Hub', ID, SortOrder.Descending), varRrTop));
+                                    ClearCollect(colRrReport, FirstN(Sort(reportFiltered, ID, SortOrder.Descending), varRrTop));
                                 ClearCollect(colRrEvidence, Filter('Report Automation - PBS Hub', Created >= DateAdd(Today(), -60)));
                                 Set(varRrResult, JSON({requestId: rid, status: "ok"}, JSONFormat.Compact)),
                                 Set(varRrResult, JSON({requestId: rid, status: "error", message: "Gagal menyimpan " & Text(p.title) & ": " & FirstError.Message}, JSONFormat.Compact))
@@ -398,11 +415,11 @@ Context      = varPbsCtx
 Mode         = If(userRole.Value = "HOST", "ReadOnly", "Admin")
 IsLoading    = varRdLoading
 ActionResult = varRdResult
-ReportJson   = JSON(ForAll(Filter('Report - PBS Hub', ID = varSelectedReportId), {ID: ID, Title: Title, ScheduleID: ScheduleID, HostID: HostID, BrandID: BrandID, AccountID: AccountID, Account: Account, Platform: Platform.Value, LiveDate: Text(LiveDate, "yyyy-mm-dd"), Playbook: Playbook.Value, Penjualan: Penjualan, Pesanan: Pesanan, ProdukTerjual: ProdukTerjual, JumlahPembeli: JumlahPembeli, CTR: CTR, CTOR: CTOR, PeakViewer: PeakViewer, DurasiMin: 'Durasi(Min)', AddToCart: AddToCart, TotalViewer: TotalViewer, Comment: Comment, Share: Share, ApprovalStatus: ApprovalStatus.Value, Match: Match.Value, ApprovalComment: ApprovalComment, Approver: Approver.DisplayName, ApproverEmail: ApproverEmail, Attachment: Attachment, Created: Created, Modified: Modified}), JSONFormat.Compact)
-EvidenceJson = JSON(ForAll(Filter('Report Automation - PBS Hub', Title = LookUp('Report - PBS Hub', ID = varSelectedReportId).Title), {ID: ID, Title: Title, HostID: HostID, ScheduleID: ScheduleID, AccountID: AccountID, Platform: Platform.Value, Penjualan: Penjualan, Pesanan: Pesanan, ProdukTerjual: ProdukTerjual, JumlahPembeli: JumlahPembeli, CTR: CTR, CTOR: CTOR, PeakViewer: PeakViewer, DurasiMin: 'Durasi(Min)', AddToCart: AddToCart, TotalViewer: TotalViewer, Comment: Comment, Share: Share, Status: Status.Value, Attachment: Attachment, Created: Created}), JSONFormat.Compact)
-HostsJson    = JSON(ForAll(Filter('Host - PBS Hub', Title = LookUp('Report - PBS Hub', ID = varSelectedReportId).HostID), {Title: Title, NamaHost: NamaHost}), JSONFormat.Compact)
+ReportJson   = JSON(ForAll(Filter(reportFiltered, ID = varSelectedReportId), {ID: ID, Title: Title, ScheduleID: ScheduleID, HostID: HostID, BrandID: BrandID, AccountID: AccountID, Account: Account, Platform: Platform.Value, LiveDate: Text(LiveDate, "yyyy-mm-dd"), Playbook: Playbook.Value, Penjualan: Penjualan, Pesanan: Pesanan, ProdukTerjual: ProdukTerjual, JumlahPembeli: JumlahPembeli, CTR: CTR, CTOR: CTOR, PeakViewer: PeakViewer, DurasiMin: 'Durasi(Min)', AddToCart: AddToCart, TotalViewer: TotalViewer, Comment: Comment, Share: Share, ApprovalStatus: ApprovalStatus.Value, Match: Match.Value, ApprovalComment: ApprovalComment, Approver: Approver.DisplayName, ApproverEmail: ApproverEmail, Attachment: Attachment, Created: Created, Modified: Modified}), JSONFormat.Compact)
+EvidenceJson = JSON(ForAll(Filter('Report Automation - PBS Hub', Title = LookUp(reportFiltered, ID = varSelectedReportId).Title), {ID: ID, Title: Title, HostID: HostID, ScheduleID: ScheduleID, AccountID: AccountID, Platform: Platform.Value, Penjualan: Penjualan, Pesanan: Pesanan, ProdukTerjual: ProdukTerjual, JumlahPembeli: JumlahPembeli, CTR: CTR, CTOR: CTOR, PeakViewer: PeakViewer, DurasiMin: 'Durasi(Min)', AddToCart: AddToCart, TotalViewer: TotalViewer, Comment: Comment, Share: Share, Status: Status.Value, Attachment: Attachment, Created: Created}), JSONFormat.Compact)
+HostsJson    = JSON(ForAll(Filter('Host - PBS Hub', Title = LookUp(reportFiltered, ID = varSelectedReportId).HostID), {Title: Title, NamaHost: NamaHost}), JSONFormat.Compact)
 BrandsJson   = JSON(ForAll('Brand - PBS Hub', {Title: Title, NamaBrand: NamaBrand}), JSONFormat.Compact)
-SchedulesJson = JSON(ForAll(Filter('Schedule - PBS Hub', Title = LookUp('Report - PBS Hub', ID = varSelectedReportId).ScheduleID), {ID: ID, Title: Title, Date: Text(Date, "yyyy-mm-dd"), StartTime: StartTime, EndTime: EndTime}), JSONFormat.Compact)
+SchedulesJson = JSON(ForAll(Filter(scheduleFiltered, Title = LookUp(reportFiltered, ID = varSelectedReportId).ScheduleID), {ID: ID, Title: Title, Date: Text(Date, "yyyy-mm-dd"), StartTime: StartTime, EndTime: EndTime}), JSONFormat.Compact)
 ```
 
 **Payload keputusan** (semua berisi `reportId`, `title`, `evidenceId`, `evidenceTitle`, `expectedModified`,
@@ -425,7 +442,7 @@ If(!IsBlank(Self.ActionPayload),
                 Collect(colPbsProcessed, {Id: rid});
                 Switch(act,
                     "BACK", Back(),
-                    "RELOAD", Refresh('Report - PBS Hub'); Refresh('Report Automation - PBS Hub'),
+                    "RELOAD", ClearCollect(reportFiltered, Filter('Report - PBS Hub', LiveDate >= varFilterFrom)); Refresh('Report Automation - PBS Hub'),
                     "OPEN_EVIDENCE", Launch(Text(p.url)),
                     "REMIND_HOST",
                         IfError(
@@ -440,7 +457,7 @@ If(!IsBlank(Self.ActionPayload),
                     // APPROVE, APPROVE_WITHOUT_EVIDENCE, REQUEST_REVISION
                     If(!(act in ["APPROVE", "APPROVE_WITHOUT_EVIDENCE", "REQUEST_REVISION"]),
                         Set(varRdResult, JSON({requestId: rid, status: "error", message: "Aksi tidak dikenal: " & act}, JSONFormat.Compact)),
-                    With({cur: LookUp('Report - PBS Hub', ID = Value(p.reportId))},
+                    With({cur: LookUp(reportFiltered, ID = Value(p.reportId))},
                         If(
                             // Sudah diputuskan orang lain sejak layar dibuka → tolak tulis (race R2).
                             !(cur.ApprovalStatus.Value in ["Waiting Approval", "Waiting Approval Revision"]),
@@ -448,7 +465,7 @@ If(!IsBlank(Self.ActionPayload),
                                 decidedBy: Coalesce(cur.Approver.DisplayName, cur.ApproverEmail, "orang lain"),
                                 decidedAt: cur.Modified}, JSONFormat.Compact)),
                             IfError(
-                                Patch('Report - PBS Hub', cur, {
+                                With({_upd: Patch('Report - PBS Hub', cur, {
                                     ApprovalStatus: {Value: Text(p.approvalStatus)},
                                     Match: If(IsBlank(Text(p.match)), cur.Match, {Value: Text(p.match)}),
                                     ApprovalComment: Text(p.comment),
@@ -460,14 +477,14 @@ If(!IsBlank(Self.ActionPayload),
                                         Department: "", JobTitle: "", Picture: ""
                                     },
                                     TanggalRevisi: If(act = "REQUEST_REVISION", Now(), cur.TanggalRevisi)
-                                });
+                                })}, RemoveIf(reportFiltered, ID = _upd.ID); Collect(reportFiltered, _upd); _upd);
                                 // Report Automation: baris dengan Title yang sama (REP-xxx); yang terbaru kalau lebih dari satu.
                                 With({ev: If(IsBlank(Text(p.evidenceId)),
                                             First(Sort(Filter('Report Automation - PBS Hub', Title = cur.Title), ID, SortOrder.Descending)),
                                             LookUp('Report Automation - PBS Hub', ID = Value(p.evidenceId)))},
                                     If(!IsBlank(ev) && !IsBlank(Text(p.match)),
                                         Patch('Report Automation - PBS Hub', ev, {Status: {Value: Text(p.match)}})));
-                                Refresh('Report - PBS Hub'); Refresh('Report Automation - PBS Hub');
+                                Refresh('Report Automation - PBS Hub');   // reportFiltered sudah ikut diperbarui oleh Patch di atas
                                 Set(varRdResult, JSON({requestId: rid, status: "ok"}, JSONFormat.Compact)),
                                 Set(varRdResult, JSON({requestId: rid, status: "error", message: "Gagal menyimpan " & Text(p.title) & ": " & FirstError.Message}, JSONFormat.Compact))
                             )
@@ -588,9 +605,9 @@ If(!IsBlank(Self.ActionPayload),
                         With({start: Date(Value(p.year), Value(p.month), 1)},
                             Set(varPfJson, JSON({
                                 period: Text(p.period),
-                                clockIns: ForAll(Filter('Clock In - PBS Hub', ClockInDate >= start, ClockInDate < DateAdd(start, 1, TimeUnit.Months)),
+                                clockIns: ForAll(Filter(clockInFiltered, ClockInDate >= start, ClockInDate < DateAdd(start, 1, TimeUnit.Months)),
                                     {HostID: HostID, ClockInDate: ClockInDate, CheckInTime: CheckInTime, CheckOutTime: CheckOutTime, ClockOutDate: Text(ClockOutDate, "yyyy-mm-dd"), ClockOutTime: ClockOutTime, IsInsideGeofence: IsInsideGeofence, HKTugas: HKTugas, Insentif: Insentif, Tier: Tier.Value, Streak: Streak}),
-                                reports: ForAll(Filter('Report - PBS Hub', LiveDate >= start, LiveDate < DateAdd(start, 1, TimeUnit.Months)),
+                                reports: ForAll(Filter(reportFiltered, LiveDate >= start, LiveDate < DateAdd(start, 1, TimeUnit.Months)),
                                     {ID: ID, LiveDate: Text(LiveDate, "yyyy-mm-dd"), ApprovalStatus: ApprovalStatus.Value, ApprovalComment: ApprovalComment})
                             }, JSONFormat.Compact))
                         );
@@ -644,7 +661,7 @@ Set(varPdStart, DateAdd(DateValue("1 " & varPdRun.Periode, "en-US"), -1, TimeUni
 Concurrent(
     ClearCollect(colPdLine, Filter('Payroll Data', payroll_id = varPdRun.Title)),
     ClearCollect(colPdHost, ShowColumns('Host - PBS Hub', Title, Email)),
-    ClearCollect(colPdClockIn, Filter('Clock In - PBS Hub', ClockInDate >= varPdStart, ClockInDate < DateAdd(varPdStart, 1, TimeUnit.Months)))
+    ClearCollect(colPdClockIn, Filter(clockInFiltered, ClockInDate >= varPdStart, ClockInDate < DateAdd(varPdStart, 1, TimeUnit.Months)))
 );
 Set(varPdLoading, false);
 Clear(colPbsProcessed);
@@ -775,11 +792,11 @@ If(!IsBlank(Self.ActionPayload),
                     "LOAD_MORE", Notify("Gunakan filter untuk mempersempit daftar host.", NotificationType.Information),
                     "ADD_CLOCK_IN",
                         With({d: DateValue(Text(p.clockInDate)), hid: Text(p.hostId)},
-                            If(!IsBlank(LookUp('Clock In - PBS Hub', HostID = hid && ClockInDate = d)),
+                            If(!IsBlank(LookUp(clockInFiltered, HostID = hid && ClockInDate = d)),
                                 // Sudah ada clock in di tanggal itu (host clock in sendiri / admin lain).
                                 Set(varHlResult, JSON({requestId: rid, status: "conflict", message: "Host ini sudah punya clock in di " & Text(d, "dd mmm yyyy") & "."}, JSONFormat.Compact)),
                                 IfError(
-                                    Set(varNewClockIn, Patch('Clock In - PBS Hub', Defaults('Clock In - PBS Hub'), {
+                                    Set(varNewClockIn, With({_new: Patch('Clock In - PBS Hub', Defaults('Clock In - PBS Hub'), {
                                         HostID: hid,
                                         HostName: Text(p.hostName),
                                         ClockInDate: d,
@@ -788,9 +805,8 @@ If(!IsBlank(Self.ActionPayload),
                                         ClockOutTime: Text(p.clockOutTime),
                                         Status: {Value: Text(p.status)},
                                         HKTugas: Value(p.hkTugas)
-                                    }));
-                                    Patch('Clock In - PBS Hub', varNewClockIn, {Title: "CLK-" & Text(varNewClockIn.ID, "0000")});
-                                    Collect(clockInFiltered, varNewClockIn);        // tanggal ini hilang dari pilihan
+                                    })}, Collect(clockInFiltered, _new); _new));
+                                    With({_upd: Patch('Clock In - PBS Hub', varNewClockIn, {Title: "CLK-" & Text(varNewClockIn.ID, "0000")})}, RemoveIf(clockInFiltered, ID = _upd.ID); Collect(clockInFiltered, _upd); _upd);
                                     Set(varHlResult, JSON({requestId: rid, status: "ok",
                                         message: "Clock in tersimpan: CLK-" & Text(varNewClockIn.ID, "0000") & " · " & Text(d, "dd mmm yyyy") & " " & Text(p.clockInTime) & "–" & Text(p.clockOutTime) & " · HKTugas Rp " & Text(Value(p.hkTugas), "#,##0")}, JSONFormat.Compact));
                                     Set(varNewClockIn, Blank()),
@@ -841,9 +857,9 @@ Set(varHdReveal, "");
 Set(varHdHost, LookUp('Host - PBS Hub', Title = varSelectedHostId));
 Set(varHdFrom, Date(Year(Today()), Month(Today()) - 1, 1));   // bulan lalu + bulan ini
 Concurrent(
-    ClearCollect(colHdSched, Filter('Schedule - PBS Hub', HostID = varSelectedHostId, Date >= DateAdd(Today(), -60, TimeUnit.Days))),
-    ClearCollect(colHdReport, Filter('Report - PBS Hub', HostID = varSelectedHostId)),
-    ClearCollect(colHdClockIn, Filter('Clock In - PBS Hub', HostID = varSelectedHostId, ClockInDate >= varHdFrom)),
+    ClearCollect(colHdSched, Filter(scheduleFiltered, HostID = varSelectedHostId, Date >= DateAdd(Today(), -60, TimeUnit.Days))),
+    ClearCollect(colHdReport, Filter(reportFiltered, HostID = varSelectedHostId)),
+    ClearCollect(colHdClockIn, Filter(clockInFiltered, HostID = varSelectedHostId, ClockInDate >= varHdFrom)),
     ClearCollect(colHdLine, Filter('Payroll Data', Employee_Email = varHdHost.Email.Email)),
     ClearCollect(colHdTx, Filter('[FAS STUDIO] HostScoreTransactions', HostID = varSelectedHostId)),
     ClearCollect(colScoreBand, Filter('[FAS STUDIO] HostScoreThreshold', Active))
@@ -916,11 +932,11 @@ If(!IsBlank(Self.ActionPayload),
                     "HIDE_PII", Set(varHdReveal, ""),
                     "ADD_CLOCK_IN",
                         With({d: DateValue(Text(p.clockInDate)), hid: Text(p.hostId)},
-                            If(!IsBlank(LookUp('Clock In - PBS Hub', HostID = hid && ClockInDate = d)),
+                            If(!IsBlank(LookUp(clockInFiltered, HostID = hid && ClockInDate = d)),
                                 // Sudah ada clock in di tanggal itu (host clock in sendiri / admin lain).
                                 Set(varHdResult, JSON({requestId: rid, status: "conflict", message: "Host ini sudah punya clock in di " & Text(d, "dd mmm yyyy") & "."}, JSONFormat.Compact)),
                                 IfError(
-                                    Set(varNewClockIn, Patch('Clock In - PBS Hub', Defaults('Clock In - PBS Hub'), {
+                                    Set(varNewClockIn, With({_new: Patch('Clock In - PBS Hub', Defaults('Clock In - PBS Hub'), {
                                         HostID: hid,
                                         HostName: Text(p.hostName),
                                         ClockInDate: d,
@@ -929,8 +945,8 @@ If(!IsBlank(Self.ActionPayload),
                                         ClockOutTime: Text(p.clockOutTime),
                                         Status: {Value: Text(p.status)},
                                         HKTugas: Value(p.hkTugas)
-                                    }));
-                                    Patch('Clock In - PBS Hub', varNewClockIn, {Title: "CLK-" & Text(varNewClockIn.ID, "0000")});
+                                    })}, Collect(clockInFiltered, _new); _new));
+                                    With({_upd: Patch('Clock In - PBS Hub', varNewClockIn, {Title: "CLK-" & Text(varNewClockIn.ID, "0000")})}, RemoveIf(clockInFiltered, ID = _upd.ID); Collect(clockInFiltered, _upd); _upd);
                                     Collect(colHdClockIn, varNewClockIn);        // tanggal ini hilang dari pilihan
                                     Set(varHdResult, JSON({requestId: rid, status: "ok",
                                         message: "Clock in tersimpan: CLK-" & Text(varNewClockIn.ID, "0000") & " · " & Text(d, "dd mmm yyyy") & " " & Text(p.clockInTime) & "–" & Text(p.clockOutTime) & " · HKTugas Rp " & Text(Value(p.hkTugas), "#,##0")}, JSONFormat.Compact));
@@ -940,11 +956,11 @@ If(!IsBlank(Self.ActionPayload),
                             )
                         ),
                     "ADJUST_CLOCK_IN",
-                        With({cur: LookUp('Clock In - PBS Hub', ID = Value(p.clockInId))},
+                        With({cur: LookUp(clockInFiltered, ID = Value(p.clockInId))},
                             If(IsBlank(cur) || (!IsBlank(Text(p.expectedModified)) && Text(cur.Modified, DateTimeFormat.UTC) <> Text(DateTimeValue(Text(p.expectedModified)), DateTimeFormat.UTC)),
                                 Set(varHdResult, JSON({requestId: rid, status: "conflict", message: "Baris clock in ini sudah diubah orang lain. Muat ulang lalu coba lagi."}, JSONFormat.Compact)),
                                 IfError(
-                                    Patch('Clock In - PBS Hub', cur,
+                                    With({_upd: Patch('Clock In - PBS Hub', cur,
                                         // Baris GeoAttendance memakai CheckInTime/CheckOutTime (DateTime); baris manual memakai ClockInTime/ClockOutTime (teks).
                                         If(Boolean(p.manualRow),
                                             {ClockInTime: Text(p.clockInTime), ClockOutTime: Text(p.clockOutTime),
@@ -962,8 +978,8 @@ If(!IsBlank(Self.ActionPayload),
                                             AdjustedAt: Now(),
                                             AdjustReason: Text(p.reason)
                                         }
-                                    );
-                                    ClearCollect(colHdClockIn, Filter('Clock In - PBS Hub', HostID = varSelectedHostId, ClockInDate >= varHdFrom));
+                                    )}, RemoveIf(clockInFiltered, ID = _upd.ID); Collect(clockInFiltered, _upd); _upd);
+                                    ClearCollect(colHdClockIn, Filter(clockInFiltered, HostID = varSelectedHostId, ClockInDate >= varHdFrom));
                                     Set(varHdResult, JSON({requestId: rid, status: "ok",
                                         message: "Kehadiran " & Text(DateValue(Text(p.clockInDate)), "dd mmm yyyy") & " disesuaikan · total Rp " & Text(Value(p.totalBefore), "#,##0") & " → Rp " & Text(Value(p.totalAfter), "#,##0")}, JSONFormat.Compact)),
                                     Set(varHdResult, JSON({requestId: rid, status: "error", message: "Gagal menyimpan: " & FirstError.Message}, JSONFormat.Compact))

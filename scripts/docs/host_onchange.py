@@ -26,9 +26,9 @@ def graph_put(brand, date, title, platform, account):
 TIER_TPL = '''// ---- Tier harian di Clock In: host ini, tanggal @DATE@. Aturan sama dengan hitung ulang bulanan.
 IfError(
     With({tDate: @DATE@},
-    With({clk: LookUp('Clock In - PBS Hub', HostID = varMe.Title && ClockInDate = tDate),
-          schDay: Filter('Schedule - PBS Hub', HostID = varMe.Title && Date = tDate),
-          repDay: Filter('Report - PBS Hub', HostID = varMe.Title && LiveDate = tDate),
+    With({clk: LookUp(clockInFiltered, HostID = varMe.Title && ClockInDate = tDate),
+          schDay: Filter(scheduleFiltered, HostID = varMe.Title && Date = tDate),
+          repDay: Filter(reportFiltered, HostID = varMe.Title && LiveDate = tDate),
           t1: LookUp(colTierConfig, Title = "Tier 1"), t2: LookUp(colTierConfig, Title = "Tier 2"),
           t3: LookUp(colTierConfig, Title = "Tier 3")},
     If(!IsBlank(clk),
@@ -61,7 +61,7 @@ IfError(
     With({calc: If(m1 || d1 || w1, "Tier 1", m2 || d2 || w2, "Tier 2", m3 || d3, "Tier 3", "No")},
     // Urutan: Co-Host mayoritas → No; tanggal merah → Tier 1; Sabtu/Minggu → minimal Tier 2.
     With({tier: If(!main, "No", hol, "Tier 1", wkd && calc <> "Tier 1", "Tier 2", calc)},
-        Patch('Clock In - PBS Hub', clk, {
+        With({_upd: Patch('Clock In - PBS Hub', clk, {
             Tier: {Value: tier},
             Insentif: Switch(tier, "Tier 1", 75000, "Tier 2", 65000, "Tier 3", 55000, 0),
             TotalReports: CountRows(repDay),
@@ -96,7 +96,7 @@ IfError(
                 "Not Eligible - Main Host " & Round(mainMin / 60, 2) & " jam vs Co-Host " & Round(coMin / 60, 2) & " jam"),
             statusupdate: If(clk.Tier.Value = tier, "Tier tetap " & tier & " (tidak ada perubahan)",
                 "Berhasil update dari " & Coalesce(clk.Tier.Value, "-") & " → " & tier)
-        });
+        })}, RemoveIf(clockInFiltered, ID = _upd.ID); Collect(clockInFiltered, _upd); _upd);
         true   // IfError butuh tipe yang sama dengan Notify (Boolean), bukan record hasil Patch
     )))))))))),
     // Report tetap tersimpan kalau hitung Tier gagal; hitung ulang bulanan akan membetulkannya.
@@ -114,14 +114,14 @@ def absen(R, col, after=''):
     dup_after = ind(after, 16) + chr(10) if after else ''
     new_after = ind(after, 32) + chr(10) if after else ''
     err = lambda msg: res(R, "error", msg)
-    now = "LookUp('Schedule - PBS Hub', ID = s.ID).Status.Value"
+    now = "LookUp(scheduleFiltered, ID = s.ID).Status.Value"
     dup = res(R, "conflict", '"Absen sesi ini sudah tercatat (" & ex.Title & "). Status jadwal " & ' + now + ' & "."')
     ok_new = res(R, "ok", 'If(lb, "Absen tercatat (ABS-" & row.ID & "). Live Break: report 0 dibuat otomatis.", '
                           '"Absen tercatat (ABS-" & row.ID & "). Status jadwal sekarang " & ' + now + ' & ".")')
     return f'''"ABSEN",
     // Jadwal dicari lewat ID SharePoint (scheduleItemId), Title hanya dicocokkan.
-    With({{s: LookUp('Schedule - PBS Hub', ID = Value(p.scheduleItemId)),
-          ex: LookUp('Host Absence - PBS Hub', ScheduleID = Text(p.scheduleId) && HostID = varMe.Title),
+    With({{s: LookUp(scheduleFiltered, ID = Value(p.scheduleItemId)),
+          ex: LookUp(absenceFiltered, ScheduleID = Text(p.scheduleId) && HostID = varMe.Title),
           lb: Boolean(p.liveBreak),
           st: Coalesce(Text(p.scheduleStatus), "Waiting Report")}},   // dari control: Waiting Report, atau Finished (Live Break / Co-Host)
         If(
@@ -131,37 +131,37 @@ def absen(R, col, after=''):
             // Absen lama yang gagal di tengah (jadwal masih Planned / Status belum Hadir) dilengkapi sekalian.
             !IsBlank(ex),
                 If(s.Status.Value <> "Waiting Report" && s.Status.Value <> "Finished" && s.Status.Value <> "Done",
-                    Patch('Schedule - PBS Hub', s, {{Status: {{Value: st}}}}));
-                If(Coalesce(ex.Status.Value, "") <> "Hadir", Patch('Host Absence - PBS Hub', ex, {{Status: {{Value: "Hadir"}}}}));
-                If(!(ex.ID in {col}.ID), Collect({col}, LookUp('Host Absence - PBS Hub', ID = ex.ID)));
+                    With({{_upd: Patch('Schedule - PBS Hub', s, {{Status: {{Value: st}}}})}}, RemoveIf(scheduleFiltered, ID = _upd.ID); Collect(scheduleFiltered, _upd); _upd));
+                If(Coalesce(ex.Status.Value, "") <> "Hadir", With({{_upd: Patch('Host Absence - PBS Hub', ex, {{Status: {{Value: "Hadir"}}}})}}, RemoveIf(absenceFiltered, ID = _upd.ID); Collect(absenceFiltered, _upd); _upd));
+                If(!(ex.ID in {col}.ID), Collect({col}, LookUp(absenceFiltered, ID = ex.ID)));
 {dup_after}                {dup},
             // 1. Status jadwal. Gagal → pesan error asli, belum ada yang ditulis.
-            With({{sp: IfError(Patch('Schedule - PBS Hub', s, {{Status: {{Value: st}}}}),
+            With({{sp: IfError(With({{_upd: Patch('Schedule - PBS Hub', s, {{Status: {{Value: st}}}})}}, RemoveIf(scheduleFiltered, ID = _upd.ID); Collect(scheduleFiltered, _upd); _upd),
                         {err('"Gagal mengubah status jadwal ke " & st & ": " & FirstError.Message')}; Blank())}},
                 If(!IsBlank(sp),
                         // 2. Baris absen baru, Status Hadir.
-                        With({{row: IfError(Patch('Host Absence - PBS Hub', Defaults('Host Absence - PBS Hub'), {{
+                        With({{row: IfError(With({{_new: Patch('Host Absence - PBS Hub', Defaults('Host Absence - PBS Hub'), {{
                                     ScheduleID: s.Title, HostID: varMe.Title, HostName: Coalesce(LookUp('Host - PBS Hub', Title = varMe.Title).NamaHost, Text(p.hostName)), LiveDate: s.Date,
                                     BrandID: s.BrandID, Platform: {{Value: s.Platform.Value}},
                                     Account: LookUp(Choices([@'Host Absence - PBS Hub'].Account), Value = s.Account || Value = LookUp(colAccounts, Title = s.Account).AccountName),
                                     Status: {{Value: "Hadir"}}   // Choice Status di Host Absence; kalau kolomnya teks: Status: "Hadir"
-                                }}),
+                                }})}}, Collect(absenceFiltered, _new); _new),
                                 {err('"Status jadwal sudah " & st & ", tapi absen gagal dicatat: " & FirstError.Message')}; Blank())}},
                             If(!IsBlank(row),
-                                Patch('Host Absence - PBS Hub', row, {{Title: "ABS-" & row.ID}});
-                                Collect({col}, LookUp('Host Absence - PBS Hub', ID = row.ID));
+                                With({{_upd: Patch('Host Absence - PBS Hub', row, {{Title: "ABS-" & row.ID}})}}, RemoveIf(absenceFiltered, ID = _upd.ID); Collect(absenceFiltered, _upd); _upd);
+                                Collect({col}, LookUp(absenceFiltered, ID = row.ID));
                                 // 3. Live Break: host tidak perlu report, tapi baris Report tetap dibuat, semua angka 0.
                                 If(lb,
-                                    Patch('Schedule - PBS Hub', LookUp('Schedule - PBS Hub', ID = s.ID), {{LiveBreak: {{Value: "Yes"}}}});   // Choice Yes/No
-                                    With({{rep: Patch('Report - PBS Hub', Defaults('Report - PBS Hub'), {{
+                                    With({{_upd: Patch('Schedule - PBS Hub', LookUp(scheduleFiltered, ID = s.ID), {{LiveBreak: {{Value: "Yes"}}}})}}, RemoveIf(scheduleFiltered, ID = _upd.ID); Collect(scheduleFiltered, _upd); _upd);   // Choice Yes/No
+                                    With({{rep: With({{_new: Patch('Report - PBS Hub', Defaults('Report - PBS Hub'), {{
                                             ScheduleID: s.Title, HostID: varMe.Title, BrandID: s.BrandID, Platform: {{Value: s.Platform.Value}},
                                             AccountID: s.Account, HostName: Coalesce(LookUp('Host - PBS Hub', Title = varMe.Title).NamaHost, Text(p.hostName)),   // nama host dari list Host
                                             Account: LookUp(Choices([@'Report - PBS Hub'].Account), Value = LookUp(colAccounts, Title = s.Account).AccountName || Value = s.Account),   // nama akun dari list Account
                                             LiveDate: s.Date, AbsID: "ABS-" & row.ID,
 {ind(ZERO, 44)},
                                             ApprovalStatus: {{Value: "LiveBreak"}}
-                                        }})}},
-                                        Patch('Report - PBS Hub', rep, {{Title: "REP-" & rep.ID}})
+                                        }})}}, Collect(reportFiltered, _new); _new)}},
+                                        With({{_upd: Patch('Report - PBS Hub', rep, {{Title: "REP-" & rep.ID}})}}, RemoveIf(reportFiltered, ID = _upd.ID); Collect(reportFiltered, _upd); _upd)
                                     );
 {ind(tier("s.Date").rstrip(';'), 36)}
                                 );
@@ -182,37 +182,37 @@ LiveID: Text(p.liveId), Playbook: {Value: Text(p.playbook)},"""
 
 def submit(R, after):
     return f'''"SUBMIT_REPORT",
-    With({{m: p.metrics, s: LookUp('Schedule - PBS Hub', Title = Text(p.scheduleId) && HostID = varMe.Title)}},
+    With({{m: p.metrics, s: LookUp(scheduleFiltered, Title = Text(p.scheduleId) && HostID = varMe.Title)}},
         // Hapus cabang ini kalau config.requireAbsen = false.
-        If(IsBlank(LookUp('Host Absence - PBS Hub', ScheduleID = Text(p.scheduleId) && HostID = varMe.Title)),
+        If(IsBlank(LookUp(absenceFiltered, ScheduleID = Text(p.scheduleId) && HostID = varMe.Title)),
             {res(R, "error", '"Absen sesi ini belum tercatat."')},
         // Report hanya dibuka saat jadwal Waiting Report (hapus kalau config.requireWaitingStatus = false).
         // Setelah durasi terpenuhi statusnya Finished, jadi report tambahan ditolak di sini.
         s.Status.Value <> "Waiting Report",
             {res(R, "conflict", '"Status jadwal " & s.Status.Value & ", report tidak bisa dikirim. Muat ulang dulu."')},
         // Live terputus boleh punya beberapa report, tapi satu Live ID hanya sekali.
-        !IsBlank(LookUp('Report - PBS Hub', ScheduleID = s.Title && HostID = varMe.Title && LiveID = Text(p.liveId))),
+        !IsBlank(LookUp(reportFiltered, ScheduleID = s.Title && HostID = varMe.Title && LiveID = Text(p.liveId))),
             {res(R, "conflict", '"Live ID " & Text(p.liveId) & " sudah dilaporkan untuk sesi ini."')},
             IfError(
-                With({{row: Patch('Report - PBS Hub', Defaults('Report - PBS Hub'), {{
+                With({{row: With({{_new: Patch('Report - PBS Hub', Defaults('Report - PBS Hub'), {{
                         ScheduleID: s.Title, HostID: varMe.Title, BrandID: s.BrandID, Platform: {{Value: s.Platform.Value}},
                         AccountID: s.Account, HostName: Coalesce(LookUp('Host - PBS Hub', Title = varMe.Title).NamaHost, Text(p.hostName)),   // nama host dari list Host
                         Account: LookUp(Choices([@'Report - PBS Hub'].Account), Value = LookUp(colAccounts, Title = s.Account).AccountName || Value = s.Account),   // nama akun dari list Account
                         LiveDate: s.Date, AbsID: Text(p.absId),
 {ind(METRICS, 24)}
                         ApprovalStatus: {{Value: "Waiting Approval"}}
-                    }})}},
+                    }})}}, Collect(reportFiltered, _new); _new)}},
                     With({{title: "REP-" & row.ID}},
-                        Patch('Report - PBS Hub', row, {{Title: title}});
+                        With({{_upd: Patch('Report - PBS Hub', row, {{Title: title}})}}, RemoveIf(reportFiltered, ID = _upd.ID); Collect(reportFiltered, _upd); _upd);
                         // Screenshot → Report Automation/<Brand>/<yyyy>/<mmmm>/REP-<ID>/REP-<ID>_<Platform>_<Account>_Report.png
                         // (Graph PUT, sama dengan app upload jadwal bulk/AI). webUrl dari respons Graph → Attachment.
                         If(!IsBlank(data),
                             With({{up: {ind(graph_put("s.BrandID", "Today()", "title", "s.Platform.Value", "s.Account"), 32).strip()}}},
-                                Patch('Report - PBS Hub', row, {{Attachment: Text(up.webUrl)}})
+                                With({{_upd: Patch('Report - PBS Hub', row, {{Attachment: Text(up.webUrl)}})}}, RemoveIf(reportFiltered, ID = _upd.ID); Collect(reportFiltered, _upd); _upd)
                             )
                         );
                         // Total Durasi(Min) semua report sesi ini ≥ durasi jadwal → "Finished", kalau belum tetap "Waiting Report".
-                        Patch('Schedule - PBS Hub', s, {{Status: {{Value: Text(p.scheduleStatus)}}}});
+                        With({{_upd: Patch('Schedule - PBS Hub', s, {{Status: {{Value: Text(p.scheduleStatus)}}}})}}, RemoveIf(scheduleFiltered, ID = _upd.ID); Collect(scheduleFiltered, _upd); _upd);
 {ind(tier("s.Date"), 24)}
 {ind(after, 24)}
                         {res(R, "ok", 'If(Boolean(p.complete), "Report " & title & " terkirim. Durasi sesi terpenuhi.", "Report " & title & " terkirim. Kurang " & Text(p.remainingMin) & " menit, kirim report berikutnya.")')}
@@ -225,13 +225,13 @@ def submit(R, after):
 
 def resubmit(R, after):
     return f'''"RESUBMIT_REPORT",
-    With({{cur: LookUp('Report - PBS Hub', ID = Value(p.reportId) && HostID = varMe.Title), m: p.metrics}},
+    With({{cur: LookUp(reportFiltered, ID = Value(p.reportId) && HostID = varMe.Title), m: p.metrics}},
         // Modified dari JSON berformat UTC ("…Z"); DateTimeValue mengubahnya ke jam lokal sebelum dibandingkan.
         If(IsBlank(cur) || cur.ApprovalStatus.Value <> "Need Revision" ||
            Abs(DateDiff(cur.Modified, DateTimeValue(Text(p.expectedModified)), TimeUnit.Seconds)) > 1,
             {res(R, "conflict", '"Report ini sudah berubah. Muat ulang dulu."')},
             IfError(
-                Patch('Report - PBS Hub', cur, {{
+                With({{_upd: Patch('Report - PBS Hub', cur, {{
                     Penjualan: Value(m.Penjualan), Pesanan: Value(m.Pesanan), ProdukTerjual: Value(m.ProdukTerjual),
                     JumlahPembeli: Value(m.JumlahPembeli), CTR: Value(m.CTR), CTOR: Value(m.CTOR), PeakViewer: Value(m.PeakViewer),
                     'Durasi(Min)': Value(m.'Durasi(Min)'), AddToCart: Value(m.AddToCart), TotalViewer: Value(m.TotalViewer),
@@ -240,7 +240,7 @@ def resubmit(R, after):
                     ApprovalStatus: {{Value: Text(p.approvalStatus)}},   // "Waiting Approval Revision"
                     ApprovalComment: cur.ApprovalComment & Char(10) & "[Revisi host] " &
                         If(IsBlank(Text(p.note)), "angka diperbaiki: " & Concat(Table(p.changed), Text(ThisRecord.Value), ", "), Text(p.note))
-                }});
+                }})}}, RemoveIf(reportFiltered, ID = _upd.ID); Collect(reportFiltered, _upd); _upd);
                 // Report Automation dengan Title yang sama: hanya Status yang diubah (Unmatch → dibaca ulang).
                 With({{ev: LookUp('Report Automation - PBS Hub', Title = cur.Title)}},
                     If(!IsBlank(ev), Patch('Report Automation - PBS Hub', ev, {{Status: {{Value: Text(p.evidenceStatus)}}}}))
@@ -249,11 +249,11 @@ def resubmit(R, after):
                 // → file lama ditimpa, flow AI membaca ulang.
                 If(!IsBlank(p.file) && !IsBlank(data),
                     With({{up: {ind(graph_put("cur.BrandID", "cur.Created", "cur.Title", "cur.Platform.Value", "cur.AccountID"), 24).strip()}}},
-                        Patch('Report - PBS Hub', LookUp('Report - PBS Hub', ID = cur.ID), {{Attachment: Text(up.webUrl)}}))
+                        With({{_upd: Patch('Report - PBS Hub', LookUp(reportFiltered, ID = cur.ID), {{Attachment: Text(up.webUrl)}})}}, RemoveIf(reportFiltered, ID = _upd.ID); Collect(reportFiltered, _upd); _upd))
                 );
                 // Durasi bisa ikut direvisi: status jadwal dihitung ulang oleh control (Waiting Report / Finished).
                 If(!IsBlank(Text(p.scheduleStatus)),
-                    Patch('Schedule - PBS Hub', LookUp('Schedule - PBS Hub', Title = cur.ScheduleID && HostID = varMe.Title), {{Status: {{Value: Text(p.scheduleStatus)}}}}));
+                    With({{_upd: Patch('Schedule - PBS Hub', LookUp(scheduleFiltered, Title = cur.ScheduleID && HostID = varMe.Title), {{Status: {{Value: Text(p.scheduleStatus)}}}})}}, RemoveIf(scheduleFiltered, ID = _upd.ID); Collect(scheduleFiltered, _upd); _upd));
                 // Angka berubah → Tier hari itu dihitung ulang.
 {ind(tier("cur.LiveDate"), 16)}
 {ind(after, 16)}
@@ -265,12 +265,12 @@ def resubmit(R, after):
 
 def dispute(R, after):
     return f'''"DISPUTE_REVIEW",
-    With({{cur: LookUp('Report - PBS Hub', ID = Value(p.reportId) && HostID = varMe.Title)}},
+    With({{cur: LookUp(reportFiltered, ID = Value(p.reportId) && HostID = varMe.Title)}},
         If(IsBlank(cur) || cur.ApprovalStatus.Value <> "Need Revision",
             {res(R, "conflict", '"Report ini sudah tidak menunggu revisi. Muat ulang dulu."')},
             IfError(
                 // Status tetap Need Revision; reviewer membaca sanggahan di ApprovalComment.
-                Patch('Report - PBS Hub', cur, {{ApprovalComment: cur.ApprovalComment & Char(10) & "[Sanggahan host] " & Text(p.reason)}});
+                With({{_upd: Patch('Report - PBS Hub', cur, {{ApprovalComment: cur.ApprovalComment & Char(10) & "[Sanggahan host] " & Text(p.reason)}})}}, RemoveIf(reportFiltered, ID = _upd.ID); Collect(reportFiltered, _upd); _upd);
 {ind(after, 16)}
                 {res(R, "ok", '"Sanggahan terkirim ke reviewer."')},
                 {res(R, "error", '"Gagal mengirim sanggahan: " & FirstError.Message')}
@@ -305,7 +305,7 @@ OPEN_SCH = '''"OPEN_SCHEDULE",
 hd = shell('\n'.join([
  '"CLOCK_IN", Navigate(scrClockIn),',
  '"CLOCK_OUT", Navigate(scrClockIn),',
- absen('varHdResult','colMyAbs', "ClearCollect(colMySch, Filter('Schedule - PBS Hub', HostID = varMe.Title, Date >= Today() - 7, Date <= Today() + 7));\nClearCollect(colMyRep, Filter('Report - PBS Hub', HostID = varMe.Title, LiveDate >= Today() - 30));"),
+ absen('varHdResult','colMyAbs', "ClearCollect(colMySch, Filter(scheduleFiltered, HostID = varMe.Title, Date >= Today() - 7, Date <= Today() + 7));\nClearCollect(colMyRep, Filter(reportFiltered, HostID = varMe.Title, LiveDate >= Today() - 30));"),
  NAV_REPORT, OPEN_SCH,
  '''"NAV",
     Switch(Text(p.target), "REPORTS", Navigate(scrMyReports), "SCHEDULE", Navigate(scrMySchedule), "SCORE", Navigate(scrCreditScore)),''',
@@ -313,8 +313,8 @@ hd = shell('\n'.join([
 
 mr_reload = '''Set(varMrLoading, true);
 With({from: If(IsBlank(varMrPeriod), Date(Year(Today()), Month(Today()), 1), DateValue(varMrPeriod & "-01"))},
-    ClearCollect(colMrRep, Filter('Report - PBS Hub', HostID = varMe.Title, LiveDate >= from, LiveDate < DateAdd(from, 1, TimeUnit.Months)));
-    ClearCollect(colMrSch, Filter('Schedule - PBS Hub', HostID = varMe.Title, Date >= from, Date < DateAdd(from, 1, TimeUnit.Months)))
+    ClearCollect(colMrRep, Filter(reportFiltered, HostID = varMe.Title, LiveDate >= from, LiveDate < DateAdd(from, 1, TimeUnit.Months)));
+    ClearCollect(colMrSch, Filter(scheduleFiltered, HostID = varMe.Title, Date >= from, Date < DateAdd(from, 1, TimeUnit.Months)))
 );
 Set(varMrLoading, false),'''
 mr = shell('\n'.join([
@@ -323,12 +323,12 @@ mr = shell('\n'.join([
  NAV_REPORT,
 ]))
 
-mrd_sch = """Set(varMrdSch, LookUp('Schedule - PBS Hub', ID = varMrdSch.ID));
-ClearCollect(colMrdSesRep, Filter('Report - PBS Hub', HostID = varMe.Title, ScheduleID = varMrdSch.Title));"""
+mrd_sch = """Set(varMrdSch, LookUp(scheduleFiltered, ID = varMrdSch.ID));
+ClearCollect(colMrdSesRep, Filter(reportFiltered, HostID = varMe.Title, ScheduleID = varMrdSch.Title));"""
 # Belum lengkap: ReportJson tetap kosong supaya form "Send Next Report" tetap di layar.
 mrd_after_submit = mrd_sch + """
-If(Boolean(p.complete), Set(varRptId, row.ID); Set(varMrdRep, LookUp('Report - PBS Hub', ID = row.ID)));"""
-mrd_after = "Set(varMrdRep, LookUp('Report - PBS Hub', ID = cur.ID));\n" + mrd_sch
+If(Boolean(p.complete), Set(varRptId, row.ID); Set(varMrdRep, LookUp(reportFiltered, ID = row.ID)));"""
+mrd_after = "Set(varMrdRep, LookUp(reportFiltered, ID = cur.ID));\n" + mrd_sch
 mrd = shell('\n'.join([
  absen('varMrdResult','colMrdAbs', mrd_sch),
  submit('varMrdResult', mrd_after_submit),
@@ -340,17 +340,17 @@ mrd = shell('\n'.join([
 
 MS_AFTER = '''// bulan lalu ikut dimuat (panel "Bulan lalu", report tertunda), plus 7 hari bulan depan (papan minggu)
 With({from: DateAdd(If(IsBlank(varMsPeriod), Date(Year(Today()), Month(Today()), 1), DateValue(varMsPeriod & "-01")), -1, TimeUnit.Months)},
-    ClearCollect(colMsSch, Filter('Schedule - PBS Hub', HostID = varMe.Title, Date >= from, Date < DateAdd(from, 2, TimeUnit.Months) + 7));
-    ClearCollect(colMsRep, Filter('Report - PBS Hub', HostID = varMe.Title, LiveDate >= from, LiveDate < DateAdd(from, 2, TimeUnit.Months) + 7))
+    ClearCollect(colMsSch, Filter(scheduleFiltered, HostID = varMe.Title, Date >= from, Date < DateAdd(from, 2, TimeUnit.Months) + 7));
+    ClearCollect(colMsRep, Filter(reportFiltered, HostID = varMe.Title, LiveDate >= from, LiveDate < DateAdd(from, 2, TimeUnit.Months) + 7))
 );'''
 ms_reload = '''Set(varMsLoading, true);
 // bulan lalu + bulan ini + 7 hari bulan depan: panel Bulan lalu, report tertunda, papan minggu
 With({from: DateAdd(If(IsBlank(varMsPeriod), Date(Year(Today()), Month(Today()), 1), DateValue(varMsPeriod & "-01")), -1, TimeUnit.Months)},
     With({to: DateAdd(from, 2, TimeUnit.Months) + 7},
-        ClearCollect(colMsSch, Filter('Schedule - PBS Hub', HostID = varMe.Title, Date >= from, Date < to));
-        ClearCollect(colMsClk, Filter('Clock In - PBS Hub', HostID = varMe.Title, ClockInDate >= from, ClockInDate < to));
-        ClearCollect(colMsAbs, Filter('Host Absence - PBS Hub', HostID = varMe.Title, LiveDate >= from, LiveDate < to));
-        ClearCollect(colMsRep, Filter('Report - PBS Hub', HostID = varMe.Title, LiveDate >= from, LiveDate < to))
+        ClearCollect(colMsSch, Filter(scheduleFiltered, HostID = varMe.Title, Date >= from, Date < to));
+        ClearCollect(colMsClk, Filter(clockInFiltered, HostID = varMe.Title, ClockInDate >= from, ClockInDate < to));
+        ClearCollect(colMsAbs, Filter(absenceFiltered, HostID = varMe.Title, LiveDate >= from, LiveDate < to));
+        ClearCollect(colMsRep, Filter(reportFiltered, HostID = varMe.Title, LiveDate >= from, LiveDate < to))
     )
 );
 Set(varMsLoading, false),'''
@@ -365,8 +365,8 @@ ms = shell('\n'.join([
  '"CONTACT_PIC", Launch(varPicUrl),   // mis. "mailto:pic@…" atau link chat Teams PIC jadwal',
 ]))
 
-sd_sch = "ClearCollect(colSdSch, Filter('Schedule - PBS Hub', HostID = varMe.Title, Date = varSchDate));"
-sd_after = "ClearCollect(colSdRep, Filter('Report - PBS Hub', HostID = varMe.Title, LiveDate = varSchDate));"
+sd_sch = "ClearCollect(colSdSch, Filter(scheduleFiltered, HostID = varMe.Title, Date = varSchDate));"
+sd_after = "ClearCollect(colSdRep, Filter(reportFiltered, HostID = varMe.Title, LiveDate = varSchDate));"
 sd_after_submit = sd_sch + chr(10) + sd_after
 sd_after = sd_after_submit
 sd = shell('\n'.join([

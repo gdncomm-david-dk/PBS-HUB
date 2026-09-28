@@ -316,7 +316,7 @@
         const fail = q.get("reply") === "error";
         let rows = JSON.parse(params.ClockInJson || "[]");
         if (!fail && p.action === "CLOCK_IN") rows.push({ ID: 99101, Title: "CLK-99101", HostID: p.payload.hostId, ClockInDate: p.payload.clockInDate, CheckInTime: p.payload.checkInTime, ClockInTime: p.payload.clockInTime, CheckInOffice: p.payload.office, IsInsideGeofence: p.payload.inside, Reason: p.payload.reason });
-        if (!fail && p.action === "CLOCK_OUT") rows = rows.map((x) => String(x.ID) === String(p.payload.clockInId) ? Object.assign({}, x, { CheckOutTime: p.payload.checkOutTime, CheckOutOffice: p.payload.office }) : x);
+        if (!fail && p.action === "CLOCK_OUT") rows = rows.map((x) => String(x.ID) === String(p.payload.clockInId) ? Object.assign({}, x, { CheckOutTime: p.payload.checkOutTime, ClockOutDate: p.payload.clockOutDate, ClockOutTime: p.payload.clockOutTime, CheckOutOffice: p.payload.office }) : x);
         params.ClockInJson = J(rows);
         params.ActionResult = J({ requestId: p.requestId, status: fail ? "error" : "ok", message: fail ? "Gagal menyimpan: akses ditolak." : "" });
         ctl.updateView(context());
