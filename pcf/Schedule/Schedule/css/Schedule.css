@@ -453,3 +453,4 @@
 .sc-tablewrap > .sc-table--flat + .sc-pager { padding: 10px 14px; }
 .sc-attach__row > .sc-ellipsis { flex: 1; max-width: none; }
 .sc-attach__row > button { margin-left: auto; flex-shrink: 0; }
+.sc-version { color: var(--text-muted); font-weight: 400; }

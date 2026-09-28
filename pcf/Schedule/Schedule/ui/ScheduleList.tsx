@@ -4,6 +4,7 @@ import { applyFilters, distinct, Filters, hasActiveFilter, hoursOf, phaseOf, ran
 import { BULAN_PENDEK, dateKeyToDate, formatDateShort, HARI, shiftDay, toDateKey } from "../core/time";
 import { Banner, Button, Card, cx, Icon, Pager, SkeletonRows, usePaged } from "./components";
 import { Env, scheduleStatus, StatusBadge } from "./shared";
+import { CONTROL_VERSION } from "./shared";
 import { BulkDeleteDialog, BulkDuplicateDialog, DeleteDialog } from "./Dialogs";
 
 const formatHours = (h: number): string => (Math.round(h * 10) / 10).toLocaleString("id-ID");
@@ -118,7 +119,9 @@ export function ScheduleList(props: {
         <>
             <div className="sc-pagehead">
                 <div>
-                    <div className="sc-crumb">Operasional</div>
+                    <div className="sc-crumb">
+                        Operasional <span className="sc-version">· {CONTROL_VERSION}</span>
+                    </div>
                     <h1 className="sc-h1">Schedule</h1>
                     <div className="sc-sub">
                         {env.loading ? "Memuat jadwal…" : `${inRange.length} sesi · ${rangeLabel(f.from, f.to)}`}

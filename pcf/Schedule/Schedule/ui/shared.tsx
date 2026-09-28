@@ -68,3 +68,6 @@ export const hostLabel = (lk: Lookups, id: string): string => lk.hosts.get(id.to
 
 /** Shown when an upload got no reply in time: the file usually did arrive, the canvas just never confirmed it. */
 export const UNCONFIRMED = "File sudah dikirim, tetapi aplikasi belum membalas. Cek folder SharePoint / list Schedule sebelum mengunggah ulang.";
+
+/** Shown in the header so the running build can be checked after an import. Keep in step with the manifest. */
+export const CONTROL_VERSION = "pbs_Ops.Schedule 1.4.4";
