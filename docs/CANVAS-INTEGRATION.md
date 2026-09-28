@@ -81,6 +81,13 @@ Izin kalau `permissions` kosong (model legacy `Role - PBS Hub`, satu-satunya yan
 | `HOST_PII_VIEW` (tab Data pribadi: KTP, rekening, alamat, telepon) | ✓ | – | – |
 | `HOST_CLOCKIN` (Clock in manual; edit jam, status, tier dan weekly di tab Kehadiran) | ✓ | ✓ | – |
 
+Role dibaca longgar: `PBS_Team`, `PBS Team`, `pbs-team`, `PBSTeam`, record Choice `{Value: …}` atau daftar
+semuanya sama. **Tombol keputusan tidak muncul ("Kamu tidak punya izin …")?** Baris di bawah pesan itu
+menyebut apa yang diterima control: *Context tidak membawa role* → properti `Context` control belum
+`varPbsCtx`, atau `varPbsCtx` dibuat sebelum `userRole` terisi (buat ulang setelah `userRole` di-set, atau di
+`OnVisible` layar); *Role yang diterima: …* → nilai `userRole.Value` bukan PBS_Team/FAS_Team; *Daftar izin …*
+→ `permissions` tidak kosong, jadi hanya daftar itu yang dipakai.
+
 Kalau nanti pindah ke `[FAS STUDIO] RolePermissions`, isi `permissions: Concat(colUserPermissions, Value, ",")`
 dan control hanya memakai daftar itu.
 
@@ -1244,7 +1251,7 @@ belum ada di v1, bulk approve tidak akan muncul — itu disengaja.
 
 1. Power Platform admin center → environment → **Settings → Product → Features** → aktifkan
    *Allow publishing of canvas apps with code components*.
-2. make.powerapps.com → **Solutions → Import solution** → `PBSHubOpsPCF_1_6_4_0_managed.zip`
+2. make.powerapps.com → **Solutions → Import solution** → `PBSHubOpsPCF_1_6_5_0_managed.zip`
    (sudah pernah import versi lama? Import ini meng-**upgrade** solusi yang sama — pilih *Upgrade*, bukan
    *Stage for upgrade* yang belum di-*Apply*).
 3. Di canvas app: **Insert → Get more components → Code** → pilih `PBS Ops Dashboard`,
@@ -1257,8 +1264,8 @@ belum ada di v1, bulk approve tidak akan muncul — itu disengaja.
 disisipkan. Setelah upgrade solusi: buka app di Studio → akan muncul banner *"Updated code components
 detected"* → **Update**. Kalau banner tidak muncul: tutup Studio, hard refresh browser (Ctrl+Shift+R), buka
 lagi. Lalu **Save + Publish** app. Pastikan juga di Solutions → PBS Hub Ops PCF → History bahwa versi
-1.6.4.0 benar-benar terpasang. Versi control di solusi ini: Dashboard 1.3.4, ReportReview / ReportDetail
-1.4.3, PayrollRuns 1.2.5, PayrollRunDetail 1.2.4, HostList 1.2.6, HostDetail 1.3.8, HostScore 1.0.0. ReportReview dan
+1.6.5.0 benar-benar terpasang. Versi control di solusi ini: Dashboard 1.3.5, ReportReview / ReportDetail
+1.4.4, PayrollRuns 1.2.6, PayrollRunDetail 1.2.5, HostList 1.2.7, HostDetail 1.3.9, HostScore 1.0.1. ReportReview dan
 ReportDetail 1.4.0 punya properti baru `SchedulesJson` — isi di canvas supaya kolom *Jam live* terisi.
 
 **Tampilan rusak di app (tabel tidak full, tombol tanpa border, checkbox hilang)?** Itu CSS global Power

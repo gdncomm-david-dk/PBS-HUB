@@ -35,6 +35,8 @@ export interface ActionResult {
 }
 
 const stringsOnly = (value: unknown): string[] => {
+  // roles: userRole (the Choice record itself) arrives as {"Value":"PBS_Team"}.
+  if (value && typeof value === "object" && !Array.isArray(value) && typeof (value as { Value?: unknown }).Value === "string") return stringsOnly((value as { Value: string }).Value);
   if (Array.isArray(value)) {
     return value
       .map((v) => (typeof v === "string" ? v : v && typeof v === "object" && typeof (v as { Value?: unknown }).Value === "string" ? (v as { Value: string }).Value : null))
@@ -79,10 +81,21 @@ export function parseContext(raw: string | null | undefined): ModuleContext {
  */
 export function hasPermission(ctx: ModuleContext, code: string): boolean {
   if (ctx.permissions.length > 0) return ctx.permissions.includes(code);
-  const roles = ctx.roles.map((r) => r.toUpperCase().replace(/[\s-]/g, "_"));
-  if (roles.includes("PBS_TEAM")) return true;
-  if (roles.includes("FAS_TEAM")) return !code.startsWith("PAYROLL") && !code.startsWith("HOST_PII");
+  // "PBS_Team", "PBS Team", "pbs-team", "PBSTeam" and a JSON-encoded list all read the same.
+  const roles = ctx.roles.map(roleKey);
+  if (roles.some((r) => r.startsWith("PBSTEAM"))) return true;
+  if (roles.some((r) => r.startsWith("FASTEAM"))) return !code.startsWith("PAYROLL") && !code.startsWith("HOST_PII");
   return false;
+}
+
+const roleKey = (r: string): string => r.toUpperCase().replace(/[^A-Z0-9]/g, "");
+
+/** Why a permission is missing, in words an admin can act on (shown next to the "no permission" text). */
+export function permissionHint(ctx: ModuleContext, code: string): string {
+  if (ctx.permissions.length > 0) return `Daftar izin dari Context (${ctx.permissions.join(", ")}) tidak memuat ${code}.`;
+  if (ctx.roles.length === 0)
+    return "Context tidak membawa role. Cek properti Context = varPbsCtx, dan varPbsCtx dibuat setelah userRole terisi (App.OnStart / OnVisible).";
+  return `Role yang diterima: ${ctx.roles.join(", ")}. Hanya PBS_Team dan FAS_Team yang punya ${code}.`;
 }
 
 export function configNumber(ctx: ModuleContext, key: string, fallback: number): number {

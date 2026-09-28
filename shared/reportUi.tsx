@@ -1,5 +1,5 @@
 import * as React from "react";
-import { ModuleContext, UseActionResult, configNumber, hasPermission } from "./contract";
+import { ModuleContext, UseActionResult, configNumber, hasPermission, permissionHint } from "./contract";
 import { Row, date, person, str } from "./data";
 import { fmtAgo, fmtDate, fmtDateTimeShort, fmtNumber, fmtPercentValue, fmtRupiah, fmtSignedPct } from "./format";
 import { MetricComparison, MetricDef, reviewBadge, sameValue } from "./reconcile";
@@ -297,7 +297,7 @@ export function DecisionPanel(props: { item: ReportItem; ctx: ModuleContext; act
       />
     );
   }
-  if (!canDecide) return <DecisionSummary report={report} item={item} now={props.now} decidedByMe={decidedByMe} readOnly={props.readOnly} />;
+  if (!canDecide) return <DecisionSummary report={report} item={item} now={props.now} decidedByMe={decidedByMe} readOnly={props.readOnly} permissionHint={hasPermission(props.ctx, "REPORT_ADJUDICATE") ? undefined : permissionHint(props.ctx, "REPORT_ADJUDICATE")} />;
 
   const differing = item.rec.metrics.filter(revisable).length;
   return (
@@ -346,7 +346,7 @@ export function DecisionPanel(props: { item: ReportItem; ctx: ModuleContext; act
   );
 }
 
-function DecisionSummary(props: { report: Row; item: ReportItem; now: Date; decidedByMe: boolean; readOnly: boolean }): React.ReactElement {
+function DecisionSummary(props: { report: Row; item: ReportItem; now: Date; decidedByMe: boolean; readOnly: boolean; permissionHint?: string }): React.ReactElement {
   const { report, item, now } = props;
   const st = reviewBadge(report, item.state);
   const approver = person(report, "Approver");
@@ -373,7 +373,14 @@ function DecisionSummary(props: { report: Row; item: ReportItem; now: Date; deci
   if (item.state === "WAITING") {
     return (
       <div className="pbs-card" style={{ padding: 18, fontSize: 13, color: "#60686E" }}>
-        {props.readOnly ? "Mode baca saja — keputusan hanya bisa dibuat oleh reviewer." : "Kamu tidak punya izin untuk memutuskan report ini (REPORT_ADJUDICATE)."}
+        {props.readOnly ? (
+          "Mode baca saja — keputusan hanya bisa dibuat oleh reviewer."
+        ) : (
+          <>
+            Kamu tidak punya izin untuk memutuskan report ini (REPORT_ADJUDICATE).
+            {props.permissionHint ? <div style={{ fontSize: 12, marginTop: 6 }}>{props.permissionHint}</div> : null}
+          </>
+        )}
       </div>
     );
   }

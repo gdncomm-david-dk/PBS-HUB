@@ -37,6 +37,12 @@ const assert = (c, m) => { if (!c) { console.log("FAIL", m); process.exitCode = 
   assert((await p.getByRole("button", { name: "Setujui", exact: true }).count()) === 0, "decision bar gone after decision");
   await shot("f-approved");
 
+  // Role spelled differently still decides; a missing role says what the control received.
+  await go("c=ReportDetail&r=REP-20862&role=PBS%20Team");
+  assert(await p.getByRole("button", { name: "Setujui", exact: true }).isVisible(), "role 'PBS Team' may decide");
+  await go("c=ReportDetail&r=REP-20862&role=HOST");
+  assert(await p.getByText("Role yang diterima: HOST. Hanya PBS_Team dan FAS_Team yang punya REPORT_ADJUDICATE.").isVisible(), "no-permission text names the role received");
+
   // Conflict reply from canvas.
   await go("c=ReportDetail&r=REP-20862&reply=conflict&delay=200");
   await p.getByRole("button", { name: "Setujui", exact: true }).click();

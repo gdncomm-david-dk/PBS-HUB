@@ -139,3 +139,14 @@ describe("sessionStatus", () => {
     expect(sessionStatus({ Status: "Leave" })).toBe("CANCELLED");
   });
 });
+
+describe("role spelling", () => {
+  const can = (roles: unknown, code = "REPORT_ADJUDICATE") => hasPermission(parseContext(JSON.stringify({ roles })), code);
+  it("reads PBS_Team however canvas spells or wraps it", () => {
+    expect(["PBS_Team", "PBS_TEAM", "PBS Team", "pbs-team", "PBSTeam", '["PBS_Team"]', ["PBS_Team"], { Value: "PBS_Team" }, [{ Value: "PBS Team" }]].map((r) => can(r))).toEqual(Array(9).fill(true));
+  });
+  it("still denies an empty or other role, and an explicit permission list wins", () => {
+    expect([can(""), can("HOST"), can("Viewer")]).toEqual([false, false, false]);
+    expect(hasPermission(parseContext(JSON.stringify({ roles: "PBS_Team", permissions: "HOST_EDIT" })), "REPORT_ADJUDICATE")).toBe(false);
+  });
+});
