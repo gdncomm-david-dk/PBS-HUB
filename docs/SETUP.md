@@ -354,8 +354,8 @@ the whole list:
 
 | Table | Replaces | Used by |
 |---|---|---|
-| `scheduleFiltered` | `'Schedule - PBS Hub'` | EDIT, DELETE, BULK_DELETE, Lampiran |
-| `reportFiltered` | `'Report - PBS Hub'` | DELETE / BULK_DELETE (report check), REVIEW_REPORT, Lampiran |
+| `scheduleFiltered` | `'Schedule - PBS Hub'` | EDIT, DELETE, BULK_DELETE |
+| `reportFiltered` | `'Report - PBS Hub'` | DELETE / BULK_DELETE (report check), REVIEW_REPORT |
 | `clockInFiltered` | `'Clock In - PBS Hub'` | not used by the handler today; use it for any clock-in lookup you add |
 | `absenceFiltered` | `'Host Absence - PBS Hub'` | not used by the handler today; use it for any absence lookup you add |
 
@@ -368,7 +368,7 @@ keeps its `ID`, so SharePoint knows which item to change. Keep in mind:
 - If they are **collections** (`ClearCollect`), re-collect them after a write (for example after `Refresh(...)`),
   otherwise the next action reads stale rows. Named formulas (App › Formulas) update by themselves.
 - `REVIEW_REPORT` still patches `'Report Automation - PBS Hub'` directly (no filtered table for it).
-- `scheduleFiltered` and `reportFiltered` must include `Attachments` for the Lampiran dialog (C4c).
+- Exception: `OPEN_ATTACHMENTS` reads `'Schedule - PBS Hub'` / `'Report - PBS Hub'` by `ID`. Filtered tables and collections do not carry `Attachments` (*The specified column is not accessible in this context*).
 
 `varSiteID` and `varDriveID` are the site and drive IDs your current Graph upload already uses
 (the `PBS Power Apps` library on `sites/StudioTeamBlibli`).
@@ -469,16 +469,19 @@ If(rid <> varLastSchedRid,
         // Detail › Lampiran. The control cannot read SharePoint attachments, so the canvas replies with the
         // file links; the control lists them and opens the one the user picks (see C4c).
         "OPEN_ATTACHMENTS",
+            // Attachments exist only on records read straight from the list, so this branch looks items up
+            // by the SharePoint ID the control sends, not in scheduleFiltered / reportFiltered.
             IfError(
-                Set(varSchedResult, JSON({
-                    requestId: rid, status: "ok", message: "",
-                    data: {
-                        schedule: ForAll(LookUp(scheduleFiltered, Title = Text(p.scheduleId)).Attachments As a,
-                            { name: a.DisplayName, url: a.AbsoluteUri }),
-                        reports: ForAll(Filter(reportFiltered, ScheduleID = Text(p.scheduleId)) As r,
-                            { reportId: r.Title,
-                              files: ForAll(r.Attachments As a, { name: a.DisplayName, url: a.AbsoluteUri }) })
-                    } }, JSONFormat.Compact)); true,
+                With({ sch: LookUp('Schedule - PBS Hub', ID = Value(p.scheduleItemId)) },
+                    Set(varSchedResult, JSON({
+                        requestId: rid, status: "ok", message: "",
+                        data: {
+                            schedule: ForAll(sch.Attachments As a, { name: a.DisplayName, url: a.AbsoluteUri }),
+                            reports: ForAll(Table(p.reportItemIds) As x,
+                                With({ r: LookUp('Report - PBS Hub', ID = Value(x.Value)) },
+                                    { reportId: r.Title,
+                                      files: ForAll(r.Attachments As a, { name: a.DisplayName, url: a.AbsoluteUri }) }))
+                        } }, JSONFormat.Compact))); true,
                 Set(varSchedOk, false); Set(varSchedErr, FirstError.Message)),
 
         "REFRESH",
@@ -519,14 +522,16 @@ If(rid <> varLastSchedRid,
 30 seconds for the reply built in C4. Nothing else is needed on the screen: no popup, no gallery.
 
 - `data.schedule`: the attachments of the Schedule item.
-- `data.reports`: one entry per report of the session (`Filter(reportFiltered, ScheduleID = …)`), each with its attachments.
+- `data.reports`: one entry per report of the session, looked up by the `reportItemIds` the control sends.
 - **Buka** opens `AbsoluteUri` in a new tab.
 
-`scheduleFiltered` and `reportFiltered` must carry the `Attachments` column. With a `ShowColumns(...)` add
-`Attachments` to it; a collection made with `ClearCollect` keeps it only if the source includes it.
+The branch looks each item up in the SharePoint list by `ID` (`p.scheduleItemId`, `p.reportItemIds`), because
+`Attachments` is only available on records read straight from the list. `scheduleFiltered` / `reportFiltered`
+give *The specified column is not accessible in this context* here. One `LookUp` by `ID` per item is delegable.
 
 If the dialog says *Aplikasi belum membalas*, the `OPEN_ATTACHMENTS` branch is missing from `OnChange`. If it shows
-a Power Apps error instead, the branch ran but failed, usually because `.Attachments` is not on the filtered table.
+a Power Apps error instead, the branch ran but failed. Check that the `schedules` and `reports` datasets carry `ID`,
+so the control can send the item IDs.
 
 **Which flow starts how.** PBS0002A (AI) starts on *When a file is created*, so the upload alone is enough.
 PBS0001A (bulk) has a Power Apps trigger (that is why `.Run()` compiles): without the `.Run()` the file lands in
@@ -719,7 +724,7 @@ file was uploaded.
 | Upload dialog: *Aplikasi tidak membalas dalam 180 detik* / *belum dikonfirmasi*, but the file and the flow are fine | The reply (`varSchedResult`) is never set (the final `If(action in [...])` block commented out or missing), or set after `PBS0001A….Run()` | Use the C4 handler: upload branch sets the message only, `.Run()` at the bottom after the reply. Check that `"UPLOAD_SCHEDULE_FILE"` is in the `If(action in [...])` list and that `ActionResult` = `varSchedResult` |
 | Upload works, but the reply never comes (or only REVIEW_REPORT replies) | The `)` that closes `Switch(` sits inside a `/* … */` comment, so the reply block became part of the last Switch branch | Keep `);` after the last branch outside any comment (C4) |
 | Schedule opens a session detail straight away instead of the list | Before Schedule 1.4.0 the bound `SelectedScheduleId` reopened the last session on return | Import 1.4.0: the control always starts on the list |
-| Lampiran: *Aplikasi belum membalas*, or an error in the dialog | No reply: the `OPEN_ATTACHMENTS` branch is missing. Error: the filtered tables lack `Attachments` | Add the branch from C4 and include `Attachments` (C4c) |
+| Lampiran: *Aplikasi belum membalas*, or an error in the dialog | No reply: the `OPEN_ATTACHMENTS` branch is missing. *Column is not accessible*: the branch reads `Attachments` from a filtered table | Use the C4 branch, which looks items up in the list by `ID` |
 | Bulk Duplikat / Hapus shows *tidak membalas* | `BULK_CREATE_SCHEDULE` / `BULK_DELETE_SCHEDULE` are missing from the Switch or from the reply list | Add both branches and both names as in C4 |
 | New schedules from a flow do not appear | Canvas apps are not pushed SharePoint changes | Press **Muat ulang**, or add the Timer in C4 *Auto update* |
 | Bulk: notification OK and file in *Bulk Schedule*, but no schedules | `PBS0001A….Run()` was removed; the flow has a Power Apps trigger | Keep the `.Run()` at the bottom of the C4 handler |
