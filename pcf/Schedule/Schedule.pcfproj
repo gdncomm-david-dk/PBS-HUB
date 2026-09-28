@@ -8,8 +8,8 @@
   <Import Project="$(PowerAppsTargetsPath)\Microsoft.PowerApps.VisualStudio.Pcf.props" Condition="Exists('$(PowerAppsTargetsPath)\Microsoft.PowerApps.VisualStudio.Pcf.props')" />
 
   <PropertyGroup>
-    <Name>Schedule</Name>
-    <ProjectGuid>e7b5ca75-0f78-43c5-b1f5-c9e46fb775da</ProjectGuid>
+    <Name>ScheduleHub</Name>
+    <ProjectGuid>9411565e-2470-4540-b376-41697797f981</ProjectGuid>
     <OutputPath>$(MSBuildThisFileDirectory)out\controls</OutputPath>
   </PropertyGroup>
 

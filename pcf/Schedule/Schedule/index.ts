@@ -49,7 +49,7 @@ function parseActionResult(raw: string | null | undefined): ActionResult | null 
     }
 }
 
-export class Schedule implements ComponentFramework.StandardControl<IInputs, IOutputs> {
+export class ScheduleHub implements ComponentFramework.StandardControl<IInputs, IOutputs> {
     private root: Root;
     private context: ComponentFramework.Context<IInputs>;
     private notifyOutputChanged: () => void;

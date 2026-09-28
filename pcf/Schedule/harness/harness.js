@@ -1,4 +1,4 @@
-/* Local preview harness for pbs_Ops.Schedule.
+/* Local preview harness for pbs_Ops.ScheduleHub.
  * Loads the real bundle.js, feeds it mock datasets shaped like the SharePoint lists in DESIGN.md
  * (fictional sample data), and plays the canvas role: applies ActionPayload to the mock data and
  * answers via ActionResult. Open harness/index.html after `npm run build`. Not shipped in the solution.
