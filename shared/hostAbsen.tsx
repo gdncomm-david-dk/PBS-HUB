@@ -120,7 +120,7 @@ function LiveBreakDialog(props: {
           className="pbs-x"
           onClick={props.onClose}
           disabled={pending}
-          aria-label="Tutup"
+          aria-label="Close"
         >
           <Icon name="x" />
         </button>
@@ -150,7 +150,7 @@ function LiveBreakDialog(props: {
       </div>
       <div className="pbs-modal-f">
         <Button variant="ghost" onClick={props.onClose} disabled={pending}>
-          Batal
+          Cancel
         </Button>
         <Button
           onClick={() => choice && props.onSend(choice === "yes")}
@@ -158,10 +158,10 @@ function LiveBreakDialog(props: {
         >
           {pending ? (
             <>
-              <Spinner small /> Mengirim…
+              <Spinner small /> Sending…
             </>
           ) : (
-            "Absen"
+            "Mark Attendance"
           )}
         </Button>
       </div>

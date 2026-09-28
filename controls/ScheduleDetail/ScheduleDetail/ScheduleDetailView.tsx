@@ -198,7 +198,7 @@ export function ScheduleDetailView(
           }
           action={
             <Button variant="secondary" size="sm" onClick={back}>
-              Kembali ke Jadwal saya
+              Back to My Schedule
             </Button>
           }
         />
@@ -269,7 +269,7 @@ export function ScheduleDetailView(
         crumb={
           <>
             <button type="button" className="pbs-link" onClick={back}>
-              Jadwal saya
+              My Schedule
             </button>{" "}
             / <span className="hc-id">{s.title}</span>
           </>
@@ -298,7 +298,7 @@ export function ScheduleDetailView(
                 onClick={() => absen.start(s)}
                 disabled={!!action.pending}
               >
-                {busy ? <Spinner small /> : null} Absen
+                {busy ? <Spinner small /> : null} Mark Attendance
               </Button>
             ) : today &&
               !s.clockedIn &&
@@ -308,7 +308,7 @@ export function ScheduleDetailView(
                 variant="secondary"
                 onClick={() => action.fire("CLOCK_IN", {})}
               >
-                <Icon name="mapPin" size={14} /> Clock in
+                <Icon name="mapPin" size={14} /> Clock In
               </Button>
             ) : null}
             {sendVisible ? (
@@ -318,7 +318,7 @@ export function ScheduleDetailView(
                 title={sendTitle}
               >
                 <Icon name="file" size={14} />{" "}
-                {s.partial ? "Kirim report berikutnya" : "Kirim report"}
+                {s.partial ? "Send Next Report" : "Send Report"}
               </Button>
             ) : s.noReport ? (
               <Badge tone="success">
@@ -400,7 +400,7 @@ export function ScheduleDetailView(
                     size="sm"
                     onClick={() => setFormOpen(false)}
                   >
-                    Tutup form
+                    Close Form
                   </Button>
                 </div>
               ) : null}
@@ -559,7 +559,7 @@ function Rec(props: {
 function Crumb(props: { onBack: () => void }): React.ReactElement {
   return (
     <button type="button" className="pbs-link hc-crumb" onClick={props.onBack}>
-      <Icon name="arrowLeft" size={14} /> Jadwal saya
+      <Icon name="arrowLeft" size={14} /> My Schedule
     </button>
   );
 }
@@ -643,7 +643,7 @@ function NextStep(props: {
       if (props.today && !s.clockedIn)
         btn = (
           <Button size="sm" onClick={() => action.fire("CLOCK_IN", {})}>
-            <Icon name="mapPin" size={14} /> Clock in
+            <Icon name="mapPin" size={14} /> Clock In
           </Button>
         );
       break;
@@ -658,7 +658,7 @@ function NextStep(props: {
           "Tanpa clock in di hari ini, absen dan report tidak bisa dikirim.";
         btn = (
           <Button size="sm" onClick={() => action.fire("CLOCK_IN", {})}>
-            <Icon name="mapPin" size={14} /> Clock in
+            <Icon name="mapPin" size={14} /> Clock In
           </Button>
         );
       } else if (s.canAbsen) {
@@ -672,7 +672,7 @@ function NextStep(props: {
           : "Absen menandai kamu hadir di sesi ini. Kamu akan ditanya apakah sesi ini Live Break; kalau bukan, kirim report lewat Kirim report.";
         btn = (
           <Button size="sm" onClick={props.onAbsen} disabled={props.pending}>
-            {props.busy ? <Spinner small /> : null} Absen
+            {props.busy ? <Spinner small /> : null} Mark Attendance
           </Button>
         );
       } else {
@@ -710,7 +710,7 @@ function NextStep(props: {
       }
       btn = props.onForm ? (
         <Button size="sm" onClick={props.onForm}>
-          {s.partial ? "Kirim report berikutnya" : "Kirim report"}
+          {s.partial ? "Send Next Report" : "Send Report"}
         </Button>
       ) : null;
       break;
@@ -729,7 +729,7 @@ function NextStep(props: {
               ?.scrollIntoView?.({ behavior: "smooth", block: "start" })
           }
         >
-          Lihat revisi
+          View Revision
         </Button>
       );
       break;
@@ -826,9 +826,7 @@ function ReportsCard(props: {
                 className="pbs-link"
                 onClick={() => props.onOpen(r)}
               >
-                {rs === "REVISION" && props.revising !== r
-                  ? "Perbaiki"
-                  : "Lihat"}
+                {rs === "REVISION" && props.revising !== r ? "Fix" : "View"}
               </button>
             </div>
           );

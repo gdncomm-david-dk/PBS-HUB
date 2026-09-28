@@ -299,7 +299,7 @@ export function HostDetailView(props: HostDetailProps): React.ReactElement {
               onClick={() => action.fire("RELOAD", { hostId: h.hostId })}
               disabled={props.loading}
             >
-              <Icon name="refresh" size={14} /> Muat ulang
+              <Icon name="refresh" size={14} /> Reload
             </Button>
             {canClockIn ? (
               <Button
@@ -313,7 +313,7 @@ export function HostDetailView(props: HostDetailProps): React.ReactElement {
                     : "Sudah clock in di semua jadwal"
                 }
               >
-                <Icon name="clock" size={14} /> Clock in
+                <Icon name="clock" size={14} /> Clock In
                 {missedDays ? (
                   <span className="pbs-count">{missedDays}</span>
                 ) : null}
@@ -332,7 +332,7 @@ export function HostDetailView(props: HostDetailProps): React.ReactElement {
                     })
                   }
                 >
-                  Edit host
+                  Edit Host
                 </Button>
                 {h.status === "INACTIVE" ? (
                   <Button
@@ -341,7 +341,7 @@ export function HostDetailView(props: HostDetailProps): React.ReactElement {
                     onClick={openStatus}
                     disabled={!!action.pending}
                   >
-                    Aktifkan kembali
+                    Reactivate
                   </Button>
                 ) : (
                   <Button
@@ -350,7 +350,7 @@ export function HostDetailView(props: HostDetailProps): React.ReactElement {
                     onClick={openStatus}
                     disabled={!!action.pending}
                   >
-                    Nonaktifkan
+                    Deactivate
                   </Button>
                 )}
               </>
@@ -617,7 +617,7 @@ function DeactivatedBanner(props: {
       action={
         impact.upcoming.length > 0 ? (
           <Button variant="secondary" size="sm" onClick={props.onSchedule}>
-            Atur ulang jadwal
+            Reschedule
           </Button>
         ) : undefined
       }
@@ -687,7 +687,7 @@ function SummaryTab(props: {
                   })
                 }
               >
-                Lihat ledger
+                View Ledger
               </button>
             }
           />
@@ -1043,7 +1043,7 @@ function ScheduleTab(props: {
                           size="sm"
                           onClick={() => props.onOpen(s)}
                         >
-                          Buka
+                          Open
                         </Button>
                       </td>
                     </tr>
@@ -1158,7 +1158,7 @@ function ReportsTab(props: {
                         size="sm"
                         onClick={() => props.onOpen(r)}
                       >
-                        {r.state === "WAITING" ? "Tinjau" : "Lihat"}
+                        {r.state === "WAITING" ? "Review" : "View"}
                       </Button>
                     </td>
                   </tr>
@@ -1253,7 +1253,7 @@ function PayrollTab(props: {
                         onClick={() => props.onOpen(l)}
                         disabled={!l.runTitle}
                       >
-                        Buka run
+                        Open Run
                       </Button>
                     </td>
                   </tr>
@@ -1396,7 +1396,7 @@ function PersonalTab(props: {
               )}
               {isOpen ? (
                 <Button variant="ghost" size="sm" onClick={() => hide(f)}>
-                  <Icon name="eyeOff" size={14} /> Sembunyikan
+                  <Icon name="eyeOff" size={14} /> Hide
                 </Button>
               ) : masked === null ? null : (
                 <Button
@@ -1407,11 +1407,11 @@ function PersonalTab(props: {
                 >
                   {pendingField === f ? (
                     <>
-                      <Spinner small /> Membuka…
+                      <Spinner small /> Opening…
                     </>
                   ) : (
                     <>
-                      <Icon name="eye" size={14} /> Lihat
+                      <Icon name="eye" size={14} /> View
                     </>
                   )}
                 </Button>
@@ -1488,7 +1488,7 @@ function StatusModal(props: {
           className="pbs-x"
           onClick={props.onClose}
           disabled={pending}
-          aria-label="Tutup"
+          aria-label="Close"
         >
           <Icon name="x" />
         </button>
@@ -1551,7 +1551,7 @@ function StatusModal(props: {
       </div>
       <div className="pbs-modal-f">
         <Button variant="ghost" onClick={props.onClose} disabled={pending}>
-          Batal
+          Cancel
         </Button>
         <Button
           variant={deactivate ? "danger" : "primary"}
@@ -1561,12 +1561,12 @@ function StatusModal(props: {
         >
           {pending ? (
             <>
-              <Spinner small /> Menyimpan…
+              <Spinner small /> Saving…
             </>
           ) : deactivate ? (
-            "Nonaktifkan host"
+            "Deactivate Host"
           ) : (
-            "Aktifkan kembali"
+            "Reactivate"
           )}
         </Button>
       </div>

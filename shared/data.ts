@@ -21,7 +21,9 @@ export function parseRows(raw: string | null | undefined): Row[] {
     return [];
   }
   if (Array.isArray(parsed)) {
-    return parsed.filter((r): r is Row => typeof r === "object" && r !== null && !Array.isArray(r));
+    return parsed.filter(
+      (r): r is Row => typeof r === "object" && r !== null && !Array.isArray(r),
+    );
   }
   if (typeof parsed === "object" && parsed !== null) {
     const o = parsed as Row;
@@ -41,7 +43,12 @@ function pick(row: Row | undefined, keys: readonly string[]): unknown {
   // Case-insensitive fallback: SharePoint internal names and display names differ in case at times.
   const lower = keys.map((k) => k.toLowerCase());
   for (const k of Object.keys(row)) {
-    if (lower.includes(k.toLowerCase()) && row[k] !== null && row[k] !== undefined) return row[k];
+    if (
+      lower.includes(k.toLowerCase()) &&
+      row[k] !== null &&
+      row[k] !== undefined
+    )
+      return row[k];
   }
   return undefined;
 }
@@ -56,7 +63,10 @@ function unwrap(v: unknown): unknown {
   }
   if (Array.isArray(v)) {
     // Multi-choice: join the display values.
-    return v.map((x) => unwrap(x)).filter((x) => x !== undefined && x !== null && x !== "").join(", ");
+    return v
+      .map((x) => unwrap(x))
+      .filter((x) => x !== undefined && x !== null && x !== "")
+      .join(", ");
   }
   return v;
 }
@@ -70,7 +80,10 @@ export function str(row: Row | undefined, ...keys: string[]): string {
 }
 
 /** Person column: prefers the display name, falls back to the e-mail. */
-export function person(row: Row | undefined, ...keys: string[]): { name: string; email: string } {
+export function person(
+  row: Row | undefined,
+  ...keys: string[]
+): { name: string; email: string } {
   const v = pick(row, keys);
   if (v && typeof v === "object" && !Array.isArray(v)) {
     const o = v as Row;
@@ -99,7 +112,8 @@ export function num(row: Row | undefined, ...keys: string[]): number | null {
   const hasComma = s.includes(",");
   if (hasDot && hasComma) {
     // Whichever separator comes last is the decimal separator.
-    if (s.lastIndexOf(",") > s.lastIndexOf(".")) s = s.replace(/\./g, "").replace(",", ".");
+    if (s.lastIndexOf(",") > s.lastIndexOf("."))
+      s = s.replace(/\./g, "").replace(",", ".");
     else s = s.replace(/,/g, "");
   } else if (hasComma) {
     s = s.replace(",", ".");
@@ -142,7 +156,12 @@ export function toDate(v: unknown): Date | null {
   if (typeof v !== "string") return null;
   const s = v.trim();
   const dateOnly = /^(\d{4})-(\d{2})-(\d{2})$/.exec(s);
-  if (dateOnly) return new Date(Number(dateOnly[1]), Number(dateOnly[2]) - 1, Number(dateOnly[3]));
+  if (dateOnly)
+    return new Date(
+      Number(dateOnly[1]),
+      Number(dateOnly[2]) - 1,
+      Number(dateOnly[3]),
+    );
   const dmy = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/.exec(s);
   if (dmy) return new Date(Number(dmy[3]), Number(dmy[2]) - 1, Number(dmy[1]));
   const d = new Date(s);
@@ -158,7 +177,9 @@ export function parseClock(v: string): number | null {
   if (!s) return null;
   if (/^\d{4}-\d{2}-\d{2}[T ]\d{1,2}:\d{2}/.test(s)) {
     const d = new Date(v.trim().replace(" ", "T"));
-    return Number.isNaN(d.getTime()) ? null : d.getHours() * 60 + d.getMinutes();
+    return Number.isNaN(d.getTime())
+      ? null
+      : d.getHours() * 60 + d.getMinutes();
   }
   if (/^\d{1,2}$/.test(s)) return Number(s) <= 24 ? Number(s) * 60 : null;
   const m = /^(\d{1,2})[:.]?(\d{2})(?:[:.]\d{2})?\s*(AM|PM)?$/.exec(s);
@@ -178,6 +199,12 @@ export function localDayKey(d: Date): string {
   return `${y}-${m}-${day}`;
 }
 
+/** yyyy-mm-dd plus n days (local): the clock-out day of a shift past midnight. */
+export function addDaysKey(key: string, n: number): string {
+  const [y, m, d] = key.split("-").map(Number);
+  return localDayKey(new Date(y ?? 1970, (m ?? 1) - 1, (d ?? 1) + n));
+}
+
 export function startOfDay(d: Date): Date {
   return new Date(d.getFullYear(), d.getMonth(), d.getDate());
 }
@@ -188,7 +215,10 @@ export function rowId(row: Row | undefined): string {
 }
 
 /** Builds a Title→display-name lookup from a master list (Brand, Host, Studio). */
-export function nameIndex(rows: Row[], nameKeys: string[]): Map<string, string> {
+export function nameIndex(
+  rows: Row[],
+  nameKeys: string[],
+): Map<string, string> {
   const m = new Map<string, string>();
   for (const r of rows) {
     const key = str(r, "Title");
@@ -206,19 +236,26 @@ export function clockText(v: string): string {
 }
 
 /** Schedule.Position (Host / Co-Host). */
-export const schedulePosition = (row: Row | undefined): string => str(row, "Position", "HostPosition", "Posisi", "HostRole");
+export const schedulePosition = (row: Row | undefined): string =>
+  str(row, "Position", "HostPosition", "Posisi", "HostRole");
 
 /**
  * Why a schedule needs no report: LiveBreak = Yes, or the host is Co-Host (a Co-Host never reports,
  * whatever LiveBreak says). null when a report is expected.
  */
-export function noReportReason(row: Row | undefined): "LIVE_BREAK" | "CO_HOST" | null {
-  if (bool(row, "LiveBreak", "Live Break", "IsLiveBreak") === true) return "LIVE_BREAK";
+export function noReportReason(
+  row: Row | undefined,
+): "LIVE_BREAK" | "CO_HOST" | null {
+  if (bool(row, "LiveBreak", "Live Break", "IsLiveBreak") === true)
+    return "LIVE_BREAK";
   if (/^co[\s_-]*host$/i.test(schedulePosition(row))) return "CO_HOST";
   return null;
 }
 
-export const NO_REPORT_LABEL: Record<"LIVE_BREAK" | "CO_HOST", string> = { LIVE_BREAK: "Live break", CO_HOST: "Co-Host" };
+export const NO_REPORT_LABEL: Record<"LIVE_BREAK" | "CO_HOST", string> = {
+  LIVE_BREAK: "Live break",
+  CO_HOST: "Co-Host",
+};
 
 /** A full date-time column value ("2026-09-14T02:40:00Z", "2026-09-14 09:40"); null for a bare clock or blank. */
 export function dateTime(row: Row | undefined, ...keys: string[]): Date | null {
@@ -232,7 +269,16 @@ export function dateTime(row: Row | undefined, ...keys: string[]): Date | null {
 }
 
 /** Report.ScheduleID under the names canvas may send (field name, SharePoint internal name, lookup). */
-export const reportScheduleId = (r: Row | undefined): string => str(r, "ScheduleID", "Schedule ID", "Schedule_x0020_ID", "ScheduleId", "Schedule");
+export const reportScheduleId = (r: Row | undefined): string =>
+  str(
+    r,
+    "ScheduleID",
+    "Schedule ID",
+    "Schedule_x0020_ID",
+    "ScheduleId",
+    "Schedule",
+  );
 
 /** Report.Playbook (Choice; multi-choice joined). */
-export const reportPlaybook = (r: Row | undefined): string => str(r, "Playbook", "PlayBook", "Play_x0020_Book");
+export const reportPlaybook = (r: Row | undefined): string =>
+  str(r, "Playbook", "PlayBook", "Play_x0020_Book");

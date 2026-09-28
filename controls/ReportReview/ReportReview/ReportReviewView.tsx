@@ -35,6 +35,9 @@ import {
 } from "../../../shared/reportItems";
 import {
   Badge,
+  byTime,
+  SortOrder,
+  SortSelect,
   Button,
   EmptyState,
   FilterDate,
@@ -156,6 +159,7 @@ export function ReportReviewView(props: ReportReviewProps): React.ReactElement {
   const [tab, setTab] = React.useState<Tab>(props.defaultTab);
   React.useEffect(() => setTab(props.defaultTab), [props.defaultTab]);
   const [filters, setFilters] = React.useState<Filters>(NO_FILTERS);
+  const [order, setOrder] = React.useState<SortOrder>("newest");
   const [selected, setSelected] = React.useState<Set<string>>(new Set());
   const [reviewId, setReviewId] = React.useState<string | null>(null);
   const hostRef = React.useRef<HTMLDivElement>(null);
@@ -221,14 +225,11 @@ export function ReportReviewView(props: ReportReviewProps): React.ReactElement {
       }
       return true;
     })
-    .sort((a, b) =>
-      tab === "Waiting"
-        ? (a.since?.getTime() ?? Infinity) - (b.since?.getTime() ?? Infinity) // oldest first
-        : (b.liveDate?.getTime() ?? 0) - (a.liveDate?.getTime() ?? 0),
-    );
+    // Newest report first by default; Terlama dulu brings the longest-waiting to the top.
+    .sort(byTime(order, (it) => it.since ?? it.liveDate));
 
   // Every loaded row is rendered: a partial list was read as the whole total.
-  const paged = usePaged(filtered, JSON.stringify([tab, filters]));
+  const paged = usePaged(filtered, JSON.stringify([tab, filters, order]));
   const visible = paged.rows;
   const canDecide = !props.readOnly && hasPermission(ctx, "REPORT_ADJUDICATE");
   const showBulk = canDecide && tab === "Waiting";
@@ -290,7 +291,7 @@ export function ReportReviewView(props: ReportReviewProps): React.ReactElement {
       <div className="pbs-page">
         <ModuleHeader
           crumb="Review"
-          title={tab === "Waiting" ? "Antrean rekonsiliasi" : "Report"}
+          title="Report Review"
           subtitle={
             props.loading && items.length === 0
               ? "Memuat report…"
@@ -304,7 +305,7 @@ export function ReportReviewView(props: ReportReviewProps): React.ReactElement {
                   action.fire("NAV", { target: "TOLERANCE_CONFIG" })
                 }
               >
-                Konfigurasi toleransi
+                Tolerance Settings
               </Button>
             ) : undefined
           }
@@ -401,9 +402,11 @@ export function ReportReviewView(props: ReportReviewProps): React.ReactElement {
               onClick={clearFilters}
               style={{ marginLeft: 4 }}
             >
-              Hapus filter
+              Clear Filters
             </button>
           ) : null}
+          <span style={{ flex: 1 }} />
+          <SortSelect value={order} onChange={setOrder} />
         </div>
 
         {showBulk && selectedItems.length > 0 ? (
@@ -412,10 +415,10 @@ export function ReportReviewView(props: ReportReviewProps): React.ReactElement {
               <Button disabled={!!pending} onClick={bulkApprove}>
                 {bulkPending ? (
                   <>
-                    <Spinner small /> Menyimpan…
+                    <Spinner small /> Saving…
                   </>
                 ) : (
-                  `Setujui ${selectedItems.length} baris`
+                  `Approve ${selectedItems.length} Rows`
                 )}
               </Button>
             }
@@ -484,7 +487,7 @@ export function ReportReviewView(props: ReportReviewProps): React.ReactElement {
                 text={`${tabItems.length} report ada di tab ini, tapi tidak ada yang lolos filter yang dipilih.`}
                 action={
                   <Button variant="secondary" size="sm" onClick={clearFilters}>
-                    Hapus filter
+                    Clear Filters
                   </Button>
                 }
               />
@@ -569,14 +572,14 @@ function ReviewModal(props: {
             onClick={props.onDetail}
             disabled={pending}
           >
-            <Icon name="external" size={14} /> Lihat detail
+            <Icon name="external" size={14} /> View Details
           </Button>
           <button
             type="button"
             className="pbs-x"
             onClick={props.onClose}
             disabled={pending}
-            aria-label="Tutup"
+            aria-label="Close"
           >
             <Icon name="x" />
           </button>
@@ -766,10 +769,10 @@ function ReportRow(props: {
             variant={it.state === "WAITING" ? "primary" : "secondary"}
             onClick={props.onReview}
           >
-            {it.state === "WAITING" ? "Review" : "Lihat"}
+            {it.state === "WAITING" ? "Review" : "View"}
           </Button>
           <Button variant="ghost" size="sm" onClick={props.onOpen}>
-            Detail
+            Details
           </Button>
         </span>
       </td>

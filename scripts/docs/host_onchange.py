@@ -325,7 +325,7 @@ mr = shell('\n'.join([
 
 mrd_sch = """Set(varMrdSch, LookUp('Schedule - PBS Hub', ID = varMrdSch.ID));
 ClearCollect(colMrdSesRep, Filter('Report - PBS Hub', HostID = varMe.Title, ScheduleID = varMrdSch.Title));"""
-# Belum lengkap: ReportJson tetap kosong supaya form "Kirim report berikutnya" tetap di layar.
+# Belum lengkap: ReportJson tetap kosong supaya form "Send Next Report" tetap di layar.
 mrd_after_submit = mrd_sch + """
 If(Boolean(p.complete), Set(varRptId, row.ID); Set(varMrdRep, LookUp('Report - PBS Hub', ID = row.ID)));"""
 mrd_after = "Set(varMrdRep, LookUp('Report - PBS Hub', ID = cur.ID));\n" + mrd_sch

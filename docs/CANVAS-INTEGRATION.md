@@ -5,8 +5,8 @@ Tujuh code component di solusi `PBSHubOpsPCF` (managed):
 | Control | Layar desain | Fungsi |
 |---|---|---|
 | `pbs_Ops.Dashboard` | Ops Console 3a/3b (D-1) | Antrean yang menunggu tim hari ini. Read-only, hanya emit `NAV`. |
-| `pbs_Ops.ReportReview` | Ops Console 4a (R-1) | Daftar report + antrean rekonsiliasi, urut umur, kolom **Alasan**, bulk approve terbatas. |
-| `pbs_Ops.ReportDetail` | Ops Console 4b/4c/4d (R-2) | Detail report: klaim host vs bukti AI vs selisih, Setujui / Perlu revisi / Eskalasi. |
+| `pbs_Ops.ReportReview` | Ops Console 4a (R-1) | **Report Review**: daftar report (default terbaru dulu, bisa *Terlama dulu*), kolom **Alasan**, bulk approve terbatas. |
+| `pbs_Ops.ReportDetail` | Ops Console 4b/4c/4d (R-2) | Detail report: klaim host vs bukti AI vs selisih, Approve / Request Revision. |
 | `pbs_Ops.PayrollRuns` | Payroll P-1 + P-2 | Daftar run payroll (status, total, 4 titik approval, slip) + modal **Jalankan payroll** dengan preflight. |
 | `pbs_Ops.PayrollRunDetail` | Payroll P-3 + P-4 + P-5 | Baris per host (expand ke Clock In), tracker 4 gate approval, status slip gaji. |
 | `pbs_Ops.HostList` | Host HD-1 | Direktori host: package, status, skor + band, peringatan tanpa data bank. |
@@ -208,7 +208,7 @@ IsLoading    = varDashLoading
 SchedulesJson = JSON(ForAll(colDashSchedule, {ID: ID, Title: Title, Date: Text(Date, "yyyy-mm-dd"), StartTime: StartTime, EndTime: EndTime, JamLive: JamLive, BrandID: BrandID, HostID: HostID, StudioID: StudioID, Platform: Platform.Value, LiveBreak: Coalesce(LiveBreak.Value, "No"), Position: Position.Value, Status: Status.Value}), JSONFormat.Compact)
 ReportsJson  = JSON(ForAll(colDashReport, {ID: ID, Title: Title, ScheduleID: ScheduleID, HostID: HostID, BrandID: BrandID, LiveDate: Text(LiveDate, "yyyy-mm-dd"), ApprovalStatus: ApprovalStatus.Value, ApprovalComment: ApprovalComment, Created: Created, Modified: Modified, Penjualan: Penjualan, Pesanan: Pesanan, ProdukTerjual: ProdukTerjual, JumlahPembeli: JumlahPembeli, CTR: CTR, CTOR: CTOR, PeakViewer: PeakViewer}), JSONFormat.Compact)
 EvidenceJson = JSON(ForAll(colDashEvidence, {ID: ID, Title: Title, HostID: HostID, ScheduleID: ScheduleID, Status: Status.Value, Created: Created, Penjualan: Penjualan, Pesanan: Pesanan, ProdukTerjual: ProdukTerjual, JumlahPembeli: JumlahPembeli, CTR: CTR, CTOR: CTOR, PeakViewer: PeakViewer}), JSONFormat.Compact)
-ClockInJson  = JSON(ForAll(colDashClockIn, {HostID: HostID, ClockInDate: ClockInDate, CheckInTime: CheckInTime, CheckOutTime: CheckOutTime, ClockOutTime: ClockOutTime, IsInsideGeofence: IsInsideGeofence, Streak: Streak}), JSONFormat.Compact)
+ClockInJson  = JSON(ForAll(colDashClockIn, {HostID: HostID, ClockInDate: ClockInDate, CheckInTime: CheckInTime, CheckOutTime: CheckOutTime, ClockOutDate: Text(ClockOutDate, "yyyy-mm-dd"), ClockOutTime: ClockOutTime, IsInsideGeofence: IsInsideGeofence, Streak: Streak}), JSONFormat.Compact)
 HostsJson    = JSON(ForAll(colDashHost, {Title: Title, NamaHost: NamaHost, Status: Status.Value, HasRekening: !IsBlank(NoRekening)}), JSONFormat.Compact)
 StudiosJson  = JSON(ForAll('Studio - PBS Hub', {Title: Title, NamaStudio: NamaStudio, KapasitasHost: KapasitasHost, Status: Status.Value}), JSONFormat.Compact)
 BrandsJson   = JSON(ForAll('Brand - PBS Hub', {Title: Title, NamaBrand: NamaBrand}), JSONFormat.Compact)
@@ -272,7 +272,7 @@ Setiap baris punya dua tombol: **Review** membuka popup (tabel metrik lengkap, b
 keputusan) sehingga reviewer bisa langsung menyetujui / minta revisi dari antrean; **Detail** mengirim
 `OPEN_REPORT` untuk pindah ke layar ReportDetail. Popup juga punya tautan *Lihat detail* (`OPEN_REPORT`).
 Karena itu `OnChange` ReportReview harus menangani **aksi keputusan yang sama** dengan ReportDetail
-(`APPROVE`, `APPROVE_WITHOUT_EVIDENCE`, `REQUEST_REVISION`, `ESCALATE`, `REMIND_HOST`, `OPEN_EVIDENCE`)
+(`APPROVE`, `APPROVE_WITHOUT_EVIDENCE`, `REQUEST_REVISION`, `REMIND_HOST`, `OPEN_EVIDENCE`)
 dan membalas lewat `varRrResult`. Popup tertutup sendiri setelah `status: "ok"`.
 
 **Yang ditulis saat review** (popup ReportReview dan ReportDetail memakai rumus yang sama):
@@ -282,7 +282,6 @@ dan membalas lewat `varRrResult`. Popup tertutup sendiri setelah `status: "ok"`.
 | Setujui (`APPROVE`, `BULK_APPROVE`) | `ApprovalStatus = Done`, `Match = Match`, `ApprovalComment`, `ApproverEmail`, `Approver` | `Status = Match` |
 | Setujui tanpa bukti | `ApprovalStatus = Done`, `Match` tetap, `ApprovalComment = [Tanpa bukti] …`, approver | tidak diubah |
 | Perlu revisi (`REQUEST_REVISION`) | `ApprovalStatus = Need Revision`, `Match = Unmatch`, `ApprovalComment` = komentar reviewer, `ApproverEmail` = reviewer, `TanggalRevisi` | `Status = Unmatch` |
-| Eskalasi | `ApprovalStatus` tetap, `ApprovalComment = [Eskalasi] …` | tidak diubah |
 | Host kirim perbaikan (Host app, `RESUBMIT_REPORT`) | `ApprovalStatus = Waiting Approval Revision`, metrik baru | `Status = Unmatch` saja |
 
 Keputusan hanya ditulis kalau `ApprovalStatus` masih `Waiting Approval` / `Waiting Approval Revision`; selain itu
@@ -345,7 +344,7 @@ If(!IsBlank(Self.ActionPayload),
                     "FILTER_CHANGED", false
                 );
                 // Keputusan dari popup: logika sama persis dengan ReportDetail (§6), balasan ke varRrResult.
-                If(act in ["APPROVE", "APPROVE_WITHOUT_EVIDENCE", "REQUEST_REVISION", "ESCALATE"],
+                If(act in ["APPROVE", "APPROVE_WITHOUT_EVIDENCE", "REQUEST_REVISION"],
                     With({cur: LookUp('Report - PBS Hub', ID = Value(p.reportId))},
                         If(
                             !(cur.ApprovalStatus.Value in ["Waiting Approval", "Waiting Approval Revision"]),
@@ -414,7 +413,6 @@ SchedulesJson = JSON(ForAll(Filter('Schedule - PBS Hub', Title = LookUp('Report 
 | `APPROVE` | `Done` | `Match` | komentar reviewer |
 | `APPROVE_WITHOUT_EVIDENCE` | `Done` | kosong (jangan diubah) | `[Tanpa bukti] …` (wajib diisi) |
 | `REQUEST_REVISION` | `Need Revision` | `Unmatch` | catatan + `Metrik yang perlu dibetulkan: …`; `flaggedMetrics: ["Penjualan","CTOR"]` (hanya metrik yang selisihnya ≠ 0 %) |
-| `ESCALATE` | tetap (`Waiting Approval`) | tetap | `[Eskalasi] …` |
 | `REMIND_HOST` | – | – | kirim email/notifikasi ke host (`hostId`) |
 
 **OnChange**
@@ -439,8 +437,8 @@ If(!IsBlank(Self.ActionPayload),
                             Set(varRdResult, JSON({requestId: rid, status: "ok"}, JSONFormat.Compact)),
                             Set(varRdResult, JSON({requestId: rid, status: "error", message: FirstError.Message}, JSONFormat.Compact))
                         ),
-                    // APPROVE, APPROVE_WITHOUT_EVIDENCE, REQUEST_REVISION, ESCALATE
-                    If(!(act in ["APPROVE", "APPROVE_WITHOUT_EVIDENCE", "REQUEST_REVISION", "ESCALATE"]),
+                    // APPROVE, APPROVE_WITHOUT_EVIDENCE, REQUEST_REVISION
+                    If(!(act in ["APPROVE", "APPROVE_WITHOUT_EVIDENCE", "REQUEST_REVISION"]),
                         Set(varRdResult, JSON({requestId: rid, status: "error", message: "Aksi tidak dikenal: " & act}, JSONFormat.Compact)),
                     With({cur: LookUp('Report - PBS Hub', ID = Value(p.reportId))},
                         If(
@@ -591,7 +589,7 @@ If(!IsBlank(Self.ActionPayload),
                             Set(varPfJson, JSON({
                                 period: Text(p.period),
                                 clockIns: ForAll(Filter('Clock In - PBS Hub', ClockInDate >= start, ClockInDate < DateAdd(start, 1, TimeUnit.Months)),
-                                    {HostID: HostID, ClockInDate: ClockInDate, CheckInTime: CheckInTime, CheckOutTime: CheckOutTime, ClockOutTime: ClockOutTime, IsInsideGeofence: IsInsideGeofence, HKTugas: HKTugas, Insentif: Insentif, Tier: Tier.Value, Streak: Streak}),
+                                    {HostID: HostID, ClockInDate: ClockInDate, CheckInTime: CheckInTime, CheckOutTime: CheckOutTime, ClockOutDate: Text(ClockOutDate, "yyyy-mm-dd"), ClockOutTime: ClockOutTime, IsInsideGeofence: IsInsideGeofence, HKTugas: HKTugas, Insentif: Insentif, Tier: Tier.Value, Streak: Streak}),
                                 reports: ForAll(Filter('Report - PBS Hub', LiveDate >= start, LiveDate < DateAdd(start, 1, TimeUnit.Months)),
                                     {ID: ID, LiveDate: Text(LiveDate, "yyyy-mm-dd"), ApprovalStatus: ApprovalStatus.Value, ApprovalComment: ApprovalComment})
                             }, JSONFormat.Compact))
@@ -661,7 +659,7 @@ IsLoading       = varPdLoading
 ActionResult    = varPdResult
 PayrollJson     = JSON(ForAll(Filter('Payroll - PBS Hub', ID = varSelectedPayrollId), {ID: ID, Title: Title, PayrollName: PayrollName, Periode: Periode, Status: Status.Value, Trigger: Trigger.Value, TotalPayroll: TotalPayroll, TotalHost: TotalHost, PBSApproval: PBSApproval, HCApproval: HCApproval, FASApproval: FASApproval, FinanceApproval: FinanceApproval, PBSComment: PBSComment, HCComment: HCComment, FASComment: FASComment, FinanceComment: FinanceComment, Created: Created, Modified: Modified}), JSONFormat.Compact)
 PayrollDataJson = JSON(ForAll(colPdLine, {Title: Title, payroll_id: payroll_id, HostID: LookUp(colPdHost, Lower(Email.Email) = Lower(Employee_Email)).Title, Employee_Name: Employee_Name, Employee_Email: Employee_Email, Periode: Periode, JumlahHari: JumlahHari, UangKehadiran: UangKehadiran, Mingguan: Mingguan, Tier1: Tier1, Tier2: Tier2, Tier3: Tier3, PPh21: PPh21, TotalGaji: TotalGaji, NetTHP: NetTHP, Bank: Bank, NorekLast4: Right(Norek, 4), HasRekening: !IsBlank(Norek) && !IsBlank(Bank)}), JSONFormat.Compact)
-ClockInJson     = JSON(ForAll(colPdClockIn, {HostID: HostID, ClockInDate: ClockInDate, CheckInTime: CheckInTime, CheckOutTime: CheckOutTime, ClockOutTime: ClockOutTime, IsInsideGeofence: IsInsideGeofence, HKTugas: HKTugas, Insentif: Insentif, Tier: Tier.Value, Streak: Streak}), JSONFormat.Compact)
+ClockInJson     = JSON(ForAll(colPdClockIn, {HostID: HostID, ClockInDate: ClockInDate, CheckInTime: CheckInTime, CheckOutTime: CheckOutTime, ClockOutDate: Text(ClockOutDate, "yyyy-mm-dd"), ClockOutTime: ClockOutTime, IsInsideGeofence: IsInsideGeofence, HKTugas: HKTugas, Insentif: Insentif, Tier: Tier.Value, Streak: Streak}), JSONFormat.Compact)
 PayslipJson     = ""
 ```
 
@@ -786,6 +784,7 @@ If(!IsBlank(Self.ActionPayload),
                                         HostName: Text(p.hostName),
                                         ClockInDate: d,
                                         ClockInTime: Text(p.clockInTime),     // "HH:mm"
+                                        ClockOutDate: DateValue(Text(p.clockOutDate)),   // = clockInDate, atau +1 hari untuk shift lewat tengah malam
                                         ClockOutTime: Text(p.clockOutTime),
                                         Status: {Value: Text(p.status)},
                                         HKTugas: Value(p.hkTugas)
@@ -815,13 +814,17 @@ HostList dan di header HostDetail membuka popup:
 - **Tanggal**: hanya tanggal yang ada di jadwal host dan **belum ada clock in** — rumus yang sama dengan
   `colAvailableDates` v1, diurutkan dari yang terlama. Dibatasi sampai hari ini dan jadwal yang dibatalkan
   tidak ikut. Kalau tidak ada tanggal tersisa, popup menampilkan *"… sudah clock in di semua jadwalnya"*.
-- **Jam clock in / clock out**: pilihan per 30 menit, terisi otomatis dari jam jadwal hari itu; clock out
-  harus setelah clock in.
+- **Jam clock in / clock out**: pilihan per 30 menit, terisi otomatis dari jam jadwal hari itu.
+- **Tanggal clock out**: hari yang sama atau hari berikutnya. Jadwal 28 Sep 22:00–03:00 otomatis memilih
+  29 Sep: `ClockInDate` tetap 28 (tanggal jadwal, dipakai cek "satu clock in per host per hari"), `ClockOutDate`
+  29. Jadi clock in host di tanggal 29 tidak bentrok dengan shift malam tanggal 28. Clock out harus setelah
+  clock in dan shift maksimal 24 jam.
 - **Status**: `Hadir - Tugas` (HKTugas 180.000) dan `Hadir - Retainer` (30.000). Bisa diganti lewat
   `config.clockInStatuses` di Context, mis. `[{label: "Hadir - Tugas", hk: 180000}, {label: "Izin", hk: 0}]`.
 
 `ADD_CLOCK_IN` **mengunci** sampai dibalas. Payload: `{hostId, hostName, clockInDate: "yyyy-mm-dd",
-clockInTime: "HH:mm", clockOutTime: "HH:mm", status, hkTugas, scheduleIds}`. Balas `ok` dengan `message`
+clockInTime: "HH:mm", clockOutDate: "yyyy-mm-dd", clockOutTime: "HH:mm", status, hkTugas, scheduleIds}`. List
+Clock In perlu kolom **`ClockOutDate`** (Date only); tambahkan kalau belum ada. Balas `ok` dengan `message`
 (tampil sebagai banner, popup tertutup), `conflict` kalau tanggal itu ternyata sudah punya clock in, atau
 `error`. Kalau `ClockInTime`/`ClockOutTime` di list bertipe Date and Time, ganti dengan
 `DateValue(Text(p.clockInDate)) + TimeValue(Text(p.clockInTime))`. Tombol hanya untuk izin `HOST_CLOCKIN`
@@ -866,7 +869,7 @@ SchedulesJson   = JSON(ForAll(colHdSched, {ID: ID, Title: Title, Date: Text(Date
 // LiveBreak: Choice Yes/No, kosong dianggap No. Position: Position.Value kalau Choice, Position kalau Text.
 // Schedule tidak punya AccountName: Schedule.Account (= Title di list Account) di-lookup ke colAccounts (App.OnStart).
 ReportsJson     = JSON(ForAll(colHdReport, {ID: ID, Title: Title, ScheduleID: ScheduleID, Playbook: Playbook.Value, LiveDate: LiveDate, BrandID: BrandID, HostID: HostID, Platform: Platform.Value, Penjualan: Penjualan, ApprovalStatus: ApprovalStatus.Value, ApprovalComment: ApprovalComment, Modified: Modified}), JSONFormat.Compact)
-ClockInJson     = JSON(ForAll(colHdClockIn, {ID: ID, Title: Title, HostID: HostID, ClockInDate: Text(ClockInDate, "yyyy-mm-dd"), CheckInTime: CheckInTime, CheckOutTime: CheckOutTime, ClockInTime: ClockInTime, ClockOutTime: ClockOutTime, IsInsideGeofence: IsInsideGeofence, StatusKehadiran: Status.Value, HKTugas: HKTugas, Tier: Tier.Value, Insentif: Insentif, Streak: Streak, AdjustedBy: AdjustedBy, AdjustedAt: AdjustedAt, AdjustReason: AdjustReason, Modified: Modified}), JSONFormat.Compact)
+ClockInJson     = JSON(ForAll(colHdClockIn, {ID: ID, Title: Title, HostID: HostID, ClockInDate: Text(ClockInDate, "yyyy-mm-dd"), CheckInTime: CheckInTime, CheckOutTime: CheckOutTime, ClockInTime: ClockInTime, ClockOutDate: Text(ClockOutDate, "yyyy-mm-dd"), ClockOutTime: ClockOutTime, IsInsideGeofence: IsInsideGeofence, StatusKehadiran: Status.Value, HKTugas: HKTugas, Tier: Tier.Value, Insentif: Insentif, Streak: Streak, AdjustedBy: AdjustedBy, AdjustedAt: AdjustedAt, AdjustReason: AdjustReason, Modified: Modified}), JSONFormat.Compact)
 // Tier: pakai Tier.Value kalau kolomnya Choice, Tier kalau Text. AdjustedBy/At/Reason opsional (lihat Kehadiran di bawah).
 PayrollDataJson = JSON(ForAll(colHdLine, {Title: Title, payroll_id: payroll_id, HostID: varSelectedHostId, Periode: Periode, JumlahHari: JumlahHari, TotalGaji: TotalGaji, PPh21: PPh21, NetTHP: NetTHP, Bank: Bank, NorekLast4: Right(Norek, 4), HasRekening: !IsBlank(Norek) && !IsBlank(Bank)}), JSONFormat.Compact)
 PayrollJson     = JSON(ForAll(colHdRun, {ID: ID, Title: Title, PayrollName: PayrollName, Periode: Periode, Status: Status.Value, PBSApproval: PBSApproval, HCApproval: HCApproval, FASApproval: FASApproval, Created: Created, Modified: Modified}), JSONFormat.Compact)
@@ -922,6 +925,7 @@ If(!IsBlank(Self.ActionPayload),
                                         HostName: Text(p.hostName),
                                         ClockInDate: d,
                                         ClockInTime: Text(p.clockInTime),     // "HH:mm"
+                                        ClockOutDate: DateValue(Text(p.clockOutDate)),   // = clockInDate, atau +1 hari untuk shift lewat tengah malam
                                         ClockOutTime: Text(p.clockOutTime),
                                         Status: {Value: Text(p.status)},
                                         HKTugas: Value(p.hkTugas)
@@ -943,9 +947,11 @@ If(!IsBlank(Self.ActionPayload),
                                     Patch('Clock In - PBS Hub', cur,
                                         // Baris GeoAttendance memakai CheckInTime/CheckOutTime (DateTime); baris manual memakai ClockInTime/ClockOutTime (teks).
                                         If(Boolean(p.manualRow),
-                                            {ClockInTime: Text(p.clockInTime), ClockOutTime: Text(p.clockOutTime)},
+                                            {ClockInTime: Text(p.clockInTime), ClockOutTime: Text(p.clockOutTime),
+                                             ClockOutDate: If(IsBlank(Text(p.clockOutDate)), Blank(), DateValue(Text(p.clockOutDate)))},
                                             {CheckInTime: DateTimeValue(Text(p.checkInAt)),
-                                             CheckOutTime: If(IsBlank(Text(p.checkOutAt)), Blank(), DateTimeValue(Text(p.checkOutAt)))}),
+                                             CheckOutTime: If(IsBlank(Text(p.checkOutAt)), Blank(), DateTimeValue(Text(p.checkOutAt))),
+                                             ClockOutDate: If(IsBlank(Text(p.clockOutDate)), Blank(), DateValue(Text(p.clockOutDate)))}),
                                         {
                                             Status: {Value: Text(p.status)},
                                             HKTugas: Value(p.hkTugas),
@@ -1015,7 +1021,7 @@ Tier 2 = Rp65.000, Tier 3 = Rp55.000, tanpa tier = Rp0), weekly (centang + nomin
 sebelum → sesudah.
 
 `ADJUST_CLOCK_IN` **mengunci**. Payload: `{clockInId, title, hostId, hostName, clockInDate, clockInTime,
-clockOutTime ("HH:mm"), checkInAt, checkOutAt ("yyyy-mm-ddThh:mm:ss", lokal), manualRow, status, hkTugas,
+clockOutDate ("yyyy-mm-dd": clockInDate, atau +1 hari kalau clock out lewat tengah malam), clockOutTime ("HH:mm"), checkInAt, checkOutAt ("yyyy-mm-ddThh:mm:ss", lokal), manualRow, status, hkTugas,
 tier ("Tier 1".."Tier 3" | ""), insentif, streak, totalBefore, totalAfter, reason, changes: [{field, from, to}],
 expectedModified, payrollRun: {id, title, phase} | null}`.
 
@@ -1252,7 +1258,7 @@ belum ada di v1, bulk approve tidak akan muncul — itu disengaja.
 
 1. Power Platform admin center → environment → **Settings → Product → Features** → aktifkan
    *Allow publishing of canvas apps with code components*.
-2. make.powerapps.com → **Solutions → Import solution** → `PBSHubOpsPCF_1_6_7_0_managed.zip`
+2. make.powerapps.com → **Solutions → Import solution** → `PBSHubOpsPCF_1_6_8_0_managed.zip`
    (sudah pernah import versi lama? Import ini meng-**upgrade** solusi yang sama — pilih *Upgrade*, bukan
    *Stage for upgrade* yang belum di-*Apply*).
 3. Di canvas app: **Insert → Get more components → Code** → pilih `PBS Ops Dashboard`,
@@ -1265,8 +1271,8 @@ belum ada di v1, bulk approve tidak akan muncul — itu disengaja.
 disisipkan. Setelah upgrade solusi: buka app di Studio → akan muncul banner *"Updated code components
 detected"* → **Update**. Kalau banner tidak muncul: tutup Studio, hard refresh browser (Ctrl+Shift+R), buka
 lagi. Lalu **Save + Publish** app. Pastikan juga di Solutions → PBS Hub Ops PCF → History bahwa versi
-1.6.7.0 benar-benar terpasang. Versi control di solusi ini: Dashboard 1.3.6, ReportReview / ReportDetail
-1.4.5, PayrollRuns 1.2.7, PayrollRunDetail 1.2.6, HostList 1.2.8, HostDetail 1.3.11, HostScore 1.0.3. ReportReview dan
+1.6.8.0 benar-benar terpasang. Versi control di solusi ini: Dashboard 1.3.7, ReportReview / ReportDetail
+1.4.6, PayrollRuns 1.2.8, PayrollRunDetail 1.2.7, HostList 1.2.9, HostDetail 1.3.12, HostScore 1.0.4. ReportReview dan
 ReportDetail 1.4.0 punya properti baru `SchedulesJson` — isi di canvas supaya kolom *Jam live* terisi.
 
 **Tampilan rusak di app (tabel tidak full, tombol tanpa border, checkbox hilang)?** Itu CSS global Power

@@ -693,7 +693,7 @@ export function runPreflight(input: PreflightInput): PreflightResult {
       code: "NO_ATTENDANCE",
       level: "warn",
       text: `${without} host aktif tanpa kehadiran: flow tetap membuat baris Rp0 untuk mereka.`,
-      link: { target: "CLOCKIN", label: "lihat" },
+      link: { target: "CLOCKIN", label: "view" },
     });
   }
   const noBank = active.filter(
@@ -707,7 +707,7 @@ export function runPreflight(input: PreflightInput): PreflightResult {
       code: "NO_BANK",
       level: "block",
       text: `${noBank.length} host dibayar tanpa data rekening (${names.join(", ")}${noBank.length > 3 ? ", …" : ""}).`,
-      link: { target: "HOSTS", label: "lengkapi" },
+      link: { target: "HOSTS", label: "complete" },
     });
   }
   const inactiveRows = rows.filter(
@@ -722,7 +722,7 @@ export function runPreflight(input: PreflightInput): PreflightResult {
       code: "INACTIVE_ATTENDANCE",
       level: "warn",
       text: `${inactiveHosts.size} host nonaktif punya kehadiran dan tidak ikut dibayar (${names.join(", ")}${inactiveHosts.size > 3 ? ", …" : ""}).`,
-      link: { target: "HOSTS", label: "lihat" },
+      link: { target: "HOSTS", label: "view" },
     });
   }
   const openShifts = activeRows.filter(
@@ -736,7 +736,7 @@ export function runPreflight(input: PreflightInput): PreflightResult {
       code: "OPEN_SHIFT",
       level: "warn",
       text: `${openShifts.length} shift tanpa clock out tetap dihitung sebagai hari kerja.`,
-      link: { target: "CLOCKIN", label: "lihat" },
+      link: { target: "CLOCKIN", label: "view" },
     });
   }
   const outside = activeRows.filter(
@@ -747,7 +747,7 @@ export function runPreflight(input: PreflightInput): PreflightResult {
       code: "OUTSIDE_GEOFENCE",
       level: "warn",
       text: `${outside.length} clock in di luar geofence tetap dihitung.`,
-      link: { target: "CLOCKIN", label: "lihat" },
+      link: { target: "CLOCKIN", label: "view" },
     });
   }
   const unreviewed = input.reports.filter(
@@ -760,7 +760,7 @@ export function runPreflight(input: PreflightInput): PreflightResult {
       code: "UNREVIEWED",
       level: "warn",
       text: `${unreviewed.length} report ${label} belum direview.`,
-      link: { target: "REVIEW", label: "lihat" },
+      link: { target: "REVIEW", label: "view" },
     });
   } else if (input.reports.length > 0 || attended.size > 0) {
     checks.push({

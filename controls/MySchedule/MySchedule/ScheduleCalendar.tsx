@@ -1,6 +1,14 @@
 import * as React from "react";
 import { HostSession } from "../../../shared/hostApp";
-import { SCHEDULE_STATE, ScheduleState, SpanStats, fmtHours, initialCalendarDay, monthGrid, sessionsByDay } from "../../../shared/hostSchedule";
+import {
+  SCHEDULE_STATE,
+  ScheduleState,
+  SpanStats,
+  fmtHours,
+  initialCalendarDay,
+  monthGrid,
+  sessionsByDay,
+} from "../../../shared/hostSchedule";
 import { NO_REPORT_LABEL } from "../../../shared/data";
 import { Period, addMonths, fmtPeriod } from "../../../shared/payroll";
 import { fmtLongDate, fmtNumber, monthName } from "../../../shared/format";
@@ -31,15 +39,32 @@ export interface MonthPanel {
  * phones), weekends and national holidays greyed; on the right the chosen day, the month in numbers,
  * last month to compare, and who to contact. A month without sessions still renders the grid.
  */
-export function ScheduleCalendar(props: { period: Period; rows: CalendarRow[]; now: Date; onOpen: (s: HostSession) => void; panel: MonthPanel }): React.ReactElement {
+export function ScheduleCalendar(props: {
+  period: Period;
+  rows: CalendarRow[];
+  now: Date;
+  onOpen: (s: HostSession) => void;
+  panel: MonthPanel;
+}): React.ReactElement {
   const { panel } = props;
   const { period, rows, now } = props;
-  const weeks = React.useMemo(() => monthGrid(period.year, period.month), [period]);
+  const weeks = React.useMemo(
+    () => monthGrid(period.year, period.month),
+    [period],
+  );
   const byDay = React.useMemo(() => sessionsByDay(rows), [rows]);
-  const todayKey = weeks.flat().find((d) => d.date.toDateString() === now.toDateString())?.key ?? "";
+  const todayKey =
+    weeks.flat().find((d) => d.date.toDateString() === now.toDateString())
+      ?.key ?? "";
   const pk = `${period.year}-${period.month}`;
-  const [picked, setPicked] = React.useState<{ pk: string; key: string } | null>(null);
-  const selected = picked && picked.pk === pk ? picked.key : initialCalendarDay(period.year, period.month, now, byDay.keys());
+  const [picked, setPicked] = React.useState<{
+    pk: string;
+    key: string;
+  } | null>(null);
+  const selected =
+    picked && picked.pk === pk
+      ? picked.key
+      : initialCalendarDay(period.year, period.month, now, byDay.keys());
   const selDay = weeks.flat().find((d) => d.key === selected);
   const list = byDay.get(selected) ?? [];
 
@@ -49,7 +74,11 @@ export function ScheduleCalendar(props: { period: Period; rows: CalendarRow[]; n
         <div role="grid" aria-label="Kalender jadwal">
           <div className="hc-cal-h" role="row">
             {WEEKDAYS.map((w, i) => (
-              <span key={w} role="columnheader" className={i >= 5 ? "we" : undefined}>
+              <span
+                key={w}
+                role="columnheader"
+                className={i >= 5 ? "we" : undefined}
+              >
                 {w}
               </span>
             ))}
@@ -58,7 +87,9 @@ export function ScheduleCalendar(props: { period: Period; rows: CalendarRow[]; n
             <div key={week[0]?.key} className="hc-cal-w" role="row">
               {week.map((d) => {
                 const items = byDay.get(d.key) ?? [];
-                const bad = items.some((r) => r.st === "LATE" || r.st === "REVISION");
+                const bad = items.some(
+                  (r) => r.st === "LATE" || r.st === "REVISION",
+                );
                 const off = d.date.getDay() === 0 || d.date.getDay() === 6;
                 const holiday = panel.holidays.has(d.key);
                 const cls = [
@@ -84,8 +115,12 @@ export function ScheduleCalendar(props: { period: Period; rows: CalendarRow[]; n
                     onClick={() => setPicked({ pk, key: d.key })}
                   >
                     <span className="n">{d.date.getDate()}</span>
-                    {holiday && d.inMonth ? <span className="hl">Libur nasional</span> : null}
-                    {items.length ? <span className="c">{items.length}</span> : null}
+                    {holiday && d.inMonth ? (
+                      <span className="hl">Libur nasional</span>
+                    ) : null}
+                    {items.length ? (
+                      <span className="c">{items.length}</span>
+                    ) : null}
                     <span className="evs">
                       {items.slice(0, MAX_IN_CELL).map((r) => (
                         <span
@@ -96,11 +131,18 @@ export function ScheduleCalendar(props: { period: Period; rows: CalendarRow[]; n
                           <b>{r.s.startText}</b> {r.s.brand}
                         </span>
                       ))}
-                      {items.length > MAX_IN_CELL ? <span className="more">+{items.length - MAX_IN_CELL} lagi</span> : null}
+                      {items.length > MAX_IN_CELL ? (
+                        <span className="more">
+                          +{items.length - MAX_IN_CELL} lagi
+                        </span>
+                      ) : null}
                     </span>
                     <span className="dots" aria-hidden="true">
                       {items.slice(0, 4).map((r) => (
-                        <i key={r.s.title || r.s.id} className={SCHEDULE_STATE[r.st].tone} />
+                        <i
+                          key={r.s.title || r.s.id}
+                          className={SCHEDULE_STATE[r.st].tone}
+                        />
                       ))}
                     </span>
                   </button>
@@ -117,10 +159,17 @@ export function ScheduleCalendar(props: { period: Period; rows: CalendarRow[]; n
             </span>
             <div style={{ flex: 1, minWidth: 0 }}>
               <b>Jadwal {monthName(period.month)} belum terbit</b>
-              <p>Tim PBS biasanya menerbitkan jadwal bulan berikutnya paling lambat tanggal 28. Jadwal akan muncul di sini begitu terbit.</p>
+              <p>
+                Tim PBS biasanya menerbitkan jadwal bulan berikutnya paling
+                lambat tanggal 28. Jadwal akan muncul di sini begitu terbit.
+              </p>
             </div>
-            <button type="button" className="pbs-link" onClick={panel.onPrevious}>
-              Lihat {monthName(addMonths(period, -1).month)}
+            <button
+              type="button"
+              className="pbs-link"
+              onClick={panel.onPrevious}
+            >
+              View {monthName(addMonths(period, -1).month)}
             </button>
           </div>
         ) : null}
@@ -130,13 +179,23 @@ export function ScheduleCalendar(props: { period: Period; rows: CalendarRow[]; n
         {rows.length > 0 ? (
           <div className="hc-cal-day">
             <div className="pbs-sec" style={{ margin: "0 0 10px" }}>
-              <span className="pbs-sec-l">{selDay ? (selDay.key === todayKey ? `Hari ini · ${fmtLongDate(selDay.date)}` : fmtLongDate(selDay.date)) : ""}</span>
+              <span className="pbs-sec-l">
+                {selDay
+                  ? selDay.key === todayKey
+                    ? `Hari ini · ${fmtLongDate(selDay.date)}`
+                    : fmtLongDate(selDay.date)
+                  : ""}
+              </span>
               <span className="pbs-muted" style={{ fontSize: 12 }}>
                 {list.length ? `${list.length} sesi` : ""}
               </span>
             </div>
             {list.length === 0 ? (
-              <EmptyState icon="calendar" title="Tidak ada sesi" text="Pilih tanggal lain di kalender." />
+              <EmptyState
+                icon="calendar"
+                title="Tidak ada sesi"
+                text="Pilih tanggal lain di kalender."
+              />
             ) : (
               <div className="hc-stack" style={{ gap: 8 }}>
                 {list.map(({ s, st }) => (
@@ -151,14 +210,31 @@ export function ScheduleCalendar(props: { period: Period; rows: CalendarRow[]; n
                     </span>
                     <span className="b">
                       <b className="hc-brand">{s.brand}</b>
-                      <span className="pbs-muted hc-ell" style={{ display: "block", fontSize: 12 }}>
-                        {[s.title, s.platform, s.account, s.studio !== "—" ? s.studio : ""].filter(Boolean).join(" · ")}
+                      <span
+                        className="pbs-muted hc-ell"
+                        style={{ display: "block", fontSize: 12 }}
+                      >
+                        {[
+                          s.title,
+                          s.platform,
+                          s.account,
+                          s.studio !== "—" ? s.studio : "",
+                        ]
+                          .filter(Boolean)
+                          .join(" · ")}
                       </span>
                     </span>
                     <span className="s">
                       <StateBadge state={st} />
                       {s.noReport && !s.report ? (
-                        <span className="pbs-muted" style={{ display: "block", fontSize: 11, marginTop: 2 }}>
+                        <span
+                          className="pbs-muted"
+                          style={{
+                            display: "block",
+                            fontSize: 11,
+                            marginTop: 2,
+                          }}
+                        >
                           {NO_REPORT_LABEL[s.noReport]} · tanpa report
                         </span>
                       ) : null}
@@ -174,7 +250,10 @@ export function ScheduleCalendar(props: { period: Period; rows: CalendarRow[]; n
           rows={[
             ["Sesi terjadwal", fmtNumber(panel.month.sessions)],
             ["Jam live", fmtHours(panel.month.minutes)],
-            ["Hari libur nasional", fmtNumber(holidaysIn(panel.holidays, period))],
+            [
+              "Hari libur nasional",
+              fmtNumber(holidaysIn(panel.holidays, period)),
+            ],
           ]}
         />
         {panel.previous ? (
@@ -184,17 +263,25 @@ export function ScheduleCalendar(props: { period: Period; rows: CalendarRow[]; n
               ["Sesi", fmtNumber(panel.previous.sessions)],
               ["Jam live", fmtHours(panel.previous.minutes)],
               ["Brand", fmtNumber(panel.previous.brands.length)],
-              ["Report tertunda", fmtNumber(panel.previous.pending), panel.previous.pending > 0],
+              [
+                "Report tertunda",
+                fmtNumber(panel.previous.pending),
+                panel.previous.pending > 0,
+              ],
             ]}
           />
         ) : null}
         <div className="hc-card">
           <b style={{ fontSize: 14 }}>Ada yang tidak sesuai?</b>
-          <p className="pbs-muted" style={{ fontSize: 12.5, margin: "6px 0 12px" }}>
-            Hubungi PIC jadwal kamu{panel.pic ? `, ${panel.pic},` : ""} untuk tukar sesi atau ajukan libur.
+          <p
+            className="pbs-muted"
+            style={{ fontSize: 12.5, margin: "6px 0 12px" }}
+          >
+            Hubungi PIC jadwal kamu{panel.pic ? `, ${panel.pic},` : ""} untuk
+            tukar sesi atau ajukan libur.
           </p>
           <Button variant="secondary" wide onClick={panel.onContact}>
-            Hubungi PIC
+            Contact PIC
           </Button>
         </div>
       </div>
@@ -207,7 +294,10 @@ function holidaysIn(set: Set<string>, p: Period): number {
   return [...set].filter((k) => k.startsWith(prefix)).length;
 }
 
-function MonthCard(props: { title: string; rows: [string, string, boolean?][] }): React.ReactElement {
+function MonthCard(props: {
+  title: string;
+  rows: [string, string, boolean?][];
+}): React.ReactElement {
   return (
     <div className="hc-card">
       <div className="pbs-sec">

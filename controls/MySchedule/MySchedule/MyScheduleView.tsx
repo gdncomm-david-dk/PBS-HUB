@@ -46,6 +46,9 @@ import {
 import {
   Badge,
   Button,
+  byTime,
+  SortOrder,
+  SortSelect,
   EmptyState,
   FilterSelect,
   Icon,
@@ -174,6 +177,7 @@ export function MyScheduleView(props: MyScheduleProps): React.ReactElement {
   React.useEffect(() => setStatus(initial), [initial]);
   const [platform, setPlatform] = React.useState("");
   const [search, setSearch] = React.useState("");
+  const [order, setOrder] = React.useState<SortOrder>("newest");
   const initialView: View =
     props.defaultView === "Calendar" || props.defaultView === "Month"
       ? "Calendar"
@@ -280,9 +284,12 @@ export function MyScheduleView(props: MyScheduleProps): React.ReactElement {
   const weekMax = Number(ctx.config.weekMaxHours) || 0;
   // Report tertunda counts every loaded session, not only this week (an old unsent report still waits).
   const owed = spanStats(allRows, (x) => !!x.day && x.day < now);
+  const ordered = [...filtered].sort(
+    byTime(order, (r) => r.s.start ?? r.s.day),
+  );
   const paged = usePaged(
-    filtered,
-    JSON.stringify([periodKey(period), platform, status, search, view]),
+    ordered,
+    JSON.stringify([periodKey(period), platform, status, search, view, order]),
   );
   const visible = paged.rows;
   const hasPosition = rows.some((r) => positionOf(r.s.row));
@@ -537,6 +544,9 @@ export function MyScheduleView(props: MyScheduleProps): React.ReactElement {
             Reset
           </button>
         ) : null}
+        {view === "List" ? (
+          <SortSelect value={order} onChange={setOrder} />
+        ) : null}
       </div>
 
       {view === "Calendar" && !firstLoad ? (
@@ -680,7 +690,7 @@ export function MyScheduleView(props: MyScheduleProps): React.ReactElement {
           action={
             filtering ? (
               <Button variant="secondary" size="sm" onClick={reset}>
-                Reset filter
+                Reset Filters
               </Button>
             ) : undefined
           }
@@ -772,7 +782,7 @@ function TodayStrip(props: {
       <div className="hc-today-a">
         {!s.clockedIn && s.phase === "NOW" ? (
           <Button size="sm" onClick={() => action.fire("CLOCK_IN", {})}>
-            <Icon name="mapPin" size={14} /> Clock in
+            <Icon name="mapPin" size={14} /> Clock In
           </Button>
         ) : null}
         {s.canAbsen ? (
@@ -782,7 +792,7 @@ function TodayStrip(props: {
             onClick={props.onAbsen}
             disabled={!!action.pending}
           >
-            {busy ? <Spinner small /> : null} Absen
+            {busy ? <Spinner small /> : null} Mark Attendance
           </Button>
         ) : null}
         {s.phase === "NEEDS_REPORT" ? (
@@ -790,7 +800,7 @@ function TodayStrip(props: {
             size="sm"
             onClick={() => action.fire("NEW_REPORT", scheduleRef(s))}
           >
-            Kirim report
+            Send Report
           </Button>
         ) : null}
         {s.phase === "REVISION" && s.report ? (
@@ -800,11 +810,11 @@ function TodayStrip(props: {
               s.report && action.fire("OPEN_REPORT", reportRef(s.report))
             }
           >
-            Perbaiki report
+            Fix Report
           </Button>
         ) : null}
         <Button variant="secondary" size="sm" onClick={props.onOpen}>
-          Detail
+          Details
         </Button>
       </div>
     </div>

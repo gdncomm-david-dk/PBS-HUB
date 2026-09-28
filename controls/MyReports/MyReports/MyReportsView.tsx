@@ -34,6 +34,9 @@ import {
 import {
   Badge,
   Button,
+  byTime,
+  SortOrder,
+  SortSelect,
   EmptyState,
   Icon,
   IconName,
@@ -95,6 +98,7 @@ export function MyReportsView(props: MyReportsProps): React.ReactElement {
   const initial = (FILTERS.find((f) => f.key === props.defaultFilter)?.key ??
     "All") as Filter;
   const [filter, setFilter] = React.useState<Filter>(initial);
+  const [order, setOrder] = React.useState<SortOrder>("newest");
   React.useEffect(() => setFilter(initial), [initial]);
 
   const brands = React.useMemo(
@@ -126,7 +130,7 @@ export function MyReportsView(props: MyReportsProps): React.ReactElement {
           schedule,
         };
       })
-      .sort((a, b) => (b.day?.getTime() ?? 0) - (a.day?.getTime() ?? 0));
+      .sort(byTime("newest", (i) => i.day));
   }, [props.schedules, props.reports, brands, period]);
 
   const count = (f: (typeof FILTERS)[number]) =>
@@ -138,7 +142,8 @@ export function MyReportsView(props: MyReportsProps): React.ReactElement {
     !active || active.key === "All"
       ? items
       : items.filter((i) => active.states?.includes(i.state));
-  const paged = usePaged(filtered, `${periodKey(period)}|${filter}`);
+  const ordered = order === "newest" ? filtered : [...filtered].reverse();
+  const paged = usePaged(ordered, `${periodKey(period)}|${filter}|${order}`);
   const visible = paged.rows;
   const revision = items.filter((i) => i.state === "REVISION").length;
   const waiting = items.filter((i) => i.state === "WAITING").length;
@@ -295,6 +300,8 @@ export function MyReportsView(props: MyReportsProps): React.ReactElement {
             </button>
           );
         })}
+        <span style={{ flex: 1 }} />
+        <SortSelect value={order} onChange={setOrder} />
       </div>
 
       <div className="hc-list" aria-busy={props.loading}>
@@ -343,7 +350,7 @@ export function MyReportsView(props: MyReportsProps): React.ReactElement {
                 size="sm"
                 onClick={() => choose("All")}
               >
-                Lihat semua
+                View All
               </Button>
             ) : undefined
           }
@@ -421,7 +428,7 @@ function ReportRow(props: { i: Item; onOpen: () => void }): React.ReactElement {
       </span>
       <span className="r">
         <button type="button" className="pbs-link" onClick={props.onOpen}>
-          {i.state === "REVISION" ? "Perbaiki" : "Buka"}
+          {i.state === "REVISION" ? "Fix" : "Open"}
         </button>
       </span>
     </div>

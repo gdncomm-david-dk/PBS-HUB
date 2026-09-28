@@ -184,7 +184,7 @@ export function MyReportDetailView(
         onClick={() => action.fire("BACK", {})}
         style={{ display: "inline-flex", alignItems: "center", gap: 6 }}
       >
-        <Icon name="arrowLeft" size={14} /> Report saya
+        <Icon name="arrowLeft" size={14} /> My Reports
       </button>
     </div>
   );
@@ -630,14 +630,14 @@ export function SubmitReport(
           }}
         >
           {left > 0 ? (
-            <Button onClick={nextPart}>Isi report berikutnya</Button>
+            <Button onClick={nextPart}>Fill Next Report</Button>
           ) : null}
           {props.embedded ? null : (
             <Button
               variant={left > 0 ? "secondary" : "primary"}
               onClick={() => action.fire("BACK", {})}
             >
-              Kembali ke Report saya
+              Back to My Reports
             </Button>
           )}
         </div>
@@ -684,7 +684,7 @@ export function SubmitReport(
                 setSavedAt(null);
               }}
             >
-              Buang draft
+              Discard Draft
             </Button>
           }
         >
@@ -721,8 +721,8 @@ export function SubmitReport(
             disabled={!!action.pending}
             onClick={() => absen.start(session)}
           >
-            {action.pending?.action === "ABSEN" ? <Spinner small /> : null}{" "}
-            Absen sekarang
+            {action.pending?.action === "ABSEN" ? <Spinner small /> : null} Mark
+            Attendance Now
           </Button>
         </div>
       ) : blocker === "NOT_STARTED" ? (
@@ -840,7 +840,7 @@ export function SubmitReport(
           }}
           disabled={pending}
         >
-          Simpan draft
+          Save Draft
         </Button>
         <Button
           onClick={submit}
@@ -849,10 +849,10 @@ export function SubmitReport(
         >
           {pending ? (
             <>
-              <Spinner small /> Mengirim…
+              <Spinner small /> Sending…
             </>
           ) : (
-            "Kirim report"
+            "Send Report"
           )}
         </Button>
       </div>
@@ -1205,7 +1205,7 @@ function Screenshot(props: {
               disabled={props.disabled || busy}
               onClick={() => input.current?.click()}
             >
-              Ganti
+              Change
             </Button>
             <Button
               variant="ghost"
@@ -1213,7 +1213,7 @@ function Screenshot(props: {
               disabled={props.disabled || busy}
               onClick={() => props.setImage(null)}
             >
-              Hapus
+              Remove
             </Button>
           </div>
         ) : (
@@ -1223,7 +1223,7 @@ function Screenshot(props: {
             disabled={props.disabled || busy}
             onClick={() => input.current?.click()}
           >
-            <Icon name="upload" size={14} /> Pilih file
+            <Icon name="upload" size={14} /> Choose File
           </Button>
         )}
       </div>
@@ -1388,7 +1388,7 @@ export function Revision(
         </p>
         {props.embedded ? null : (
           <Button onClick={() => action.fire("BACK", {})}>
-            Kembali ke Report saya
+            Back to My Reports
           </Button>
         )}
       </div>
@@ -1463,7 +1463,7 @@ export function Revision(
               alignItems: "center",
             }}
           >
-            <Button onClick={() => setEditing(true)}>Perbaiki report</Button>
+            <Button onClick={() => setEditing(true)}>Fix Report</Button>
             {url ? (
               <Button
                 variant="secondary"
@@ -1475,7 +1475,7 @@ export function Revision(
                   })
                 }
               >
-                Lihat screenshot yang dipakai
+                View Screenshot Used
               </Button>
             ) : null}
             {dispute === null ? (
@@ -1484,7 +1484,7 @@ export function Revision(
                 onClick={() => setDisputing(true)}
                 disabled={!!action.pending}
               >
-                Saya rasa angka saya benar
+                Dispute Review
               </Button>
             ) : null}
           </div>
@@ -1584,15 +1584,15 @@ export function Revision(
               onClick={() => setEditing(false)}
               disabled={pending}
             >
-              Batal
+              Cancel
             </Button>
             <Button onClick={send} disabled={!canSend}>
               {pending ? (
                 <>
-                  <Spinner small /> Mengirim…
+                  <Spinner small /> Sending…
                 </>
               ) : (
-                "Kirim revisi"
+                "Send Revision"
               )}
             </Button>
           </div>
@@ -1766,7 +1766,7 @@ function DisputeModal(props: {
           className="pbs-x"
           onClick={props.onClose}
           disabled={pending}
-          aria-label="Tutup"
+          aria-label="Close"
         >
           <Icon name="x" />
         </button>
@@ -1796,7 +1796,7 @@ function DisputeModal(props: {
       </div>
       <div className="pbs-modal-f">
         <Button variant="ghost" onClick={props.onClose} disabled={pending}>
-          Batal
+          Cancel
         </Button>
         <Button
           onClick={() =>
@@ -1811,10 +1811,10 @@ function DisputeModal(props: {
         >
           {pending ? (
             <>
-              <Spinner small /> Mengirim…
+              <Spinner small /> Sending…
             </>
           ) : (
-            "Kirim sanggahan"
+            "Send Dispute"
           )}
         </Button>
       </div>
@@ -1915,7 +1915,7 @@ function ViewReport(
                 })
               }
             >
-              <Icon name="external" size={14} /> Lihat screenshot
+              <Icon name="external" size={14} /> View Screenshot
             </Button>
           ) : null}
         </div>

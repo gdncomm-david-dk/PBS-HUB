@@ -119,10 +119,10 @@ export function DashboardView(props: DashboardViewProps): React.ReactElement {
                 variant="secondary"
                 onClick={() => nav("UPLOAD_SCHEDULE")}
               >
-                Upload massal
+                Bulk Upload
               </Button>
               <Button onClick={() => nav("CREATE_SCHEDULE")}>
-                Buat jadwal
+                Create Schedule
               </Button>
             </>
           ) : undefined
@@ -364,7 +364,7 @@ function TodaySessions(props: {
             className="pbs-link"
             onClick={() => nav("SCHEDULE", { date: model.now.toISOString() })}
           >
-            Buka board
+            Open Board
           </button>
         }
       />
@@ -614,7 +614,7 @@ function Conflicts(props: {
                     })
                   }
                 >
-                  Buka di board
+                  Open in Board
                 </button>
               </div>
             );
@@ -712,7 +712,7 @@ function PayrollCard(props: {
       </p>
       {props.canPayroll ? (
         <Button variant="secondary" wide onClick={() => props.nav("PAYROLL")}>
-          Buka payroll
+          Open Payroll
         </Button>
       ) : null}
     </section>

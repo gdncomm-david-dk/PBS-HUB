@@ -282,7 +282,7 @@
         const rows = JSON.parse(params.ClockInJson || "[]");
         const dup = rows.some((x) => x.HostID === p.payload.hostId && String(x.ClockInDate).slice(0, 10) === p.payload.clockInDate);
         if (!dup && q.get("reply") !== "error") {
-          rows.push({ ID: 99001, Title: "CLK-9001", HostID: p.payload.hostId, ClockInDate: p.payload.clockInDate, ClockInTime: p.payload.clockInTime, ClockOutTime: p.payload.clockOutTime, HKTugas: p.payload.hkTugas });
+          rows.push({ ID: 99001, Title: "CLK-9001", HostID: p.payload.hostId, ClockInDate: p.payload.clockInDate, ClockInTime: p.payload.clockInTime, ClockOutDate: p.payload.clockOutDate, ClockOutTime: p.payload.clockOutTime, HKTugas: p.payload.hkTugas });
           params.ClockInJson = J(rows);
         }
         params.ActionResult = J({ requestId: p.requestId, status: dup ? "conflict" : q.get("reply") || "ok", message: dup ? "Sudah ada clock in di tanggal itu." : q.get("reply") === "error" ? "Gagal menyimpan: akses ditolak." : `Clock in tersimpan: CLK-9001 · ${p.payload.clockInDate} ${p.payload.clockInTime}–${p.payload.clockOutTime}` });

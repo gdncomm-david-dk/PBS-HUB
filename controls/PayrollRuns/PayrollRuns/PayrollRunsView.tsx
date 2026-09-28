@@ -27,6 +27,8 @@ import {
   Button,
   EmptyState,
   FilterSelect,
+  SortOrder,
+  SortSelect,
   Icon,
   InfoBanner,
   ModuleHeader,
@@ -104,6 +106,7 @@ export function PayrollRunsView(props: PayrollRunsProps): React.ReactElement {
 
   const [phase, setPhase] = React.useState("");
   const [year, setYear] = React.useState("");
+  const [order, setOrder] = React.useState<SortOrder>("newest");
   const [modal, setModal] = React.useState(false);
   const hostRef = React.useRef<HTMLDivElement>(null);
 
@@ -114,8 +117,9 @@ export function PayrollRunsView(props: PayrollRunsProps): React.ReactElement {
     if (year && String(r.dataPeriod?.year ?? "") !== year) return false;
     return true;
   });
-  // Every loaded row is rendered: a partial list was read as the whole total.
-  const paged = usePaged(filtered, JSON.stringify([phase, year]));
+  // buildRuns sorts newest first; Terlama dulu reverses it.
+  const ordered = order === "newest" ? filtered : [...filtered].reverse();
+  const paged = usePaged(ordered, JSON.stringify([phase, year, order]));
   const visible = paged.rows;
   const years = [
     ...new Set(
@@ -159,7 +163,7 @@ export function PayrollRunsView(props: PayrollRunsProps): React.ReactElement {
                     : undefined
                 }
               >
-                Jalankan payroll
+                Run Payroll
               </Button>
             ) : undefined
           }
@@ -186,7 +190,7 @@ export function PayrollRunsView(props: PayrollRunsProps): React.ReactElement {
                   })
                 }
               >
-                Lihat {openRun.title}
+                View {openRun.title}
               </Button>
             }
           >
@@ -223,9 +227,11 @@ export function PayrollRunsView(props: PayrollRunsProps): React.ReactElement {
               }}
               style={{ marginLeft: 4 }}
             >
-              Hapus filter
+              Clear Filters
             </button>
           ) : null}
+          <span style={{ flex: 1 }} />
+          <SortSelect value={order} onChange={setOrder} />
         </div>
 
         <div className="pbs-table-wrap">
@@ -278,7 +284,7 @@ export function PayrollRunsView(props: PayrollRunsProps): React.ReactElement {
                       setYear("");
                     }}
                   >
-                    Hapus filter
+                    Clear Filters
                   </Button>
                 }
               />
@@ -398,7 +404,7 @@ function RunRow(props: {
       </td>
       <td className="r">
         <Button variant="secondary" size="sm" onClick={props.onOpen}>
-          Lihat
+          View
         </Button>
       </td>
     </tr>
@@ -520,7 +526,7 @@ function PreflightModal(
           });
     return (
       <button type="button" className="pbs-link" onClick={go}>
-        {c.link.label ?? "lihat"}
+        {c.link.label ?? "view"}
       </button>
     );
   };
@@ -545,7 +551,7 @@ function PreflightModal(
           className="pbs-x"
           onClick={props.onClose}
           disabled={pending}
-          aria-label="Tutup"
+          aria-label="Close"
         >
           <Icon name="x" />
         </button>
@@ -682,7 +688,7 @@ function PreflightModal(
           </span>
         ) : null}
         <Button variant="ghost" onClick={props.onClose} disabled={pending}>
-          Batal
+          Cancel
         </Button>
         <Button
           onClick={submit}
@@ -699,10 +705,10 @@ function PreflightModal(
         >
           {pending ? (
             <>
-              <Spinner small /> Menjalankan…
+              <Spinner small /> Running…
             </>
           ) : (
-            "Jalankan payroll"
+            "Run Payroll"
           )}
         </Button>
       </div>

@@ -12,7 +12,7 @@ import {
   startOfDay,
   str,
 } from "./data";
-import { clockInAt, clockInDay } from "./payroll";
+import { clockInAt, clockInDay, clockOutAt } from "./payroll";
 import { sessionStatus } from "./host";
 import {
   ALL_METRICS,
@@ -142,9 +142,8 @@ export interface Shift {
 }
 
 const checkIn = (c: Row): Date | null => clockInAt(c);
-const checkOut = (c: Row): Date | null =>
-  date(c, "CheckOutTime") ??
-  withClock(date(c, "ClockOutDate") ?? clockInDay(c), str(c, "ClockOutTime"));
+// ClockOutDate (or a clock-out time earlier than clock-in) puts a 22:00 → 03:00 shift on the next day.
+const checkOut = (c: Row): Date | null => clockOutAt(c);
 
 function withClock(day: Date | null, clock: string): Date | null {
   const m = parseClock(clock);
@@ -152,6 +151,22 @@ function withClock(day: Date | null, clock: string): Date | null {
   const d = startOfDay(day);
   d.setMinutes(m);
   return d;
+}
+
+/**
+ * A shift that was already running when `at` came: clocked in before it and clocked out after it
+ * (or still open, within 36 h). A 00:30 session inside a 22:00 → 03:00 shift counts as clocked in
+ * even though ClockInDate is the day before.
+ */
+export function shiftCovers(clockIns: Row[], at: Date | null): boolean {
+  if (!at) return false;
+  const t = at.getTime();
+  return clockIns.some((c) => {
+    const a = checkIn(c)?.getTime();
+    if (a === undefined || a > t) return false;
+    const b = checkOut(c)?.getTime();
+    return b === undefined ? t - a < 36 * 36e5 : b >= t;
+  });
 }
 
 /** Days that have a clock-in, local yyyy-mm-dd. */
@@ -373,7 +388,8 @@ export function buildHostSessions(
       const reportState = report ? reviewState(report) : null;
       const cover = reportCoverage(reports, scheduledMin(start, end, s));
       const noReport = noReportReason(s);
-      const clockedIn = !!dayKey && days.has(dayKey);
+      const clockedIn =
+        (!!dayKey && days.has(dayKey)) || shiftCovers(d.clockIns, start);
       const brandId = str(s, "BrandID");
       const studioId = str(s, "StudioID");
       const opens = start

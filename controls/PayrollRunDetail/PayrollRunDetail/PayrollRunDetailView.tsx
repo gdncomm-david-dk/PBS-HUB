@@ -161,7 +161,7 @@ export function PayrollRunDetailView(
                 action.fire("RELOAD", { payrollId: run.id, title: run.title })
               }
             >
-              <Icon name="refresh" size={14} /> Muat ulang
+              <Icon name="refresh" size={14} /> Reload
             </Button>
           </>
         }
@@ -346,7 +346,7 @@ function LinesTab(props: {
             className="pbs-link"
             onClick={() => setShow("")}
           >
-            Hapus filter
+            Clear Filters
           </button>
         ) : null}
       </div>
@@ -710,10 +710,10 @@ function PayslipTab(props: {
           >
             {pending ? (
               <>
-                <Spinner small /> Mengirim…
+                <Spinner small /> Sending…
               </>
             ) : (
-              `Kirim ulang yang gagal${failed.length ? ` (${failed.length})` : ""}`
+              `Resend Failed${failed.length ? ` (${failed.length})` : ""}`
             )}
           </Button>
         ) : null}

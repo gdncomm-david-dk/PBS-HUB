@@ -2,6 +2,7 @@ import * as React from "react";
 import { ModuleContext, UseActionResult } from "./contract";
 import {
   Row,
+  addDaysKey,
   clockText,
   date,
   localDayKey,
@@ -55,7 +56,8 @@ export interface ClockInDate {
   day: Date;
   sessions: { title: string; start: string; end: string }[];
   start: number | null; // earliest scheduled start, minutes
-  end: number | null; // latest scheduled end, minutes
+  /** latest scheduled end, minutes from midnight of `day`; ≥ 1440 when a session ends after midnight */
+  end: number | null;
 }
 
 /**
@@ -96,7 +98,9 @@ export function availableClockInDates(
     };
     entry.sessions.push({ title: str(s, "Title"), start, end });
     const a = parseClock(start);
-    const b = parseClock(end);
+    const raw = parseClock(end);
+    // 22:00–03:00 ends on the next day.
+    const b = raw !== null && a !== null && raw <= a ? raw + 1440 : raw;
     if (a !== null && (entry.start === null || a < entry.start))
       entry.start = a;
     if (b !== null && (entry.end === null || b > entry.end)) entry.end = b;
@@ -109,7 +113,7 @@ const STEP = 30;
 function timeOptions(extra: (number | null)[]): number[] {
   const set = new Set<number>();
   for (let m = 0; m < 24 * 60; m += STEP) set.add(m);
-  for (const e of extra) if (e !== null && e < 24 * 60) set.add(e);
+  for (const e of extra) if (e !== null) set.add(e % (24 * 60));
   return [...set].sort((a, b) => a - b);
 }
 
@@ -151,6 +155,8 @@ export function ClockInModal(props: {
   const [key, setKey] = React.useState("");
   const [tin, setTin] = React.useState("");
   const [tout, setTout] = React.useState("");
+  // Clock-out day: the clock-in day, or the next one for a shift past midnight (22:00 → 03:00).
+  const [outNext, setOutNext] = React.useState(false);
   const [status, setStatus] = React.useState("");
 
   const pending = action.pending?.action === "ADD_CLOCK_IN";
@@ -163,16 +169,21 @@ export function ClockInModal(props: {
   const options = timeOptions([picked?.start ?? null, picked?.end ?? null]);
   const st = statuses.find((s) => s.label === status);
   const a = tin === "" ? null : Number(tin);
-  const b = tout === "" ? null : Number(tout);
+  const b = tout === "" ? null : Number(tout) + (outNext ? 1440 : 0);
   const order = a !== null && b !== null && b <= a;
-  const ok = !!picked && a !== null && b !== null && !order && !!st;
+  const tooLong = a !== null && b !== null && b - a > 1440;
+  const ok = !!picked && a !== null && b !== null && !order && !tooLong && !!st;
+  const outKey = picked ? addDaysKey(picked.key, outNext ? 1 : 0) : "";
 
   const choose = (k: string) => {
     setKey(k);
     const d = dates.find((x) => x.key === k);
     // Prefill from the schedule of that day; the reviewer can still change it.
     setTin(d?.start !== null && d?.start !== undefined ? String(d.start) : "");
-    setTout(d?.end !== null && d?.end !== undefined ? String(d.end) : "");
+    setTout(
+      d?.end !== null && d?.end !== undefined ? String(d.end % 1440) : "",
+    );
+    setOutNext(!!d && d.end !== null && d.end >= 1440);
   };
   const submit = () => {
     if (!ok || pending || !picked || !st) return;
@@ -181,7 +192,8 @@ export function ClockInModal(props: {
       hostName: props.hostName,
       clockInDate: picked.key,
       clockInTime: fmtClock(a),
-      clockOutTime: fmtClock(b),
+      clockOutDate: outKey,
+      clockOutTime: fmtClock(b === null ? null : b % 1440),
       status: st.label,
       hkTugas: st.hk,
       scheduleIds: picked.sessions.map((s) => s.title).filter(Boolean),
@@ -197,7 +209,7 @@ export function ClockInModal(props: {
           className="pbs-x"
           onClick={props.onClose}
           disabled={pending}
-          aria-label="Tutup"
+          aria-label="Close"
         >
           <Icon name="x" />
         </button>
@@ -221,7 +233,7 @@ export function ClockInModal(props: {
           </div>
           <div className="pbs-modal-f">
             <Button variant="secondary" onClick={props.onClose}>
-              Tutup
+              Close
             </Button>
           </div>
         </>
@@ -248,7 +260,7 @@ export function ClockInModal(props: {
                   <option key={d.key} value={d.key}>
                     {fmtLongDate(d.day)}
                     {d.start !== null
-                      ? ` · ${fmtClock(d.start)}–${fmtClock(d.end)}`
+                      ? ` · ${fmtClock(d.start)}–${fmtClock(d.end === null ? null : d.end % 1440)}${d.end !== null && d.end >= 1440 ? " (+1 hari)" : ""}`
                       : ""}
                     {d.sessions.length > 1
                       ? ` · ${d.sessions.length} sesi`
@@ -296,6 +308,36 @@ export function ClockInModal(props: {
               </div>
             </div>
             <div className="pbs-field">
+              <label className="pbs-label" htmlFor="pbs-ci-outdate">
+                Tanggal clock out
+              </label>
+              <select
+                id="pbs-ci-outdate"
+                value={outNext ? "next" : "same"}
+                onChange={(e) => setOutNext(e.target.value === "next")}
+                disabled={pending || !picked}
+              >
+                <option value="same">
+                  {picked ? fmtLongDate(picked.day) : "—"} · hari yang sama
+                </option>
+                <option value="next">
+                  {picked
+                    ? fmtLongDate(
+                        new Date(
+                          picked.day.getFullYear(),
+                          picked.day.getMonth(),
+                          picked.day.getDate() + 1,
+                        ),
+                      )
+                    : "—"}{" "}
+                  · hari berikutnya
+                </option>
+              </select>
+              <div className="pbs-hint">
+                ClockInDate tetap tanggal jadwal; ClockOutDate ikut tanggal ini.
+              </div>
+            </div>
+            <div className="pbs-field">
               <label className="pbs-label" htmlFor="pbs-ci-status">
                 Status
               </label>
@@ -318,7 +360,12 @@ export function ClockInModal(props: {
             </div>
             {order ? (
               <InfoBanner tone="warn">
-                Jam clock out harus setelah jam clock in.
+                Jam clock out harus setelah jam clock in. Shift yang selesai
+                lewat tengah malam: pilih tanggal clock out hari berikutnya.
+              </InfoBanner>
+            ) : tooLong ? (
+              <InfoBanner tone="warn">
+                Shift lebih dari 24 jam. Periksa lagi tanggal clock out.
               </InfoBanner>
             ) : null}
             {res ? (
@@ -332,7 +379,7 @@ export function ClockInModal(props: {
           </div>
           <div className="pbs-modal-f">
             <Button variant="ghost" onClick={props.onClose} disabled={pending}>
-              Batal
+              Cancel
             </Button>
             <Button
               onClick={submit}
@@ -345,10 +392,10 @@ export function ClockInModal(props: {
             >
               {pending ? (
                 <>
-                  <Spinner small /> Menyimpan…
+                  <Spinner small /> Saving…
                 </>
               ) : (
-                "Simpan clock in"
+                "Save Clock In"
               )}
             </Button>
           </div>

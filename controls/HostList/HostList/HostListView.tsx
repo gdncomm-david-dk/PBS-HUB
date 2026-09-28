@@ -194,7 +194,7 @@ export function HostListView(props: HostListProps): React.ReactElement {
         actions={
           canEdit ? (
             <Button onClick={() => action.fire("ADD_HOST", {})}>
-              <Icon name="plus" size={15} /> Tambah host
+              <Icon name="plus" size={15} /> Add Host
             </Button>
           ) : undefined
         }
@@ -232,7 +232,7 @@ export function HostListView(props: HostListProps): React.ReactElement {
                   apply({ ...filters, bank: "missing", status: "ACTIVE" })
                 }
               >
-                Tampilkan
+                Show
               </Button>
             ) : undefined
           }
@@ -294,7 +294,7 @@ export function HostListView(props: HostListProps): React.ReactElement {
             onClick={() => apply(NO_FILTERS)}
             style={{ marginLeft: 4 }}
           >
-            Hapus filter
+            Clear Filters
           </button>
         ) : null}
         <span style={{ flex: 1 }} />
@@ -360,7 +360,7 @@ export function HostListView(props: HostListProps): React.ReactElement {
                   size="sm"
                   onClick={() => apply(NO_FILTERS)}
                 >
-                  Hapus filter
+                  Clear Filters
                 </Button>
               }
             />
@@ -372,7 +372,7 @@ export function HostListView(props: HostListProps): React.ReactElement {
               action={
                 canEdit ? (
                   <Button size="sm" onClick={() => action.fire("ADD_HOST", {})}>
-                    Tambah host
+                    Add Host
                   </Button>
                 ) : undefined
               }
@@ -515,11 +515,11 @@ function HostRow(props: {
               disabled={props.busy}
               title="Tambah clock in untuk jadwal yang terlewat"
             >
-              <Icon name="clock" size={14} /> Clock in
+              <Icon name="clock" size={14} /> Clock In
             </Button>
           ) : null}
           <Button variant="secondary" size="sm" onClick={props.onOpen}>
-            Buka
+            Open
           </Button>
         </span>
       </td>

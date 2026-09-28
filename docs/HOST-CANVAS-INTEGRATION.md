@@ -1,6 +1,6 @@
 # Integrasi canvas — PBS Hub Host App
 
-Solusi terpisah dari Ops Console: **`PBSHubHostApp`** (managed, `dist/PBSHubHostApp_1_0_8_0_managed.zip`), berisi
+Solusi terpisah dari Ops Console: **`PBSHubHostApp`** (managed, `dist/PBSHubHostApp_1_0_9_0_managed.zip`), berisi
 ketujuh control host dengan identifier baru `pbs_HostApp.*`. Solusi ini menggantikan `PBSHubHostPCF` +
 `PBSHubHostSchedulePCF` (control lama `pbs_Host.*`). Karena nama solusi dan namespace control berbeda, solusi baru
 bisa diimport berdampingan dengan yang lama tanpa bentrok. Publisher dan prefix tetap sama (`PBSHub` / `pbs`).
@@ -10,7 +10,7 @@ bisa diimport berdampingan dengan yang lama tanpa bentrok. Publisher dan prefix 
 | `pbs_HostApp.HostDashboard` | *Hari ini* | Sapaan, kartu shift (clock in / clock out), to-do (revisi, report belum dikirim, absen), jadwal hari ini, skor. |
 | `pbs_HostApp.MyReports` | *Report saya* | Report sebulan + sesi yang belum dilaporkan, filter status, pilih bulan. |
 | `pbs_HostApp.ClockIn` | *Clock in* (dibuka dari kartu shift *Hari ini*) | Clock in / clock out: GPS dicek terhadap radius `Studio Location - PBS`, selfie wajib saat in **dan** out, alasan wajib kalau di luar radius. Lihat bagian 9. |
-| `pbs_HostApp.MyReportDetail` | *Kirim report*, *Revisi*, *Detail report* | Satu control, tiga mode: form submit (metrik + screenshot), layar revisi (angka yang ditandai, perbaiki / sanggah), tampilan read-only. |
+| `pbs_HostApp.MyReportDetail` | *Send Report*, *Revisi*, *Detail report* | Satu control, tiga mode: form submit (metrik + screenshot), layar revisi (angka yang ditandai, perbaiki / sanggah), tampilan read-only. |
 | `pbs_HostApp.MySchedule` | *Jadwal saya* (5a) | Tabel **atau kalender bulan** (toggle Daftar / Kalender), 4 KPI, strip *Hari ini* dengan tombol clock in / absen / kirim report, filter platform + status + cari. |
 | `pbs_HostApp.ScheduleDetail` | *Detail sesi* (dibuka dari 4b / 5a / Hari ini) | Langkah berikutnya, **absen dan kirim report (metrik + screenshot) atau revisi langsung di layar ini**, 4 langkah sesi, detail jadwal, sesi lain di hari yang sama. |
 | `pbs_HostApp.CreditScore` | *Skor saya* (dibuka dari kartu skor *Hari ini*) | Skor kredit dan level, poin lagi ke level berikutnya, tren, reward / penalty per bulan, daftar level, cara skor berubah, semua transaksi. Hanya membaca. Lihat bagian 11. |
@@ -72,7 +72,7 @@ Set(varHdResult, "");  Set(varMrdResult, ""); Set(varMsResult, ""); Set(varSdRes
 | Properti | List | Field (bentuk lewat `ForAll`) |
 |---|---|---|
 | `HostJson` | `Host - PBS Hub` | `Title, HostCode, NamaHost, Package, CurrentScore, InitialScore` |
-| `SchedulesJson` / `ScheduleJson` | `Schedule - PBS Hub` | `ID, Title, Date (yyyy-mm-dd), StartTime, EndTime, BrandID, StudioID, HostID, Platform, Account` (dikirim sebagai `AccountID`), `AccountName` (lookup `Schedule.Account` → `Title` list Account, ambil `AccountName`), `LiveBreak` (Choice Yes/No, kosong = No), `Position (Position.Value), Status (Status.Value)`. Sesi dengan `LiveBreak = Yes` atau `Position = Co-Host` **tidak perlu report**: tampil *Tanpa report* / *Finished*, tanpa tombol Kirim report. Report hanya bisa dikirim saat `Status = Waiting Report` (lihat *Report per sesi* di bawah) |
+| `SchedulesJson` / `ScheduleJson` | `Schedule - PBS Hub` | `ID, Title, Date (yyyy-mm-dd), StartTime, EndTime, BrandID, StudioID, HostID, Platform, Account` (dikirim sebagai `AccountID`), `AccountName` (lookup `Schedule.Account` → `Title` list Account, ambil `AccountName`), `LiveBreak` (Choice Yes/No, kosong = No), `Position (Position.Value), Status (Status.Value)`. Sesi dengan `LiveBreak = Yes` atau `Position = Co-Host` **tidak perlu report**: tampil *Tanpa report* / *Finished*, tanpa tombol Send Report. Report hanya bisa dikirim saat `Status = Waiting Report` (lihat *Report per sesi* di bawah) |
 | `ClockInJson` | `Clock In - PBS Hub` | `ID, ClockInDate, CheckInTime, CheckOutTime, ClockInTime, ClockOutTime, CheckInOffice` |
 | `AbsenceJson` | `Host Absence - PBS Hub` | `Title, ScheduleID, LiveDate, Status, Created` |
 | `ReportsJson` / `ReportJson` / `HistoryJson` | `Report - PBS Hub` | sama dengan Ops (`ID, Title, ScheduleID, HostID, BrandID, AccountID, Account, Platform, LiveDate`, `LiveID`, `Playbook: Playbook.Value` (Choice), 12 metrik, `ApprovalStatus, Match, ApprovalComment, Approver, ApproverEmail, Attachment, Created, Modified`). List dan detail menampilkan Rep ID (`Title`), Schedule ID, jam live (dari `SchedulesJson`), kolom *Status* = `ApprovalStatus` apa adanya, dan `Playbook`. `ApprovalStatus` kosong tampil *Belum ada status* (bukan menunggu review) |
@@ -91,15 +91,15 @@ Status sesi yang dilihat host dihitung dari data di atas (aturan v1 tetap):
 | Belum dikirim / Terlambat | clock in + absen ada, belum ada Report; *Terlambat* setelah H+`reportDeadlineDays` |
 | Menunggu review / Menunggu review ulang / Perlu revisi / Selesai / Otomatis disetujui / Live break | dari `Report.ApprovalStatus` (`Waiting Approval`, `Waiting Approval Revision`, `Need Revision`, `Done`, `LiveBreak`) + `ApprovalComment` (sama dengan Ops) |
 
-### Report per sesi (Kirim report, live terputus, Live Break)
+### Report per sesi (Send Report, live terputus, Live Break)
 
 | Aturan | Detail |
 |---|---|
-| Kapan bisa report | sudah clock in, absen tercatat, sesi sudah mulai, **dan** `Schedule.Status = Waiting Report`. Canvas mengisi status itu saat ABSEN (`p.scheduleStatus`). Status lain (mis. *Planned*) → tombol **Kirim report** nonaktif dengan keterangan |
+| Kapan bisa report | sudah clock in, absen tercatat, sesi sudah mulai, **dan** `Schedule.Status = Waiting Report`. Canvas mengisi status itu saat ABSEN (`p.scheduleStatus`). Status lain (mis. *Planned*) → tombol **Send Report** nonaktif dengan keterangan |
 | Isian | Live ID (teks), `Durasi(Min)`, Playbook (dropdown), `AddToCart` (**hanya Shopee**; TikTok dan lainnya tidak ditanya, dikirim `null`), Pesanan, Penjualan, ProdukTerjual, JumlahPembeli, CTR, PeakViewer, TotalViewer, CTOR, Comment, screenshot. Semua wajib. `Share` tidak dipakai lagi |
 | Co-Host | tidak perlu report; absen langsung menulis `Status = Finished` |
 | Live Break | saat absen host ditanya *Live Break atau bukan*. **Ya** → tidak perlu report, tapi canvas tetap membuat baris Report dengan semua angka 0 dan `ApprovalStatus = LiveBreak`, `Schedule.Status = Done`, `LiveBreak = Yes` |
-| Live terputus | satu sesi boleh punya beberapa Report (satu per Live ID). Control menjumlahkan `Durasi(Min)` semua report sesi itu dan membandingkannya dengan durasi jadwal (`EndTime − StartTime`). Kurang → status tetap `Waiting Report`, host melihat *kurang X menit, silakan report berikutnya*. Total ≥ durasi jadwal → `Status = Finished`, tombol Kirim report hilang |
+| Live terputus | satu sesi boleh punya beberapa Report (satu per Live ID). Control menjumlahkan `Durasi(Min)` semua report sesi itu dan membandingkannya dengan durasi jadwal (`EndTime − StartTime`). Kurang → status tetap `Waiting Report`, host melihat *kurang X menit, silakan report berikutnya*. Total ≥ durasi jadwal → `Status = Finished`, tombol Send Report hilang |
 | Revisi | report yang `Need Revision` bisa diperbaiki termasuk Live ID, Playbook dan Durasi; status jadwal dihitung ulang dengan durasi baru |
 
 Nama status bisa diganti lewat `Context.config`: `scheduleWaitingStatus` (default `Waiting Report`),
@@ -128,7 +128,7 @@ Set(varHdLoading, false);
 | `Context` | `varHostCtx` |
 | `HostJson` | `JSON(ForAll(Filter('Host - PBS Hub', Title = varMe.Title), {Title: Title, HostCode: HostCode, NamaHost: NamaHost, Package: Package.Value, CurrentScore: CurrentScore, InitialScore: InitialScore}), JSONFormat.Compact)` |
 | `SchedulesJson` | `JSON(ForAll(colMySch, {ID: ID, Title: Title, Date: Text(Date, "yyyy-mm-dd"), StartTime: StartTime, EndTime: EndTime, BrandID: BrandID, StudioID: StudioID, HostID: HostID, Platform: Platform.Value, AccountID: Account, AccountName: With({a: Account}, LookUp(colAccounts, Title = a).AccountName), LiveBreak: Coalesce(LiveBreak.Value, "No"), Position: Position.Value, Status: Status.Value}), JSONFormat.Compact)` |
-| `ClockInJson` | `JSON(ForAll(colMyClk, {ID: ID, ClockInDate: Text(ClockInDate, "yyyy-mm-dd"), CheckInTime: CheckInTime, CheckOutTime: CheckOutTime, ClockInTime: ClockInTime, ClockOutTime: ClockOutTime, CheckInOffice: CheckInOffice}), JSONFormat.Compact)` |
+| `ClockInJson` | `JSON(ForAll(colMyClk, {ID: ID, ClockInDate: Text(ClockInDate, "yyyy-mm-dd"), CheckInTime: CheckInTime, CheckOutTime: CheckOutTime, ClockInTime: ClockInTime, ClockOutDate: Text(ClockOutDate, "yyyy-mm-dd"), ClockOutTime: ClockOutTime, CheckInOffice: CheckInOffice}), JSONFormat.Compact)` |
 | `AbsenceJson` | `JSON(ForAll(colMyAbs, {Title: Title, ScheduleID: ScheduleID, LiveDate: Text(LiveDate, "yyyy-mm-dd"), Status: Status.Value, Created: Created}), JSONFormat.Compact)` |
 | `ReportsJson` | `JSON(ForAll(colMyRep, {ID: ID, Title: Title, ScheduleID: ScheduleID, HostID: HostID, BrandID: BrandID, AccountID: AccountID, Account: Account.Value, Platform: Platform.Value, LiveDate: Text(LiveDate, "yyyy-mm-dd"), LiveID: LiveID, Playbook: Playbook.Value, Penjualan: Penjualan, Pesanan: Pesanan, ProdukTerjual: ProdukTerjual, JumlahPembeli: JumlahPembeli, CTR: CTR, CTOR: CTOR, PeakViewer: PeakViewer, DurasiMin: 'Durasi(Min)', AddToCart: AddToCart, TotalViewer: TotalViewer, Comment: Comment, ApprovalStatus: ApprovalStatus.Value, ApprovalComment: ApprovalComment, Approver: Approver.DisplayName, ApproverEmail: ApproverEmail, Attachment: Attachment, Created: Created, Modified: Modified}), JSONFormat.Compact)` |
 | `ScoreTxJson`, `ThresholdsJson`, `BrandsJson`, `StudiosJson` | seperti HostDetail |
@@ -200,7 +200,7 @@ muncul di *Hari ini* dan *Jadwal saya*, bukan di sini.
 
 ## 5. MyReportDetail (kirim / revisi / lihat)
 
-Mode dipilih dari data: `ReportJson` kosong → **form Kirim report** untuk `ScheduleJson` (juga untuk report bagian berikutnya dari live yang terputus); report `Need Revision`
+Mode dipilih dari data: `ReportJson` kosong → **form Send Report** untuk `ScheduleJson` (juga untuk report bagian berikutnya dari live yang terputus); report `Need Revision`
 → **layar revisi**; selain itu → **read-only**.
 
 ```powerfx
@@ -210,7 +210,7 @@ With({rep: If(IsBlank(varRptId), Blank(), LookUp('Report - PBS Hub', ID = varRpt
     Set(varMrdRep, rep);
     Set(varMrdSch, LookUp('Schedule - PBS Hub', Title = Coalesce(rep.ScheduleID, varRptSchedule) && HostID = varMe.Title))
 );
-ClearCollect(colMrdClk, Filter('Clock In - PBS Hub', HostID = varMe.Title, ClockInDate = varMrdSch.Date));
+ClearCollect(colMrdClk, Filter('Clock In - PBS Hub', HostID = varMe.Title, ClockInDate >= DateAdd(varMrdSch.Date, -1), ClockInDate <= varMrdSch.Date));
 ClearCollect(colMrdAbs, Filter('Host Absence - PBS Hub', HostID = varMe.Title, ScheduleID = varMrdSch.Title));
 ClearCollect(colMrdEvi, Filter('Report Automation - PBS Hub', Title = varMrdRep.Title));
 ClearCollect(colMrdSesRep, Filter('Report - PBS Hub', HostID = varMe.Title, ScheduleID = varMrdSch.Title));
@@ -390,7 +390,8 @@ Kirim sesi itu **plus sesi lain host di hari yang sama** (untuk daftar *Sesi lai
 // Screen.OnVisible  (varSchId dan varSchDate diisi oleh OPEN_SCHEDULE)
 Set(varSdLoading, true);
 ClearCollect(colSdSch, Filter('Schedule - PBS Hub', HostID = varMe.Title, Date = varSchDate));
-ClearCollect(colSdClk, Filter('Clock In - PBS Hub', HostID = varMe.Title, ClockInDate = varSchDate));
+// hari sebelumnya ikut: shift 22:00 → 03:00 kemarin juga menutup sesi 00:30 hari ini
+ClearCollect(colSdClk, Filter('Clock In - PBS Hub', HostID = varMe.Title, ClockInDate >= DateAdd(varSchDate, -1), ClockInDate <= varSchDate));
 ClearCollect(colSdAbs, Filter('Host Absence - PBS Hub', HostID = varMe.Title, LiveDate = varSchDate));
 ClearCollect(colSdRep, Filter('Report - PBS Hub', HostID = varMe.Title, LiveDate = varSchDate));
 Set(varSdLoading, false);
@@ -400,7 +401,7 @@ Set(varSdLoading, false);
 |---|---|
 | `ScheduleId` | `varSchId` (Title `SCD-…`, atau ID item) |
 | `SchedulesJson` | seperti MySchedule, dari `colSdSch` |
-| `ClockInJson` | `JSON(ForAll(colSdClk, {ID: ID, ClockInDate: Text(ClockInDate, "yyyy-mm-dd"), CheckInTime: CheckInTime, CheckOutTime: CheckOutTime, ClockInTime: ClockInTime, CheckInOffice: CheckInOffice, IsInsideGeofence: IsInsideGeofence}), JSONFormat.Compact)` |
+| `ClockInJson` | `JSON(ForAll(colSdClk, {ID: ID, ClockInDate: Text(ClockInDate, "yyyy-mm-dd"), CheckInTime: CheckInTime, CheckOutTime: CheckOutTime, ClockOutDate: Text(ClockOutDate, "yyyy-mm-dd"), ClockInTime: ClockInTime, CheckInOffice: CheckInOffice, IsInsideGeofence: IsInsideGeofence}), JSONFormat.Compact)` |
 | `AbsenceJson` | seperti HostDashboard, plus `CheckInTime` (jam absen yang ditampilkan) |
 | `ReportsJson` | field Report lengkap seperti MyReportDetail (12 metrik, `ApprovalStatus, ApprovalComment, Approver, Modified, Playbook`) — form revisi membaca angka lama dari sini |
 | `EvidenceJson` | `Report Automation - PBS Hub` untuk report di atas (`Title` = Title report), seperti MyReportDetail |
@@ -417,7 +418,7 @@ Set(varSdLoading, false);
 | Aksi | Canvas |
 |---|---|
 | `ABSEN` 🔒 | pop-up Live Break lalu sama dengan HostDashboard (balas ke `varSdResult`, muat ulang `colSdAbs`, `colSdSch`, `colSdRep`) |
-| `SUBMIT_REPORT` 🔒 | tombol **Kirim report** di kepala halaman. Handler yang sama dengan MyReportDetail (flow upload dengan `ScheduleDetail.UploadData`, Patch Report + `Schedule.Status`), balas ke `varSdResult`, lalu muat ulang `colSdSch` dan `colSdRep` supaya daftar report dan sisa durasi terbarui |
+| `SUBMIT_REPORT` 🔒 | tombol **Send Report** di kepala halaman. Handler yang sama dengan MyReportDetail (flow upload dengan `ScheduleDetail.UploadData`, Patch Report + `Schedule.Status`), balas ke `varSdResult`, lalu muat ulang `colSdSch` dan `colSdRep` supaya daftar report dan sisa durasi terbarui |
 | `RESUBMIT_REPORT` 🔒, `DISPUTE_REVIEW` 🔒 | sama dengan MyReportDetail, balas ke `varSdResult`, lalu `ClearCollect(colSdRep, …)` |
 | `CLOCK_IN` | `Navigate(scrClockIn)` |
 | `OPEN_REPORT`, `OPEN_EVIDENCE` | sama dengan MyReportDetail / HostDashboard (report yang sudah selesai dibuka read-only) |
@@ -425,20 +426,20 @@ Set(varSdLoading, false);
 | `BACK` | `Back()` |
 
 Tata letak mengikuti desain 10–11: kepala halaman (breadcrumb *Jadwal saya / SCD-…*, judul brand, tombol **Absen**,
-**Clock in**, **Kirim report** di kanan), baris ringkas sesi (tanggal, jam, platform, posisi, status), kolom utama 8/12
+**Clock in**, **Send Report** di kanan), baris ringkas sesi (tanggal, jam, platform, posisi, status), kolom utama 8/12
 (langkah berikutnya, form report, revisi, daftar report per bagian, waktu & tempat) dan kolom samping 4/12 (durasi
 report, langkah sesi, sesi lain hari itu).
 
-**Kirim report** hanya aktif kalau `Schedule.Status = Waiting Report` (plus clock in, absen, sesi sudah mulai);
+**Send Report** hanya aktif kalau `Schedule.Status = Waiting Report` (plus clock in, absen, sesi sudah mulai);
 kalau tidak, tombolnya nonaktif dengan keterangan kenapa. Co-Host dan Live Break tidak punya tombol ini
 (*tanpa report*). Setelah report terkirim dan durasinya belum mencukupi, halaman menampilkan *kurang X menit* dan
-tombol berubah jadi **Kirim report berikutnya**; setelah total durasi ≥ durasi jadwal tombol hilang dan status
+tombol berubah jadi **Send Next Report**; setelah total durasi ≥ durasi jadwal tombol hilang dan status
 menjadi `Finished`. Report yang perlu revisi dibuka di tempat (angka, Live ID, Playbook, durasi; perbaiki atau sanggah).
 Sesi tanpa clock in diarahkan minta clock in manual ke tim PBS, sesi batal hanya diberi keterangan.
 
 ## 8. Pemasangan
 
-1. Import `dist/PBSHubHostApp_1_0_8_0_managed.zip` (Solutions → Import). Bisa di environment yang sama dengan
+1. Import `dist/PBSHubHostApp_1_0_9_0_managed.zip` (Solutions → Import). Bisa di environment yang sama dengan
    `PBSHubOpsPCF` dan dengan solusi host lama.
    **Pindah dari solusi lama** (`PBSHubHostPCF` / `PBSHubHostSchedulePCF`, control `pbs_Host.*`): control baru tidak
    otomatis menggantikan yang lama di canvas. Di tiap layar hapus control lama, tambahkan control `pbs_HostApp.*`
@@ -503,7 +504,7 @@ Set(varCkLoading, false)
 | `Context` | `varHostCtx` |
 | `HostJson` | `JSON(ForAll(Table(varMe), {Title: Title, NamaHost: NamaHost, Email: Email.Email}), JSONFormat.Compact)` |
 | `LocationsJson` | `JSON(ForAll(colCkLoc, {Title: Title, LocationID: LocationID, Latitude: Latitude, Longitude: Longitude, RadiusMeter: RadiusMeter, IsActive: IsActive}), JSONFormat.Compact)` |
-| `ClockInJson` | `JSON(ForAll(colCkClk, {ID: ID, Title: Title, HostID: HostID, ClockInDate: Text(ClockInDate, "yyyy-mm-dd"), CheckInTime: CheckInTime, CheckOutTime: CheckOutTime, ClockInTime: ClockInTime, CheckInOffice: CheckInOffice, Reason: Reason}), JSONFormat.Compact)` |
+| `ClockInJson` | `JSON(ForAll(colCkClk, {ID: ID, Title: Title, HostID: HostID, ClockInDate: Text(ClockInDate, "yyyy-mm-dd"), CheckInTime: CheckInTime, CheckOutTime: CheckOutTime, ClockOutDate: Text(ClockOutDate, "yyyy-mm-dd"), ClockInTime: ClockInTime, CheckInOffice: CheckInOffice, Reason: Reason}), JSONFormat.Compact)` |
 | `SchedulesJson` | `JSON(ForAll(colCkSch, {Title: Title, Date: Text(Date, "yyyy-mm-dd"), StartTime: StartTime, EndTime: EndTime, HostID: HostID, Status: Status.Value}), JSONFormat.Compact)` — untuk `ScheduleCount` (sesi *Cancelled* tidak dihitung) |
 | `ReportsJson` | `JSON(ForAll(colCkRep, {Title: Title, ScheduleID: ScheduleID, HostID: HostID, LiveDate: Text(LiveDate, "yyyy-mm-dd")}), JSONFormat.Compact)` — untuk `TotalReports` saat clock out |
 | `DeviceLocationJson` | `JSON({Latitude: Location.Latitude, Longitude: Location.Longitude}, JSONFormat.Compact)` — cadangan kalau browser/WebView menolak GPS; akurasinya tidak diketahui |
@@ -617,6 +618,11 @@ Catatan:
   error, tidak ada baris setengah jadi, host tinggal menekan tombol lagi.
 - `ClockInDate = Today()` di pengecekan konflik: satu baris clock in per host per hari (sama dengan clock in manual
   di Ops).
+- **Shift lewat tengah malam** (jadwal 28 Sep 22:00 → 29 Sep 03:00): `ClockInDate` = 28 (hari clock in),
+  `CLOCK_OUT` menulis `ClockOutDate: Today()` = 29. Pengecekan konflik hanya melihat `ClockInDate`, jadi host tetap
+  bisa clock in lagi tanggal 29 untuk jadwal berikutnya. Selama shift masih terbuka (jam 02:00 tanggal 29), layar
+  Clock In menampilkan shift tanggal 28 dengan tombol *Clock Out* — karena itu `colCkClk` memuat `Today() - 1`.
+  Sesi yang mulai sesudah tengah malam di dalam shift itu (29 Sep 00:30) dihitung sudah clock in.
 - Izin lokasi: Power Apps mobile meminta izin lokasi saat pertama kali; di browser, situs `apps.powerapps.com` harus
   diizinkan. Kalau ditolak, control memakai `DeviceLocationJson` (sinyal `Location` canvas) bila terisi.
 
@@ -858,7 +864,7 @@ If(!IsBlank(Self.ActionPayload),
 
 `data: Self.UploadData` dibaca sekali di awal: control mengisi `UploadData` (screenshot) bersamaan dengan
 `ActionPayload` dan mengosongkannya di aksi berikutnya. Selama durasi sesi belum terpenuhi (`p.complete = false`)
-`varMrdRep` sengaja tidak diisi, jadi form tetap di layar dengan tombol *Kirim report berikutnya*.
+`varMrdRep` sengaja tidak diisi, jadi form tetap di layar dengan tombol *Send Next Report*.
 
 ```powerfx
 If(!IsBlank(Self.ActionPayload),

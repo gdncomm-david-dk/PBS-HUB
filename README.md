@@ -9,7 +9,7 @@ Power Apps code components (PCF) untuk canvas app PBS Hub, dibuat dari design ha
 | Control | Layar | Folder |
 |---|---|---|
 | `pbs_Ops.Dashboard` | Dashboard — antrean yang menunggu tim hari ini | `controls/Dashboard` |
-| `pbs_Ops.ReportReview` | Report — antrean rekonsiliasi / daftar report | `controls/ReportReview` |
+| `pbs_Ops.ReportReview` | Report Review — daftar report (terbaru / terlama dulu) | `controls/ReportReview` |
 | `pbs_Ops.ReportDetail` | Report detail — adjudikasi klaim host vs bukti AI | `controls/ReportDetail` |
 | `pbs_Ops.PayrollRuns` | Payroll — daftar run + preflight Jalankan payroll (P-1, P-2) | `controls/PayrollRuns` |
 | `pbs_Ops.PayrollRunDetail` | Detail run — baris per host, tracker approval, status slip (P-3–P-5) | `controls/PayrollRunDetail` |
@@ -23,7 +23,7 @@ Power Apps code components (PCF) untuk canvas app PBS Hub, dibuat dari design ha
 |---|---|---|
 | `pbs_HostApp.HostDashboard` | Hari ini — shift clock in/out, to-do, jadwal hari ini, skor | `controls/HostDashboard` |
 | `pbs_HostApp.MyReports` | Report saya — report sebulan + sesi belum dikirim, filter status | `controls/MyReports` |
-| `pbs_HostApp.MyReportDetail` | Kirim report (metrik + screenshot), revisi / sanggahan, detail | `controls/MyReportDetail` |
+| `pbs_HostApp.MyReportDetail` | Send Report (metrik + screenshot), revisi / sanggahan, detail | `controls/MyReportDetail` |
 | `pbs_HostApp.ClockIn` | Clock in / clock out — GPS vs radius *Studio Location - PBS*, selfie in & out, alasan wajib di luar radius | `controls/ClockIn` |
 | `pbs_HostApp.MySchedule` | Jadwal saya — tabel atau kalender sesi sebulan, KPI, strip *Hari ini* (clock in / absen / kirim report), filter platform + status + cari | `controls/MySchedule` |
 | `pbs_HostApp.ScheduleDetail` | Detail sesi — langkah berikutnya, absen + kirim report (metrik + screenshot) / revisi di tempat, 4 langkah sesi, detail jadwal, sesi lain hari itu | `controls/ScheduleDetail` |
@@ -32,8 +32,8 @@ Power Apps code components (PCF) untuk canvas app PBS Hub, dibuat dari design ha
 **Output:** dua managed solution, dibangun dengan target MSBuild resmi Power Platform
 (`Microsoft.PowerApps.MSBuild.Solution`):
 
-- `dist/PBSHubOpsPCF_1_6_7_0_managed.zip` — Ops Console (8 control `pbs_Ops.*`)
-- `dist/PBSHubHostApp_1_0_8_0_managed.zip` — Host app (7 control `pbs_HostApp.*`). Menggantikan `PBSHubHostPCF` dan
+- `dist/PBSHubOpsPCF_1_6_8_0_managed.zip` — Ops Console (8 control `pbs_Ops.*`)
+- `dist/PBSHubHostApp_1_0_9_0_managed.zip` — Host app (7 control `pbs_HostApp.*`). Menggantikan `PBSHubHostPCF` dan
   `PBSHubHostSchedulePCF` (control lama `pbs_Host.*`); nama solusi dan control baru, jadi bisa diimport berdampingan
   dengan yang lama tanpa bentrok
 

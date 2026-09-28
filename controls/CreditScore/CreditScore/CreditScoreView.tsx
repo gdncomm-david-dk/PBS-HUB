@@ -37,6 +37,9 @@ import { BandChart } from "../../../shared/scoreUi";
 import {
   Badge,
   Button,
+  byTime,
+  SortOrder,
+  SortSelect,
   EmptyState,
   Icon,
   IconName,
@@ -143,9 +146,11 @@ export function CreditScoreView(props: CreditScoreProps): React.ReactElement {
     inScope.filter((t) => matchesFilter(t, f)).length;
   const visible = inScope.filter((t) => matchesFilter(t, filter));
   const scopeLabel = period ? fmtPeriod(period) : "semua waktu";
+  const [order, setOrder] = React.useState<SortOrder>("newest");
+  const ordered = [...visible].sort(byTime(order, (t) => t.when));
   const paged = usePaged(
-    visible,
-    `${period ? periodKey(period) : ALL}|${filter}`,
+    ordered,
+    `${period ? periodKey(period) : ALL}|${filter}|${order}`,
   );
 
   const choosePeriod = (key: string) => {
@@ -285,6 +290,8 @@ export function CreditScoreView(props: CreditScoreProps): React.ReactElement {
                   </button>
                 );
               })}
+              <span style={{ flex: 1 }} />
+              <SortSelect value={order} onChange={setOrder} />
             </div>
 
             <div className="hc-list" aria-busy={props.loading}>
@@ -334,7 +341,7 @@ export function CreditScoreView(props: CreditScoreProps): React.ReactElement {
                         choosePeriod(ALL);
                       }}
                     >
-                      Lihat semua
+                      View All
                     </Button>
                   ) : undefined
                 }

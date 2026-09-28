@@ -50,6 +50,9 @@ import {
 } from "../../../shared/scoreAdmin";
 import {
   Badge,
+  byTime,
+  SortOrder,
+  SortSelect,
   Button,
   EmptyState,
   FilterSelect,
@@ -308,14 +311,14 @@ function ListPage(
               variant="secondary"
               onClick={() => action.fire("NAV", { target: "RULES" })}
             >
-              Aturan skor
+              Score Rules
             </Button>
             {props.canEdit ? (
               <Button
                 onClick={props.onAdd}
                 disabled={hosts.length === 0 || !!action.pending}
               >
-                <Icon name="plus" size={15} /> Tambah transaksi
+                <Icon name="plus" size={15} /> Add Transaction
               </Button>
             ) : null}
           </>
@@ -376,7 +379,7 @@ function ListPage(
               size="sm"
               onClick={() => apply({ ...filters, band: "drift" })}
             >
-              Tampilkan
+              Show
             </Button>
           }
         >
@@ -416,7 +419,7 @@ function ListPage(
             onClick={() => apply(NO_FILTERS)}
             style={{ marginLeft: 4 }}
           >
-            Hapus filter
+            Clear Filters
           </button>
         ) : null}
         <span style={{ flex: 1 }} />
@@ -552,7 +555,7 @@ function ListPage(
                           className="pbs-link"
                           onClick={openLedger}
                         >
-                          {h.drift ? "Periksa" : "Ledger"}
+                          {h.drift ? "Check" : "Ledger"}
                         </button>
                       </td>
                     </tr>
@@ -573,7 +576,7 @@ function ListPage(
                   size="sm"
                   onClick={() => apply(NO_FILTERS)}
                 >
-                  Hapus filter
+                  Clear Filters
                 </Button>
               }
             />
@@ -623,10 +626,13 @@ function LedgerPage(
   const reversals = React.useMemo(() => reversalsByTx(ledger), [ledger]);
   const check = h ? checkLedger(h, ledger) : null;
   const [filter, setFilter] = React.useState<TxFilter | "Reversal">("All");
-  const rows = ledger.filter((t) =>
-    filter === "Reversal" ? t.reversal : matchesFilter(t, filter),
-  );
-  const paged = usePaged(rows, filter);
+  const [order, setOrder] = React.useState<SortOrder>("newest");
+  const rows = ledger
+    .filter((t) =>
+      filter === "Reversal" ? t.reversal : matchesFilter(t, filter),
+    )
+    .sort(byTime(order, (t) => t.when));
+  const paged = usePaged(rows, `${filter}|${order}`);
   const visible = paged.rows;
   const firstLoad = props.loading && (!h || ledger.length === 0);
   const back = () => action.fire("BACK", {});
@@ -647,7 +653,7 @@ function LedgerPage(
         <ModuleHeader
           crumb={
             <button type="button" onClick={back}>
-              Skor host
+              Host Score
             </button>
           }
           title="Ledger skor"
@@ -658,7 +664,7 @@ function LedgerPage(
           text={`${props.hostId} tidak ada di HostsJson. Kirim baris host itu, atau kembali ke daftar.`}
           action={
             <Button variant="secondary" size="sm" onClick={back}>
-              Kembali
+              Back
             </Button>
           }
         />
@@ -672,7 +678,7 @@ function LedgerPage(
         crumb={
           <>
             <button type="button" onClick={back}>
-              Skor host
+              Host Score
             </button>{" "}
             / {h?.code ?? props.hostId}
           </>
@@ -730,7 +736,7 @@ function LedgerPage(
               }
               disabled={busy || h.score === null}
             >
-              Kurangi poin
+              Deduct Points
             </Button>
             <Button
               onClick={() =>
@@ -738,7 +744,7 @@ function LedgerPage(
               }
               disabled={busy || h.score === null}
             >
-              Tambah poin
+              Add Points
             </Button>
           </div>
         ) : null}
@@ -772,6 +778,8 @@ function LedgerPage(
               {c.label} <span className="pbs-num">{fmtNumber(c.n)}</span>
             </button>
           ))}
+        <span style={{ flex: 1 }} />
+        <SortSelect value={order} onChange={setOrder} />
       </div>
 
       <div className="pbs-table-wrap">
@@ -899,7 +907,7 @@ function LedgerPage(
                               props.onDialog({ kind: "void", tx: t, host: h })
                             }
                           >
-                            Batalkan
+                            Void
                           </Button>
                         ) : null}
                       </td>
@@ -1138,7 +1146,7 @@ function ScoreModal(props: {
           className="pbs-x"
           onClick={props.onClose}
           disabled={pending}
-          aria-label="Tutup"
+          aria-label="Close"
         >
           <Icon name="x" />
         </button>
@@ -1178,7 +1186,7 @@ function ScoreModal(props: {
             onClick={() => pickType("REWARD")}
             disabled={pending}
           >
-            Reward · tambah
+            Reward · Add
           </button>
           <button
             type="button"
@@ -1188,7 +1196,7 @@ function ScoreModal(props: {
             onClick={() => pickType("PENALTY")}
             disabled={pending}
           >
-            Penalty · kurangi
+            Penalty · Deduct
           </button>
         </div>
 
@@ -1293,7 +1301,7 @@ function ScoreModal(props: {
                 onClick={() => pickRule(rule.id)}
                 disabled={pending}
               >
-                Kembalikan
+                Restore Default
               </button>
             </div>
             <label className="pbs-label" htmlFor="pbs-sc-ovr">
@@ -1371,15 +1379,15 @@ function ScoreModal(props: {
           <span className="pbs-muted pbs-sc-miss">{missingText}</span>
         ) : null}
         <Button variant="ghost" onClick={props.onClose} disabled={pending}>
-          Batal
+          Cancel
         </Button>
         <Button onClick={submit} disabled={missing.length > 0 || pending}>
           {pending ? (
             <>
-              <Spinner small /> Menyimpan…
+              <Spinner small /> Saving…
             </>
           ) : (
-            "Simpan transaksi"
+            "Save Transaction"
           )}
         </Button>
       </div>
@@ -1450,7 +1458,7 @@ function VoidModal(props: {
           className="pbs-x"
           onClick={props.onClose}
           disabled={pending}
-          aria-label="Tutup"
+          aria-label="Close"
         >
           <Icon name="x" />
         </button>
@@ -1519,7 +1527,7 @@ function VoidModal(props: {
       </div>
       <div className="pbs-modal-f">
         <Button variant="ghost" onClick={props.onClose} disabled={pending}>
-          Tutup
+          Close
         </Button>
         <Button
           onClick={submit}
@@ -1528,10 +1536,10 @@ function VoidModal(props: {
         >
           {pending ? (
             <>
-              <Spinner small /> Menyimpan…
+              <Spinner small /> Saving…
             </>
           ) : (
-            "Batalkan transaksi"
+            "Void Transaction"
           )}
         </Button>
       </div>

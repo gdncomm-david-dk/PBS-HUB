@@ -333,7 +333,7 @@ export function ResultBanner(props: {
         type="button"
         className="pbs-x"
         onClick={onClose}
-        aria-label="Tutup"
+        aria-label="Close"
       >
         <Icon name="x" size={14} />
       </button>
@@ -654,7 +654,7 @@ export function PlaybookValue(props: {
         onClick={() => props.onOpen?.(v)}
         style={{ display: "inline-flex", alignItems: "center", gap: 4 }}
       >
-        Buka playbook <Icon name="external" size={12} />
+        Open Playbook <Icon name="external" size={12} />
       </button>
     );
   return (
@@ -813,13 +813,51 @@ export function Pager(props: {
         >
           {props.loading ? (
             <>
-              <Spinner small /> Memuat…
+              <Spinner small /> Loading…
             </>
           ) : (
-            "Muat lebih banyak"
+            "Load More"
           )}
         </Button>
       ) : null}
     </div>
+  );
+}
+
+export type SortOrder = "newest" | "oldest";
+
+/** Newest first (the default) or oldest first; rows without a date go last either way. */
+export function byTime<T>(
+  order: SortOrder,
+  time: (row: T) => Date | null | undefined,
+): (a: T, b: T) => number {
+  return (a, b) => {
+    const x = time(a)?.getTime();
+    const y = time(b)?.getTime();
+    if (x === undefined || Number.isNaN(x))
+      return y === undefined || Number.isNaN(y) ? 0 : 1;
+    if (y === undefined || Number.isNaN(y)) return -1;
+    return order === "newest" ? y - x : x - y;
+  };
+}
+
+/** Urutkan: Terbaru dulu / Terlama dulu, as a filter-bar chip. */
+export function SortSelect(props: {
+  value: SortOrder;
+  onChange: (v: SortOrder) => void;
+}): React.ReactElement {
+  return (
+    <label className="pbs-chip">
+      <span className="pbs-sr">Urutkan</span>
+      <select
+        value={props.value}
+        aria-label="Urutkan"
+        onChange={(e) => props.onChange(e.target.value as SortOrder)}
+      >
+        <option value="newest">Terbaru dulu</option>
+        <option value="oldest">Terlama dulu</option>
+      </select>
+      <Icon name="chevronDown" size={14} />
+    </label>
   );
 }

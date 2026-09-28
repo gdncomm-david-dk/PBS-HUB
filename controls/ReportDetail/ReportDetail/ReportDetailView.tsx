@@ -1,11 +1,33 @@
 import * as React from "react";
-import { ModuleContext, UseActionResult, configNumber } from "../../../shared/contract";
+import {
+  ModuleContext,
+  UseActionResult,
+  configNumber,
+} from "../../../shared/contract";
 import { Row, date, person, str } from "../../../shared/data";
 import { fmtAgo } from "../../../shared/format";
 import { REASONS, reviewBadge } from "../../../shared/reconcile";
-import { ReportItem, buildReportItems, itemRef } from "../../../shared/reportItems";
-import { DECISION_ACTIONS, DECISION_DONE_TEXT, DecisionPanel, EvidenceRail, MetricsTable, ReportHeader } from "../../../shared/reportUi";
-import { Button, Icon, InfoBanner, Pill, ResultBanner, Skeleton } from "../../../shared/ui";
+import {
+  ReportItem,
+  buildReportItems,
+  itemRef,
+} from "../../../shared/reportItems";
+import {
+  DECISION_ACTIONS,
+  DECISION_DONE_TEXT,
+  DecisionPanel,
+  EvidenceRail,
+  MetricsTable,
+  ReportHeader,
+} from "../../../shared/reportUi";
+import {
+  Button,
+  Icon,
+  InfoBanner,
+  Pill,
+  ResultBanner,
+  Skeleton,
+} from "../../../shared/ui";
 
 export interface ReportDetailProps {
   ctx: ModuleContext;
@@ -24,10 +46,28 @@ export function ReportDetailView(props: ReportDetailProps): React.ReactElement {
   const { ctx, action } = props;
   const tolerancePct = configNumber(ctx, "tolerancePct", 5);
   const confidenceThreshold = configNumber(ctx, "confidenceThreshold", 0.85);
-  const opts = React.useMemo(() => ({ tolerancePct, confidenceThreshold }), [tolerancePct, confidenceThreshold]);
+  const opts = React.useMemo(
+    () => ({ tolerancePct, confidenceThreshold }),
+    [tolerancePct, confidenceThreshold],
+  );
   const item: ReportItem | undefined = React.useMemo(
-    () => buildReportItems(props.reports.slice(0, 1), props.evidence, props.brands, props.hosts, opts, props.schedules)[0],
-    [props.reports, props.evidence, props.brands, props.hosts, opts, props.schedules],
+    () =>
+      buildReportItems(
+        props.reports.slice(0, 1),
+        props.evidence,
+        props.brands,
+        props.hosts,
+        opts,
+        props.schedules,
+      )[0],
+    [
+      props.reports,
+      props.evidence,
+      props.brands,
+      props.hosts,
+      opts,
+      props.schedules,
+    ],
   );
 
   if (props.loading && !item) return <LoadingDetail />;
@@ -35,36 +75,57 @@ export function ReportDetailView(props: ReportDetailProps): React.ReactElement {
     return (
       <div className="pbs-page">
         <BackLink onBack={() => action.fire("BACK", {})} />
-        <InfoBanner tone="warn">Report tidak ditemukan. Mungkin sudah dihapus, atau properti ReportJson belum diisi.</InfoBanner>
+        <InfoBanner tone="warn">
+          Report tidak ditemukan. Mungkin sudah dihapus, atau properti
+          ReportJson belum diisi.
+        </InfoBanner>
       </div>
     );
   }
-  return <Detail key={item.id || item.title} {...props} item={item} tolerancePct={tolerancePct} />;
+  return (
+    <Detail
+      key={item.id || item.title}
+      {...props}
+      item={item}
+      tolerancePct={tolerancePct}
+    />
+  );
 }
 
 function BackLink(props: { onBack: () => void }): React.ReactElement {
   return (
     <div className="pbs-crumb" style={{ marginBottom: 12 }}>
-      <button type="button" onClick={props.onBack} style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
-        <Icon name="arrowLeft" size={14} /> Antrean rekonsiliasi
+      <button
+        type="button"
+        onClick={props.onBack}
+        style={{ display: "inline-flex", alignItems: "center", gap: 6 }}
+      >
+        <Icon name="arrowLeft" size={14} /> Report Review
       </button>
     </div>
   );
 }
 
-function Detail(props: ReportDetailProps & { item: ReportItem; tolerancePct: number }): React.ReactElement {
+function Detail(
+  props: ReportDetailProps & { item: ReportItem; tolerancePct: number },
+): React.ReactElement {
   const { ctx, now, action, item, tolerancePct } = props;
   const report = item.row;
   const last = action.lastResult;
-  const decidedByMe = !!last && last.status === "ok" && DECISION_ACTIONS.includes(last.action);
+  const decidedByMe =
+    !!last && last.status === "ok" && DECISION_ACTIONS.includes(last.action);
   const conflict = last?.status === "conflict" ? last : null;
 
   const approver = person(report, "Approver");
   const approverEmail = str(report, "ApproverEmail") || approver.email;
   const approverName = approver.name || approverEmail;
   const modified = date(report, "Modified");
-  const mine = !!approverEmail && !!ctx.userEmail && approverEmail.toLowerCase() === ctx.userEmail.toLowerCase();
-  const decidedElsewhere = item.state !== "WAITING" && item.state !== "OTHER" && !decidedByMe && !mine;
+  const mine =
+    !!approverEmail &&
+    !!ctx.userEmail &&
+    approverEmail.toLowerCase() === ctx.userEmail.toLowerCase();
+  const decidedElsewhere =
+    item.state !== "WAITING" && item.state !== "OTHER" && !decidedByMe && !mine;
   const reason = REASONS[item.rec.reason];
 
   const headerPill = decidedByMe ? (
@@ -72,7 +133,9 @@ function Detail(props: ReportDetailProps & { item: ReportItem; tolerancePct: num
   ) : item.state === "WAITING" ? (
     <Pill tone={reason.tone}>{reason.label}</Pill>
   ) : (
-    <Pill tone={reviewBadge(item.row, item.state).tone}>{reviewBadge(item.row, item.state).label}</Pill>
+    <Pill tone={reviewBadge(item.row, item.state).tone}>
+      {reviewBadge(item.row, item.state).label}
+    </Pill>
   );
 
   return (
@@ -82,8 +145,11 @@ function Detail(props: ReportDetailProps & { item: ReportItem; tolerancePct: num
       {conflict || decidedElsewhere ? (
         <InfoBanner
           action={
-            <Button variant="secondary" onClick={() => action.fire("RELOAD", itemRef(item))}>
-              Muat ulang
+            <Button
+              variant="secondary"
+              onClick={() => action.fire("RELOAD", itemRef(item))}
+            >
+              Reload
             </Button>
           }
         >
@@ -95,16 +161,47 @@ function Detail(props: ReportDetailProps & { item: ReportItem; tolerancePct: num
         </InfoBanner>
       ) : null}
 
-      <ResultBanner result={conflict ? null : last} okText={last ? DECISION_DONE_TEXT[last.action] : undefined} onClose={action.clearResult} />
+      <ResultBanner
+        result={conflict ? null : last}
+        okText={last ? DECISION_DONE_TEXT[last.action] : undefined}
+        onClose={action.clearResult}
+      />
 
-      <ReportHeader item={item} pill={headerPill} onOpenLink={(url) => action.fire("OPEN_EVIDENCE", { url, reportId: item.id, title: item.title })} />
+      <ReportHeader
+        item={item}
+        pill={headerPill}
+        onOpenLink={(url) =>
+          action.fire("OPEN_EVIDENCE", {
+            url,
+            reportId: item.id,
+            title: item.title,
+          })
+        }
+      />
 
       <div className="pbs-rv">
         <div style={{ minWidth: 0, display: "grid", gap: 16 }}>
           <MetricsTable item={item} tolerancePct={tolerancePct} />
-          <DecisionPanel item={item} ctx={ctx} action={action} readOnly={props.readOnly} tolerancePct={tolerancePct} now={now} />
+          <DecisionPanel
+            item={item}
+            ctx={ctx}
+            action={action}
+            readOnly={props.readOnly}
+            tolerancePct={tolerancePct}
+            now={now}
+          />
         </div>
-        <EvidenceRail item={item} ctx={ctx} onOpen={(url) => action.fire("OPEN_EVIDENCE", { url, reportId: item.id, title: item.title })} />
+        <EvidenceRail
+          item={item}
+          ctx={ctx}
+          onOpen={(url) =>
+            action.fire("OPEN_EVIDENCE", {
+              url,
+              reportId: item.id,
+              title: item.title,
+            })
+          }
+        />
       </div>
     </div>
   );
@@ -113,7 +210,10 @@ function Detail(props: ReportDetailProps & { item: ReportItem; tolerancePct: num
 function LoadingDetail(): React.ReactElement {
   return (
     <div className="pbs-page" aria-busy="true">
-      <div className="pbs-card" style={{ padding: 20, display: "flex", gap: 24, marginBottom: 16 }}>
+      <div
+        className="pbs-card"
+        style={{ padding: 20, display: "flex", gap: 24, marginBottom: 16 }}
+      >
         {[120, 90, 80, 110, 140].map((w, i) => (
           <div key={i}>
             <Skeleton w={w / 2} h={10} />

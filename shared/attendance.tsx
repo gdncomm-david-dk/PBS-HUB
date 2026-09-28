@@ -2,6 +2,7 @@ import * as React from "react";
 import { ModuleContext, UseActionResult, configNumber } from "./contract";
 import {
   Row,
+  addDaysKey,
   date,
   localDayKey,
   num,
@@ -345,7 +346,18 @@ export function AttendanceTab(props: {
                         {open ? (
                           <Badge tone="warning">Belum clock out</Badge>
                         ) : (
-                          fmtTime(d.outAt)
+                          <>
+                            {fmtTime(d.outAt)}
+                            {d.outAt && localDayKey(d.outAt) !== d.key ? (
+                              <span
+                                className="pbs-muted"
+                                title={`Clock out ${fmtLongDate(d.outAt)}`}
+                              >
+                                {" "}
+                                (+1)
+                              </span>
+                            ) : null}
+                          </>
                         )}
                       </td>
                       <td
@@ -590,6 +602,7 @@ export function AdjustClockInModal(props: {
       hostName: props.hostName,
       clockInDate: d.key,
       clockInTime: fmtClock(a),
+      clockOutDate: b !== null ? addDaysKey(d.key, overnight ? 1 : 0) : "",
       clockOutTime: b !== null ? fmtClock(b) : "",
       checkInAt: localIso(d.key, a),
       checkOutAt: b !== null ? localIso(d.key, b, overnight ? 1 : 0) : "",
@@ -625,7 +638,7 @@ export function AdjustClockInModal(props: {
           className="pbs-x"
           onClick={props.onClose}
           disabled={pending}
-          aria-label="Tutup"
+          aria-label="Close"
         >
           <Icon name="x" />
         </button>
@@ -801,7 +814,7 @@ export function AdjustClockInModal(props: {
       </div>
       <div className="pbs-modal-f">
         <Button variant="ghost" onClick={props.onClose} disabled={pending}>
-          Batal
+          Cancel
         </Button>
         <Button
           onClick={submit}
@@ -810,10 +823,10 @@ export function AdjustClockInModal(props: {
         >
           {pending ? (
             <>
-              <Spinner small /> Menyimpan…
+              <Spinner small /> Saving…
             </>
           ) : (
-            "Simpan perubahan"
+            "Save Changes"
           )}
         </Button>
       </div>

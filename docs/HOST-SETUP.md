@@ -5,16 +5,16 @@ dengan formula utuh, dan `OnChange` utuh. Tidak ada "seperti layar lain" — cuk
 
 **Cara kerja singkat.** Control tidak pernah menulis ke SharePoint. Tombol di control mengirim JSON lewat output
 `ActionPayload`; formula **OnChange** control membaca JSON itu, melakukan `Patch`, lalu membalas lewat variabel yang
-dipasang di properti `ActionResult`. Tombol yang mengunci (Absen, Kirim report, Kirim revisi, Sanggah, Clock in,
+dipasang di properti `ActionResult`. Tombol yang mengunci (Absen, Send Report, Kirim revisi, Sanggah, Clock in,
 Clock out) memutar spinner sampai balasan itu datang.
 
 ```text
 Clock in
   └─ Absen → pop-up "Live Break?"
        ├─ Tidak   → Schedule.Status = Waiting Report
-       │             └─ Kirim report (boleh beberapa kali, satu per Live ID)
+       │             └─ Send Report (boleh beberapa kali, satu per Live ID)
        │                  ├─ total Durasi < durasi jadwal → tetap Waiting Report ("kurang X menit")
-       │                  └─ total Durasi ≥ durasi jadwal → Status = Finished, tombol Kirim report hilang
+       │                  └─ total Durasi ≥ durasi jadwal → Status = Finished, tombol Send Report hilang
        ├─ Ya      → Status = Finished, LiveBreak = Yes, Report semua 0 (ApprovalStatus LiveBreak)
        └─ Co-Host → (tidak ditanya) Status = Finished, tanpa report
 Ops review → Done / Need Revision → host revisi → Waiting Approval Revision
@@ -71,7 +71,7 @@ belum ada di list lama, cek dulu.
 
 ## Langkah 1 — Import solusi dan tambahkan data source
 
-1. Power Apps → **Solutions → Import solution** → pilih `dist/PBSHubHostApp_1_0_8_0_managed.zip` → Import.
+1. Power Apps → **Solutions → Import solution** → pilih `dist/PBSHubHostApp_1_0_9_0_managed.zip` → Import.
 2. Sekali per environment: Power Platform admin center → environment → **Settings → Product → Features** →
    *Allow publishing of canvas apps with code components* = **On**. Tanpa ini control tidak muncul di tab Code.
 3. Panel **Data → Add data → SharePoint** → site PBS Hub → centang semua list di Langkah 0.
@@ -176,7 +176,7 @@ Set(varT2MinInWindow, 120)                                          // ≥ 2 jam
 
 ### Aturan Tier (dihitung setiap report terkirim)
 
-Setiap **Kirim report**, **Kirim revisi** dan **Absen → Live Break**, OnChange menghitung Tier host itu untuk tanggal
+Setiap **Send Report**, **Kirim revisi** dan **Absen → Live Break**, OnChange menghitung Tier host itu untuk tanggal
 live tersebut dan menulisnya ke baris `Clock In - PBS Hub` (`HostID` + `ClockInDate`). Belum clock in = belum ada
 baris = dilewati; hitung ulang bulanan yang sudah kamu punya tetap bisa dijalankan dan hasilnya sama.
 
@@ -257,7 +257,7 @@ JSON(ForAll(colMySch, {ID: ID, Title: Title, Date: Text(Date, "yyyy-mm-dd"), Sta
 4. **`ClockInJson`**
 
 ```powerfx
-JSON(ForAll(colMyClk, {ID: ID, ClockInDate: Text(ClockInDate, "yyyy-mm-dd"), CheckInTime: CheckInTime, CheckOutTime: CheckOutTime,
+JSON(ForAll(colMyClk, {ID: ID, ClockInDate: Text(ClockInDate, "yyyy-mm-dd"), CheckInTime: CheckInTime, CheckOutTime: CheckOutTime, ClockOutDate: Text(ClockOutDate, "yyyy-mm-dd"),
     ClockInTime: ClockInTime, ClockOutTime: ClockOutTime, CheckInOffice: CheckInOffice, IsInsideGeofence: IsInsideGeofence}), JSONFormat.Compact)
 ```
 
@@ -490,7 +490,7 @@ If(!IsBlank(Self.ActionPayload),
 
 **5.5 Cek cepat.** Buka app: nama host tampil, sesi hari ini muncul. Klik nama brand sesi → pindah ke `scrScheduleDetail`.
 
-## Langkah 6 — Layar Detail sesi (`scrScheduleDetail`) — Absen, Kirim report, revisi
+## Langkah 6 — Layar Detail sesi (`scrScheduleDetail`) — Absen, Send Report, revisi
 
 Layar utama report. Dibuka oleh aksi `OPEN_SCHEDULE` (Hari ini, Jadwal saya) yang mengisi `varSchId` dan `varSchDate`. Untuk tes langsung: tombol sementara dengan `Set(varSchId, "SCD-3313"); Set(varSchDate, DateValue("2026-09-13")); Navigate(scrScheduleDetail)`.
 
@@ -501,7 +501,8 @@ Layar utama report. Dibuka oleh aksi `OPEN_SCHEDULE` (Hari ini, Jadwal saya) yan
 ```powerfx
 Set(varSdLoading, true);
 ClearCollect(colSdSch, Filter('Schedule - PBS Hub', HostID = varMe.Title, Date = varSchDate));
-ClearCollect(colSdClk, Filter('Clock In - PBS Hub', HostID = varMe.Title, ClockInDate = varSchDate));
+// hari sebelumnya ikut: shift 22:00 → 03:00 kemarin juga menutup sesi 00:30 hari ini
+ClearCollect(colSdClk, Filter('Clock In - PBS Hub', HostID = varMe.Title, ClockInDate >= DateAdd(varSchDate, -1), ClockInDate <= varSchDate));
 ClearCollect(colSdAbs, Filter('Host Absence - PBS Hub', HostID = varMe.Title, LiveDate = varSchDate));
 ClearCollect(colSdRep, Filter('Report - PBS Hub', HostID = varMe.Title, LiveDate = varSchDate));
 ClearCollect(colSdEvi, Filter('Report Automation - PBS Hub', HostID = varMe.Title, Title in colSdRep.Title));
@@ -542,7 +543,7 @@ JSON(ForAll(colSdSch, {ID: ID, Title: Title, Date: Text(Date, "yyyy-mm-dd"), Sta
 5. **`ClockInJson`**
 
 ```powerfx
-JSON(ForAll(colSdClk, {ID: ID, ClockInDate: Text(ClockInDate, "yyyy-mm-dd"), CheckInTime: CheckInTime, CheckOutTime: CheckOutTime,
+JSON(ForAll(colSdClk, {ID: ID, ClockInDate: Text(ClockInDate, "yyyy-mm-dd"), CheckInTime: CheckInTime, CheckOutTime: CheckOutTime, ClockOutDate: Text(ClockOutDate, "yyyy-mm-dd"),
     ClockInTime: ClockInTime, ClockOutTime: ClockOutTime, CheckInOffice: CheckInOffice, IsInsideGeofence: IsInsideGeofence}), JSONFormat.Compact)
 ```
 
@@ -1052,7 +1053,7 @@ If(!IsBlank(Self.ActionPayload),
 )
 ```
 
-**6.5 Cek cepat.** Absen → pilih *Tidak* → di SharePoint ada baris Host Absence dan `Schedule.Status = Waiting Report`; tombol **Kirim report** aktif. Kirim report → baris Report baru + `Attachment` terisi.
+**6.5 Cek cepat.** Absen → pilih *Tidak* → di SharePoint ada baris Host Absence dan `Schedule.Status = Waiting Report`; tombol **Send Report** aktif. Send Report → baris Report baru + `Attachment` terisi.
 
 ## Langkah 7 — Layar Report saya (`scrMyReports`)
 
@@ -1201,7 +1202,7 @@ With({rep: If(IsBlank(varRptId), Blank(), LookUp('Report - PBS Hub', ID = varRpt
     Set(varMrdRep, rep);
     Set(varMrdSch, LookUp('Schedule - PBS Hub', Title = Coalesce(rep.ScheduleID, varRptSchedule) && HostID = varMe.Title))
 );
-ClearCollect(colMrdClk, Filter('Clock In - PBS Hub', HostID = varMe.Title, ClockInDate = varMrdSch.Date));
+ClearCollect(colMrdClk, Filter('Clock In - PBS Hub', HostID = varMe.Title, ClockInDate >= DateAdd(varMrdSch.Date, -1), ClockInDate <= varMrdSch.Date));
 ClearCollect(colMrdAbs, Filter('Host Absence - PBS Hub', HostID = varMe.Title, ScheduleID = varMrdSch.Title));
 ClearCollect(colMrdEvi, Filter('Report Automation - PBS Hub', Title = varMrdRep.Title));
 ClearCollect(colMrdSesRep, Filter('Report - PBS Hub', HostID = varMe.Title, ScheduleID = varMrdSch.Title));
@@ -1224,7 +1225,7 @@ JSON(ForAll(Table(varMe), {Title: Title, HostCode: HostCode, NamaHost: NamaHost,
     Package: Package.Value, CurrentScore: CurrentScore, InitialScore: InitialScore}), JSONFormat.Compact)
 ```
 
-3. **`ReportJson`** — kosong = form Kirim report; `Need Revision` = form revisi; lainnya = baca saja
+3. **`ReportJson`** — kosong = form Send Report; `Need Revision` = form revisi; lainnya = baca saja
 
 ```powerfx
 If(IsBlank(varMrdRep), "[]", JSON(ForAll(Table(varMrdRep), {ID: ID, Title: Title, ScheduleID: ScheduleID, HostID: HostID, BrandID: BrandID, AccountID: AccountID,
@@ -1257,7 +1258,7 @@ JSON(ForAll(colMrdEvi, {ID: ID, Title: Title, HostID: HostID, ScheduleID: Schedu
 6. **`ClockInJson`**
 
 ```powerfx
-JSON(ForAll(colMrdClk, {ID: ID, ClockInDate: Text(ClockInDate, "yyyy-mm-dd"), CheckInTime: CheckInTime, CheckOutTime: CheckOutTime,
+JSON(ForAll(colMrdClk, {ID: ID, ClockInDate: Text(ClockInDate, "yyyy-mm-dd"), CheckInTime: CheckInTime, CheckOutTime: CheckOutTime, ClockOutDate: Text(ClockOutDate, "yyyy-mm-dd"),
     ClockInTime: ClockInTime, ClockOutTime: ClockOutTime, CheckInOffice: CheckInOffice, IsInsideGeofence: IsInsideGeofence}), JSONFormat.Compact)
 ```
 
@@ -1824,7 +1825,7 @@ JSON(ForAll(colMsSch, {ID: ID, Title: Title, Date: Text(Date, "yyyy-mm-dd"), Sta
 7. **`ClockInJson`**
 
 ```powerfx
-JSON(ForAll(colMsClk, {ID: ID, ClockInDate: Text(ClockInDate, "yyyy-mm-dd"), CheckInTime: CheckInTime, CheckOutTime: CheckOutTime,
+JSON(ForAll(colMsClk, {ID: ID, ClockInDate: Text(ClockInDate, "yyyy-mm-dd"), CheckInTime: CheckInTime, CheckOutTime: CheckOutTime, ClockOutDate: Text(ClockOutDate, "yyyy-mm-dd"),
     ClockInTime: ClockInTime, ClockOutTime: ClockOutTime, CheckInOffice: CheckInOffice, IsInsideGeofence: IsInsideGeofence}), JSONFormat.Compact)
 ```
 
@@ -2112,7 +2113,7 @@ JSON(ForAll(colCkLoc, {Title: Title, LocationID: LocationID, Latitude: Latitude,
 4. **`ClockInJson`**
 
 ```powerfx
-JSON(ForAll(colCkClk, {ID: ID, Title: Title, HostID: HostID, ClockInDate: Text(ClockInDate, "yyyy-mm-dd"), CheckInTime: CheckInTime, CheckOutTime: CheckOutTime, ClockInTime: ClockInTime, CheckInOffice: CheckInOffice, Reason: Reason}), JSONFormat.Compact)
+JSON(ForAll(colCkClk, {ID: ID, Title: Title, HostID: HostID, ClockInDate: Text(ClockInDate, "yyyy-mm-dd"), CheckInTime: CheckInTime, CheckOutTime: CheckOutTime, ClockOutDate: Text(ClockOutDate, "yyyy-mm-dd"), ClockInTime: ClockInTime, CheckInOffice: CheckInOffice, Reason: Reason}), JSONFormat.Compact)
 ```
 
 5. **`SchedulesJson`**
@@ -2356,14 +2357,14 @@ Pakai satu jadwal milik akunmu (`HostID = varMe.Title`), hari ini, **sudah mulai
 | # | Langkah | Yang terlihat di control | Yang ada di SharePoint |
 |---|---|---|---|
 | 1 | Clock in di `scrClockIn` | *Clock in tersimpan* | Clock In `CLK-…` |
-| 2 | Buka sesi di `scrScheduleDetail` | Kirim report nonaktif: *Absen sesi ini belum tercatat* | — |
-| 3 | **Absen** → *Tidak* → Absen | *Absen tercatat … Status jadwal: Waiting Report*, Kirim report aktif | Host Absence `ABS-…` dengan `Status = Hadir`; Schedule `Planned` → `Waiting Report` |
-| 4 | **Kirim report**: Live ID `111`, Durasi `60`, semua angka, screenshot | *Kurang 60 menit*, tombol jadi **Kirim report berikutnya** | Report `REP-…` (`Waiting Approval`, LiveID 111, Attachment); Schedule tetap `Waiting Report` |
+| 2 | Buka sesi di `scrScheduleDetail` | Send Report nonaktif: *Absen sesi ini belum tercatat* | — |
+| 3 | **Absen** → *Tidak* → Absen | *Absen tercatat … Status jadwal: Waiting Report*, Send Report aktif | Host Absence `ABS-…` dengan `Status = Hadir`; Schedule `Planned` → `Waiting Report` |
+| 4 | **Send Report**: Live ID `111`, Durasi `60`, semua angka, screenshot | *Kurang 60 menit*, tombol jadi **Send Next Report** | Report `REP-…` (`Waiting Approval`, LiveID 111, Attachment); Schedule tetap `Waiting Report` |
 | 5 | Report berikutnya dengan Live ID `111` | ditolak: *Live ID sudah dipakai* | — |
 | 6 | Live ID `222`, Durasi `60` | *Durasi sesi terpenuhi*, tombol hilang | Report kedua; Schedule `Status = Finished` |
 | 7 | Jadwal TikTok | tidak ada kolom AddToCart | `AddToCart` kosong |
 | 8 | Jadwal lain → Absen → *Ya, Live Break* | *Live Break · tanpa report* | Schedule `Finished`, `LiveBreak = Yes`; Report semua 0, `ApprovalStatus = LiveBreak` |
-| 9 | Jadwal `Position = Co-Host` → Absen | tanpa pop-up, tanpa Kirim report | Schedule `Finished`, tidak ada Report |
+| 9 | Jadwal `Position = Co-Host` → Absen | tanpa pop-up, tanpa Send Report | Schedule `Finished`, tidak ada Report |
 | 10 | Ops set report #4 ke `Need Revision` → buka sesi | form revisi (angka, Live ID, Playbook, Durasi) | — |
 | 11 | Durasi jadi `50` → Kirim revisi | *Revisi terkirim* | Report `Waiting Approval Revision`; Schedule kembali `Waiting Report` (110 < 120) |
 | 12 | Setelah langkah 4 buka baris Clock In hari ini | — | `Tier`, `Insentif`, `Reason`, `Total_Jam_Live`, `Schedule`, `LastTierUpdate` terisi |
