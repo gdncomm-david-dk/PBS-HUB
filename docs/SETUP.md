@@ -349,6 +349,27 @@ If `Context.permissions` is non-empty, editing and uploading need `SCHEDULE_EDIT
 
 ## C4. Handle actions (`OnChange`)
 
+**Filtered sources.** Every `LookUp` / `Filter` in the handler reads from the app's filtered tables instead of
+the whole list:
+
+| Table | Replaces | Used by |
+|---|---|---|
+| `scheduleFiltered` | `'Schedule - PBS Hub'` | EDIT, DELETE, BULK_DELETE, Lampiran |
+| `reportFiltered` | `'Report - PBS Hub'` | DELETE / BULK_DELETE (report check), REVIEW_REPORT, Lampiran |
+| `clockInFiltered` | `'Clock In - PBS Hub'` | not used by the handler today; use it for any clock-in lookup you add |
+| `absenceFiltered` | `'Host Absence - PBS Hub'` | not used by the handler today; use it for any absence lookup you add |
+
+`Patch`, `Remove`, `Defaults` and `Refresh` still name the SharePoint list: a record found in a filtered table
+keeps its `ID`, so SharePoint knows which item to change. Keep in mind:
+- The filtered tables must hold every row the control shows, at least the current period (`varSchedStart`–`varSchedEnd`).
+  A session outside them is not found, and EDIT/DELETE then fail with a blank-record error.
+- The *report exists* check before a delete only sees `reportFiltered`. Filter it on the same period, or a
+  report outside the period will not block the delete.
+- If they are **collections** (`ClearCollect`), re-collect them after a write (for example after `Refresh(...)`),
+  otherwise the next action reads stale rows. Named formulas (App › Formulas) update by themselves.
+- `REVIEW_REPORT` still patches `'Report Automation - PBS Hub'` directly (no filtered table for it).
+- `reportFiltered` must include `Attachments` for the Lampiran popup (C4c).
+
 `varSiteID` and `varDriveID` are the site and drive IDs your current Graph upload already uses
 (the `PBS Power Apps` library on `sites/StudioTeamBlibli`).
 
@@ -381,7 +402,7 @@ If(rid <> varLastSchedRid,
 
         "EDIT_SCHEDULE",
             IfError(
-                Patch('Schedule - PBS Hub', LookUp('Schedule - PBS Hub', Title = Text(p.scheduleId)), {
+                Patch('Schedule - PBS Hub', LookUp(scheduleFiltered, Title = Text(p.scheduleId)), {
                     Date: DateValue(Text(p.date)),
                     BrandID: Text(p.brandId), StudioID: Text(p.studioId), HostID: Text(p.hostId),
                     Account: Text(p.accountId), Platform: { Value: Text(p.platform) },
@@ -392,9 +413,9 @@ If(rid <> varLastSchedRid,
                 Set(varSchedOk, false); Set(varSchedErr, FirstError.Message)),
 
         "DELETE_SCHEDULE",
-            If(!IsBlank(LookUp('Report - PBS Hub', ScheduleID = Text(p.scheduleId))),
+            If(!IsBlank(LookUp(reportFiltered, ScheduleID = Text(p.scheduleId))),
                 Set(varSchedOk, false); Set(varSchedErr, "Report sudah ada untuk jadwal ini."),
-                IfError(Remove('Schedule - PBS Hub', LookUp('Schedule - PBS Hub', Title = Text(p.scheduleId))); true,
+                IfError(Remove('Schedule - PBS Hub', LookUp(scheduleFiltered, Title = Text(p.scheduleId))); true,
                     Set(varSchedOk, false); Set(varSchedErr, FirstError.Message))),
 
         "UPLOAD_SCHEDULE_FILE",
@@ -439,8 +460,8 @@ If(rid <> varLastSchedRid,
         "BULK_DELETE_SCHEDULE",
             IfError(
                 ForAll(Table(p.scheduleIds) As x,
-                    If(IsBlank(LookUp('Report - PBS Hub', ScheduleID = Text(x.Value))),
-                        Remove('Schedule - PBS Hub', LookUp('Schedule - PBS Hub', Title = Text(x.Value)))));
+                    If(IsBlank(LookUp(reportFiltered, ScheduleID = Text(x.Value))),
+                        Remove('Schedule - PBS Hub', LookUp(scheduleFiltered, Title = Text(x.Value)))));
                 Set(varSchedMsg, CountRows(Table(p.scheduleIds)) & " jadwal dihapus.");
                 Refresh('Schedule - PBS Hub'); true,
                 Set(varSchedOk, false); Set(varSchedErr, FirstError.Message)),
@@ -459,7 +480,7 @@ If(rid <> varLastSchedRid,
         // approve:  Report → Done + Match (+ comment if given) + approver.
         "REVIEW_REPORT",
             IfError(
-                With({ rep: LookUp('Report - PBS Hub', Title = Text(p.reportId)), revise: Text(p.decision) = "revision" },
+                With({ rep: LookUp(reportFiltered, Title = Text(p.reportId)), revise: Text(p.decision) = "revision" },
                     Patch('Report - PBS Hub', rep, {
                         ApprovalStatus: { Value: If(revise, "Need Revision", "Done") },
                         Match: { Value: If(revise, "Unmatch", "Match") },
@@ -491,13 +512,13 @@ The **Lampiran** button in the session detail sends the ScheduleID. Add a popup 
 Visible: varShowAttachments
 
 // galAttachReports (vertical gallery): one card per report of this session
-Items: Filter('Report - PBS Hub', ScheduleID = varAttachScheduleId)
+Items: Filter(reportFiltered, ScheduleID = varAttachScheduleId)
 //   lblReport.Text: ThisItem.Title
 //   galFiles (nested gallery) Items: ThisItem.Attachments
 //     lblFile.Text: ThisItem.DisplayName        OnSelect: Launch(ThisItem.AbsoluteUri)
 
 // Files attached to the Schedule item itself (optional second gallery)
-Items: LookUp('Schedule - PBS Hub', Title = varAttachScheduleId).Attachments
+Items: LookUp(scheduleFiltered, Title = varAttachScheduleId).Attachments
 
 // Close button
 OnSelect: Set(varShowAttachments, false)
