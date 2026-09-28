@@ -206,8 +206,8 @@ export interface ScoreTx {
 
 function txType(row: Row, point: number | null): TxType {
   const t = str(row, "TransactionType", "RuleType").toLowerCase();
-  if (/reward|bonus|tambah|plus|positif/.test(t)) return "REWARD";
-  if (/penalt|potong|kurang|minus|negatif/.test(t)) return "PENALTY";
+  if (/reward|bonus|tambah|plus|positif|apresiasi|achievement|prestasi|appreciation/.test(t)) return "REWARD";
+  if (/penalt|potong|kurang|minus|negatif|violation|pelanggaran|sanksi|deduct/.test(t)) return "PENALTY";
   if (point !== null) return point >= 0 ? "REWARD" : "PENALTY";
   return "OTHER";
 }

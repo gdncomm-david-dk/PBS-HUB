@@ -1096,9 +1096,10 @@ ActionResult   = varScResult
 HostsJson      = JSON(ForAll(colScHost, {ID: ID, Title: Title, HostCode: HostCode, NamaHost: NamaHost, Status: Status.Value, Package: Package.Value, InitialScore: InitialScore, CurrentScore: CurrentScore, MinimumScore: MinimumScore, MaximumScore: MaximumScore}), JSONFormat.Compact)
 ScoreTxJson    = JSON(ForAll(colScRecent, {ID: ID, TransactionID: TransactionID, HostID: HostID, RuleID: RuleID, TransactionType: TransactionType.Value, Point: Point, Reason: Reason, Status: Status.Value, CreatedDate: CreatedDate}), JSONFormat.Compact)
 LedgerJson     = JSON(ForAll(colScLedger, {ID: ID, TransactionID: TransactionID, HostID: HostID, RuleID: RuleID, TransactionType: TransactionType.Value, Point: Point, ScoreBefore: ScoreBefore, ScoreAfter: ScoreAfter, Reason: Reason, Notes: Notes, Status: Status.Value, CreatedDate: CreatedDate, CreatedBy: CreatedBy.DisplayName}), JSONFormat.Compact)
-RulesJson      = JSON(ForAll(colScRule, {RuleID: Title, RuleName: RuleName, RuleType: RuleType.Value, Point: Point, Category: Category, Severity: Severity.Value, Description: Description, Active: Active}), JSONFormat.Compact)
+RulesJson      = JSON(ForAll(colScRule, {RuleID: RuleID, RuleName: RuleName, RuleType: RuleType.Value, Point: Point, Category: Category, Severity: Severity.Value, Description: Description, Active: Active}), JSONFormat.Compact)
 ThresholdsJson = JSON(ForAll(colScoreBand, {ThresholdID: ThresholdID, Label: Label, Description: Description, MinimumScore: MinimumScore, MaximumScore: MaximumScore, Tone: Tone.Value, Active: Active, SortOrder: SortOrder}), JSONFormat.Compact)
-// Category Choice → Category.Value. LedgerJson harus berisi SEMUA transaksi host itu: jumlah ledger dihitung dari sini.
+// RuleID: kolom ID rule di list (RuleID; pakai Title kalau ID disimpan di Title). RuleType boleh Reward/Penalty
+// atau Achievement/Violation; Category boleh Text atau Choice; Severity Low/Medium/High atau Ringan/Sedang/Berat. LedgerJson harus berisi SEMUA transaksi host itu: jumlah ledger dihitung dari sini.
 ```
 
 `LedgerScore` di `HostsJson` opsional, sama seperti HostList: kalau dikirim, host yang `CurrentScore`-nya berbeda
@@ -1251,7 +1252,7 @@ belum ada di v1, bulk approve tidak akan muncul — itu disengaja.
 
 1. Power Platform admin center → environment → **Settings → Product → Features** → aktifkan
    *Allow publishing of canvas apps with code components*.
-2. make.powerapps.com → **Solutions → Import solution** → `PBSHubOpsPCF_1_6_5_0_managed.zip`
+2. make.powerapps.com → **Solutions → Import solution** → `PBSHubOpsPCF_1_6_6_0_managed.zip`
    (sudah pernah import versi lama? Import ini meng-**upgrade** solusi yang sama — pilih *Upgrade*, bukan
    *Stage for upgrade* yang belum di-*Apply*).
 3. Di canvas app: **Insert → Get more components → Code** → pilih `PBS Ops Dashboard`,
@@ -1264,8 +1265,8 @@ belum ada di v1, bulk approve tidak akan muncul — itu disengaja.
 disisipkan. Setelah upgrade solusi: buka app di Studio → akan muncul banner *"Updated code components
 detected"* → **Update**. Kalau banner tidak muncul: tutup Studio, hard refresh browser (Ctrl+Shift+R), buka
 lagi. Lalu **Save + Publish** app. Pastikan juga di Solutions → PBS Hub Ops PCF → History bahwa versi
-1.6.5.0 benar-benar terpasang. Versi control di solusi ini: Dashboard 1.3.5, ReportReview / ReportDetail
-1.4.4, PayrollRuns 1.2.6, PayrollRunDetail 1.2.5, HostList 1.2.7, HostDetail 1.3.9, HostScore 1.0.1. ReportReview dan
+1.6.6.0 benar-benar terpasang. Versi control di solusi ini: Dashboard 1.3.5, ReportReview / ReportDetail
+1.4.4, PayrollRuns 1.2.6, PayrollRunDetail 1.2.5, HostList 1.2.7, HostDetail 1.3.10, HostScore 1.0.2. ReportReview dan
 ReportDetail 1.4.0 punya properti baru `SchedulesJson` — isi di canvas supaya kolom *Jam live* terisi.
 
 **Tampilan rusak di app (tabel tidak full, tombol tanpa border, checkbox hilang)?** Itu CSS global Power

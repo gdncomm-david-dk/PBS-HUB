@@ -112,7 +112,7 @@ export interface ScoreRule {
 }
 
 const ruleType = (text: string, point: number | null): TxType =>
-  /reward|bonus|tambah|plus|positif/i.test(text) ? "REWARD" : /penalt|potong|kurang|minus|negatif/i.test(text) ? "PENALTY" : point === null ? "OTHER" : point >= 0 ? "REWARD" : "PENALTY";
+  /reward|bonus|tambah|plus|positif|apresiasi|achievement|prestasi|appreciation/i.test(text) ? "REWARD" : /penalt|potong|kurang|minus|negatif|violation|pelanggaran|sanksi|deduct/i.test(text) ? "PENALTY" : point === null ? "OTHER" : point >= 0 ? "REWARD" : "PENALTY";
 
 /**
  * The rules a host can earn or lose points by. RulesJson when canvas sends it, else the
@@ -128,7 +128,7 @@ export function scoreRules(rules: Row[], txs: ScoreTx[]): ScoreRule[] {
     list = rules
       .filter((r) => bool(r, "Active") !== false)
       .map((r) => {
-        const id = str(r, "RuleID", "Title");
+        const id = str(r, "RuleID", "Title", "RuleCode");
         const name = str(r, "RuleName", "Name", "Reason") || id;
         const raw = num(r, "Point", "Points", "DefaultPoint");
         const type = ruleType(str(r, "RuleType", "TransactionType", "Type"), raw);

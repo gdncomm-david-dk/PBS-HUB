@@ -32,7 +32,7 @@ export function severityOf(text: string): Severity {
 }
 
 const typeOf = (text: string, point: number | null): TxType =>
-  /reward|bonus|tambah|plus|positif/i.test(text) ? "REWARD" : /penalt|potong|kurang|minus|negatif/i.test(text) ? "PENALTY" : point === null ? "OTHER" : point >= 0 ? "REWARD" : "PENALTY";
+  /reward|bonus|tambah|plus|positif|apresiasi|achievement|prestasi|appreciation/i.test(text) ? "REWARD" : /penalt|potong|kurang|minus|negatif|violation|pelanggaran|sanksi|deduct/i.test(text) ? "PENALTY" : point === null ? "OTHER" : point >= 0 ? "REWARD" : "PENALTY";
 
 /** Active rules only (the modal never offers an inactive one), by category then name. */
 export function parseAdminRules(rows: Row[]): AdminRule[] {
@@ -43,7 +43,8 @@ export function parseAdminRules(rows: Row[]): AdminRule[] {
       const type = typeOf(str(r, "RuleType", "TransactionType", "Type"), raw);
       // The rule list may store penalties as positive numbers; the sign follows the type.
       const point = raw === null ? null : type === "PENALTY" ? -Math.abs(raw) : type === "REWARD" ? Math.abs(raw) : raw;
-      const id = str(r, "RuleID", "Title");
+      // RuleID column first; a list whose Title is left empty still has its rules offered (the name stands in).
+      const id = str(r, "RuleID", "Title", "RuleCode") || str(r, "RuleName", "Name");
       return {
         id,
         name: str(r, "RuleName", "Name", "Reason") || id,

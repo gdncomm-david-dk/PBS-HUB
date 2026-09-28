@@ -53,6 +53,19 @@ describe("rules", () => {
   });
 });
 
+describe("rules as the list stores them", () => {
+  it("reads RuleType Violation, a Choice Category and a null RuleID", () => {
+    const r = parseAdminRules([
+      { Active: true, Category: { Value: "Attendance" }, Description: "Keterlambatan hadir saat bertugas", Point: -5, RuleID: null, RuleName: "Terlambat Hadir", RuleType: "Violation", Severity: "Medium" },
+      { Active: true, Category: { Value: "Performance" }, Point: 10, RuleID: "SR-01", RuleName: "Menggantikan jadwal host lain", RuleType: "Achievement", Severity: "Low" },
+    ]);
+    expect(r.map((x) => [x.id, x.type, x.point, x.category, x.severity])).toEqual([
+      ["Terlambat Hadir", "PENALTY", -5, "Attendance", "sedang"],
+      ["SR-01", "REWARD", 10, "Performance", "ringan"],
+    ]);
+  });
+});
+
 describe("points and preview", () => {
   it("the sign follows the type", () => {
     expect([signedPoint("6", "REWARD"), signedPoint("-6", "REWARD"), signedPoint("6", "PENALTY"), signedPoint("−12", "PENALTY"), signedPoint("", "REWARD"), signedPoint("0", "REWARD")]).toEqual([
