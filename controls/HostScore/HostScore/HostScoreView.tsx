@@ -684,7 +684,7 @@ function LedgerPage(
           </>
         }
         title="Ledger skor"
-        subtitle="Riwayat tidak pernah diubah: transaksi yang salah dibatalkan, bukan disunting. Skor sebelum dan sesudah selalu tercatat."
+        subtitle="Riwayat tidak pernah diubah: transaksi yang salah dibatalkan (void), bukan diedit. Skor sebelum dan sesudah selalu tercatat."
       />
 
       <ResultBanner result={props.bannerResult} onClose={action.clearResult} />

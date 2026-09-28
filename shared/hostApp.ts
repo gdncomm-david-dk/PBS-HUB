@@ -656,11 +656,13 @@ export function absenPayload(
 const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, "");
 
 /**
- * The ops console writes "Metrik yang perlu dibetulkan: Penjualan, CTOR" into ApprovalComment (no
+ * The ops console writes "Metrik yang perlu diperbaiki: Penjualan, CTOR" (older rows: "dibetulkan") into ApprovalComment (no
  * column holds the list). Labels or keys are both accepted.
  */
 export function flaggedFromComment(comment: string): MetricDef[] {
-  const m = /metrik yang perlu dibetulkan\s*:\s*([^\n]+)/i.exec(comment);
+  const m = /metrik yang perlu (?:dibetulkan|diperbaiki)\s*:\s*([^\n]+)/i.exec(
+    comment,
+  );
   if (!m?.[1]) return [];
   const names = m[1]
     .split(/[,;]/)
@@ -680,7 +682,7 @@ export function reviewerNote(comment: string): string {
     .split("\n")
     .filter(
       (l) =>
-        !/^\s*metrik yang perlu dibetulkan\s*:/i.test(l) &&
+        !/^\s*metrik yang perlu (?:dibetulkan|diperbaiki)\s*:/i.test(l) &&
         !/^\s*\[sanggahan host\]/i.test(l),
     )
     .join("\n")

@@ -677,7 +677,7 @@ function PayslipTab(props: {
         <div
           className="pbs-bar"
           role="img"
-          aria-label={`${s.sent} terkirim, ${s.failed} gagal, ${s.bounced} terpental`}
+          aria-label={`${s.sent} terkirim, ${s.failed} gagal, ${s.bounced} bounce`}
         >
           <span style={{ width: pct(s.sent), background: "#02C82B" }} />
           <span style={{ width: pct(s.bounced), background: "#FFCD00" }} />
@@ -692,7 +692,7 @@ function PayslipTab(props: {
             </span>
           ) : null}
           {s.failed > 0 ? ` · ${s.failed} gagal` : ""}
-          {s.bounced > 0 ? ` · ${s.bounced} terpental` : ""}
+          {s.bounced > 0 ? ` · ${s.bounced} bounce` : ""}
         </div>
         {props.canResend ? (
           <Button

@@ -345,7 +345,7 @@ export const SLIP_LABEL: Record<SlipState, { label: string; tone: Tone }> = {
   GENERATED: { label: "Dibuat", tone: "neutral" },
   SENT: { label: "Terkirim", tone: "success" },
   FAILED: { label: "Gagal", tone: "danger" },
-  BOUNCED: { label: "Terpental", tone: "warning" },
+  BOUNCED: { label: "Bounce", tone: "warning" },
   UNKNOWN: { label: "—", tone: "neutral" },
 };
 

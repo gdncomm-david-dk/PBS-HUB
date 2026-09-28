@@ -36,8 +36,6 @@ import {
 import {
   Badge,
   byTime,
-  SortOrder,
-  SortSelect,
   Button,
   EmptyState,
   FilterDate,
@@ -106,10 +104,38 @@ function inTab(it: ReportItem, tab: Tab): boolean {
   return it.state === "DONE_AUTO" || it.state === "DONE_MANUAL";
 }
 
+type ReportSort = "date_desc" | "date_asc" | "aging_desc" | "aging_asc";
+
+const REPORT_SORTS: { value: ReportSort; label: string }[] = [
+  { value: "date_desc", label: "Tanggal live · terbaru (desc)" },
+  { value: "date_asc", label: "Tanggal live · terlama (asc)" },
+  { value: "aging_desc", label: "Aging · paling lama (desc)" },
+  { value: "aging_asc", label: "Aging · paling baru (asc)" },
+];
+
+/** Tanggal live newest/oldest, or aging (time waiting since the report came in) longest/shortest. */
+function reportSorter(
+  sort: ReportSort,
+): (a: ReportItem, b: ReportItem) => number {
+  if (sort === "date_desc" || sort === "date_asc") {
+    const by = byTime<ReportItem>(
+      sort === "date_desc" ? "newest" : "oldest",
+      (it) => it.liveDate ?? it.since,
+    );
+    return (a, b) =>
+      by(a, b) || byTime<ReportItem>("newest", (it) => it.since)(a, b);
+  }
+  // Longest aging = the earliest `since` first.
+  return byTime<ReportItem>(
+    sort === "aging_desc" ? "oldest" : "newest",
+    (it) => it.since ?? it.liveDate,
+  );
+}
+
 const AGE_OPTIONS = [
-  { value: "1", label: "Lebih dari 1 hari" },
-  { value: "3", label: "Lebih dari 3 hari" },
-  { value: "7", label: "Lebih dari 7 hari" },
+  { value: "1", label: "Aging > 1 hari" },
+  { value: "3", label: "Aging > 3 hari" },
+  { value: "7", label: "Aging > 7 hari" },
 ];
 
 const uniqueOptions = (
@@ -159,7 +185,7 @@ export function ReportReviewView(props: ReportReviewProps): React.ReactElement {
   const [tab, setTab] = React.useState<Tab>(props.defaultTab);
   React.useEffect(() => setTab(props.defaultTab), [props.defaultTab]);
   const [filters, setFilters] = React.useState<Filters>(NO_FILTERS);
-  const [order, setOrder] = React.useState<SortOrder>("newest");
+  const [sort, setSort] = React.useState<ReportSort>("date_desc");
   const [selected, setSelected] = React.useState<Set<string>>(new Set());
   const [reviewId, setReviewId] = React.useState<string | null>(null);
   const hostRef = React.useRef<HTMLDivElement>(null);
@@ -226,10 +252,10 @@ export function ReportReviewView(props: ReportReviewProps): React.ReactElement {
       return true;
     })
     // Newest report first by default; Terlama dulu brings the longest-waiting to the top.
-    .sort(byTime(order, (it) => it.since ?? it.liveDate));
+    .sort(reportSorter(sort));
 
   // Every loaded row is rendered: a partial list was read as the whole total.
-  const paged = usePaged(filtered, JSON.stringify([tab, filters, order]));
+  const paged = usePaged(filtered, JSON.stringify([tab, filters, sort]));
   const visible = paged.rows;
   const canDecide = !props.readOnly && hasPermission(ctx, "REPORT_ADJUDICATE");
   const showBulk = canDecide && tab === "Waiting";
@@ -295,7 +321,7 @@ export function ReportReviewView(props: ReportReviewProps): React.ReactElement {
           subtitle={
             props.loading && items.length === 0
               ? "Memuat report…"
-              : `${counts.Waiting} report menunggu keputusan${oldest ? ` · tertua ${fmtAge(oldest, now)}` : ""} · ${autoToday} diputuskan otomatis hari ini`
+              : `${counts.Waiting} report menunggu keputusan${oldest ? ` · aging terlama ${fmtAge(oldest, now)}` : ""} · ${autoToday} diputuskan otomatis hari ini`
           }
           actions={
             hasPermission(ctx, "RECONCILIATION_CONFIG") ? (
@@ -390,7 +416,7 @@ export function ReportReviewView(props: ReportReviewProps): React.ReactElement {
             onChange={(v) => setFilter("to", v)}
           />
           <FilterSelect
-            label="Umur"
+            label="Aging"
             value={filters.age}
             options={AGE_OPTIONS}
             onChange={(v) => setFilter("age", v)}
@@ -406,7 +432,21 @@ export function ReportReviewView(props: ReportReviewProps): React.ReactElement {
             </button>
           ) : null}
           <span style={{ flex: 1 }} />
-          <SortSelect value={order} onChange={setOrder} />
+          <label className="pbs-chip">
+            <span className="pbs-sr">Urutkan</span>
+            <select
+              value={sort}
+              aria-label="Urutkan"
+              onChange={(e) => setSort(e.target.value as ReportSort)}
+            >
+              {REPORT_SORTS.map((o) => (
+                <option key={o.value} value={o.value}>
+                  {o.label}
+                </option>
+              ))}
+            </select>
+            <Icon name="chevronDown" size={14} />
+          </label>
         </div>
 
         {showBulk && selectedItems.length > 0 ? (
@@ -445,7 +485,35 @@ export function ReportReviewView(props: ReportReviewProps): React.ReactElement {
                   <th>Playbook</th>
                   <th>Alasan</th>
                   <th>Status</th>
-                  {tab === "Waiting" ? <th>Menunggu</th> : null}
+                  {tab === "Waiting" ? (
+                    <th
+                      aria-sort={
+                        sort === "aging_desc"
+                          ? "descending"
+                          : sort === "aging_asc"
+                            ? "ascending"
+                            : "none"
+                      }
+                    >
+                      <button
+                        type="button"
+                        className="pbs-th-sort"
+                        onClick={() =>
+                          setSort(
+                            sort === "aging_desc" ? "aging_asc" : "aging_desc",
+                          )
+                        }
+                        title="Urutkan menurut aging"
+                      >
+                        Aging{" "}
+                        {sort === "aging_desc"
+                          ? "↓"
+                          : sort === "aging_asc"
+                            ? "↑"
+                            : "↕"}
+                      </button>
+                    </th>
+                  ) : null}
                   <th aria-label="Aksi" />
                 </tr>
               </thead>
@@ -484,7 +552,7 @@ export function ReportReviewView(props: ReportReviewProps): React.ReactElement {
               <EmptyState
                 icon="filterX"
                 title="Tidak ada report yang cocok dengan filter"
-                text={`${tabItems.length} report ada di tab ini, tapi tidak ada yang lolos filter yang dipilih.`}
+                text={`${tabItems.length} report ada di tab ini, tapi tidak ada yang cocok dengan filter.`}
                 action={
                   <Button variant="secondary" size="sm" onClick={clearFilters}>
                     Clear Filters
@@ -740,7 +808,7 @@ function ReportRow(props: {
               small
               title="Lebih dari satu baris Report Automation untuk report ini; yang terbaru dipakai"
             >
-              {it.rec.evidenceCount} bukti
+              {it.rec.evidenceCount} AI Report
             </Badge>
           ) : null}
         </span>

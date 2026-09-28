@@ -25,30 +25,75 @@ export interface MetricDef {
 
 /** The seven metrics PBS0005A compares, in the order the design shows them. */
 export const COMPARED_METRICS: MetricDef[] = [
-  { key: "Penjualan", label: "Penjualan", format: "idr", fields: ["Penjualan"] },
+  {
+    key: "Penjualan",
+    label: "Penjualan",
+    format: "idr",
+    fields: ["Penjualan"],
+  },
   { key: "Pesanan", label: "Pesanan", format: "int", fields: ["Pesanan"] },
-  { key: "ProdukTerjual", label: "Produk terjual", format: "int", fields: ["ProdukTerjual", "Produk_x0020_Terjual"] },
-  { key: "JumlahPembeli", label: "Jumlah pembeli", format: "int", fields: ["JumlahPembeli", "Jumlah_x0020_Pembeli"] },
+  {
+    key: "ProdukTerjual",
+    label: "Produk terjual",
+    format: "int",
+    fields: ["ProdukTerjual", "Produk_x0020_Terjual"],
+  },
+  {
+    key: "JumlahPembeli",
+    label: "Jumlah pembeli",
+    format: "int",
+    fields: ["JumlahPembeli", "Jumlah_x0020_Pembeli"],
+  },
   { key: "CTR", label: "CTR", format: "pct", fields: ["CTR"] },
   { key: "CTOR", label: "CTOR", format: "pct", fields: ["CTOR"] },
-  { key: "PeakViewer", label: "Peak viewer", format: "int", fields: ["PeakViewer", "Peak_x0020_Viewer"] },
+  {
+    key: "PeakViewer",
+    label: "Peak viewer",
+    format: "int",
+    fields: ["PeakViewer", "Peak_x0020_Viewer"],
+  },
 ];
 
 /** Captured on both sides but not compared by PBS0005A (finding M1). The reviewer compares them too. */
 export const UNCOMPARED_METRICS: MetricDef[] = [
-  { key: "Durasi", label: "Durasi", format: "min", fields: ["Durasi(Min)", "Durasi_x0028_Min_x0029_", "DurasiMin", "Durasi"] },
-  { key: "AddToCart", label: "AddToCart", format: "int", fields: ["AddToCart", "Add_x0020_To_x0020_Cart"] },
-  { key: "TotalViewer", label: "TotalViewer", format: "int", fields: ["TotalViewer", "Total_x0020_Viewer"] },
+  {
+    key: "Durasi",
+    label: "Durasi",
+    format: "min",
+    fields: ["Durasi(Min)", "Durasi_x0028_Min_x0029_", "DurasiMin", "Durasi"],
+  },
+  {
+    key: "AddToCart",
+    label: "AddToCart",
+    format: "int",
+    fields: ["AddToCart", "Add_x0020_To_x0020_Cart"],
+  },
+  {
+    key: "TotalViewer",
+    label: "TotalViewer",
+    format: "int",
+    fields: ["TotalViewer", "Total_x0020_Viewer"],
+  },
   { key: "Comment", label: "Comment", format: "int", fields: ["Comment"] },
   { key: "Share", label: "Share", format: "int", fields: ["Share"] },
 ];
 
 /** Every metric the host reports and the AI reads, in display order. All of them are compared. */
-export const ALL_METRICS: MetricDef[] = [...COMPARED_METRICS, ...UNCOMPARED_METRICS];
+export const ALL_METRICS: MetricDef[] = [
+  ...COMPARED_METRICS,
+  ...UNCOMPARED_METRICS,
+];
 
 /** Claim and evidence are identical (0 % difference): nothing for the host to fix. */
-export function sameValue(m: { claim: number | null; evidence: number | null }): boolean {
-  return m.claim !== null && m.evidence !== null && Math.abs(m.claim - m.evidence) < 1e-9;
+export function sameValue(m: {
+  claim: number | null;
+  evidence: number | null;
+}): boolean {
+  return (
+    m.claim !== null &&
+    m.evidence !== null &&
+    Math.abs(m.claim - m.evidence) < 1e-9
+  );
 }
 
 export type ReasonCode =
@@ -64,24 +109,31 @@ export type Tone = "success" | "info" | "warning" | "danger" | "neutral";
 
 export const REASONS: Record<ReasonCode, { label: string; tone: Tone }> = {
   OUT_OF_TOLERANCE: { label: "Di luar toleransi", tone: "warning" },
-  EVIDENCE_MISSING: { label: "Bukti belum ada", tone: "neutral" },
+  EVIDENCE_MISSING: { label: "AI Report belum ada", tone: "neutral" },
   LOW_CONFIDENCE: { label: "Confidence rendah", tone: "warning" },
   METRIC_EMPTY: { label: "Metrik kosong", tone: "warning" },
-  ZERO_ZERO: { label: "Nol lawan nol", tone: "danger" },
-  ORPHAN_EVIDENCE: { label: "Bukti yatim", tone: "danger" },
+  ZERO_ZERO: { label: "Semua metrik 0", tone: "danger" },
+  ORPHAN_EVIDENCE: { label: "AI Report beda host", tone: "danger" },
   ALL_MATCH: { label: "Semua cocok", tone: "success" },
 };
 
-export type ReviewState = "WAITING" | "REVISION" | "DONE_AUTO" | "DONE_MANUAL" | "LIVE_BREAK" | "OTHER";
+export type ReviewState =
+  | "WAITING"
+  | "REVISION"
+  | "DONE_AUTO"
+  | "DONE_MANUAL"
+  | "LIVE_BREAK"
+  | "OTHER";
 
-export const REVIEW_STATES: Record<ReviewState, { label: string; tone: Tone }> = {
-  WAITING: { label: "Menunggu review", tone: "neutral" },
-  REVISION: { label: "Perlu revisi", tone: "danger" },
-  DONE_AUTO: { label: "Otomatis disetujui", tone: "info" },
-  DONE_MANUAL: { label: "Selesai", tone: "success" },
-  LIVE_BREAK: { label: "Live break", tone: "warning" },
-  OTHER: { label: "Lainnya", tone: "neutral" },
-};
+export const REVIEW_STATES: Record<ReviewState, { label: string; tone: Tone }> =
+  {
+    WAITING: { label: "Menunggu review", tone: "neutral" },
+    REVISION: { label: "Perlu revisi", tone: "danger" },
+    DONE_AUTO: { label: "Otomatis disetujui", tone: "info" },
+    DONE_MANUAL: { label: "Selesai", tone: "success" },
+    LIVE_BREAK: { label: "Live break", tone: "warning" },
+    OTHER: { label: "Lainnya", tone: "neutral" },
+  };
 
 /**
  * `Waiting Approval Revision` is the host's corrected report after a `Need Revision`: still waiting on
@@ -94,11 +146,18 @@ export const isResubmitted = (report: Row | undefined): boolean => {
 };
 
 /** Report with a blank ApprovalStatus. */
-export const NO_STATUS: { label: string; tone: Tone } = { label: "Belum ada status", tone: "neutral" };
+export const NO_STATUS: { label: string; tone: Tone } = {
+  label: "Belum ada status",
+  tone: "neutral",
+};
 
 /** Badge for a report: the review state, with the resubmitted revision told apart. */
-export function reviewBadge(report: Row | undefined, state: ReviewState): { label: string; tone: Tone } {
-  if (state === "WAITING" && isResubmitted(report)) return { label: "Menunggu review (revisi)", tone: "info" };
+export function reviewBadge(
+  report: Row | undefined,
+  state: ReviewState,
+): { label: string; tone: Tone } {
+  if (state === "WAITING" && isResubmitted(report))
+    return { label: "Menunggu review (revisi)", tone: "info" };
   if (state === "OTHER" && !str(report, "ApprovalStatus")) return NO_STATUS;
   return REVIEW_STATES[state];
 }
@@ -114,9 +173,21 @@ export function reviewState(report: Row): ReviewState {
   if (s.replace(/[\s_-]+/g, "") === "livebreak") return "LIVE_BREAK";
   // Blank is not a request for review: it stays out of the waiting queue (shown under Semua only).
   if (s === "") return "OTHER";
-  if (s.startsWith("waiting") || s === "menunggu" || s === "pending" || s === "menunggu review") return "WAITING";
-  if (s.includes("revis") || s === "rejected" || s === "ditolak") return "REVISION";
-  if (s === "done" || s === "approved" || s === "selesai" || s === "disetujui") {
+  if (
+    s.startsWith("waiting") ||
+    s === "menunggu" ||
+    s === "pending" ||
+    s === "menunggu review"
+  )
+    return "WAITING";
+  if (s.includes("revis") || s === "rejected" || s === "ditolak")
+    return "REVISION";
+  if (
+    s === "done" ||
+    s === "approved" ||
+    s === "selesai" ||
+    s === "disetujui"
+  ) {
     return isAutomatedDecision(report) ? "DONE_AUTO" : "DONE_MANUAL";
   }
   return "OTHER";
@@ -139,22 +210,60 @@ export interface MetricComparison {
   note: "" | "claim-empty" | "evidence-empty" | "evidence-zero" | "zero-zero";
 }
 
-export function readMetric(row: Row | undefined, def: MetricDef): number | null {
+export function readMetric(
+  row: Row | undefined,
+  def: MetricDef,
+): number | null {
   return num(row, ...def.fields);
 }
 
-export function compareMetric(def: MetricDef, report: Row, evidence: Row | undefined, tolerancePct: number): MetricComparison {
+export function compareMetric(
+  def: MetricDef,
+  report: Row,
+  evidence: Row | undefined,
+  tolerancePct: number,
+): MetricComparison {
   const t = tolerancePct / 100;
   const claim = readMetric(report, def);
   const ev = evidence ? readMetric(evidence, def) : null;
-  if (ev === null) return { def, claim, evidence: ev, ratio: null, within: false, note: "evidence-empty" };
-  if (claim === null) return { def, claim, evidence: ev, ratio: null, within: false, note: "claim-empty" };
+  if (ev === null)
+    return {
+      def,
+      claim,
+      evidence: ev,
+      ratio: null,
+      within: false,
+      note: "evidence-empty",
+    };
+  if (claim === null)
+    return {
+      def,
+      claim,
+      evidence: ev,
+      ratio: null,
+      within: false,
+      note: "claim-empty",
+    };
   if (ev === 0) {
     // The band collapses to [0,0] (finding M4): only an exact zero matches.
-    return { def, claim, evidence: ev, ratio: null, within: claim === 0, note: claim === 0 ? "zero-zero" : "evidence-zero" };
+    return {
+      def,
+      claim,
+      evidence: ev,
+      ratio: null,
+      within: claim === 0,
+      note: claim === 0 ? "zero-zero" : "evidence-zero",
+    };
   }
   const within = claim <= ev * (1 + t) + 1e-9 && claim >= ev * (1 - t) - 1e-9;
-  return { def, claim, evidence: ev, ratio: (claim - ev) / ev, within, note: "" };
+  return {
+    def,
+    claim,
+    evidence: ev,
+    ratio: (claim - ev) / ev,
+    within,
+    note: "",
+  };
 }
 
 /** Numeric tail of a Title: "REP-20863" → "20863", "SCD-12_Tiktok" → "12". */
@@ -184,12 +293,16 @@ export function indexEvidence(evidence: Row[]): EvidenceIndex {
   return { byTitle, byTail };
 }
 
-const createdAt = (r: Row): number => (date(r, "Created", "CreatedDate", "Modified")?.getTime() ?? 0);
+const createdAt = (r: Row): number =>
+  date(r, "Created", "CreatedDate", "Modified")?.getTime() ?? 0;
 
 /** Finds this report's evidence. Several rows can exist for one report (finding R6): newest wins. */
-export function findEvidence(report: Row, idx: EvidenceIndex): { evidence: Row | undefined; count: number } {
+export function findEvidence(
+  report: Row,
+  idx: EvidenceIndex,
+): { evidence: Row | undefined; count: number } {
   const title = str(report, "Title").toLowerCase();
-  let hits = title ? idx.byTitle.get(title) ?? [] : [];
+  let hits = title ? (idx.byTitle.get(title) ?? []) : [];
   if (hits.length === 0) {
     const id = rowId(report);
     if (id) hits = idx.byTail.get(String(Number(id))) ?? [];
@@ -219,7 +332,10 @@ export interface ReconcileOptions {
   confidenceThreshold: number;
 }
 
-export const DEFAULT_OPTIONS: ReconcileOptions = { tolerancePct: 5, confidenceThreshold: 0.85 };
+export const DEFAULT_OPTIONS: ReconcileOptions = {
+  tolerancePct: 5,
+  confidenceThreshold: 0.85,
+};
 
 export interface Reconciliation {
   reason: ReasonCode;
@@ -239,40 +355,79 @@ export function readConfidence(evidence: Row | undefined): number | null {
   return c > 1 ? c / 100 : c;
 }
 
-export function reconcile(report: Row, idx: EvidenceIndex, opts: ReconcileOptions = DEFAULT_OPTIONS): Reconciliation {
+export function reconcile(
+  report: Row,
+  idx: EvidenceIndex,
+  opts: ReconcileOptions = DEFAULT_OPTIONS,
+): Reconciliation {
   const { evidence, count } = findEvidence(report, idx);
   return reconcileWith(report, evidence, count, opts);
 }
 
-export function reconcileWith(report: Row, evidence: Row | undefined, evidenceCount: number, opts: ReconcileOptions = DEFAULT_OPTIONS): Reconciliation {
+export function reconcileWith(
+  report: Row,
+  evidence: Row | undefined,
+  evidenceCount: number,
+  opts: ReconcileOptions = DEFAULT_OPTIONS,
+): Reconciliation {
   // The seven PBS0005A metrics always; the other five whenever either side carries a value.
-  const metrics = ALL_METRICS.map((d) => compareMetric(d, report, evidence, opts.tolerancePct)).filter(
-    (m) => COMPARED_METRICS.includes(m.def) || m.claim !== null || m.evidence !== null,
+  const metrics = ALL_METRICS.map((d) =>
+    compareMetric(d, report, evidence, opts.tolerancePct),
+  ).filter(
+    (m) =>
+      COMPARED_METRICS.includes(m.def) ||
+      m.claim !== null ||
+      m.evidence !== null,
   );
   const outOfTolerance = metrics.filter((m) => !m.within);
   const allWithin = outOfTolerance.length === 0;
   const confidence = readConfidence(evidence);
-  const base = { metrics, outOfTolerance, allWithin, confidence, evidence, evidenceCount };
+  const base = {
+    metrics,
+    outOfTolerance,
+    allWithin,
+    confidence,
+    evidence,
+    evidenceCount,
+  };
 
-  if (!evidence) return { ...base, reason: "EVIDENCE_MISSING", mismatchedKeys: [] };
+  if (!evidence)
+    return { ...base, reason: "EVIDENCE_MISSING", mismatchedKeys: [] };
   const mismatchedKeys = identityMismatch(report, evidence);
-  if (mismatchedKeys.length > 0) return { ...base, reason: "ORPHAN_EVIDENCE", mismatchedKeys };
-  if (metrics.some((m) => m.note === "evidence-empty")) return { ...base, reason: "METRIC_EMPTY", mismatchedKeys };
+  if (mismatchedKeys.length > 0)
+    return { ...base, reason: "ORPHAN_EVIDENCE", mismatchedKeys };
+  if (metrics.some((m) => m.note === "evidence-empty"))
+    return { ...base, reason: "METRIC_EMPTY", mismatchedKeys };
   // Zero sales on every core metric is suspicious even when duration/viewers are filled.
-  if (metrics.filter((m) => COMPARED_METRICS.includes(m.def)).every((m) => m.note === "zero-zero")) return { ...base, reason: "ZERO_ZERO", mismatchedKeys };
-  if (confidence !== null && confidence < opts.confidenceThreshold) return { ...base, reason: "LOW_CONFIDENCE", mismatchedKeys };
-  if (!allWithin) return { ...base, reason: "OUT_OF_TOLERANCE", mismatchedKeys };
+  if (
+    metrics
+      .filter((m) => COMPARED_METRICS.includes(m.def))
+      .every((m) => m.note === "zero-zero")
+  )
+    return { ...base, reason: "ZERO_ZERO", mismatchedKeys };
+  if (confidence !== null && confidence < opts.confidenceThreshold)
+    return { ...base, reason: "LOW_CONFIDENCE", mismatchedKeys };
+  if (!allWithin)
+    return { ...base, reason: "OUT_OF_TOLERANCE", mismatchedKeys };
   return { ...base, reason: "ALL_MATCH", mismatchedKeys };
 }
 
 /** Short detail shown next to the reason badge ("Penjualan +12,9%", "cocok", "HostID beda"). */
-export function reasonDetail(r: Reconciliation, fmtSignedPct: (x: number | null) => string): string {
+export function reasonDetail(
+  r: Reconciliation,
+  fmtSignedPct: (x: number | null) => string,
+): string {
   switch (r.reason) {
     case "OUT_OF_TOLERANCE": {
-      const worst = [...r.outOfTolerance].sort((a, b) => Math.abs(b.ratio ?? 0) - Math.abs(a.ratio ?? 0))[0];
+      const worst = [...r.outOfTolerance].sort(
+        (a, b) => Math.abs(b.ratio ?? 0) - Math.abs(a.ratio ?? 0),
+      )[0];
       if (!worst) return "";
-      const extra = r.outOfTolerance.length > 1 ? ` +${r.outOfTolerance.length - 1}` : "";
-      return worst.ratio === null ? `${worst.def.label}${extra}` : `${worst.def.label} ${fmtSignedPct(worst.ratio)}${extra}`;
+      const extra =
+        r.outOfTolerance.length > 1 ? ` +${r.outOfTolerance.length - 1}` : "";
+      return worst.ratio === null
+        ? `${worst.def.label}${extra}`
+        : `${worst.def.label} ${fmtSignedPct(worst.ratio)}${extra}`;
     }
     case "LOW_CONFIDENCE":
       return r.allWithin ? "cocok" : `${r.outOfTolerance.length} metrik beda`;

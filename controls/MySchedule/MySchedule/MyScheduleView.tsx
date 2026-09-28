@@ -684,7 +684,7 @@ export function MyScheduleView(props: MyScheduleProps): React.ReactElement {
           }
           text={
             filtering
-              ? `${fmtNumber(rows.length)} sesi lain di bulan ini tersembunyi oleh filter.`
+              ? `${fmtNumber(rows.length)} sesi lain di bulan ini tidak cocok dengan filter.`
               : "Jadwal live yang dibuat tim PBS untukmu akan muncul di sini."
           }
           action={

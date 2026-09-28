@@ -495,13 +495,13 @@ function Automation(props: { model: DashboardModel }): React.ReactElement {
       >
         <AutoCard
           tone={a.evidenceToday > 0 ? "success" : "neutral"}
-          title="Pembacaan bukti AI"
-          text={`${a.evidenceToday} screenshot dibaca hari ini oleh PBS0003A (Generate OCR Report)`}
+          title="AI Report"
+          text={`${a.evidenceToday} screenshot diproses hari ini oleh PBS0003A (Generate OCR Report)`}
         />
         <AutoCard
           tone={decided > 0 ? "success" : "neutral"}
           title="Rekonsiliasi otomatis"
-          text={`${decided} report diputuskan otomatis hari ini · ${a.autoMatchToday} Match, ${a.autoUnmatchToday} masuk antrean review`}
+          text={`${decided} report diputuskan otomatis hari ini · ${a.autoMatchToday} Match, ${a.autoUnmatchToday} masuk review manual`}
         />
         <AutoCard
           tone="neutral"
@@ -546,7 +546,7 @@ function Conflicts(props: {
     <section className="pbs-card pbs-card-pad" aria-label="Konflik minggu ini">
       <SectionHeader
         label="Konflik minggu ini"
-        right={list.length > 0 ? `${list.length} perlu dibetulkan` : undefined}
+        right={list.length > 0 ? `${list.length} perlu diperbaiki` : undefined}
       />
       {list.length === 0 ? (
         <div

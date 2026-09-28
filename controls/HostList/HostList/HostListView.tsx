@@ -353,7 +353,7 @@ export function HostListView(props: HostListProps): React.ReactElement {
             <EmptyState
               icon="filterX"
               title="Tidak ada host yang cocok dengan filter"
-              text={`${fmtNumber(hosts.length)} host dimuat, tapi tidak ada yang lolos filter yang dipilih.`}
+              text={`${fmtNumber(hosts.length)} host dimuat, tapi tidak ada yang cocok dengan filter.`}
               action={
                 <Button
                   variant="secondary"

@@ -62,6 +62,7 @@ import {
   SkeletonRows,
   Spinner,
   usePaged,
+  BackButton,
 } from "../../../shared/ui";
 
 export type HostTab =
@@ -209,16 +210,12 @@ export function HostDetailView(props: HostDetailProps): React.ReactElement {
       setClockInModal(false);
   }, [action.lastResult]);
 
-  const back = (
-    <button type="button" onClick={() => action.fire("BACK", {})}>
-      Host
-    </button>
-  );
+  const goBack = () => action.fire("BACK", {});
 
   if (!h) {
     return (
       <div className="pbs-page">
-        <div className="pbs-crumb">{back}</div>
+        <BackButton onClick={goBack} crumb="Host" />
         {props.loading ? (
           <div className="pbs-grid">
             <Skeleton h={76} />
@@ -289,9 +286,14 @@ export function HostDetailView(props: HostDetailProps): React.ReactElement {
           className="pbs-mh"
           style={{ marginBottom: 12, alignItems: "center" }}
         >
-          <div className="pbs-crumb" style={{ margin: 0 }}>
-            {back} <span aria-hidden="true">›</span> {h.code}
-          </div>
+          <BackButton
+            onClick={goBack}
+            crumb={
+              <>
+                Host <span aria-hidden="true">›</span> {h.code}
+              </>
+            }
+          />
           <div className="pbs-actions">
             <Button
               variant="ghost"

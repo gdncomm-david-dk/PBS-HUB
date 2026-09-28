@@ -601,7 +601,7 @@ export function SubmitReport(
         </h2>
         <p className="pbs-muted" style={{ margin: "0 0 12px" }}>
           {res?.message ||
-            "Screenshot sedang dibaca AI dan dicocokkan dengan angka kamu. Hasilnya muncul di Report saya."}
+            "Screenshot sedang diproses AI Report dan dicocokkan dengan angka kamu. Hasilnya muncul di Report saya."}
         </p>
         {left > 0 ? (
           <div
@@ -1384,7 +1384,7 @@ export function Revision(
         <h2 style={{ margin: "14px 0 6px", fontSize: 18 }}>Revisi terkirim</h2>
         <p className="pbs-muted" style={{ margin: "0 0 18px" }}>
           {res?.message ||
-            "Report kembali ke antrean review. Kamu dapat kabar setelah tim PBS memutuskan."}
+            "Report masuk review lagi. Kamu akan dapat kabar setelah tim PBS memutuskan."}
         </p>
         {props.embedded ? null : (
           <Button onClick={() => action.fire("BACK", {})}>
@@ -1550,7 +1550,7 @@ export function Revision(
               {changed.length || liveChanged.length
                 ? `${changed.length + liveChanged.length} isian diubah: ${[...changed.map((d) => d.label), ...liveChanged.map((k) => (k === "LiveID" ? "Live ID" : k))].join(", ")}.`
                 : image
-                  ? "Angka tidak diubah; screenshot baru akan dibaca ulang AI."
+                  ? "Angka tidak diubah; screenshot baru akan diproses ulang oleh AI Report."
                   : "Ubah angka yang ditandai atau tambahkan screenshot baru."}
               {missing.length || !liveId || !playbook ? (
                 <span
@@ -1710,7 +1710,7 @@ function OthersTable(props: {
       <div className={`hc-row head ${withEvidence ? "cmp" : "cmp1"}`}>
         <span>{props.title}</span>
         <span className="r">Kamu isi</span>
-        {withEvidence ? <span className="r">Bukti AI</span> : null}
+        {withEvidence ? <span className="r">AI Report</span> : null}
         {withEvidence ? <span className="r">Selisih</span> : null}
       </div>
       {props.rows.map((m) => (
@@ -1866,7 +1866,7 @@ function ViewReport(
           res.status === "ok" ? (
             <ResultBanner
               result={res}
-              okText="Report terkirim dan masuk antrean review."
+              okText="Report terkirim dan masuk review."
               onClose={action.clearResult}
             />
           ) : null}
@@ -1874,7 +1874,7 @@ function ViewReport(
             <InfoBanner>
               {evidence
                 ? "Report kamu menunggu review tim PBS. Selama menunggu, angkanya tidak bisa diubah."
-                : "Screenshot sedang dibaca AI. Kalau angkanya cocok, report disetujui otomatis; kalau tidak, tim PBS yang meninjau."}
+                : "Screenshot sedang diproses AI Report. Kalau angkanya cocok, report disetujui otomatis; kalau tidak, tim PBS yang me-review."}
             </InfoBanner>
           ) : state === "DONE_AUTO" ? (
             <InfoBanner icon="check">

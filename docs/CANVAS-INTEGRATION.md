@@ -102,7 +102,7 @@ di bawah yang disarankan.
 | Field JSON | Kolom | Dipakai untuk |
 |---|---|---|
 | `ID`, `Title` | ID, Title | kunci + join ke bukti |
-| `ScheduleID`, `HostID`, `BrandID`, `AccountID` | idem | nama, filter, cek bukti yatim |
+| `ScheduleID`, `HostID`, `BrandID`, `AccountID` | idem | nama, filter, cek AI Report beda host |
 | `Platform`, `Account` | Platform (Choice), Account | kolom Platform, Akun, pilihan prompt |
 | `LiveDate` | LiveDate | tanggal live (kirim `Text(LiveDate,"yyyy-mm-dd")`) |
 | `Penjualan`, `Pesanan`, `ProdukTerjual`, `JumlahPembeli`, `CTR`, `CTOR`, `PeakViewer` | idem | 7 metrik inti PBS0005A (selalu dibandingkan) |
@@ -148,12 +148,12 @@ Revision` dan `Report Automation.Status = Unmatch` (hanya kolom itu) — lihat `
 | Field JSON | Kolom | Catatan |
 |---|---|---|
 | `ID`, `Title` | ID, Title | join: `Title = Report.Title`, fallback angka di ujung `Title` = `Report.ID` (trik `int(last(split(Title,'-')))` PBS0005A) |
-| `HostID`, `ScheduleID`, `AccountID`, `BrandID` | idem | kalau berbeda dari report → **Bukti yatim** (M6) |
-| 7 + 5 metrik | idem | nilai "Bukti AI" |
+| `HostID`, `ScheduleID`, `AccountID`, `BrandID` | idem | kalau berbeda dari report → **AI Report beda host** (M6) |
+| 7 + 5 metrik | idem | nilai kolom "AI Report" |
 | `Status` | Match/Unmatch | verdict flow, hitungan "Rekonsiliasi otomatis" |
 | `Attachment` | Attachment | screenshot di rail kanan |
 | `Confidence` | *tidak ada di v1* | opsional. Kalau kolom ini ditambahkan, alasan **Confidence rendah** dan bulk approve aktif |
-| `Created` | sistem | "Dibaca", "Pembacaan bukti AI hari ini" |
+| `Created` | sistem | "AI Report" (waktu diproses), kartu "AI Report" di Dashboard |
 
 ### Dashboard: list lain
 
@@ -412,7 +412,7 @@ SchedulesJson = JSON(ForAll(Filter('Schedule - PBS Hub', Title = LookUp('Report 
 |---|---|---|---|
 | `APPROVE` | `Done` | `Match` | komentar reviewer |
 | `APPROVE_WITHOUT_EVIDENCE` | `Done` | kosong (jangan diubah) | `[Tanpa bukti] …` (wajib diisi) |
-| `REQUEST_REVISION` | `Need Revision` | `Unmatch` | catatan + `Metrik yang perlu dibetulkan: …`; `flaggedMetrics: ["Penjualan","CTOR"]` (hanya metrik yang selisihnya ≠ 0 %) |
+| `REQUEST_REVISION` | `Need Revision` | `Unmatch` | catatan + `Metrik yang perlu diperbaiki: …`; `flaggedMetrics: ["Penjualan","CTOR"]` (hanya metrik yang selisihnya ≠ 0 %) |
 | `REMIND_HOST` | – | – | kirim email/notifikasi ke host (`hostId`) |
 
 **OnChange**
@@ -691,7 +691,7 @@ If(!IsBlank(Self.ActionPayload),
 
 Aksi: `BACK`, `RELOAD` (`{payrollId, title}`) tidak mengunci. `RESEND_PAYSLIPS`
 (`{payrollId, title, items: [{lineId, name, email, hostId}]}`) mengunci dan wajib dibalas; tombolnya
-hanya muncul untuk `PAYROLL_RUN` dan hanya aktif kalau ada slip Gagal/Terpental di `PayslipJson`.
+hanya muncul untuk `PAYROLL_RUN` dan hanya aktif kalau ada slip Gagal/Bounce di `PayslipJson`.
 
 ## 8. Host
 
@@ -1243,8 +1243,8 @@ Dihitung di control dari Report + Report Automation, urutan prioritas:
 
 | Alasan | Kondisi |
 |---|---|
-| Bukti belum ada | tidak ada baris Report Automation yang ter-join |
-| Bukti yatim | bukti ter-join tapi `HostID`/`ScheduleID`/`AccountID`/`BrandID` berbeda (M6) |
+| AI Report belum ada | tidak ada baris Report Automation yang ter-join |
+| AI Report beda host | AI Report ter-join tapi `HostID`/`ScheduleID`/`AccountID`/`BrandID` berbeda (M6) |
 | Metrik kosong | salah satu metrik kosong di bukti (7 metrik inti selalu; 5 metrik tambahan bila klaim atau bukti berisi nilai) |
 | Nol lawan nol | ketujuh metrik inti 0 di klaim dan bukti (M4), meskipun durasi/viewer terisi |
 | Confidence rendah | kolom `Confidence` ada dan < `confidenceThreshold` |
@@ -1258,7 +1258,7 @@ belum ada di v1, bulk approve tidak akan muncul — itu disengaja.
 
 1. Power Platform admin center → environment → **Settings → Product → Features** → aktifkan
    *Allow publishing of canvas apps with code components*.
-2. make.powerapps.com → **Solutions → Import solution** → `PBSHubOpsPCF_1_6_8_0_managed.zip`
+2. make.powerapps.com → **Solutions → Import solution** → `PBSHubOpsPCF_1_6_9_0_managed.zip`
    (sudah pernah import versi lama? Import ini meng-**upgrade** solusi yang sama — pilih *Upgrade*, bukan
    *Stage for upgrade* yang belum di-*Apply*).
 3. Di canvas app: **Insert → Get more components → Code** → pilih `PBS Ops Dashboard`,
@@ -1271,8 +1271,8 @@ belum ada di v1, bulk approve tidak akan muncul — itu disengaja.
 disisipkan. Setelah upgrade solusi: buka app di Studio → akan muncul banner *"Updated code components
 detected"* → **Update**. Kalau banner tidak muncul: tutup Studio, hard refresh browser (Ctrl+Shift+R), buka
 lagi. Lalu **Save + Publish** app. Pastikan juga di Solutions → PBS Hub Ops PCF → History bahwa versi
-1.6.8.0 benar-benar terpasang. Versi control di solusi ini: Dashboard 1.3.7, ReportReview / ReportDetail
-1.4.6, PayrollRuns 1.2.8, PayrollRunDetail 1.2.7, HostList 1.2.9, HostDetail 1.3.12, HostScore 1.0.4. ReportReview dan
+1.6.9.0 benar-benar terpasang. Versi control di solusi ini: Dashboard 1.3.8, ReportReview / ReportDetail
+1.4.7, PayrollRuns 1.2.9, PayrollRunDetail 1.2.8, HostList 1.2.10, HostDetail 1.3.13, HostScore 1.0.5. ReportReview dan
 ReportDetail 1.4.0 punya properti baru `SchedulesJson` — isi di canvas supaya kolom *Jam live* terisi.
 
 **Tampilan rusak di app (tabel tidak full, tombol tanpa border, checkbox hilang)?** Itu CSS global Power

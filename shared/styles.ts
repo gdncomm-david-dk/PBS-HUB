@@ -30,6 +30,11 @@ font-family:"Blibli","Helvetica Neue",Arial,sans-serif;font-size:13px;line-heigh
 .pbs-mono{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:.92em}
 .pbs-muted{color:var(--tx2)}
 .pbs-crumb{font-size:12px;color:var(--tx2);margin:0 0 4px}
+.pbs-back{display:flex;align-items:center;gap:12px;margin:0 0 14px;flex-wrap:wrap}
+.pbs-back .pbs-crumb{margin:0}
+.pbs-mh .pbs-back{margin:0}
+.pbs-th-sort{border:0;background:none;padding:0;font:inherit;color:inherit;cursor:pointer;white-space:nowrap}
+.pbs-th-sort:hover{color:var(--p-dk)}
 .pbs-crumb button{border:0;background:none;padding:0;color:var(--p-dk);font:inherit;cursor:pointer}
 .pbs-mh{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin:0 0 20px;flex-wrap:wrap}
 .pbs-h1{font-size:22px;font-weight:700;letter-spacing:-.02em;margin:0;line-height:1.25}

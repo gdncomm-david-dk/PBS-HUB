@@ -98,7 +98,7 @@ const assert = (c, m) => { if (!c) { console.log("FAIL", m); process.exitCode = 
 
   // No evidence.
   await go("c=ReportDetail&r=REP-20865");
-  assert(await p.getByText(/Menunggu bukti sejak/).isVisible(), "no-evidence column text");
+  assert(await p.getByText(/Menunggu AI Report sejak/).isVisible(), "no-evidence column text");
   assert(await p.getByRole("button", { name: "Approve Without Evidence" }).isDisabled(), "approve-without-evidence needs a comment");
   await shot("f-noevidence");
 
@@ -154,15 +154,29 @@ const assert = (c, m) => { if (!c) { console.log("FAIL", m); process.exitCode = 
   assert((await p.getByRole("dialog").count()) === 0, "popup closes after ok");
   assert(await p.getByText("Keputusan tersimpan: report disetujui.").isVisible(), "list shows success banner");
 
+  // Detail screens have a visible Back button.
+  for (const q of ["c=ReportDetail&r=REP-20862", "c=HostDetail&h=HST-001"]) {
+    await go(q);
+    await p.getByRole("button", { name: "Back", exact: true }).click();
+    assert((await payloads()).some((x) => x.action === "BACK"), `Back button fires BACK (${q})`);
+  }
+  // Aging column sorts desc/asc.
+  await go("c=ReportReview");
+  await p.getByRole("button", { name: /^Aging/ }).click();
+  const agingFirst = ((await p.locator("tbody tr").first().textContent()).match(/REP-\d+/) || [""])[0];
+  await p.getByRole("button", { name: /^Aging/ }).click();
+  const agingLast = ((await p.locator("tbody tr").first().textContent()).match(/REP-\d+/) || [""])[0];
+  assert(agingFirst !== agingLast && (await p.inputValue("select[aria-label=Urutkan]")) === "aging_asc", `Aging header toggles desc/asc (${agingFirst} → ${agingLast})`);
+
   // Report Review: title, no escalation, newest first by default, Terlama dulu flips it.
   await go("c=ReportReview");
   assert((await p.getByRole("heading", { name: "Report Review" }).count()) === 1 && (await p.getByRole("button", { name: /Eskalasi|Escalate/ }).count()) === 0, "Report Review title, no escalation button");
   const firstRep = async () => ((await p.locator("tbody tr").first().textContent()).match(/REP-\d+/) || [""])[0];
   const newest = await firstRep();
-  await p.selectOption("select[aria-label=Urutkan]", "oldest");
+  await p.selectOption("select[aria-label=Urutkan]", "date_asc");
   await p.waitForTimeout(100);
   const oldest = await firstRep();
-  assert(newest !== oldest && (await p.inputValue("select[aria-label=Urutkan]")) === "oldest", `sort order flips the list (${newest} → ${oldest})`);
+  assert(newest !== oldest && (await p.inputValue("select[aria-label=Urutkan]")) === "date_asc", `sort order flips the list (${newest} → ${oldest})`);
 
   // Popup "Lihat detail" goes to the report screen.
   await go("c=ReportReview");
@@ -174,7 +188,7 @@ const assert = (c, m) => { if (!c) { console.log("FAIL", m); process.exitCode = 
   // New columns and the corrected report (Waiting Approval Revision) in the waiting queue.
   await go("c=ReportReview");
   const heads = await p.locator("thead th").allInnerTexts();
-  assert(["Rep ID", "Schedule ID", "Tanggal & jam live", "Playbook", "Status", "Menunggu"].every((h) => heads.includes(h)) && !heads.includes("Status review"), "list headers: Rep ID, Schedule ID, Jam live, Playbook, Status");
+  assert(["Rep ID", "Schedule ID", "Tanggal & jam live", "Playbook", "Status"].every((h) => heads.includes(h)) && heads.some((h) => h.startsWith("Aging")) && !heads.includes("Status review"), "list headers: Rep ID, Schedule ID, Jam live, Playbook, Status");
   const revRow = p.locator("tbody tr", { hasText: "SCD-3225" });
   assert((await revRow.count()) === 1 && (await revRow.getByText("Waiting Approval Revision").isVisible()), "Waiting Approval Revision report is in the Menunggu review tab");
   assert(await revRow.getByText("10:00–12:00").isVisible(), "live window looked up from the schedule");

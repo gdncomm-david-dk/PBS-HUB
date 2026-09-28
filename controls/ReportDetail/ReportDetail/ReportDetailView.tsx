@@ -22,11 +22,11 @@ import {
 } from "../../../shared/reportUi";
 import {
   Button,
-  Icon,
   InfoBanner,
   Pill,
   ResultBanner,
   Skeleton,
+  BackButton,
 } from "../../../shared/ui";
 
 export interface ReportDetailProps {
@@ -93,17 +93,7 @@ export function ReportDetailView(props: ReportDetailProps): React.ReactElement {
 }
 
 function BackLink(props: { onBack: () => void }): React.ReactElement {
-  return (
-    <div className="pbs-crumb" style={{ marginBottom: 12 }}>
-      <button
-        type="button"
-        onClick={props.onBack}
-        style={{ display: "inline-flex", alignItems: "center", gap: 6 }}
-      >
-        <Icon name="arrowLeft" size={14} /> Report Review
-      </button>
-    </div>
-  );
+  return <BackButton onClick={props.onBack} crumb="Report Review" />;
 }
 
 function Detail(

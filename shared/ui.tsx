@@ -841,7 +841,7 @@ export function byTime<T>(
   };
 }
 
-/** Urutkan: Terbaru dulu / Terlama dulu, as a filter-bar chip. */
+/** Urutkan: Terbaru (desc) / Terlama (asc), as a filter-bar chip. */
 export function SortSelect(props: {
   value: SortOrder;
   onChange: (v: SortOrder) => void;
@@ -854,10 +854,25 @@ export function SortSelect(props: {
         aria-label="Urutkan"
         onChange={(e) => props.onChange(e.target.value as SortOrder)}
       >
-        <option value="newest">Terbaru dulu</option>
-        <option value="oldest">Terlama dulu</option>
+        <option value="newest">Terbaru (desc)</option>
+        <option value="oldest">Terlama (asc)</option>
       </select>
       <Icon name="chevronDown" size={14} />
     </label>
+  );
+}
+
+/** Visible Back button at the top of a detail screen (fires the control's BACK action). */
+export function BackButton(props: {
+  onClick: () => void;
+  crumb?: React.ReactNode;
+}): React.ReactElement {
+  return (
+    <div className="pbs-back">
+      <Button variant="secondary" size="sm" onClick={props.onClick}>
+        <Icon name="arrowLeft" size={14} /> Back
+      </Button>
+      {props.crumb ? <span className="pbs-crumb">{props.crumb}</span> : null}
+    </div>
   );
 }

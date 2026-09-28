@@ -10,7 +10,7 @@
     <Descriptions>
       <Description description="PBS Hub Host app, all seven code components (pbs_HostApp.*): Hari ini (HostDashboard), Report saya (MyReports), kirim / revisi report (MyReportDetail), Clock in (ClockIn), Jadwal saya (MySchedule), Detail sesi (ScheduleDetail), Skor saya (CreditScore). Replaces PBSHubHostPCF and PBSHubHostSchedulePCF." languagecode="1033" />
     </Descriptions>
-    <Version>1.0.9.0</Version>
+    <Version>1.0.10.0</Version>
     <!-- Solution Package Type: Unmanaged(0)/Managed(1)/Both(2)-->
     <Managed>2</Managed>
     <Publisher>
