@@ -108,7 +108,7 @@
         if (r.Position.Value === "Co-Host" && i % 2 === 0) return; // the main host reports
         var gmv = 4000000 + ((i * 7919) % 26) * 1000000;
         var appr = i % 6 === 0 ? "Waiting Approval" : i % 7 === 0 ? "Waiting Approval Revision" : i % 11 === 0 ? "Need Revision" : "Done";
-        reports.push({ ID: 2000 + i, Title: "REP-" + r.ID, ScheduleID: r.Title, HostID: r.HostID, AccountID: r.Account, Platform: r.Platform, LiveDate: r.Date, Penjualan: gmv, Pesanan: Math.round(gmv / 95000), TotalViewer: 3000 + (i * 37) % 9000, Durasi_x0028_Min_x0029_0: r.JamLive * 60, ApprovalStatus: { Value: appr }, Match: { Value: i % 13 === 0 ? "Unmatch" : "Match" }, ApprovalComment: appr === "Need Revision" ? "Screenshot tidak terbaca" : "" });
+        reports.push({ ID: 2000 + i, Title: "REP-" + r.ID, ScheduleID: r.Title, HostID: r.HostID, AccountID: r.Account, Platform: r.Platform, LiveDate: r.Date, Penjualan: gmv, Pesanan: Math.round(gmv / 95000), TotalViewer: 3000 + (i * 37) % 9000, Durasi_x0028_Min_x0029_0: r.JamLive * 60, ApprovalStatus: { Value: appr }, Match: { Value: i % 13 === 0 ? "Unmatch" : "Match" }, ApprovalComment: appr === "Need Revision" ? "Screenshot tidak terbaca" : "", Attachment: i % 4 === 3 ? "" : "https://example.sharepoint.com/sites/pbs/Report/REP-" + r.ID + "_" + r.Platform.Value + ".png\nhttps://example.sharepoint.com/sites/pbs/Report/REP-" + r.ID + "_dashboard.png" });
         // Report Automation is joined by Title (REP-xxx = REP-xxx); it carries no ScheduleID here.
         var off = i % 4 === 1;
         if (i % 5 !== 2) evidence.push({ ID: 3000 + i, Title: "REP-" + r.ID, Status: { Value: off ? "Unmatch" : "Match" }, Penjualan: off ? Math.round(gmv * 0.8) : gmv, Pesanan: Math.round(gmv / 95000) - (off ? 3 : 0), TotalViewer: 3000 + (i * 37) % 9000, StartHour: r.StartTime, EndHour: r.EndTime });
@@ -228,14 +228,6 @@
                     var ids = p.scheduleIds || [];
                     schedules = schedules.filter(function (s) { return ids.indexOf(s.Title) < 0; });
                     reply(req.requestId, "ok", ids.length + " jadwal dihapus.", {});
-                });
-                return;
-            case "OPEN_ATTACHMENTS":
-                later(400, function () {
-                    reply(req.requestId, "ok", "", {
-                        
-                        reports: (p.reportIds || []).map(function (id) { return { reportId: id, files: [{ name: id + "_TikTok_ACC-01.png", url: "https://example.com/" + id + ".png" }] }; })
-                    });
                 });
                 return;
             case "REMIND_HOST":

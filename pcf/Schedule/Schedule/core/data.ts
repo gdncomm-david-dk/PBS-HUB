@@ -2,6 +2,7 @@
 // Column lookup is tolerant: internal name, display name and alias all match, case-insensitively,
 // because SharePoint internal names drift from display names (see the v2 data contract §2).
 
+import { linksFrom } from "./attachments";
 import { AbsenceRow, AccountRow, BrandRow, ClockRow, EvidenceRow, HostRow, ModuleContext, ReportRow, ScheduleRow, StudioRow } from "./types";
 import { parseDateKey, parseTimeToMinutes } from "./time";
 
@@ -419,6 +420,7 @@ export function mapReports(recs: RawRecord[]): ReportRow[] {
             approvalComment: toText(r.get(["ApprovalComment", "Approval Comment"])),
             approverEmail: toText(r.get(["ApproverEmail", "Approver Email", "Approver"])),
             createdText: toText(r.get(["CreatedDate", "Created"])),
+            attachments: linksFrom(r.get(["Attachment", "Attachments", "AttachmentUrl", "Attachment URL", "Lampiran"])),
         });
     }
     return out;

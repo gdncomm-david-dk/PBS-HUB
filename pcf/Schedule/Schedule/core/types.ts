@@ -90,6 +90,7 @@ export interface ReportRow {
     approvalComment: string;
     approverEmail: string;
     createdText: string;
+    attachments: { name: string; url: string }[];   // Attachment column (hyperlink / image / URL text)
 }
 
 export interface AbsenceRow {
@@ -151,7 +152,6 @@ export type ActionName =
     | "REFRESH"
     | "BULK_CREATE_SCHEDULE"
     | "BULK_DELETE_SCHEDULE"
-    | "OPEN_ATTACHMENTS"
     | "NAV_SESSION_DETAIL";
 
 export interface ActionResult {

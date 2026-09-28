@@ -6,7 +6,7 @@ for the Studio screens and part C for the Schedule screen.
 | Control | Display name | Solution (managed) | Version | Screens |
 |---|---|---|---|---|
 | `pbs_Ops.StudioHub` | PBS Studio Hub | `releases/PBSStudioHub_managed_1.7.0.zip` (`PBSStudioHub`) | 1.7.0 | Studio list, Studio detail |
-| `pbs_Ops.Schedule` | PBS Schedule | `releases/PBSSchedule_managed_1.4.2.zip` (`PBSSchedule`) | 1.4.2 | Schedule board, session detail, create/edit, bulk & AI upload |
+| `pbs_Ops.Schedule` | PBS Schedule | `releases/PBSSchedule_managed_1.4.3.zip` (`PBSSchedule`) | 1.4.3 | Schedule board, session detail, create/edit, bulk & AI upload |
 
 Neither control writes to SharePoint. Each one emits an `ActionPayload` `{ action, requestId, payload }`; the
 canvas app does the `Patch` and replies through `ActionResult` with the same `requestId`. Until that reply
@@ -237,7 +237,7 @@ These are display metrics. Nothing that money depends on is computed in the cont
 
 ---
 
-# C. PBS Schedule (`pbs_Ops.Schedule` 1.4.2)
+# C. PBS Schedule (`pbs_Ops.Schedule` 1.4.3)
 
 The control renders the **Schedule board (S-1)** as a calendar (week × brand lanes, or studio lanes) or a list, grouped by brand and sorted by start time,, and the
 **session detail (S-2)** with the seven-step evidence chain. It also provides three ways to create schedules:
@@ -281,7 +281,7 @@ lists which IDs are unmatched — that means the `brands`/`hosts` dataset is not
 | `accounts` | `Account - PBS Hub` | `'Account - PBS Hub'` |
 | `studios` | `Studio - PBS Hub` | `'Studio - PBS Hub'` |
 | `hosts` | `Host - PBS Hub` | `ShowColumns('Host - PBS Hub', ID, Title, NamaHost, HostName, Status)` (add `HostID` if the list has it) — **never bind the whole list** (KTP, NoRekening) |
-| `reports` | `Report - PBS Hub` | `Filter('Report - PBS Hub', LiveDate >= varSchedStart && LiveDate <= varSchedEnd)`. Fields: `ID`, `Title`, `ScheduleID`, `AccountID`, `Platform`, `Penjualan`, `Pesanan`, `TotalViewer`, durasi, `ApprovalStatus`, `Match`, `ApprovalComment`, `ApproverEmail` |
+| `reports` | `Report - PBS Hub` | `Filter('Report - PBS Hub', LiveDate >= varSchedStart && LiveDate <= varSchedEnd)`. Fields: `ID`, `Title`, `ScheduleID`, `AccountID`, `Platform`, `Penjualan`, `Pesanan`, `TotalViewer`, durasi, `ApprovalStatus`, `Match`, `ApprovalComment`, `ApproverEmail`, `Attachment` |
 | `absences` | `Host Absence - PBS Hub` | `Filter('Host Absence - PBS Hub', LiveDate >= varSchedStart && LiveDate <= varSchedEnd)` |
 | `clockins` | `Clock In - PBS Hub` | `ShowColumns(Filter('Clock In - PBS Hub', ClockInDate >= varSchedStart && ClockInDate <= varSchedEnd), Title, HostID, ClockInDate, CheckInTime, CheckOutTime, ClockInTime, ClockOutTime, IsInsideGeofence, CheckInOffice, Status)` — never bind GPS or selfie columns |
 | `evidence` | `Report Automation - PBS Hub` | `Filter('Report Automation - PBS Hub', LiveDate >= varSchedStart && LiveDate <= varSchedEnd)`. Fields: `ID`, `Title` (= `Report.Title`, e.g. `REP-120`), `Status` (Match / Unmatch), `Penjualan`, `Pesanan`, `TotalViewer`, durasi, `StartHour`, `EndHour` |
@@ -368,7 +368,6 @@ keeps its `ID`, so SharePoint knows which item to change. Keep in mind:
 - If they are **collections** (`ClearCollect`), re-collect them after a write (for example after `Refresh(...)`),
   otherwise the next action reads stale rows. Named formulas (App › Formulas) update by themselves.
 - `REVIEW_REPORT` still patches `'Report Automation - PBS Hub'` directly (no filtered table for it).
-- Exception: `OPEN_ATTACHMENTS` reads `'Report - PBS Hub'` by `ID`. Filtered tables and collections do not carry `Attachments` (*The specified column is not accessible in this context*).
 
 `varSiteID` and `varDriveID` are the site and drive IDs your current Graph upload already uses
 (the `PBS Power Apps` library on `sites/StudioTeamBlibli`).
@@ -466,22 +465,6 @@ If(rid <> varLastSchedRid,
                 Refresh('Schedule - PBS Hub'); true,
                 Set(varSchedOk, false); Set(varSchedErr, FirstError.Message)),
 
-        // Detail › Lampiran. The control cannot read SharePoint attachments, so the canvas replies with the
-        // file links; the control lists them and opens the one the user picks (see C4c).
-        "OPEN_ATTACHMENTS",
-            // Attachments live on the Report items. They exist only on records read straight from the list,
-            // so each report is looked up by the SharePoint ID the control sends, not in reportFiltered.
-            IfError(
-                Set(varSchedResult, JSON({
-                    requestId: rid, status: "ok", message: "",
-                    data: {
-                        reports: ForAll(Table(p.reportItemIds) As x,
-                            With({ r: LookUp('Report - PBS Hub', ID = Value(x.Value)) },
-                                { reportId: r.Title,
-                                  files: ForAll(r.Attachments As a, { name: a.DisplayName, url: a.AbsoluteUri }) }))
-                    } }, JSONFormat.Compact)); true,
-                Set(varSchedOk, false); Set(varSchedErr, FirstError.Message)),
-
         "REFRESH",
             // "Muat ulang" button: reload every list the control is bound to.
             Refresh('Schedule - PBS Hub'); Refresh('Report - PBS Hub'); Refresh('Report Automation - PBS Hub'),
@@ -507,176 +490,24 @@ If(rid <> varLastSchedRid,
     );   // ← this closes Switch. Keep it OUTSIDE any /* comment */, or the reply below never runs.
     // Reply for everything else, and for an upload that failed (a good upload already replied above).
     If(action in ["CREATE_SCHEDULE", "EDIT_SCHEDULE", "DELETE_SCHEDULE", "BULK_CREATE_SCHEDULE", "BULK_DELETE_SCHEDULE", "REVIEW_REPORT", "REMIND_HOST"]
-            || (action in ["UPLOAD_SCHEDULE_FILE", "OPEN_ATTACHMENTS"] && !varSchedOk),
+            || (action = "UPLOAD_SCHEDULE_FILE" && !varSchedOk),
         Set(varSchedResult, JSON({
             requestId: rid, status: If(varSchedOk, "ok", "error"),
             message: If(varSchedOk, varSchedMsg, varSchedErr), data: { scheduleId: varSchedId } }, JSONFormat.Compact)))
 )))
 ```
 
-### C4c. Lampiran (`OPEN_ATTACHMENTS`)
+### C4c. Lampiran report (no handler)
 
-**Lampiran report** in the session detail opens a dialog inside the control. Attachments live on the **Report**
-items only; the button is disabled while a session has no report (including Live Break and Co-Host). It sends `OPEN_ATTACHMENTS` and waits up to
-30 seconds for the reply built in C4. Nothing else is needed on the screen: no popup, no gallery.
+**Lampiran report** in the session detail lists the links stored in the Report list's **`Attachment`** column
+(multiple lines of text) for every report of the session, with **Buka** to open each one in a new tab. The control
+reads the column straight from the `reports` dataset, so `OnChange` needs no branch for it.
 
-- `data.reports`: one entry per report of the session, looked up by the `reportItemIds` the control sends.
-- **Buka** opens `AbsoluteUri` in a new tab.
-
-The branch looks each report up in the SharePoint list by `ID` (`p.reportItemIds`), because
-`Attachments` is only available on records read straight from the list. `scheduleFiltered` / `reportFiltered`
-give *The specified column is not accessible in this context* here. One `LookUp` by `ID` per report is delegable.
-
-If the dialog says *Aplikasi belum membalas*, the `OPEN_ATTACHMENTS` branch is missing from `OnChange`. If it shows
-a Power Apps error instead, the branch ran but failed. Check that the `reports` dataset carries `ID`,
-so the control can send the report item IDs.
-
-**Which flow starts how.** PBS0002A (AI) starts on *When a file is created*, so the upload alone is enough.
-PBS0001A (bulk) has a Power Apps trigger (that is why `.Run()` compiles): without the `.Run()` the file lands in
-the folder but no schedules are created. The upload branch sets `varSchedResult` **before** the `.Run()`, so the
-dialog shows *Terunggah* right away. If the dialog still waits for the flow, remove *Respond to a PowerApp* from
-PBS0001A so `.Run()` returns at once.
-
-**The reply must always be set.** The control waits for `varSchedResult` with its own `requestId`. If
-`"UPLOAD_SCHEDULE_FILE"` is missing from the `If(action in [...])` list, or `ActionResult` is not
-`varSchedResult`, the upload and the flow still succeed but the dialog shows *belum dikonfirmasi*
-after 3 minutes.
-
-### Auto update after a flow writes the list
-
-The control shows what its datasets hold. Canvas apps do not get pushed changes from SharePoint, so rows
-that PBS0001A / PBS0002A (or anyone else) create appear only after a `Refresh`. Three ways, from simple to
-automatic:
-
-1. **Muat ulang** button in the control header (action `REFRESH` above).
-2. The `Refresh('Schedule - PBS Hub')` at the end of an upload. It can come before the flow has finished.
-3. A hidden Timer on the Schedule screen that keeps refreshing while the screen is open:
-
-```powerfx
-// tmrSchedRefresh
-Duration:  30000            // 30 s; SharePoint throttles below ~15 s
-Repeat:    true
-AutoStart: true
-Visible:   false
-OnTimerEnd: Refresh('Schedule - PBS Hub')
-```
-
-A refresh does not reset the control: the filter, the open session and any open dialog stay as they are.
-
-The control stays locked until its own `requestId` comes back. It waits 30 seconds for a save and
-3 minutes per uploaded file. An upload that gets no reply in time is marked *Terkirim, belum dikonfirmasi*
-(yellow), not *Gagal*: the file usually did arrive. A reply that comes later still shows as a banner.
-
-### C4a. The upload body — test this first
-
-The control reads each file in the browser and sends it as **base64** (`p.contentBase64`, plus `p.mimeType`,
-`p.sizeBytes`, `p.fileName`). Your current upload is:
-
-```powerfx
-ForAll(Attachments.Attachments,
-    Office365Groups.HttpRequest(
-        "https://graph.microsoft.com/v1.0/sites/" & varSiteID & "/drives/" & varDriveID & "/root:/" & varFolder & "/" & ThisRecord.Name & ":/content",
-        "PUT", ThisRecord.Value));
-Reset(Attachments);
-```
-
-The handler keeps that exact Graph call; only two things change. `ThisRecord.Name` becomes `p.fileName` (already
-prefixed `ddMMyyHHmmss_`) and `varFolder` becomes `p.folder` (`bulkFolder` / `aiFolder` from Context). The
-difference is the body: `ThisRecord.Value` is a file object from the Attachments control, and a code component
-cannot create one — it can only hand canvas text. No `ForAll` is needed; the control sends one file per request.
-
-- **A — keep the Graph call in canvas** (above): pass the data URI
-  `"data:<mime>;base64,<content>"` as the body. Canvas converts a data URI into bytes for file parameters, but
-  **this has not been tested on your tenant**. Try it with one small file and open the result in the library.
-  If the file opens, you are done. If it contains the `data:` text, or Excel says it is damaged, use B.
-- **B — move the same Graph call into a flow** (always works): create a flow with a *PowerApps (V2)* trigger
-  and three text inputs, `folder`, `fileName` and `contentBase64`. Give it one action,
-  *Office 365 Groups → Send an HTTP request V2*, `PUT` to the same URL, with body
-  `base64ToBinary(triggerBody()['text_2'])` (or *SharePoint → Create file* with the same
-  `base64ToBinary`). In the handler above, replace `Office365Groups.HttpRequest(...)` with
-  `PBSUploadScheduleFile.Run(Text(p.folder), Text(p.fileName), Text(p.contentBase64))`.
-
-File names are `ddMMyyHHmmss_<original name>`, the same prefix as your `Text(Now(), "ddmmyyhhmmss_")`
-(Power Fx `hh` is already 24-hour when the format has no AM/PM).
-
-### C4b. Keep your current Attachments upload (`uploadMode: "canvas"`)
-
-If you would rather not change the upload at all, set `uploadMode: "canvas"` in `Context.config`. The
-**Upload massal** and **AI Schedule** buttons then only emit `OPEN_UPLOAD` (`p.kind` = `BULK` or `AI`) and your
-existing popup does the work. You lose the control's row check before upload; everything else stays.
-
-Add this branch to the `Switch` in `OnChange` (no `ActionResult` reply is needed):
-
-```powerfx
-        "OPEN_UPLOAD",
-            If(Text(p.kind) = "BULK",
-                Set(varPopUpAddScheduleAutomate, true),      // bulk popup with Attachments
-                Set(varPopUpAddScheduleAutomateAI, true)),   // AI popup with Attachments_1
-```
-
-Your bulk button can stay as it is, with two small fixes:
-
-```powerfx
-Set(varIsProcessingBulk, true);
-If(CountRows(Attachments.Attachments) = 0,
-    Notify("Please attach Excel/CSV file", NotificationType.Error, 3000);
-    Set(varIsProcessingBulk, false);
-    Exit());
-
-Set(varIdentifierBulk, Text(Now(), "ddmmyyhhmmss_"));
-// 1. Remember the names before Reset(Attachments) clears them (the Notify below read an empty list).
-ClearCollect(colBulkFiles, ForAll(Attachments.Attachments, { Name: varIdentifierBulk & ThisRecord.Name }));
-
-ForAll(Attachments.Attachments,
-    Office365Groups.HttpRequest(
-        "https://graph.microsoft.com/v1.0/sites/" & varSiteID & "/drives/" & varDriveID &
-            "/root:/Bulk Schedule/" & varIdentifierBulk & ThisRecord.Name & ":/content",
-        "PUT", ThisRecord.Value));
-
-// 2. One flow run per file. Today only the first file is processed; the others are uploaded but never read.
-ForAll(colBulkFiles, 'PBS0001A-CreateAutomatedSchedule[AIPowered]'.Run(Name));
-
-Notify("✅ Bulk upload started: " & Concat(colBulkFiles, Name, ", "), NotificationType.Success, 8000);
-Reset(Attachments);
-Set(varPopUpAddScheduleAutomate, false);
-Set(varIsProcessingBulk, false);
-Refresh('Schedule - PBS Hub');   // the control's schedules dataset reloads from the list
-```
-
-The AI Schedule button works the same way, with `Attachments_1` and the `Schedule AI Automation` folder.
-It calls no flow: PBS0002A starts on its own when the file lands in the folder.
-
-```powerfx
-Set(varIsProcessingBulk, true);
-If(CountRows(Attachments_1.Attachments) = 0,
-    Notify("Please attach PDF file", NotificationType.Error, 3000);
-    Set(varIsProcessingBulk, false);
-    Exit());
-
-Set(varIdentifierBulk, Text(Now(), "ddmmyyhhmmss_"));
-// Remember the names before Reset(Attachments_1) clears them.
-ClearCollect(colAiFiles, ForAll(Attachments_1.Attachments, { Name: varIdentifierBulk & ThisRecord.Name }));
-
-ForAll(Attachments_1.Attachments,
-    Office365Groups.HttpRequest(
-        "https://graph.microsoft.com/v1.0/sites/" & varSiteID & "/drives/" & varDriveID &
-            "/root:/Schedule AI Automation/" & varIdentifierBulk & ThisRecord.Name & ":/content",
-        "PUT", ThisRecord.Value));
-
-Notify("✅ AI Schedule started: " & Concat(colAiFiles, Name, ", ") & Char(10) &
-    "Jadwal muncul setelah PBS0002A selesai", NotificationType.Success, 8000);
-Reset(Attachments_1);
-Set(varPopUpAddScheduleAI, false);
-Set(varPopUpAddScheduleAutomateAI, false);
-Set(varPopUpAddScheduleConfirmationAI, false);
-Set(varPopUpAddScheduleOption, false);
-Set(varIsProcessingBulk, false);
-Refresh('Schedule - PBS Hub');
-```
-
-`Refresh('Schedule - PBS Hub')` replaces `ClearCollect(colSchedule, ...)` for the control: it binds to the list
-directly. The flow may still be writing rows, so the refresh can come too early; the board updates on the
-next refresh.
+- Add `Attachment` to the `reports` dataset: **Fields → Edit**, and to `reportFiltered` if it uses `ShowColumns`.
+- Every `https://…` in the text becomes one file: one link per line, links separated by `;` or `,`, rich text
+  (`<a href>`) and JSON (a Hyperlink or Image value) all work. The file name is the last part of the URL.
+- Text without a full `https://` URL (only a file name, or a `/sites/...` path) is not shown.
+- The button is disabled while a session has no report (including Live Break and Co-Host).
 
 ## C5. What the control checks (v1 checked none of this)
 
@@ -722,7 +553,7 @@ file was uploaded.
 | Upload dialog: *Aplikasi tidak membalas dalam 180 detik* / *belum dikonfirmasi*, but the file and the flow are fine | The reply (`varSchedResult`) is never set (the final `If(action in [...])` block commented out or missing), or set after `PBS0001A….Run()` | Use the C4 handler: upload branch sets the message only, `.Run()` at the bottom after the reply. Check that `"UPLOAD_SCHEDULE_FILE"` is in the `If(action in [...])` list and that `ActionResult` = `varSchedResult` |
 | Upload works, but the reply never comes (or only REVIEW_REPORT replies) | The `)` that closes `Switch(` sits inside a `/* … */` comment, so the reply block became part of the last Switch branch | Keep `);` after the last branch outside any comment (C4) |
 | Schedule opens a session detail straight away instead of the list | Before Schedule 1.4.0 the bound `SelectedScheduleId` reopened the last session on return | Import 1.4.0: the control always starts on the list |
-| Lampiran: *Aplikasi belum membalas*, or an error in the dialog | No reply: the `OPEN_ATTACHMENTS` branch is missing. *Column is not accessible*: the branch reads `Attachments` from a filtered table | Use the C4 branch, which looks items up in the list by `ID` |
+| Lampiran report says *belum punya lampiran* although the report has links | `Attachment` is not in the `reports` dataset (or `reportFiltered`), or the text holds no full `https://` URL | Add `Attachment` under **Fields → Edit** (C4c) |
 | Bulk Duplikat / Hapus shows *tidak membalas* | `BULK_CREATE_SCHEDULE` / `BULK_DELETE_SCHEDULE` are missing from the Switch or from the reply list | Add both branches and both names as in C4 |
 | New schedules from a flow do not appear | Canvas apps are not pushed SharePoint changes | Press **Muat ulang**, or add the Timer in C4 *Auto update* |
 | Bulk: notification OK and file in *Bulk Schedule*, but no schedules | `PBS0001A….Run()` was removed; the flow has a Power Apps trigger | Keep the `.Run()` at the bottom of the C4 handler |
