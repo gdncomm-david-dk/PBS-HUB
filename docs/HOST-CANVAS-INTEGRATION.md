@@ -512,7 +512,7 @@ Set(varCkLoading, false)
 | `Context` | `varHostCtx` |
 | `HostJson` | `JSON(ForAll(Table(varMe), {Title: Title, NamaHost: NamaHost, Email: Email.Email}), JSONFormat.Compact)` |
 | `LocationsJson` | `JSON(ForAll(colCkLoc, {Title: Title, LocationID: LocationID, Latitude: Latitude, Longitude: Longitude, RadiusMeter: RadiusMeter, IsActive: IsActive}), JSONFormat.Compact)` |
-| `ClockInJson` | `JSON(ForAll(colCkClk, {ID: ID, Title: Title, HostID: HostID, ClockInDate: Text(ClockInDate, "yyyy-mm-dd"), CheckInTime: CheckInTime, CheckOutTime: CheckOutTime, ClockOutDate: Text(ClockOutDate, "yyyy-mm-dd"), ClockInTime: ClockInTime, CheckInOffice: CheckInOffice, Reason: Reason}), JSONFormat.Compact)` |
+| `ClockInJson` | `JSON(ForAll(colCkClk, {ID: ID, Title: Title, HostID: HostID, ClockInDate: Text(ClockInDate, "yyyy-mm-dd"), CheckInTime: CheckInTime, CheckOutTime: CheckOutTime, ClockOutDate: Text(ClockOutDate, "yyyy-mm-dd"), ClockInTime: ClockInTime, ClockOutTime: ClockOutTime, CheckInOffice: CheckInOffice, Reason: Reason}), JSONFormat.Compact)` |
 | `SchedulesJson` | `JSON(ForAll(colCkSch, {Title: Title, Date: Text(Date, "yyyy-mm-dd"), StartTime: StartTime, EndTime: EndTime, HostID: HostID, Status: Status.Value}), JSONFormat.Compact)` — untuk `ScheduleCount` (sesi *Cancelled* tidak dihitung) |
 | `ReportsJson` | `JSON(ForAll(colCkRep, {Title: Title, ScheduleID: ScheduleID, HostID: HostID, LiveDate: Text(LiveDate, "yyyy-mm-dd")}), JSONFormat.Compact)` — untuk `TotalReports` saat clock out |
 | `DeviceLocationJson` | `JSON({Latitude: Location.Latitude, Longitude: Location.Longitude}, JSONFormat.Compact)` — cadangan kalau browser/WebView menolak GPS; akurasinya tidak diketahui |

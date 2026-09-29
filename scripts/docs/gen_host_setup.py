@@ -500,7 +500,7 @@ Set(varCkLoading, false)"""
         ("Context", "varHostCtx", ""),
         ("HostJson", HOST, ""),
         ("LocationsJson", js("colCkLoc", "{Title: Title, LocationID: LocationID, Latitude: Latitude, Longitude: Longitude, RadiusMeter: RadiusMeter, IsActive: IsActive}"), ""),
-        ("ClockInJson", js("colCkClk", '{ID: ID, Title: Title, HostID: HostID, ClockInDate: Text(ClockInDate, "yyyy-mm-dd"), CheckInTime: CheckInTime, CheckOutTime: CheckOutTime, ClockOutDate: Text(ClockOutDate, "yyyy-mm-dd"), ClockInTime: ClockInTime, CheckInOffice: CheckInOffice, Reason: Reason}'), ""),
+        ("ClockInJson", js("colCkClk", '{ID: ID, Title: Title, HostID: HostID, ClockInDate: Text(ClockInDate, "yyyy-mm-dd"), CheckInTime: CheckInTime, CheckOutTime: CheckOutTime, ClockOutDate: Text(ClockOutDate, "yyyy-mm-dd"), ClockInTime: ClockInTime, ClockOutTime: ClockOutTime, CheckInOffice: CheckInOffice, Reason: Reason}'), ""),
         ("SchedulesJson", js("colCkSch", '{Title: Title, Date: Text(Date, "yyyy-mm-dd"), StartTime: StartTime, EndTime: EndTime, HostID: HostID, Status: Status.Value}'), ""),
         ("ReportsJson", js("colCkRep", '{Title: Title, ScheduleID: ScheduleID, HostID: HostID, LiveDate: Text(LiveDate, "yyyy-mm-dd")}'), ""),
         ("DeviceLocationJson", "JSON({Latitude: Location.Latitude, Longitude: Location.Longitude}, JSONFormat.Compact)", "cadangan kalau GPS browser ditolak"),
