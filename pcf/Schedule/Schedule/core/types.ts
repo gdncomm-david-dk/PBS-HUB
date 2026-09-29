@@ -130,6 +130,8 @@ export interface EvidenceRow {
     durasiMin: number | null;
     startHour: string;
     endHour: string;
+    liveDateKey: string;       // Report Automation.LiveDate, "" when blank
+    fetched?: boolean;         // found by LOAD_EVIDENCE (Title lookup), not by the evidence dataset
 }
 
 export interface ModuleContext {
@@ -142,6 +144,7 @@ export interface ModuleContext {
 
 export type ActionName =
     | "SET_FILTER"
+    | "LOAD_EVIDENCE"
     | "CREATE_SCHEDULE"
     | "EDIT_SCHEDULE"
     | "DELETE_SCHEDULE"

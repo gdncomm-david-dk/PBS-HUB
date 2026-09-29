@@ -6,6 +6,8 @@ import { approvalKind, occupies } from "./data";
 import { dateKeyToDate, formatMinutes, shiftDay, toDateKey } from "./time";
 
 const low = (s: string): string => s.trim().toLowerCase();
+/** Title join key: case and spaces are ignored ("REP-2044 " and "rep-2044" are the same report). */
+const titleKey = (s: string): string => s.toLowerCase().replace(/\s+/g, "");
 
 export type ConflictKind = "host" | "studio" | "account";
 
@@ -141,7 +143,7 @@ export class Evidence {
         for (const a of absences) push(this.absences, low(a.scheduleId), a);
         for (const e of evidence) {
             if (e.scheduleId) push(this.evidence, low(e.scheduleId), e);
-            if (e.title) push(this.evidenceByTitle, low(e.title), e);
+            if (e.title) push(this.evidenceByTitle, titleKey(e.title), e);
         }
         for (const c of clocks) if (c.hostId) push(this.clocks, `${low(c.hostId)}|${c.dateKey}`, c);
     }
@@ -169,7 +171,7 @@ export class Evidence {
 
     /** Report Automation.Title = Report.Title. */
     evidenceForReport(r: ReportRow): EvidenceRow[] {
-        return r.reportId ? this.evidenceByTitle.get(low(r.reportId)) ?? [] : [];
+        return r.reportId ? this.evidenceByTitle.get(titleKey(r.reportId)) ?? [] : [];
     }
 
     /** Reports that are real submissions (a LiveBreak row is a placeholder). */

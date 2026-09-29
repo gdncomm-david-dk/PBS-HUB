@@ -501,6 +501,7 @@ export function mapEvidence(recs: RawRecord[]): EvidenceRow[] {
             durasiMin: toNum(r.get(C.durasi)),
             startHour: toText(r.get(["StartHour", "Start Hour"])),
             endHour: toText(r.get(["EndHour", "End Hour"])),
+            liveDateKey: parseDateKey(r.get(C.liveDate)),
         });
     }
     return out;

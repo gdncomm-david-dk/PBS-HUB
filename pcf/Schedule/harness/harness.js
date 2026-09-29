@@ -92,6 +92,7 @@
 
     // ------------------------------------------------------------------ evidence
     var reports = [], absences = [], clockins = [], evidence = [];
+    var outside = [];
     schedules.forEach(function (r, i) {
         var past = r.Date < todayKey || (r.Date === todayKey && r.Status.Value === "Finished");
         if (!past || r.Status.Value === "Cancelled") return;
@@ -117,6 +118,8 @@
         }
         // Report Automation is joined by Title (REP-xxx = REP-xxx); it carries no ScheduleID here.
         var off = i % 4 === 1;
+        // One OCR row whose LiveDate is outside the canvas filter: only LOAD_EVIDENCE finds it.
+        if (i % 5 !== 2 && !window.__outsideEvidence && !off && r.Title !== window.__multiReport) { window.__outsideEvidence = r.Title; outside.push({ ID: 3000 + i, Title: "REP-" + r.ID, Status: { Value: "Match" }, Penjualan: gmv, Pesanan: Math.round(gmv / 95000), TotalViewer: 3000 + (i * 37) % 9000, StartHour: r.StartTime, EndHour: r.EndTime, LiveDate: "2026-08-01" }); return; }
         if (i % 5 !== 2) evidence.push({ ID: 3000 + i, Title: "REP-" + r.ID, Status: { Value: off ? "Unmatch" : "Match" }, Penjualan: off ? Math.round(gmv * 0.8) : gmv, Pesanan: Math.round(gmv / 95000) - (off ? 3 : 0), TotalViewer: 3000 + (i * 37) % 9000, StartHour: r.StartTime, EndHour: r.EndTime });
     });
     clockins.push({ ID: 999, Title: "CI-live", HostID: live1.HostID, ClockInDate: todayKey, ClockInTime: live1.StartTime, IsInsideGeofence: true, CheckInOffice: "CWG-05", Status: { Value: "Clock In" } });
@@ -242,6 +245,14 @@
                 return;
             case "REMIND_HOST":
                 later(400, function () { reply(req.requestId, "ok", "Pengingat terkirim (contoh).", {}); });
+                return;
+            case "LOAD_EVIDENCE":
+                later(400, function () {
+                    var t = String(p.reportId || "").toLowerCase();
+                    var rows = evidence.concat(outside).filter(function (x) { return String(x.Title).toLowerCase() === t; })
+                        .map(function (x) { return { ID: x.ID, Title: x.Title, Status: x.Status.Value, Penjualan: x.Penjualan, Pesanan: x.Pesanan, TotalViewer: x.TotalViewer, StartHour: x.StartHour, EndHour: x.EndHour, LiveDate: x.LiveDate || "" }; });
+                    reply(req.requestId, "ok", "", { rows: rows });
+                });
                 return;
             case "SET_FILTER":
                 window.__filters = (window.__filters || 0) + 1;

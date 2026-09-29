@@ -1,4 +1,5 @@
 import { strToU8, zipSync } from "fflate";
+import { EvidenceRow, ReportRow } from "../Schedule/core/types";
 import { approvalKind, buildLookups, jsonRecords, mapAccounts, mapBrands, mapEvidence, mapHosts, mapReports, mapSchedules, mapStudios } from "../Schedule/core/data";
 import { applyFilters, conflictIndex, conflictsFor, Evidence, phaseOf, weekStart } from "../Schedule/core/schedule";
 import { buildTimeline } from "../Schedule/core/timeline";
@@ -97,7 +98,7 @@ describe("timeline", () => {
     });
     it("completes and locks the session once the report is approved", () => {
         const reports = mapReports(recs([{ Title: "RPT-1", ScheduleID: "SCD-9", Penjualan: 1500000, ApprovalStatus: "Done", Match: "Match" }]));
-        const ev = new Evidence(reports, [{ key: "a", absId: "ABS-1", scheduleId: "SCD-9", hostId: "HST-1", status: "Present", keterangan: "", dateKey: "2026-09-20" }], [], [{ key: "e", itemId: 7, title: "RPT-1", scheduleId: "SCD-9", status: "Match", penjualan: 1500000, pesanan: null, totalViewer: null, durasiMin: null, startHour: "10:00", endHour: "12:00" }]);
+        const ev = new Evidence(reports, [{ key: "a", absId: "ABS-1", scheduleId: "SCD-9", hostId: "HST-1", status: "Present", keterangan: "", dateKey: "2026-09-20" }], [], [{ key: "e", itemId: 7, title: "RPT-1", scheduleId: "SCD-9", status: "Match", penjualan: 1500000, pesanan: null, totalViewer: null, durasiMin: null, startHour: "10:00", endHour: "12:00", liveDateKey: "" }]);
         const steps = buildTimeline(s, ev, new Date(2026, 8, 22, 9, 0));
         expect(steps.map((x) => x.state)).toEqual(["done", "failed", "done", "done", "done", "done", "pending"]);
         expect(ev.isLocked(s)).toBe(true);
@@ -299,5 +300,17 @@ describe("live break, Co-Host and review", () => {
         expect(lines.find((l) => l.label === "Jam live")?.same).toBe(true);
         const steps = buildTimeline(s1, ev, now);
         expect(steps.find((x) => x.id === "verdict")?.when).toBe("Waiting Approval");
+    });
+});
+
+describe("Report Automation join by Title", () => {
+    const ev = (title: string): EvidenceRow => ({ key: title, itemId: 1, title, scheduleId: "", status: "Match", penjualan: 1, pesanan: null, totalViewer: null, durasiMin: null, startHour: "", endHour: "", liveDateKey: "" });
+    it("ignores case and stray spaces", () => {
+        const e = new Evidence([], [], [], [ev(" rep-2044 ")]);
+        expect(e.evidenceForReport({ reportId: "REP-2044" } as ReportRow)).toHaveLength(1);
+    });
+    it("keeps the second part of a split live separate", () => {
+        const e = new Evidence([], [], [], [ev("REP-2044"), ev("REP-2044-2")]);
+        expect(e.evidenceForReport({ reportId: "REP-2044" } as ReportRow).map((x) => x.title)).toEqual(["REP-2044"]);
     });
 });

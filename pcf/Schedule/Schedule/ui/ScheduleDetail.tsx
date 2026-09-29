@@ -31,6 +31,12 @@ export function ScheduleDetail(props: { env: Env; schedule: ScheduleRow; onBack:
         .sort(sortSessions);
     const samePg = usePaged(sameDay, s.key);
     const reports = env.ev.realReportsFor(s);
+    // Reports whose Report Automation row is not in the loaded evidence: look it up by Title once.
+    const missingEvidence = reports.filter((r) => r.reportId && env.ev.evidenceForReport(r).length === 0).map((r) => r.reportId);
+    const missingKey = missingEvidence.join("|");
+    React.useEffect(() => {
+        if (missingEvidence.length && !env.loading) void env.findEvidence(missingEvidence);
+    }, [missingKey, env.loading]);
 
 
     const remind = async (st: Step): Promise<void> => {

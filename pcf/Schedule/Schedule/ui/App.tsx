@@ -1,6 +1,6 @@
 import * as React from "react";
 import { AbsenceRow, AccountRow, ActionName, ActionResult, BrandRow, ClockRow, EvidenceRow, HostRow, ModuleContext, ReportRow, ScheduleRow, StudioRow } from "../core/types";
-import { buildLookups } from "../core/data";
+import { buildLookups, jsonRecords, mapEvidence } from "../core/data";
 import { conflictIndex, distinct, Evidence } from "../core/schedule";
 import { toDateKey } from "../core/time";
 import { Banner } from "./components";
@@ -108,7 +108,16 @@ export function App(props: AppProps): React.ReactElement {
         const s = lk.studios.get(id.toLowerCase());
         return s?.namaStudio ? `${s.namaStudio}` : id || "studio ?";
     }, [lk]);
-    const ev = React.useMemo(() => new Evidence(props.reports, props.absences, props.clocks, props.evidence), [props.reports, props.absences, props.clocks, props.evidence]);
+    // Report Automation rows found by Title lookup (LOAD_EVIDENCE) when the evidence dataset missed them,
+    // e.g. their LiveDate is blank or outside the loaded period.
+    const [extraEvidence, setExtraEvidence] = React.useState<EvidenceRow[]>([]);
+    const [evSearch, setEvSearch] = React.useState<Record<string, "searching" | "found" | "notfound" | "noreply">>({});
+    const allEvidence = React.useMemo(() => {
+        if (!extraEvidence.length) return props.evidence;
+        const known = new Set(props.evidence.map((e) => (e.itemId !== null ? `#${e.itemId}` : e.key)));
+        return [...props.evidence, ...extraEvidence.filter((e) => !known.has(e.itemId !== null ? `#${e.itemId}` : e.key))];
+    }, [props.evidence, extraEvidence]);
+    const ev = React.useMemo(() => new Evidence(props.reports, props.absences, props.clocks, allEvidence), [props.reports, props.absences, props.clocks, allEvidence]);
     const conflicts = React.useMemo(() => conflictIndex(schedules, lk.studios, studioName), [schedules, lk, studioName]);
 
     // Replies are matched to the waiting promise by requestId; stale or foreign replies are ignored.
@@ -155,6 +164,33 @@ export function App(props: AppProps): React.ReactElement {
     );
 
     const emit = React.useCallback((action: ActionName, payload: Record<string, unknown>) => void props.emit(action, payload), [props.emit]);
+
+    // One lookup per report and control session, one at a time (canvas handles one OnChange per payload).
+    const searched = React.useRef(new Set<string>());
+    const findEvidence = React.useCallback(
+        async (reportIds: string[]): Promise<void> => {
+            for (const id of reportIds) {
+                const k = id.trim().toLowerCase();
+                if (!k || searched.current.has(k)) continue;
+                searched.current.add(k);
+                setEvSearch((p) => ({ ...p, [k]: "searching" }));
+                const r = await request("LOAD_EVIDENCE", { reportId: id }, 20000);
+                if (r.status !== "ok") {
+                    setEvSearch((p) => ({ ...p, [k]: r.data.timeout ? "noreply" : "notfound" }));
+                    continue;
+                }
+                const rows = mapEvidence(jsonRecords(JSON.stringify(Array.isArray(r.data.rows) ? r.data.rows : [])) ?? []).map((e, i) => ({
+                    ...e,
+                    key: `fetched:${k}:${e.itemId ?? i}`,
+                    title: e.title || id,
+                    fetched: true,
+                }));
+                setExtraEvidence((p) => [...p, ...rows]);
+                setEvSearch((p) => ({ ...p, [k]: rows.length ? "found" : "notfound" }));
+            }
+        },
+        [request],
+    );
     const notify = React.useCallback((tone: "success" | "danger" | "warning", text: string) => setBanner({ tone, text }), []);
 
     const open = React.useCallback(
@@ -190,6 +226,8 @@ export function App(props: AppProps): React.ReactElement {
         notify,
         openUrl: props.openUrl,
         hide,
+        findEvidence,
+        evSearch,
     };
 
     const openRow = openId

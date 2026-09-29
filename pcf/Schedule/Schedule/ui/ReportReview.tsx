@@ -32,6 +32,7 @@ function OneReport(props: { env: Env; schedule: ScheduleRow; report: ReportRow }
     const { env, schedule: s, report: r } = props;
     const evs = env.ev.evidenceForReport(r);
     const e = evs[0] ?? null;
+    const search = env.evSearch[r.reportId.trim().toLowerCase()];
     const lines = compareReport(r, e, s);
     const diffs = lines.filter((l) => l.same === false);
     const aiUnmatch = !!e && /unmatch/i.test(e.status);
@@ -77,9 +78,27 @@ function OneReport(props: { env: Env; schedule: ScheduleRow; report: ReportRow }
 
             {!e ? (
                 <p className="sc-emptyline">
-                    Belum ada hasil AI dengan Title <span className="sc-mono">{r.reportId}</span> di Report Automation. Perbandingan muncul setelah OCR selesai.
+                    {search === "searching" ? (
+                        <>
+                            Mencari <span className="sc-mono">{r.reportId}</span> langsung di Report Automation…
+                        </>
+                    ) : search === "noreply" ? (
+                        <>
+                            <span className="sc-mono">{r.reportId}</span> tidak ada di data Report Automation yang dimuat, dan aplikasi belum menangani pencarian langsung (<span className="sc-mono">LOAD_EVIDENCE</span>, lihat SETUP C4).
+                        </>
+                    ) : (
+                        <>
+                            Belum ada hasil AI dengan Title <span className="sc-mono">{r.reportId}</span> di Report Automation. Perbandingan muncul setelah OCR selesai.
+                        </>
+                    )}
                 </p>
             ) : (
+                <>
+                {e.fetched && (
+                    <p className="sc-muted sc-small">
+                        Ditemukan lewat pencarian Title{e.liveDateKey && e.liveDateKey !== s.dateKey ? `; LiveDate di Report Automation ${e.liveDateKey}, jadwal ${s.dateKey}` : e.liveDateKey ? "" : "; LiveDate di Report Automation kosong"}.
+                    </p>
+                )}
                 <div className="sc-tablewrap">
                     <table className="sc-table sc-table--flat sc-vs">
                         <thead>
@@ -116,6 +135,7 @@ function OneReport(props: { env: Env; schedule: ScheduleRow; report: ReportRow }
                         </tbody>
                     </table>
                 </div>
+                </>
             )}
             {evs.length > 1 && <p className="sc-muted sc-small">{evs.length} baris Report Automation dengan Title ini; yang dibandingkan baris pertama.</p>}
 

@@ -64,6 +64,10 @@ export interface Env {
     openUrl: (url: string) => void;
     /** Hide rows the user just deleted until the bound data drops them. */
     hide: (rows: ScheduleRow[]) => void;
+    /** Look up Report Automation by Title for reports the evidence dataset did not return. */
+    findEvidence: (reportIds: string[]) => Promise<void>;
+    /** Lookup state per report id (lower case). */
+    evSearch: Record<string, "searching" | "found" | "notfound" | "noreply">;
 }
 
 export const hostLabel = (lk: Lookups, id: string): string => lk.hosts.get(id.toLowerCase())?.name || id;
@@ -72,4 +76,4 @@ export const hostLabel = (lk: Lookups, id: string): string => lk.hosts.get(id.to
 export const UNCONFIRMED = "File sudah dikirim, tetapi aplikasi belum membalas. Cek folder SharePoint / list Schedule sebelum mengunggah ulang.";
 
 /** Shown in the header so the running build can be checked after an import. Keep in step with the manifest. */
-export const CONTROL_VERSION = "pbs_Ops.ScheduleHub 1.5.2";
+export const CONTROL_VERSION = "pbs_Ops.ScheduleHub 1.5.3";
