@@ -553,7 +553,7 @@ If(!IsBlank(Self.ActionPayload),
                         If(!IsBlank(LookUp(clockInFiltered, HostID = varMe.Title && ClockInDate = Today())),
                             Set(varCkResult, JSON({requestId: rid, status: "conflict", message: "Kamu sudah clock in hari ini. Satu hari hanya satu clock in."}, JSONFormat.Compact)),
                         // Shift semalam yang masih berjalan (< 16 jam) harus di-clock out dulu. 16 = maxShiftHours.
-                        !IsBlank(LookUp(clockInFiltered, HostID = varMe.Title && IsBlank(CheckOutTime) && DateDiff(CheckInTime, Now(), TimeUnit.Minutes) < 16 * 60)),
+                        !IsBlank(LookUp(clockInFiltered, HostID = varMe.Title && IsBlank(CheckOutTime) && !IsBlank(CheckInTime) && DateDiff(CheckInTime, Now(), TimeUnit.Minutes) < 16 * 60)),
                             Set(varCkResult, JSON({requestId: rid, status: "conflict", message: "Shift sebelumnya masih berjalan. Clock out dulu."}, JSONFormat.Compact)),
                             IfError(
                                 // Selfie dulu: nama file tidak butuh ID, jadi upload gagal tidak meninggalkan baris tanpa foto.
