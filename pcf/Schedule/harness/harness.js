@@ -285,5 +285,12 @@
         control.init(context(), notify, {}, host);
         render();
     };
+    // Leaving the screen and coming back: Power Apps destroys the control and creates a new one in the same page.
+    window.__recreate = function () {
+        control.destroy();
+        control = new captured();
+        control.init(context(), notify, {}, host);
+        render();
+    };
     document.body.appendChild(s2);
 })();

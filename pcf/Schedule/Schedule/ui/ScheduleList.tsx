@@ -21,27 +21,26 @@ const monthRange = (todayKey: string): [string, string] => {
     return [toDateKey(new Date(d.getFullYear(), d.getMonth(), 1)), toDateKey(new Date(d.getFullYear(), d.getMonth() + 1, 0))];
 };
 
-const BOARD_KEY = "pbs.scheduleHub.board";
+// Kept in page memory, not browser storage: it survives the control being recreated when the user leaves the
+// screen and comes back, but a browser refresh or a new app session starts again on this week.
 interface BoardState {
     view: View;
     lanes: Lanes;
     f: Filters;
+    /** Day the state was saved; a board left open overnight starts on the new week. */
+    day: string;
 }
-function readBoardState(): BoardState | null {
-    try {
-        const o = JSON.parse(window.sessionStorage.getItem(BOARD_KEY) ?? "null") as BoardState | null;
-        const date = /^\d{4}-\d{2}-\d{2}$/;
-        return o && o.f && date.test(o.f.from) && date.test(o.f.to) ? o : null;
-    } catch {
-        return null;
-    }
+let boardState: BoardState | null = null;
+try {
+    window.sessionStorage.removeItem("pbs.scheduleHub.board"); // written by 1.5.2–1.5.6
+} catch {
+    // Storage can be blocked; nothing to clean up then.
+}
+function readBoardState(today: string): BoardState | null {
+    return boardState && boardState.day === today ? boardState : null;
 }
 function writeBoardState(s: BoardState): void {
-    try {
-        window.sessionStorage.setItem(BOARD_KEY, JSON.stringify(s));
-    } catch {
-        // Storage can be blocked (private mode, embedded host); the board then starts on this week.
-    }
+    boardState = s;
 }
 
 export function rangeLabel(from: string, to: string): string {
@@ -60,14 +59,13 @@ export function ScheduleList(props: {
     onAi: () => void;
 }): React.ReactElement {
     const { env } = props;
-    // The board remembers its week, view and filters for the app session, so leaving the screen and coming
-    // back (the control is recreated then) returns to the same place instead of this week.
-    const saved = React.useMemo(readBoardState, []);
+    // The board remembers its week, view and filters while the app page is open (see boardState).
+    const saved = React.useMemo(() => readBoardState(env.todayKey), []);
     const [view, setView] = React.useState<View>(saved?.view ?? "calendar");
     const [lanes, setLanes] = React.useState<Lanes>(saved?.lanes ?? "brand");
     const wk = weekStart(env.todayKey);
     const [f, setF] = React.useState<Filters>(saved?.f ?? { from: wk, to: shiftDay(wk, 6), brandId: "", hostId: "", studioId: "", platform: "", status: "", q: "", only: "" });
-    React.useEffect(() => writeBoardState({ view, lanes, f }), [view, lanes, f]);
+    React.useEffect(() => writeBoardState({ view, lanes, f, day: env.todayKey }), [view, lanes, f, env.todayKey]);
     const [confirmDelete, setConfirmDelete] = React.useState<ScheduleRow | null>(null);
     const [picked, setPicked] = React.useState<Set<string>>(new Set());
     const [bulk, setBulk] = React.useState<"" | "duplicate" | "delete">("");
