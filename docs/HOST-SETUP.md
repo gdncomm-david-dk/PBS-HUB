@@ -71,7 +71,7 @@ belum ada di list lama, cek dulu.
 
 ## Langkah 1 — Import solusi dan tambahkan data source
 
-1. Power Apps → **Solutions → Import solution** → pilih `dist/PBSHubHostApp_1_0_10_0_managed.zip` → Import.
+1. Power Apps → **Solutions → Import solution** → pilih `dist/PBSHubHostApp_1_0_11_0_managed.zip` → Import.
 2. Sekali per environment: Power Platform admin center → environment → **Settings → Product → Features** →
    *Allow publishing of canvas apps with code components* = **On**. Tanpa ini control tidak muncul di tab Code.
 3. Panel **Data → Add data → SharePoint** → site PBS Hub → centang semua list di Langkah 0.
@@ -2080,7 +2080,7 @@ If(!IsBlank(Self.ActionPayload),
 
 ## Langkah 10 — Layar Clock in (`scrClockIn`)
 
-Clock in dan clock out: GPS terhadap radius `Studio Location - PBS`, selfie, alasan kalau di luar radius. Kolom `Clock In - PBS Hub` yang ditulis: `HostID, HostName, EmployeeName, EmployeeEmail, ClockInDate, CheckInTime, ClockInTime, Status, HKTugas, ScheduleCount, CheckInLatitude/Longitude/Accuracy/Distance, CheckInOffice, IsInsideGeofence, Reason, SelfieSource, SelfiePhotoUrl`, dan saat clock out `CheckOutTime, ClockOutDate, CheckOut…, WorkingDuration, TotalReports, SelfieOutPhotoUrl`. Hapus dari formula kolom yang tidak ada di list kamu.
+Clock in dan clock out: GPS terhadap radius `Studio Location - PBS`, selfie, alasan kalau di luar radius. Kolom `Clock In - PBS Hub` yang ditulis: `HostID, HostName, EmployeeName, EmployeeEmail, ClockInDate, CheckInTime, ClockInTime, Status, HKTugas, ScheduleCount, CheckInLatitude/Longitude/Accuracy/Distance, CheckInOffice, IsInsideGeofence, Reason, SelfieSource, SelfiePhotoUrl`, dan saat clock out `CheckOutTime, ClockOutDate (Date only), ClockOutTime (teks "HH:mm"), CheckOut…, WorkingDuration, TotalReports, SelfieOutPhotoUrl`. Hapus dari formula kolom yang tidak ada di list kamu.
 
 **10.1 Buat layar dan control.** Buat layar baru bernama `scrClockIn`. Insert → *Get more components* → tab **Code** → pilih **PBS Host App Clock In** → Import, lalu tarik control itu ke layar. Atur X = 0, Y = 0, Width = `Parent.Width`, Height = `Parent.Height` (atau area konten kalau ada header/tab bar).
 
