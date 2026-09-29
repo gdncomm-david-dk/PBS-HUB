@@ -83,7 +83,7 @@ export function ScheduleForm(props: {
     const warnings = React.useMemo(() => {
         const out: { id: string; text: string; link?: ScheduleRow }[] = [];
         if (!valid) return out;
-        const slot: Slot = { key: props.schedule?.key, dateKey: v.date, studioId: v.studioId, hostId: v.hostId, accountId: v.accountId, startMin, endMin, status: v.status };
+        const slot: Slot = { key: props.schedule?.key, dateKey: v.date, studioId: v.studioId, hostId: v.hostId, accountId: v.accountId, startMin, endMin, status: v.status, isCoHost: /co.?host/i.test(v.position) };
         const pool = env.schedules.filter((s) => s.key !== props.schedule?.key);
         for (const c of conflictsFor(slot, pool, env.lk.studios, { host: (o) => o.hostName || o.hostId, studio: env.studioName })) {
             out.push({ id: `${c.kind}:${c.others.map((o) => o.key).join(",")}`, text: c.message, link: c.kind === "studio" ? undefined : c.others[0] });

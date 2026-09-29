@@ -27,6 +27,8 @@ export interface Slot {
     startMin: number | null;
     endMin: number | null;
     status: string;
+    /** Position = Co-Host: shares the Main Host's account and time, so it is never an account clash. */
+    isCoHost?: boolean;
 }
 
 /** Absolute minutes from an arbitrary epoch day, so overnight sessions overlap the next day correctly. */
@@ -65,7 +67,8 @@ export function conflictsFor(
         out.push({ kind: "host", others: hostClash, message: `Host ${names.host(o)} sudah dijadwalkan ${timeRange(o)} di ${names.studio(o.studioId)}` });
     }
 
-    const accClash = cand.accountId ? near.filter((o) => low(o.accountId) === low(cand.accountId)) : [];
+    // One live has a Main Host and Co-Hosts on the same account; only two non-Co-Host sessions clash.
+    const accClash = cand.accountId && !cand.isCoHost ? near.filter((o) => !o.isCoHost && low(o.accountId) === low(cand.accountId)) : [];
     if (accClash.length) {
         const o = accClash[0];
         out.push({ kind: "account", others: accClash, message: `Account ${o.accountName || o.accountId} sudah live ${timeRange(o)} di ${names.studio(o.studioId)}` });

@@ -83,6 +83,7 @@ export interface ImportRow {
     hostName: string;
     accountId: string;
     platform: string;
+    isCoHost: boolean;         // Position column says Co-Host
     startMin: number | null;
     endMin: number | null;
     verdict: Verdict;
@@ -209,6 +210,7 @@ export function checkFile(file: string, t: SheetTable, cx: CheckContext): FileCh
             hostName: host?.name ?? hostRaw,
             accountId: account?.accountId ?? accountId,
             platform: cellText(get(cells, "platform")) || account?.platform || "",
+            isCoHost: /co.?host/i.test(cellText(get(cells, "position"))),
             startMin,
             endMin,
             verdict: rejected ? "rejected" : "valid",
@@ -237,7 +239,7 @@ export function checkFile(file: string, t: SheetTable, cx: CheckContext): FileCh
         position: "",
         liveBreak: "",
         isLiveBreak: false,
-        isCoHost: false,
+        isCoHost: r.isCoHost,
         campaignName: "",
         totalAccount: null,
         status: "Planned",
@@ -253,11 +255,11 @@ export function checkFile(file: string, t: SheetTable, cx: CheckContext): FileCh
     const seen = new Map<string, number>();
     for (const r of rows) {
         if (r.verdict === "rejected") continue;
-        const sig = [r.dateKey, r.studioId, r.hostId, r.startMin, r.endMin].join("|").toLowerCase();
+        const sig = [r.dateKey, r.studioId, r.hostId, r.startMin, r.endMin, r.isCoHost ? "co" : "main"].join("|").toLowerCase();
         const dup = seen.get(sig);
         if (dup !== undefined) r.reasons.push(`Duplikat baris ${dup}`);
         else seen.set(sig, r.excelRow);
-        const slot: Slot = { key: `import:${r.file}:${r.no}`, dateKey: r.dateKey, studioId: r.studioId, hostId: r.hostId, accountId: r.accountId, startMin: r.startMin, endMin: r.endMin, status: "Planned" };
+        const slot: Slot = { key: `import:${r.file}:${r.no}`, dateKey: r.dateKey, studioId: r.studioId, hostId: r.hostId, accountId: r.accountId, startMin: r.startMin, endMin: r.endMin, status: "Planned", isCoHost: r.isCoHost };
         const cs = conflictsFor(slot, pool, studios, { host: (o) => o.hostName || o.hostId, studio: cx.studioName });
         for (const c of cs) if (dup === undefined || c.kind !== "host") r.reasons.push(c.message);
         if (r.reasons.length) r.verdict = "warning";

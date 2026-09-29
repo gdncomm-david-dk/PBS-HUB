@@ -355,3 +355,19 @@ describe("Live Break lock", () => {
         expect([a, b, c].map((s) => ev.isLocked(s))).toEqual([false, false, true]);
     });
 });
+
+describe("Co-Host is not an account clash", () => {
+    const row = { Date: "2026-09-14", StudioID: "CWG-05", Account: "AC-006", StartTime: "20:00", EndTime: "22:00", Status: "Planned" };
+    it("flags two Main Hosts on one account, not Main Host + Co-Host", () => {
+        const rows = sched([
+            { ...row, Title: "SCD-60", HostID: "HST-1", Position: "Main Host" },
+            { ...row, Title: "SCD-61", HostID: "HST-2", Position: "Co-Host" },
+            { ...row, Title: "SCD-62", HostID: "HST-3", Position: "Main Host", StudioID: "CWG-06" },
+        ]);
+        const idx = conflictIndex(rows, new Map(), (id) => id);
+        const acc = (i: number) => (idx.get(rows[i].key) ?? []).filter((c) => c.kind === "account").flatMap((c) => c.others.map((o) => o.scheduleId));
+        expect(acc(0)).toEqual(["SCD-62"]);
+        expect(acc(1)).toEqual([]);
+        expect(acc(2)).toEqual(["SCD-60"]);
+    });
+});
