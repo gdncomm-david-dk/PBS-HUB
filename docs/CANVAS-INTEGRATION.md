@@ -124,7 +124,7 @@ di bawah yang disarankan.
 | `ScheduleID`, `HostID`, `BrandID`, `AccountID` | idem | nama, filter, cek AI Report beda host |
 | `Platform`, `Account` | Platform (Choice), Account | kolom Platform, Akun, pilihan prompt |
 | `LiveDate` | LiveDate | tanggal live (kirim `Text(LiveDate,"yyyy-mm-dd")`) |
-| `Penjualan`, `Pesanan`, `ProdukTerjual`, `JumlahPembeli`, `CTR`, `CTOR`, `PeakViewer` | idem | 7 metrik inti PBS0005A (selalu dibandingkan). `PeakViewer` berisi **Avg View Duration** (nama kolom salah ketik); di layar tampil *Avg View Duration* |
+| `Penjualan`, `Pesanan`, `ProdukTerjual`, `JumlahPembeli`, `CTR`, `CTOR`, `PeakViewer` | idem | 7 metrik inti PBS0005A (selalu dibandingkan). `PeakViewer` berisi **Avg View Duration** dalam detik (nama kolom salah ketik); di layar tampil *Avg View Duration* |
 | `DurasiMin`, `AddToCart`, `TotalViewer`, `Comment`, `Share` | `Durasi(Min)`, … | ikut dibandingkan di tabel yang sama bila klaim atau bukti berisi nilai |
 | `ApprovalStatus`, `Match` | Choice | tab & kolom *Status* (nilai `ApprovalStatus` apa adanya; `Waiting Approval`, `Waiting Approval Revision` = menunggu; kosong = *Belum ada status*, tidak masuk antrean, `Need Revision` = perlu revisi, `Done` = selesai; komentar `Automated…` = otomatis) |
 | `ApprovalComment`, `Approver`, `ApproverEmail` | idem | ringkasan keputusan, banner "sudah diputuskan oleh…" |
@@ -1275,7 +1275,7 @@ belum ada di v1, bulk approve tidak akan muncul — itu disengaja.
 
 1. Power Platform admin center → environment → **Settings → Product → Features** → aktifkan
    *Allow publishing of canvas apps with code components*.
-2. make.powerapps.com → **Solutions → Import solution** → `PBSHubOpsPCF_1_6_11_0_managed.zip`
+2. make.powerapps.com → **Solutions → Import solution** → `PBSHubOpsPCF_1_6_12_0_managed.zip`
    (sudah pernah import versi lama? Import ini meng-**upgrade** solusi yang sama — pilih *Upgrade*, bukan
    *Stage for upgrade* yang belum di-*Apply*).
 3. Di canvas app: **Insert → Get more components → Code** → pilih `PBS Ops Dashboard`,

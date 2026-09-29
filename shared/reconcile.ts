@@ -13,7 +13,7 @@
  */
 import { Row, date, num, rowId, str } from "./data";
 
-export type MetricFormat = "idr" | "int" | "pct" | "min";
+export type MetricFormat = "idr" | "int" | "pct" | "min" | "sec";
 
 export interface MetricDef {
   key: string;
@@ -50,7 +50,7 @@ export const COMPARED_METRICS: MetricDef[] = [
     // SharePoint column PeakViewer actually holds the average view duration (typo when the list was made).
     key: "PeakViewer",
     label: "Avg View Duration",
-    format: "int",
+    format: "sec",
     fields: ["PeakViewer", "Peak_x0020_Viewer"],
   },
 ];

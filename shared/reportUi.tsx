@@ -63,6 +63,8 @@ export function fmtMetric(def: MetricDef, v: number | null): string {
       return fmtPercentValue(v);
     case "min":
       return `${fmtNumber(v)} menit`;
+    case "sec":
+      return `${fmtNumber(v)} s`;
     default:
       return fmtNumber(v);
   }

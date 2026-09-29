@@ -84,6 +84,7 @@ const UNIT: Record<string, string> = {
   CTR: " (%)",
   CTOR: " (%)",
   Durasi: " (menit)",
+  PeakViewer: " (s)",
 };
 
 type Texts = Record<string, string>;
@@ -1072,7 +1073,13 @@ function MetricForm(props: {
           value={props.texts[d.key] ?? ""}
           disabled={props.disabled}
           placeholder={
-            d.format === "idr" ? "Rp" : d.format === "pct" ? "%" : "0"
+            d.format === "idr"
+              ? "Rp"
+              : d.format === "pct"
+                ? "%"
+                : d.format === "sec"
+                  ? "s"
+                  : "0"
           }
           onChange={(e) => set(d.key, e.target.value)}
           onBlur={() => blur(d)}

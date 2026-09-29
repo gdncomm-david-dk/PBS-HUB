@@ -42,8 +42,8 @@ belum ada di list lama, cek dulu.
 - ⚠ `LiveID` — Single line of text (baru)
 - `Playbook` — Choice (Flash Sale, Payday, …)
 - Number: `Durasi(Min)`, `AddToCart`, `Pesanan`, `Penjualan`, `ProdukTerjual`, `JumlahPembeli`, `CTR`, `PeakViewer`,
-  `TotalViewer`, `CTOR`, `Comment`. **`PeakViewer` berisi Avg View Duration** (nama kolom salah ketik waktu list
-  dibuat); di layar tampil sebagai *Avg View Duration*, nama kolom di formula tetap `PeakViewer`.
+  `TotalViewer`, `CTOR`, `Comment`. **`PeakViewer` berisi Avg View Duration dalam detik (s)** (nama kolom salah ketik
+  waktu list dibuat); di layar tampil sebagai *Avg View Duration*, nama kolom di formula tetap `PeakViewer`.
 - `ApprovalStatus` — Choice. ⚠ harus punya `Waiting Approval`, `Waiting Approval Revision`, `Need Revision`, `Done`,
   **`LiveBreak`**
 - `ApprovalComment`, `Approver` (Person), `ApproverEmail`, `Attachment`
@@ -72,7 +72,7 @@ belum ada di list lama, cek dulu.
 
 ## Langkah 1 — Import solusi dan tambahkan data source
 
-1. Power Apps → **Solutions → Import solution** → pilih `dist/PBSHubHostApp_1_0_12_0_managed.zip` → Import.
+1. Power Apps → **Solutions → Import solution** → pilih `dist/PBSHubHostApp_1_0_13_0_managed.zip` → Import.
 2. Sekali per environment: Power Platform admin center → environment → **Settings → Product → Features** →
    *Allow publishing of canvas apps with code components* = **On**. Tanpa ini control tidak muncul di tab Code.
 3. Panel **Data → Add data → SharePoint** → site PBS Hub → centang semua list di Langkah 0.
