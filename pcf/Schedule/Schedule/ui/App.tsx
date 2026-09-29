@@ -63,6 +63,19 @@ export function App(props: AppProps): React.ReactElement {
     const [banner, setBanner] = React.useState<{ tone: "success" | "danger" | "warning"; text: string } | null>(null);
     const [dialog, setDialog] = React.useState<Dialog | null>(null);
 
+    // Rows deleted from the control stay hidden until the bound data stops returning them
+    // (a canvas collection or a delayed Refresh would otherwise keep showing them).
+    const [removed, setRemoved] = React.useState<Set<string>>(new Set());
+    const rowKey = (s: ScheduleRow): string => (s.itemId !== null ? `#${s.itemId}` : s.scheduleId.toLowerCase());
+    const schedules = React.useMemo(() => (removed.size ? props.schedules.filter((s) => !removed.has(rowKey(s))) : props.schedules), [props.schedules, removed]);
+    React.useEffect(() => {
+        if (!removed.size || props.loading) return;
+        const present = new Set(props.schedules.map(rowKey));
+        const still = [...removed].filter((k) => present.has(k));
+        if (still.length !== removed.size) setRemoved(new Set(still));
+    }, [props.schedules, props.loading]);
+    const hide = React.useCallback((rows: ScheduleRow[]) => setRemoved((p) => new Set([...p, ...rows.map(rowKey)])), []);
+
     const lastInput = React.useRef(props.selectedScheduleId);
     React.useEffect(() => {
         if (props.selectedScheduleId !== lastInput.current) {
@@ -77,8 +90,8 @@ export function App(props: AppProps): React.ReactElement {
     const cfg = props.ctx.config;
     const config: Config = React.useMemo(
         () => ({
-            platforms: distinct([...strList(cfg.platforms), ...props.accounts.map((a) => a.platform), ...props.schedules.map((s) => s.platform), "Shopee", "TikTok"]),
-            statuses: distinct([...strList(cfg.statuses), "Planned", "Waiting Report", "Finished", "Cancelled", "Leave", ...props.schedules.map((s) => s.status)]),
+            platforms: distinct([...strList(cfg.platforms), ...props.accounts.map((a) => a.platform), ...schedules.map((s) => s.platform), "Shopee", "TikTok"]),
+            statuses: distinct([...strList(cfg.statuses), "Planned", "Waiting Report", "Finished", "Cancelled", "Leave", ...schedules.map((s) => s.status)]),
             maxUploadMb: numOr(cfg.maxUploadMb, 10),
             aiAccept: str(cfg.aiAccept, ".xlsx,.xls,.csv,.pdf,.png,.jpg,.jpeg,.docx,.txt"),
             bulkFolder: str(cfg.bulkFolder, "Bulk Schedule"),
@@ -87,7 +100,7 @@ export function App(props: AppProps): React.ReactElement {
             templateUrl: str(cfg.templateUrl, ""),
             uploadMode: str(cfg.uploadMode, "control").toLowerCase() === "canvas" ? "canvas" : "control",
         }),
-        [cfg, props.accounts, props.schedules],
+        [cfg, props.accounts, schedules],
     );
 
     const lk = React.useMemo(() => buildLookups(props.brands, props.hosts, props.studios, props.accounts), [props.brands, props.hosts, props.studios, props.accounts]);
@@ -96,7 +109,7 @@ export function App(props: AppProps): React.ReactElement {
         return s?.namaStudio ? `${s.namaStudio}` : id || "studio ?";
     }, [lk]);
     const ev = React.useMemo(() => new Evidence(props.reports, props.absences, props.clocks, props.evidence), [props.reports, props.absences, props.clocks, props.evidence]);
-    const conflicts = React.useMemo(() => conflictIndex(props.schedules, lk.studios, studioName), [props.schedules, lk, studioName]);
+    const conflicts = React.useMemo(() => conflictIndex(schedules, lk.studios, studioName), [schedules, lk, studioName]);
 
     // Replies are matched to the waiting promise by requestId; stale or foreign replies are ignored.
     const waiters = React.useRef(new Map<string, { resolve: (r: ActionResult) => void; timer: number }>());
@@ -156,7 +169,7 @@ export function App(props: AppProps): React.ReactElement {
     );
 
     const env: Env = {
-        schedules: props.schedules,
+        schedules,
         brands: props.brands,
         hosts: props.hosts,
         studios: props.studios,
@@ -176,10 +189,11 @@ export function App(props: AppProps): React.ReactElement {
         open,
         notify,
         openUrl: props.openUrl,
+        hide,
     };
 
     const openRow = openId
-        ? props.schedules.find((s) => (openId.startsWith("#") ? `#${s.itemId}` === openId : s.scheduleId.toLowerCase() === openId.toLowerCase()))
+        ? schedules.find((s) => (openId.startsWith("#") ? `#${s.itemId}` === openId : s.scheduleId.toLowerCase() === openId.toLowerCase()))
         : undefined;
 
     return (
@@ -194,15 +208,19 @@ export function App(props: AppProps): React.ReactElement {
                     <Banner tone="warning" action={<button type="button" className="sc-link" onClick={() => open(null)}>Kembali ke schedule</button>}>
                         Jadwal “{openId}” tidak ditemukan di data yang dimuat. Periksa rentang tanggal.
                     </Banner>
-                ) : openRow ? (
-                    <ScheduleDetail
-                        env={env}
-                        schedule={openRow}
-                        onBack={() => open(null)}
-                        onEdit={() => setDialog({ kind: "edit", schedule: openRow })}
-                        onDuplicate={() => setDialog({ kind: "create", preset: openRow })}
-                    />
                 ) : (
+                    openRow && (
+                        <ScheduleDetail
+                            env={env}
+                            schedule={openRow}
+                            onBack={() => open(null)}
+                            onEdit={() => setDialog({ kind: "edit", schedule: openRow })}
+                            onDuplicate={() => setDialog({ kind: "create", preset: openRow })}
+                        />
+                    )
+                )}
+                {/* Stays mounted behind the detail so Kembali returns to the same week, view, filters and page. */}
+                <div className="sc-listhost" hidden={!!openId}>
                     <ScheduleList
                         env={env}
                         onCreate={(preset) => setDialog({ kind: "create", preset })}
@@ -210,7 +228,7 @@ export function App(props: AppProps): React.ReactElement {
                         onBulk={() => (config.uploadMode === "canvas" ? emit("OPEN_UPLOAD", { kind: "BULK", folder: config.bulkFolder }) : setDialog({ kind: "bulk" }))}
                         onAi={() => (config.uploadMode === "canvas" ? emit("OPEN_UPLOAD", { kind: "AI", folder: config.aiFolder }) : setDialog({ kind: "ai" }))}
                     />
-                )}
+                </div>
             </div>
             {dialog && (dialog.kind === "create" || dialog.kind === "edit") && (
                 <ScheduleForm

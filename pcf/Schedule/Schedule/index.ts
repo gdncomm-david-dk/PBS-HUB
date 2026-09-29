@@ -59,6 +59,7 @@ export class ScheduleHub implements ComponentFramework.StandardControl<IInputs, 
     private lastCount: Record<string, number> = {};
     private lastActionResultRaw = "";
     private lastActionResult: ActionResult | null = null;
+    private lastSettled: Partial<Record<DsName, unknown[]>> = {};
 
     public init(
         context: ComponentFramework.Context<IInputs>,
@@ -130,16 +131,28 @@ export class ScheduleHub implements ComponentFramework.StandardControl<IInputs, 
             return isLoading(ds, json) || (!json.trim() && !!ds?.paging?.hasNextPage && (this.pagesRequested[name] ?? 0) < MAX_PAGES);
         };
 
+        // While a dataset reloads (week change, Refresh) keep showing its last complete result instead of
+        // an empty board; the new rows replace it once every page has arrived.
+        const settled = <T,>(name: DsName, fresh: () => T[]): T[] => {
+            const rows = fresh();
+            if (!pagingMore(name)) {
+                this.lastSettled[name] = rows;
+                return rows;
+            }
+            const prev = this.lastSettled[name] as T[] | undefined;
+            return prev && prev.length > 0 ? prev : rows;
+        };
+
         const props: AppProps = {
-            schedules: mapSchedules(src("schedules"), lk),
+            schedules: settled("schedules", () => mapSchedules(src("schedules"), lk)),
             brands,
             hosts,
             studios,
             accounts,
-            reports: mapReports(src("reports")),
-            absences: mapAbsences(src("absences")),
-            clocks: mapClockIns(src("clockins")),
-            evidence: mapEvidence(src("evidence")),
+            reports: settled("reports", () => mapReports(src("reports"))),
+            absences: settled("absences", () => mapAbsences(src("absences"))),
+            clocks: settled("clockins", () => mapClockIns(src("clockins"))),
+            evidence: settled("evidence", () => mapEvidence(src("evidence"))),
             loading: pagingMore("schedules") || pagingMore("studios"),
             ctx: parseContext(p.Context?.raw),
             mode: p.Mode?.raw === "ReadOnly" ? "ReadOnly" : "Admin",

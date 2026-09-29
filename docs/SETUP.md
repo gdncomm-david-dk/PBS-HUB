@@ -6,7 +6,7 @@ for the Studio screens and part C for the Schedule screen.
 | Control | Display name | Solution (managed) | Version | Screens |
 |---|---|---|---|---|
 | `pbs_Ops.StudioHub` | PBS Studio Hub | `releases/PBSStudioHub_managed_1.7.0.zip` (`PBSStudioHub`) | 1.7.0 | Studio list, Studio detail |
-| `pbs_Ops.ScheduleHub` | PBS Schedule Hub | `releases/PBSScheduleHub_managed_1.5.0.zip` (`PBSScheduleHub`) | 1.5.0 | Schedule board, session detail, create/edit, bulk & AI upload |
+| `pbs_Ops.ScheduleHub` | PBS Schedule Hub | `releases/PBSScheduleHub_managed_1.5.1.zip` (`PBSScheduleHub`) | 1.5.1 | Schedule board, session detail, create/edit, bulk & AI upload |
 
 Neither control writes to SharePoint. Each one emits an `ActionPayload` `{ action, requestId, payload }`; the
 canvas app does the `Patch` and replies through `ActionResult` with the same `requestId`. Until that reply
@@ -237,13 +237,13 @@ These are display metrics. Nothing that money depends on is computed in the cont
 
 ---
 
-# C. PBS Schedule Hub (`pbs_Ops.ScheduleHub` 1.5.0)
+# C. PBS Schedule Hub (`pbs_Ops.ScheduleHub` 1.5.1)
 
 > **Moving from the old `pbs_Ops.Schedule` (1.4.x).** Since 1.5.0 the control has a new identity (`pbs_Ops.ScheduleHub`, solution `PBSScheduleHub`), so Power Apps cannot keep loading a cached old build.
-> 1. Import `releases/PBSScheduleHub_managed_1.5.0.zip`.
+> 1. Import `releases/PBSScheduleHub_managed_1.5.1.zip`.
 > 2. In the app, copy the old control's **Items / Context / Mode / ActionResult / SelectedScheduleId / OnChange** formulas somewhere safe, then delete that control.
 > 3. **Insert → Get more components → Code → PBS Schedule Hub**, then paste the formulas back (same names as in C2–C4).
-> 4. Check that the header reads `pbs_Ops.ScheduleHub 1.5.0`. Once no app uses the old control, the `PBSSchedule` solution can be deleted.
+> 4. Check that the header reads `pbs_Ops.ScheduleHub 1.5.1`. Once no app uses the old control, the `PBSSchedule` solution can be deleted.
 
 The control renders the **Schedule board (S-1)** as a calendar (week × brand lanes, or studio lanes) or a list, grouped by brand and sorted by start time,, and the
 **session detail (S-2)** with the seven-step evidence chain. It also provides three ways to create schedules:
@@ -259,8 +259,14 @@ The control **never writes**. It emits `ActionPayload`; canvas does the write an
 
 ## C1. Period variables
 
-The control opens on the current week (Monday–Sunday). Whenever the user changes the range it sends
-`SET_FILTER`, and it also sends one on start.
+The control opens on the current week (Monday–Sunday) and sends `SET_FILTER` on start. The period in
+`SET_FILTER` is **two weeks wider on each side** than the range on screen, so the previous and next week are
+already loaded. It sends a new one only when the visible range comes within a week of the loaded edge. While
+that reload runs the board keeps showing the rows it has (header: *memperbarui…*), not an empty grid.
+
+Bind `schedules` to the list or a named formula (`Filter(...)`), not to a collection built with
+`ClearCollect`. A collection does not change after `Remove`/`Patch`, so edits would not show. Deleted
+rows are hidden by the control either way.
 
 ```powerfx
 // Screen.OnVisible
@@ -420,7 +426,8 @@ If(rid <> varLastSchedRid,
         "DELETE_SCHEDULE",
             If(!IsBlank(LookUp(reportFiltered, ScheduleID = Text(p.scheduleId))),
                 Set(varSchedOk, false); Set(varSchedErr, "Report sudah ada untuk jadwal ini."),
-                IfError(Remove('Schedule - PBS Hub', LookUp(scheduleFiltered, Title = Text(p.scheduleId))); true,
+                IfError(Remove('Schedule - PBS Hub', LookUp(scheduleFiltered, Title = Text(p.scheduleId)));
+                        Refresh('Schedule - PBS Hub'); true,
                     Set(varSchedOk, false); Set(varSchedErr, FirstError.Message))),
 
         "UPLOAD_SCHEDULE_FILE",
@@ -559,8 +566,10 @@ file was uploaded.
 | Upload dialog: *Aplikasi tidak membalas dalam 180 detik* / *belum dikonfirmasi*, but the file and the flow are fine | The reply (`varSchedResult`) is never set (the final `If(action in [...])` block commented out or missing), or set after `PBS0001A….Run()` | Use the C4 handler: upload branch sets the message only, `.Run()` at the bottom after the reply. Check that `"UPLOAD_SCHEDULE_FILE"` is in the `If(action in [...])` list and that `ActionResult` = `varSchedResult` |
 | Upload works, but the reply never comes (or only REVIEW_REPORT replies) | The `)` that closes `Switch(` sits inside a `/* … */` comment, so the reply block became part of the last Switch branch | Keep `);` after the last branch outside any comment (C4) |
 | Schedule opens a session detail straight away instead of the list | Before Schedule 1.4.0 the bound `SelectedScheduleId` reopened the last session on return | Import 1.4.0: the control always starts on the list |
-| Lampiran shows only *Memuat lampiran dari SharePoint…* | The app still runs Schedule 1.4.1/1.4.2 | Import the current zip, accept **Update code components**, then check the header reads `pbs_Ops.ScheduleHub 1.5.0` |
+| Lampiran shows only *Memuat lampiran dari SharePoint…* | The app still runs Schedule 1.4.1/1.4.2 | Import the current zip, accept **Update code components**, then check the header reads `pbs_Ops.ScheduleHub 1.5.1` |
 | Lampiran report says *belum punya lampiran* although the report has links | `Attachment` is not in the `reports` dataset (or `reportFiltered`), or the text holds no full `https://` URL | Add `Attachment` under **Fields → Edit** (C4c) |
 | Bulk Duplikat / Hapus shows *tidak membalas* | `BULK_CREATE_SCHEDULE` / `BULK_DELETE_SCHEDULE` are missing from the Switch or from the reply list | Add both branches and both names as in C4 |
+| Deleted schedule comes back after reopening the screen | `schedules` is bound to a collection, or `DELETE_SCHEDULE` has no `Refresh` | Bind to the list / `Filter(...)` and keep the `Refresh('Schedule - PBS Hub')` in C4 |
+| Every week change shows a loading grid | The app still runs 1.5.0 or older | Import the current zip; the header should read `pbs_Ops.ScheduleHub 1.5.1` |
 | New schedules from a flow do not appear | Canvas apps are not pushed SharePoint changes | Press **Muat ulang**, or add the Timer in C4 *Auto update* |
 | Bulk: notification OK and file in *Bulk Schedule*, but no schedules | `PBS0001A….Run()` was removed; the flow has a Power Apps trigger | Keep the `.Run()` at the bottom of the C4 handler |

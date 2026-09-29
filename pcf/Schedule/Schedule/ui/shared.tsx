@@ -62,6 +62,8 @@ export interface Env {
     open: (s: ScheduleRow | null) => void;
     notify: (tone: "success" | "danger" | "warning", text: string) => void;
     openUrl: (url: string) => void;
+    /** Hide rows the user just deleted until the bound data drops them. */
+    hide: (rows: ScheduleRow[]) => void;
 }
 
 export const hostLabel = (lk: Lookups, id: string): string => lk.hosts.get(id.toLowerCase())?.name || id;
@@ -70,4 +72,4 @@ export const hostLabel = (lk: Lookups, id: string): string => lk.hosts.get(id.to
 export const UNCONFIRMED = "File sudah dikirim, tetapi aplikasi belum membalas. Cek folder SharePoint / list Schedule sebelum mengunggah ulang.";
 
 /** Shown in the header so the running build can be checked after an import. Keep in step with the manifest. */
-export const CONTROL_VERSION = "pbs_Ops.ScheduleHub 1.5.0";
+export const CONTROL_VERSION = "pbs_Ops.ScheduleHub 1.5.1";

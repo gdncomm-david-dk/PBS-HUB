@@ -16,6 +16,7 @@ export function DeleteDialog(props: { env: Env; schedule: ScheduleRow; onClose: 
         try {
             const r = await env.request("DELETE_SCHEDULE", { scheduleId: s.scheduleId, itemId: s.itemId });
             if (r.status === "ok") {
+                env.hide([s]);
                 env.notify("success", `Jadwal ${s.scheduleId} dihapus.`);
                 props.onDeleted();
             } else setError(r.message || "Gagal menghapus jadwal.");
@@ -191,6 +192,7 @@ export function BulkDeleteDialog(props: { env: Env; rows: ScheduleRow[]; onClose
         try {
             const r = await env.request("BULK_DELETE_SCHEDULE", { scheduleIds: rows.map((s) => s.scheduleId), itemIds: rows.map((s) => s.itemId), count: rows.length }, 60000 + rows.length * 1000);
             if (r.status === "ok") {
+                env.hide(rows);
                 env.notify("success", r.message || `${rows.length} jadwal dihapus.`);
                 props.onDone();
             } else setError(r.message || "Gagal menghapus jadwal.");

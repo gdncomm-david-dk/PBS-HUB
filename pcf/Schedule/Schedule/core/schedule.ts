@@ -290,3 +290,15 @@ export function distinct(values: string[]): string[] {
     }
     return Array.from(m.values()).sort((a, b) => a.localeCompare(b));
 }
+
+/** Days loaded beyond the visible range on each side (two weeks). */
+export const FETCH_MARGIN_DAYS = 14;
+
+/**
+ * Period to ask canvas for, or null when the loaded period still covers the visible range plus one week on
+ * each side (so the next and previous week never wait on SharePoint).
+ */
+export function fetchWindow(from: string, to: string, loaded: { from: string; to: string } | null): { from: string; to: string } | null {
+    if (loaded && loaded.from <= shiftDay(from, -7) && loaded.to >= shiftDay(to, 7)) return null;
+    return { from: shiftDay(from, -FETCH_MARGIN_DAYS), to: shiftDay(to, FETCH_MARGIN_DAYS) };
+}

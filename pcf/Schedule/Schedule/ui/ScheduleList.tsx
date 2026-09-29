@@ -1,6 +1,6 @@
 import * as React from "react";
 import { ScheduleRow } from "../core/types";
-import { applyFilters, distinct, Filters, hasActiveFilter, hoursOf, phaseOf, rangeKeys, sortSessions, timeRange, weekStart } from "../core/schedule";
+import { applyFilters, distinct, fetchWindow, Filters, hasActiveFilter, hoursOf, phaseOf, rangeKeys, sortSessions, timeRange, weekStart } from "../core/schedule";
 import { BULAN_PENDEK, dateKeyToDate, formatDateShort, HARI, shiftDay, toDateKey } from "../core/time";
 import { Banner, Button, Card, cx, Icon, Pager, SkeletonRows, usePaged } from "./components";
 import { Env, scheduleStatus, StatusBadge } from "./shared";
@@ -45,13 +45,14 @@ export function ScheduleList(props: {
     const [picked, setPicked] = React.useState<Set<string>>(new Set());
     const [bulk, setBulk] = React.useState<"" | "duplicate" | "delete">("");
 
-    // Canvas re-queries Schedule for the period (delegable Filter on Date).
-    const lastRange = React.useRef("");
+    // Canvas re-queries Schedule for the period (delegable Filter on Date). The period sent is wider than the
+    // range on screen, so moving one week back or forward is served from rows that are already loaded.
+    const loaded = React.useRef<{ from: string; to: string } | null>(null);
     React.useEffect(() => {
-        const k = `${f.from}|${f.to}`;
-        if (k === lastRange.current) return;
-        lastRange.current = k;
-        env.emit("SET_FILTER", { periodStart: f.from, periodEnd: f.to });
+        const next = fetchWindow(f.from, f.to, loaded.current);
+        if (!next) return;
+        loaded.current = next;
+        env.emit("SET_FILTER", { periodStart: next.from, periodEnd: next.to });
     }, [f.from, f.to]);
 
     const set = (patch: Partial<Filters>): void => {
@@ -124,7 +125,7 @@ export function ScheduleList(props: {
                     </div>
                     <h1 className="sc-h1">Schedule</h1>
                     <div className="sc-sub">
-                        {env.loading ? "Memuat jadwal…" : `${inRange.length} sesi · ${rangeLabel(f.from, f.to)}`}
+                        {env.loading && env.schedules.length === 0 ? "Memuat jadwal…" : `${inRange.length} sesi · ${rangeLabel(f.from, f.to)}${env.loading ? " · memperbarui…" : ""}`}
                     </div>
                 </div>
                 <div className="sc-pagehead__actions">

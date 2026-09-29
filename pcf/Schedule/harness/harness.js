@@ -139,6 +139,10 @@
         actionResult: "",
         loading: params.get("loading") === "1",
         empty: params.get("empty") === "1",
+        // ?slow=1: SET_FILTER reloads the datasets for 1.5 s, as a delegated SharePoint query does.
+        slow: params.get("slow") === "1",
+        // ?stale=1: deletes succeed but the bound data keeps returning the rows (an un-refreshed collection).
+        stale: params.get("stale") === "1",
     };
     var control = null;
     var host = document.getElementById("host");
@@ -194,7 +198,7 @@
             case "DELETE_SCHEDULE":
                 later(500, function () {
                     if (reports.some(function (x) { return x.ScheduleID === p.scheduleId; })) return reply(req.requestId, "error", "Report sudah ada untuk jadwal ini.");
-                    schedules = schedules.filter(function (s) { return s.Title !== p.scheduleId; });
+                    if (!state.stale) schedules = schedules.filter(function (s) { return s.Title !== p.scheduleId; });
                     reply(req.requestId, "ok", "", {});
                 });
                 return;
@@ -226,12 +230,19 @@
             case "BULK_DELETE_SCHEDULE":
                 later(700, function () {
                     var ids = p.scheduleIds || [];
-                    schedules = schedules.filter(function (s) { return ids.indexOf(s.Title) < 0; });
+                    if (!state.stale) schedules = schedules.filter(function (s) { return ids.indexOf(s.Title) < 0; });
                     reply(req.requestId, "ok", ids.length + " jadwal dihapus.", {});
                 });
                 return;
             case "REMIND_HOST":
                 later(400, function () { reply(req.requestId, "ok", "Pengingat terkirim (contoh).", {}); });
+                return;
+            case "SET_FILTER":
+                window.__filters = (window.__filters || 0) + 1;
+                if (!state.slow) return;
+                state.loading = true;
+                render();
+                later(1500, function () { state.loading = false; render(); });
                 return;
             default:
                 return; // SET_FILTER / NAV_SESSION_DETAIL are UI-only here: the mock holds every row
