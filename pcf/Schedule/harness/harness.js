@@ -109,7 +109,7 @@
         if (r.Position.Value === "Co-Host" && i % 2 === 0) return; // the main host reports
         var gmv = 4000000 + ((i * 7919) % 26) * 1000000;
         var appr = i % 6 === 0 ? "Waiting Approval" : i % 7 === 0 ? "Waiting Approval Revision" : i % 11 === 0 ? "Need Revision" : "Done";
-        reports.push({ ID: 2000 + i, Title: "REP-" + r.ID, ScheduleID: r.Title, HostID: r.HostID, AccountID: r.Account, Platform: r.Platform, LiveDate: r.Date, Penjualan: gmv, Pesanan: Math.round(gmv / 95000), TotalViewer: 3000 + (i * 37) % 9000, Durasi_x0028_Min_x0029_0: r.JamLive * 60, ApprovalStatus: { Value: appr }, Match: { Value: i % 13 === 0 ? "Unmatch" : "Match" }, ApprovalComment: appr === "Need Revision" ? "Screenshot tidak terbaca" : "", Attachment: i % 4 === 3 ? "" : "https://example.sharepoint.com/sites/pbs/Report/REP-" + r.ID + "_" + r.Platform.Value + ".png\nhttps://example.sharepoint.com/sites/pbs/Report/REP-" + r.ID + "_dashboard.png" });
+        reports.push({ ID: 2000 + i, Title: "REP-" + r.ID, ScheduleID: r.Title, HostID: r.HostID, AccountID: r.Account, Platform: r.Platform, LiveDate: r.Date, Penjualan: gmv, Pesanan: Math.round(gmv / 95000), TotalViewer: 3000 + (i * 37) % 9000, Durasi_x0028_Min_x0029_0: r.JamLive * 60, ApprovalStatus: { Value: appr }, Match: { Value: i % 13 === 0 ? "Unmatch" : "Match" }, Likes: 200 + i * 7, Produk_x0020_Terjual: 20 + (i % 9), Komisi: Math.round(gmv * 0.05), ApprovalComment: appr === "Need Revision" ? "Screenshot tidak terbaca" : "", Attachment: i % 4 === 3 ? "" : "https://example.sharepoint.com/sites/pbs/Report/REP-" + r.ID + "_" + r.Platform.Value + ".png\nhttps://example.sharepoint.com/sites/pbs/Report/REP-" + r.ID + "_dashboard.png" });
         // Live dropped mid-session and restarted: a second report for the same schedule.
         if (!window.__multiReport && gmv > 0) {
             reports.push({ ID: 2900, Title: "REP-" + r.ID + "-2", ScheduleID: r.Title, HostID: r.HostID, AccountID: r.Account, Platform: r.Platform, LiveDate: r.Date, Penjualan: Math.round(gmv / 2), Pesanan: Math.round(gmv / 190000), TotalViewer: 1800, Durasi_x0028_Min_x0029_0: 120, ApprovalStatus: { Value: "Waiting Approval" }, Match: { Value: "Match" }, Attachment: "https://example.sharepoint.com/sites/pbs/Report/REP-" + r.ID + "-2_part2.png" });
@@ -119,7 +119,7 @@
         // Report Automation is joined by Title (REP-xxx = REP-xxx); it carries no ScheduleID here.
         var off = i % 4 === 1;
         // One OCR row whose LiveDate is outside the canvas filter: only LOAD_EVIDENCE finds it.
-        if (i % 5 !== 2 && !window.__outsideEvidence && !off && r.Title !== window.__multiReport) { window.__outsideEvidence = r.Title; outside.push({ ID: 3000 + i, Title: "REP-" + r.ID, Status: { Value: "Match" }, Penjualan: gmv, Pesanan: Math.round(gmv / 95000), TotalViewer: 3000 + (i * 37) % 9000, StartHour: r.StartTime, EndHour: r.EndTime, LiveDate: "2026-08-01" }); return; }
+        if (i % 5 !== 2 && !window.__outsideEvidence && !off && r.Title !== window.__multiReport) { window.__outsideEvidence = r.Title; outside.push({ ID: 3000 + i, Title: "REP-" + r.ID, Status: { Value: "Match" }, Penjualan: gmv, Pesanan: Math.round(gmv / 95000), TotalViewer: 3000 + (i * 37) % 9000, StartHour: r.StartTime, EndHour: r.EndTime, LiveDate: "", "Durasi Live": r.JamLive * 60, Likes: 200 + i * 7 - 4, "Produk Terjual": 20 + (i % 9), "Share Count": 14 }); window.__outsideDone = 1; return; }
         if (i % 5 !== 2) evidence.push({ ID: 3000 + i, Title: "REP-" + r.ID, Status: { Value: off ? "Unmatch" : "Match" }, Penjualan: off ? Math.round(gmv * 0.8) : gmv, Pesanan: Math.round(gmv / 95000) - (off ? 3 : 0), TotalViewer: 3000 + (i * 37) % 9000, StartHour: r.StartTime, EndHour: r.EndTime });
     });
     clockins.push({ ID: 999, Title: "CI-live", HostID: live1.HostID, ClockInDate: todayKey, ClockInTime: live1.StartTime, IsInsideGeofence: true, CheckInOffice: "CWG-05", Status: { Value: "Clock In" } });
@@ -250,7 +250,7 @@
                 later(400, function () {
                     var t = String(p.reportId || "").toLowerCase();
                     var rows = evidence.concat(outside).filter(function (x) { return String(x.Title).toLowerCase() === t; })
-                        .map(function (x) { return { ID: x.ID, Title: x.Title, Status: x.Status.Value, Penjualan: x.Penjualan, Pesanan: x.Pesanan, TotalViewer: x.TotalViewer, StartHour: x.StartHour, EndHour: x.EndHour, LiveDate: x.LiveDate || "" }; });
+                        .map(function (x) { return Object.assign({ "{Identifier}": "x" + x.ID, Author: { Email: "ops@example.com" } }, x); }); // whole rows, as JSON(Filter(...))
                     reply(req.requestId, "ok", "", { rows: rows });
                 });
                 return;

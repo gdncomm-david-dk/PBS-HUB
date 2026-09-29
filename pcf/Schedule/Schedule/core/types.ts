@@ -91,6 +91,13 @@ export interface ReportRow {
     approverEmail: string;
     createdText: string;
     attachments: { name: string; url: string }[];   // Attachment column (hyperlink / image / URL text)
+    metrics: Metric[];         // every numeric column in the dataset Fields (core/metrics.ts)
+}
+
+export interface Metric {
+    key: string;               // normalised column name, pairs Report with Report Automation
+    label: string;
+    value: number;
 }
 
 export interface AbsenceRow {
@@ -131,6 +138,7 @@ export interface EvidenceRow {
     startHour: string;
     endHour: string;
     liveDateKey: string;       // Report Automation.LiveDate, "" when blank
+    metrics: Metric[];
     fetched?: boolean;         // found by LOAD_EVIDENCE (Title lookup), not by the evidence dataset
 }
 

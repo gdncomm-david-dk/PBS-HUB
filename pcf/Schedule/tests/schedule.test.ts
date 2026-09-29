@@ -98,7 +98,7 @@ describe("timeline", () => {
     });
     it("completes and locks the session once the report is approved", () => {
         const reports = mapReports(recs([{ Title: "RPT-1", ScheduleID: "SCD-9", Penjualan: 1500000, ApprovalStatus: "Done", Match: "Match" }]));
-        const ev = new Evidence(reports, [{ key: "a", absId: "ABS-1", scheduleId: "SCD-9", hostId: "HST-1", status: "Present", keterangan: "", dateKey: "2026-09-20" }], [], [{ key: "e", itemId: 7, title: "RPT-1", scheduleId: "SCD-9", status: "Match", penjualan: 1500000, pesanan: null, totalViewer: null, durasiMin: null, startHour: "10:00", endHour: "12:00", liveDateKey: "" }]);
+        const ev = new Evidence(reports, [{ key: "a", absId: "ABS-1", scheduleId: "SCD-9", hostId: "HST-1", status: "Present", keterangan: "", dateKey: "2026-09-20" }], [], [{ key: "e", itemId: 7, title: "RPT-1", scheduleId: "SCD-9", status: "Match", penjualan: 1500000, pesanan: null, totalViewer: null, durasiMin: null, startHour: "10:00", endHour: "12:00", liveDateKey: "", metrics: [] }]);
         const steps = buildTimeline(s, ev, new Date(2026, 8, 22, 9, 0));
         expect(steps.map((x) => x.state)).toEqual(["done", "failed", "done", "done", "done", "done", "pending"]);
         expect(ev.isLocked(s)).toBe(true);
@@ -304,7 +304,7 @@ describe("live break, Co-Host and review", () => {
 });
 
 describe("Report Automation join by Title", () => {
-    const ev = (title: string): EvidenceRow => ({ key: title, itemId: 1, title, scheduleId: "", status: "Match", penjualan: 1, pesanan: null, totalViewer: null, durasiMin: null, startHour: "", endHour: "", liveDateKey: "" });
+    const ev = (title: string): EvidenceRow => ({ key: title, itemId: 1, title, scheduleId: "", status: "Match", penjualan: 1, pesanan: null, totalViewer: null, durasiMin: null, startHour: "", endHour: "", liveDateKey: "", metrics: [] });
     it("ignores case and stray spaces", () => {
         const e = new Evidence([], [], [], [ev(" rep-2044 ")]);
         expect(e.evidenceForReport({ reportId: "REP-2044" } as ReportRow)).toHaveLength(1);
@@ -312,5 +312,21 @@ describe("Report Automation join by Title", () => {
     it("keeps the second part of a split live separate", () => {
         const e = new Evidence([], [], [], [ev("REP-2044"), ev("REP-2044-2")]);
         expect(e.evidenceForReport({ reportId: "REP-2044" } as ReportRow).map((x) => x.title)).toEqual(["REP-2044"]);
+    });
+});
+
+describe("all metrics in Report host vs AI", () => {
+    it("adds every other numeric column, paired by name, and skips IDs, dates and status", () => {
+        const [s1] = sched([{ Date: "2026-09-14", StudioID: "CWG-05", HostID: "HST-1", StartTime: "22:00", EndTime: "00:00", Status: "Finished", Title: "SCD-41" }]);
+        const [r] = mapReports(recs([{ ID: 6, Title: "REP-121", ScheduleID: "SCD-41", AccountID: "AC-006", Penjualan: 741180, Pesanan: 23, Likes: 310, "Produk Terjual": "25", Komisi: 50000, LiveDate: "2026-09-14", ApprovalStatus: "Done" }]));
+        const [e] = mapEvidence(recs([{ ID: 10, Title: "REP-121", Status: { Value: "Match" }, Penjualan: 741180, Pesanan: 23, Likes: 300, Produk_x0020_Terjual: 25, "Durasi Live": 120, "Share Count": 12, "{Identifier}": 5 }]));
+        const lines = compareReport(r, e, s1);
+        const by = (l: string) => lines.find((x) => x.label === l);
+        expect(by("Likes")).toMatchObject({ host: "310", ai: "300", same: false });
+        expect(by("Produk Terjual")).toMatchObject({ same: true });
+        expect(by("Komisi")?.host).toBe("Rp 50.000");
+        expect(by("Share Count")).toMatchObject({ host: "—", ai: "12", same: null });
+        expect(by("Durasi (menit)")?.ai).toBe("120");
+        expect(lines.some((x) => /^(ID|AccountID|LiveDate|\{Identifier\}|Durasi Live)$/.test(x.label))).toBe(false);
     });
 });

@@ -5,12 +5,15 @@
 import { linksFrom } from "./attachments";
 import { AbsenceRow, AccountRow, BrandRow, ClockRow, EvidenceRow, HostRow, ModuleContext, ReportRow, ScheduleRow, StudioRow } from "./types";
 import { parseDateKey, parseTimeToMinutes } from "./time";
+import { metricsFrom } from "./metrics";
 
 type DataSet = ComponentFramework.PropertyTypes.DataSet;
 
 export interface RawRecord {
     id: string;
     get(names: readonly string[]): unknown;
+    /** Every column of the record, by display name. */
+    fields(): { label: string; value: unknown }[];
 }
 
 const norm = (s: string): string => s.toLowerCase().replace(/[\s_\-()]/g, "");
@@ -120,6 +123,7 @@ export function datasetRecords(ds: DataSet | undefined): RawRecord[] {
         };
         return {
             id,
+            fields: () => (ds.columns ?? []).map((c) => ({ label: c.displayName || c.name, value: read(c.name) })),
             get(names: readonly string[]): unknown {
                 for (const n of names) {
                     const v = read(colMap.get(norm(n)) ?? n);
@@ -147,6 +151,7 @@ export function jsonRecords(raw: string | null | undefined): RawRecord[] | null 
             for (const k of Object.keys(o)) if (!keys.has(norm(k))) keys.set(norm(k), k);
             return {
                 id: `json-${i}`,
+                fields: () => Object.keys(o).map((k) => ({ label: k, value: o[k] })),
                 get(names: readonly string[]): unknown {
                     for (const n of names) {
                         const k = keys.get(norm(n));
@@ -421,6 +426,7 @@ export function mapReports(recs: RawRecord[]): ReportRow[] {
             approverEmail: toText(r.get(["ApproverEmail", "Approver Email", "Approver"])),
             createdText: toText(r.get(["CreatedDate", "Created"])),
             attachments: linksFrom(r.get(["Attachment", "Attachments", "AttachmentUrl", "Attachment URL", "Lampiran"])),
+            metrics: metricsFrom(r.fields()),
         });
     }
     return out;
@@ -502,6 +508,7 @@ export function mapEvidence(recs: RawRecord[]): EvidenceRow[] {
             startHour: toText(r.get(["StartHour", "Start Hour"])),
             endHour: toText(r.get(["EndHour", "End Hour"])),
             liveDateKey: parseDateKey(r.get(C.liveDate)),
+            metrics: metricsFrom(r.fields()),
         });
     }
     return out;
