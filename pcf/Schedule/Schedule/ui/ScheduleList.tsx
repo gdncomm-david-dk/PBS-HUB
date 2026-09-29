@@ -458,6 +458,7 @@ function ListRow(props: { env: Env; s: ScheduleRow; picked: boolean; onPick: (on
             <td>{s.platform || "—"}</td>
             <td className="sc-nowrap">
                 <StatusBadge status={s.status} />
+                {env.ev.isLiveBreak(s) && <span className="sc-lbtag" title="Live Break — tidak perlu report, bisa diubah atau dihapus">Live Break</span>}
                 {live && <span className="sc-livetag">Live</span>}
                 {locked && <span className="sc-lock" title="Report sudah masuk — jadwal terkunci">{Icon.lock(13)}</span>}
             </td>
@@ -616,11 +617,12 @@ function CalChip(props: { env: Env; s: ScheduleRow; lane: Lanes }): React.ReactE
     const clash = env.conflicts.get(s.key);
     const locked = env.ev.isLocked(s);
     const live = st.chip !== "off" && phaseOf(s, env.now) === "live";
-    const title = [`${s.scheduleId || "ID belum terisi"} · ${st.label}`, `${timeRange(s)} · ${s.brandName}`, `${s.hostName} · ${s.platform}${s.accountName ? " · " + s.accountName : ""}`, ...(clash ?? []).map((c) => "⚠ " + c.message)].join("\n");
+    const title = [`${s.scheduleId || "ID belum terisi"} · ${st.label}${env.ev.isLiveBreak(s) ? " · Live Break" : ""}`, `${timeRange(s)} · ${s.brandName}`, `${s.hostName} · ${s.platform}${s.accountName ? " · " + s.accountName : ""}`, ...(clash ?? []).map((c) => "⚠ " + c.message)].join("\n");
     return (
         <button type="button" className={cx("sc-calchip", `sc-calchip--${st.chip}`, live && "is-live")} title={title} onClick={() => env.open(s)}>
             <span className="sc-calchip__top">
                 <span className="sc-mono">{timeRange(s)}</span>
+                {env.ev.isLiveBreak(s) && <span className="sc-lbtag sc-lbtag--sm" title="Live Break">LB</span>}
                 {locked && <span className="sc-calchip__lock">{Icon.lock(11)}</span>}
                 {clash && <i className="sc-conflictdot" />}
             </span>

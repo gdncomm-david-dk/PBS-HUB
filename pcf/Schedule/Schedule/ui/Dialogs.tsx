@@ -14,7 +14,7 @@ export function DeleteDialog(props: { env: Env; schedule: ScheduleRow; onClose: 
         setBusy(true);
         setError("");
         try {
-            const r = await env.request("DELETE_SCHEDULE", { scheduleId: s.scheduleId, itemId: s.itemId });
+            const r = await env.request("DELETE_SCHEDULE", { scheduleId: s.scheduleId, itemId: s.itemId, liveBreak: env.ev.isLiveBreak(s) });
             if (r.status === "ok") {
                 env.hide([s]);
                 env.notify("success", `Jadwal ${s.scheduleId} dihapus.`);
@@ -50,7 +50,12 @@ export function DeleteDialog(props: { env: Env; schedule: ScheduleRow; onClose: 
             {locked ? (
                 <Banner tone="warning">Report untuk sesi ini sudah masuk. Jadwal tidak bisa dihapus — batalkan lewat status jika perlu.</Banner>
             ) : (
-                <p className="sc-muted">Jadwal dihapus dari Schedule - PBS Hub. Host tidak lagi melihatnya di aplikasi host.</p>
+                <>
+                    <p className="sc-muted">Jadwal dihapus dari Schedule - PBS Hub. Host tidak lagi melihatnya di aplikasi host.</p>
+                    {env.ev.isLiveBreak(s) && (
+                        <Banner tone="info">Sesi Live Break: tidak ada report host, jadi boleh dihapus walau statusnya {s.status || "sudah selesai"} (misalnya jadwal dobel). Baris LiveBreak di list Report tidak ikut terhapus.</Banner>
+                    )}
+                </>
             )}
             {error && <Banner tone="danger">{error}</Banner>}
         </Modal>
@@ -190,7 +195,7 @@ export function BulkDeleteDialog(props: { env: Env; rows: ScheduleRow[]; onClose
         setBusy(true);
         setError("");
         try {
-            const r = await env.request("BULK_DELETE_SCHEDULE", { scheduleIds: rows.map((s) => s.scheduleId), itemIds: rows.map((s) => s.itemId), count: rows.length }, 60000 + rows.length * 1000);
+            const r = await env.request("BULK_DELETE_SCHEDULE", { scheduleIds: rows.map((s) => s.scheduleId), itemIds: rows.map((s) => s.itemId), liveBreakIds: rows.filter((s) => env.ev.isLiveBreak(s)).map((s) => s.scheduleId), count: rows.length }, 60000 + rows.length * 1000);
             if (r.status === "ok") {
                 env.hide(rows);
                 env.notify("success", r.message || `${rows.length} jadwal dihapus.`);
@@ -219,7 +224,7 @@ export function BulkDeleteDialog(props: { env: Env; rows: ScheduleRow[]; onClose
         >
             {locked.length > 0 && (
                 <Banner tone="warning">
-                    {locked.length} jadwal dilewati karena report-nya sudah masuk atau ID-nya belum terisi: {locked.slice(0, 5).map((s) => s.scheduleId || "tanpa ID").join(", ")}
+                    {locked.length} jadwal dilewati karena report host-nya sudah masuk atau ID-nya belum terisi: {locked.slice(0, 5).map((s) => s.scheduleId || "tanpa ID").join(", ")}
                     {locked.length > 5 ? ", …" : ""}
                 </Banner>
             )}

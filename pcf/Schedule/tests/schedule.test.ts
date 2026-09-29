@@ -341,3 +341,17 @@ describe("metric aliases", () => {
         expect(lines.some((l) => /peak/i.test(l.label))).toBe(false);
     });
 });
+
+describe("Live Break lock", () => {
+    const row = { Date: "2026-09-14", StudioID: "CWG-05", HostID: "HST-1", StartTime: "10:00", EndTime: "12:00", Status: "Finished" };
+    it("never locks a Live Break session, even when Finished", () => {
+        const [a, b, c] = sched([{ ...row, Title: "SCD-50" }, { ...row, Title: "SCD-51", LiveBreak: "Yes" }, { ...row, Title: "SCD-52" }]);
+        const reports = mapReports(recs([
+            { Title: "REP-50", ScheduleID: "SCD-50", ApprovalStatus: "LiveBreak" },
+            { Title: "REP-52", ScheduleID: "SCD-52", ApprovalStatus: "Done" },
+        ]));
+        const ev = new Evidence(reports, [], [], []);
+        expect([a, b, c].map((s) => ev.isLiveBreak(s))).toEqual([true, true, false]);
+        expect([a, b, c].map((s) => ev.isLocked(s))).toEqual([false, false, true]);
+    });
+});

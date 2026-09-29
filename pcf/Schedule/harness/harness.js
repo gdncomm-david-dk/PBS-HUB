@@ -206,7 +206,7 @@
                 return;
             case "DELETE_SCHEDULE":
                 later(500, function () {
-                    if (reports.some(function (x) { return x.ScheduleID === p.scheduleId; })) return reply(req.requestId, "error", "Report sudah ada untuk jadwal ini.");
+                    if (!p.liveBreak && reports.some(function (x) { return x.ScheduleID === p.scheduleId && x.ApprovalStatus.Value !== "LiveBreak"; })) return reply(req.requestId, "error", "Report host sudah ada untuk jadwal ini.");
                     if (!state.stale) schedules = schedules.filter(function (s) { return s.Title !== p.scheduleId; });
                     reply(req.requestId, "ok", "", {});
                 });

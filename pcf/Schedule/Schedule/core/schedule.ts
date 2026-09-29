@@ -152,9 +152,17 @@ export class Evidence {
         return s.scheduleId ? this.reports.get(low(s.scheduleId)) ?? [] : [];
     }
 
-    /** A session with a submitted report is locked: editing it would orphan the report (DESIGN.md). */
+    /** Live Break: the schedule says so, or its only reports are LiveBreak placeholders. */
+    isLiveBreak(s: ScheduleRow): boolean {
+        return s.isLiveBreak || (this.reportsFor(s).length > 0 && this.realReportsFor(s).length === 0);
+    }
+
+    /**
+     * A session with a submitted host report is locked: editing it would orphan the report (DESIGN.md).
+     * A Live Break session never is, whatever its status, so a doubled one can be deleted.
+     */
     isLocked(s: ScheduleRow): boolean {
-        return this.reportsFor(s).length > 0;
+        return !this.isLiveBreak(s) && this.realReportsFor(s).length > 0;
     }
 
     absencesFor(s: ScheduleRow): AbsenceRow[] {
@@ -182,7 +190,7 @@ export class Evidence {
     /** Why the session needs no report, or null when it does: a live break, or a Co-Host whose main host reports. */
     noReportReason(s: ScheduleRow): "livebreak" | "cohost" | null {
         if (this.realReportsFor(s).length > 0) return null;
-        if (s.isLiveBreak || this.reportsFor(s).length > 0) return "livebreak";
+        if (this.isLiveBreak(s)) return "livebreak";
         if (s.isCoHost) return "cohost";
         return null;
     }
