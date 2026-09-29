@@ -39,17 +39,30 @@ function asNumber(v: unknown): number | null {
     return isFinite(n) ? n : null;
 }
 
+/**
+ * Columns shown under another name. The lists call the same number differently, so both names share one
+ * key and are compared on one line.
+ */
+const ALIAS: Record<string, { key: string; label: string }> = {
+    peakviewer: { key: "avgviewduration", label: "Avg View Duration" },
+    peakviewers: { key: "avgviewduration", label: "Avg View Duration" },
+    avgviewduration: { key: "avgviewduration", label: "Avg View Duration" },
+    averageviewduration: { key: "avgviewduration", label: "Avg View Duration" },
+};
+
 export function metricsFrom(fields: { label: string; value: unknown }[]): Metric[] {
     const out: Metric[] = [];
     const seen = new Set<string>();
     for (const f of fields) {
         if (/^[{@_]|^odata/i.test(f.label)) continue;
-        const key = metricKey(f.label);
-        if (!key || seen.has(key) || NOT_METRIC.has(key) || key.endsWith("id")) continue;
+        const raw = metricKey(f.label);
+        const alias = ALIAS[raw];
+        const key = alias?.key ?? raw;
+        if (!key || seen.has(key) || NOT_METRIC.has(raw) || raw.endsWith("id")) continue;
         const value = asNumber(f.value);
         if (value === null) continue;
         seen.add(key);
-        out.push({ key, label: f.label.replace(/_x([0-9a-f]{4})_/gi, (_m, h: string) => String.fromCharCode(parseInt(h, 16))).replace(/_/g, " ").trim(), value });
+        out.push({ key, label: alias?.label ?? f.label.replace(/_x([0-9a-f]{4})_/gi, (_m, h: string) => String.fromCharCode(parseInt(h, 16))).replace(/_/g, " ").trim(), value });
     }
     return out;
 }

@@ -330,3 +330,14 @@ describe("all metrics in Report host vs AI", () => {
         expect(lines.some((x) => /^(ID|AccountID|LiveDate|\{Identifier\}|Durasi Live)$/.test(x.label))).toBe(false);
     });
 });
+
+describe("metric aliases", () => {
+    it("shows Peak Viewer as Avg View Duration and pairs it with that column", () => {
+        const [s1] = sched([{ Date: "2026-09-14", StudioID: "CWG-05", HostID: "HST-1", StartTime: "22:00", EndTime: "00:00", Status: "Finished", Title: "SCD-42" }]);
+        const [r] = mapReports(recs([{ ID: 7, Title: "REP-122", ScheduleID: "SCD-42", "Peak Viewer": 95 }]));
+        const [e] = mapEvidence(recs([{ ID: 11, Title: "REP-122", Status: "Match", Avg_x0020_View_x0020_Duration: 95 }]));
+        const lines = compareReport(r, e, s1);
+        expect(lines.filter((l) => l.label === "Avg View Duration")).toEqual([expect.objectContaining({ host: "95", ai: "95", same: true })]);
+        expect(lines.some((l) => /peak/i.test(l.label))).toBe(false);
+    });
+});
