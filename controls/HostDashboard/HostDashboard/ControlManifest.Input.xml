@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="utf-8" ?>
 <manifest>
-  <control namespace="HostApp" constructor="HostDashboard" version="1.0.10" display-name-key="PBS Host App Dashboard" description-key="PBS Hub host app H-1 Hari ini: shift state, today sessions with the next step (absen, kirim report, perbaiki), open reports and the credit score." control-type="standard">
+  <control namespace="HostApp" constructor="HostDashboard" version="1.0.11" display-name-key="PBS Host App Dashboard" description-key="PBS Hub host app H-1 Hari ini: shift state, today sessions with the next step (absen, kirim report, perbaiki), open reports and the credit score." control-type="standard">
     <external-service-usage enabled="false"></external-service-usage>
 
-    <property name="Context" display-name-key="Context" description-key="JSON {userEmail,userName,roles,permissions,config}. config: absenLeadMin (30), reportDeadlineDays (2), maxShiftHours (12), requireAbsen (true)." of-type="Multiple" usage="input" required="false" />
+    <property name="Context" display-name-key="Context" description-key="JSON {userEmail,userName,roles,permissions,config}. config: absenLeadMin (30), reportDeadlineDays (2), maxShiftHours (16), requireAbsen (true)." of-type="Multiple" usage="input" required="false" />
     <property name="HostJson" display-name-key="HostJson" description-key="JSON row of the signed-in host [Host - PBS Hub]: Title, HostCode, NamaHost, Package, CurrentScore, InitialScore. Never send KTP or bank data." of-type="Multiple" usage="input" required="false" />
     <property name="SchedulesJson" display-name-key="SchedulesJson" description-key="JSON rows of [Schedule - PBS Hub] for this host, last 7 days to next 7 days: Title, Date, StartTime, EndTime, BrandID, StudioID, Platform, Account, Status." of-type="Multiple" usage="input" required="false" />
     <property name="ClockInJson" display-name-key="ClockInJson" description-key="JSON rows of [Clock In - PBS Hub] for this host, last 14 days: ClockInDate, CheckInTime, CheckOutTime, ClockInTime, ClockOutTime, CheckInOffice." of-type="Multiple" usage="input" required="false" />

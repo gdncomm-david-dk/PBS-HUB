@@ -282,3 +282,6 @@ export const reportScheduleId = (r: Row | undefined): string =>
 /** Report.Playbook (Choice; multi-choice joined). */
 export const reportPlaybook = (r: Row | undefined): string =>
   str(r, "Playbook", "PlayBook", "Play_x0020_Book");
+
+/** One shift lasts at most this many hours (clock in → clock out). */
+export const MAX_SHIFT_HOURS = 16;

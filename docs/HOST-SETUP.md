@@ -126,7 +126,7 @@ Set(varHostCtx, JSON({
         scheduleDoneStatus: "Finished",
         absenLeadMin: 30,                        // absen dibuka 30 menit sebelum sesi
         reportDeadlineDays: 2,                   // report "Terlambat" setelah H+2
-        maxShiftHours: 12,
+        maxShiftHours: 16,                       // shift maksimal; lewat dari ini clock out ditutup
         tolerancePct: 5,
         imageMaxPx: 2000, imageMaxKb: 1200,      // screenshot report
         clockInStatus: "Hadir - Tugas",          // Choice Status di Clock In
@@ -2171,7 +2171,10 @@ If(!IsBlank(Self.ActionPayload),
                 Switch(act,
                     "CLOCK_IN",
                         If(!IsBlank(LookUp(clockInFiltered, HostID = varMe.Title && ClockInDate = Today())),
-                            Set(varCkResult, JSON({requestId: rid, status: "conflict", message: "Kamu sudah clock in hari ini."}, JSONFormat.Compact)),
+                            Set(varCkResult, JSON({requestId: rid, status: "conflict", message: "Kamu sudah clock in hari ini. Satu hari hanya satu clock in."}, JSONFormat.Compact)),
+                        // Shift semalam yang masih berjalan (< 16 jam) harus di-clock out dulu. 16 = maxShiftHours.
+                        !IsBlank(LookUp(clockInFiltered, HostID = varMe.Title && IsBlank(CheckOutTime) && DateDiff(CheckInTime, Now(), TimeUnit.Minutes) < 16 * 60)),
+                            Set(varCkResult, JSON({requestId: rid, status: "conflict", message: "Shift sebelumnya masih berjalan. Clock out dulu."}, JSONFormat.Compact)),
                             IfError(
                                 // Selfie dulu: nama file tidak butuh ID, jadi upload gagal tidak meninggalkan baris tanpa foto.
                                 // PBS Power Apps/Absence/<yyyy>/<mmmm>/<dd-mm-yyyy>/<file> lewat Graph (sama dengan screenshot report).
@@ -2205,6 +2208,9 @@ If(!IsBlank(Self.ActionPayload),
                         With({cur: LookUp(clockInFiltered, ID = Value(p.clockInId) && HostID = varMe.Title)},
                             If(IsBlank(cur) || !IsBlank(cur.CheckOutTime),
                                 Set(varCkResult, JSON({requestId: rid, status: "conflict", message: "Shift ini sudah di-clock out. Muat ulang."}, JSONFormat.Compact)),
+                            // Shift maksimal 16 jam (= maxShiftHours): lewat dari itu jam clock out diisi Ops.
+                            DateDiff(cur.CheckInTime, Now(), TimeUnit.Minutes) > 16 * 60,
+                                Set(varCkResult, JSON({requestId: rid, status: "conflict", message: "Shift sudah lewat 16 jam, clock out ditutup. Minta tim PBS mengisi jam clock out."}, JSONFormat.Compact)),
                                 IfError(
                                     // Folder tanggal clock in (bukan hari ini): shift lewat tengah malam tetap satu folder.
                                     With({up: Office365Groups.HttpRequest(

@@ -4,7 +4,7 @@ import {
   configNumber,
   hasPermission,
 } from "../../../shared/contract";
-import { Row } from "../../../shared/data";
+import { MAX_SHIFT_HOURS, Row } from "../../../shared/data";
 import {
   DashboardModel,
   SessionState,
@@ -82,7 +82,7 @@ export function DashboardView(props: DashboardViewProps): React.ReactElement {
       buildDashboard({
         ...data,
         now,
-        maxShiftHours: configNumber(ctx, "maxShiftHours", 12),
+        maxShiftHours: configNumber(ctx, "maxShiftHours", MAX_SHIFT_HOURS),
         missingReportDays: configNumber(ctx, "missingReportDays", 2),
         reconcile: {
           tolerancePct: configNumber(ctx, "tolerancePct", 5),

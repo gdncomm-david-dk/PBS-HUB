@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8" ?>
 <manifest>
-  <control namespace="Ops" constructor="HostScore" version="1.0.5" display-name-key="PBS Ops Host Score" description-key="PBS Hub Ops Console SL-1 and SL-2: credit score of every host per band, the ledger of one host, adding a reward or penalty from a rule, and voiding a transaction with a reversal row." control-type="standard">
+  <control namespace="Ops" constructor="HostScore" version="1.0.6" display-name-key="PBS Ops Host Score" description-key="PBS Hub Ops Console SL-1 and SL-2: credit score of every host per band, the ledger of one host, adding a reward or penalty from a rule, and voiding a transaction with a reversal row." control-type="standard">
     <external-service-usage enabled="false"></external-service-usage>
 
     <property name="Context" display-name-key="Context" description-key="JSON {userEmail,userName,roles,permissions,config}. config: scoreInitial, scoreMin, scoreMax (ScoreConfig), optional bigPenaltyPoints (default 10) and scheduleMinScore." of-type="Multiple" usage="input" required="false" />

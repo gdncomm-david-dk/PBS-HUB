@@ -227,7 +227,7 @@ Set(varHostCtx, JSON({
         scheduleDoneStatus: "Finished",
         absenLeadMin: 30,                        // absen dibuka 30 menit sebelum sesi
         reportDeadlineDays: 2,                   // report "Terlambat" setelah H+2
-        maxShiftHours: 12,
+        maxShiftHours: 16,                       // shift maksimal; lewat dari ini clock out ditutup
         tolerancePct: 5,
         imageMaxPx: 2000, imageMaxKb: 1200,      // screenshot report
         clockInStatus: "Hadir - Tugas",          // Choice Status di Clock In

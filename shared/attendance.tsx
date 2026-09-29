@@ -1,6 +1,7 @@
 import * as React from "react";
 import { ModuleContext, UseActionResult, configNumber } from "./contract";
 import {
+  MAX_SHIFT_HOURS,
   Row,
   addDaysKey,
   date,
@@ -224,7 +225,7 @@ export function AttendanceTab(props: {
     () => tierRates(ctx.config, props.clockIns),
     [ctx, props.clockIns],
   );
-  const maxShift = configNumber(ctx, "maxShiftHours", 12);
+  const maxShift = configNumber(ctx, "maxShiftHours", MAX_SHIFT_HOURS);
   // Months that have data, plus the current one; newest first.
   const months = React.useMemo(() => {
     const keys = new Map<string, Period>();
@@ -587,6 +588,8 @@ export function AdjustClockInModal(props: {
   if (a === null) problems.push("Isi jam clock in");
   if (d.outAt && b === null)
     problems.push("Jam clock out tidak boleh dikosongkan");
+  if (minutes !== null && minutes > props.maxShiftHours * 60)
+    problems.push(`Shift maksimal ${props.maxShiftHours} jam`);
   if (!st) problems.push("Pilih status");
   if (weekly && wk === null) problems.push("Isi nominal weekly");
   if (reason.trim().length < 5) problems.push("Tulis alasan penyesuaian");
@@ -682,7 +685,8 @@ export function AdjustClockInModal(props: {
         </div>
         {minutes !== null && minutes > props.maxShiftHours * 60 ? (
           <InfoBanner tone="warn">
-            Durasi lebih dari {props.maxShiftHours} jam. Pastikan jamnya benar.
+            Shift maksimal {props.maxShiftHours} jam. Periksa lagi jam clock
+            in dan clock out.
           </InfoBanner>
         ) : null}
         <div className="pbs-field">

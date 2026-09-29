@@ -1,4 +1,5 @@
 import {
+  MAX_SHIFT_HOURS,
   Row,
   clockText,
   date,
@@ -39,7 +40,7 @@ export interface HostOptions {
   absenLeadMin: number;
   /** Days after the live date a report is still on time. */
   reportDeadlineDays: number;
-  /** A shift open longer than this probably missed its clock-out. */
+  /** Longest shift: an open shift past this can no longer be clocked out (Ops fills the time). */
   maxShiftHours: number;
   /** false when the tenant does not use Host Absence: clock-in alone unlocks the report. */
   requireAbsen: boolean;
@@ -52,6 +53,12 @@ export interface HostOptions {
   playbooks: string[];
 }
 
+// One clock-in per day and a shift of at most MAX_SHIFT_HOURS, so a day may see two clock-outs
+// (last night's shift and today's).
+export { MAX_SHIFT_HOURS };
+/** Hours before the limit when the host is warned to clock out. */
+export const SHIFT_WARN_BEFORE_HOURS = 2;
+
 export const DEFAULT_PLAYBOOKS = [
   "Flash Sale",
   "Payday",
@@ -62,7 +69,7 @@ export const DEFAULT_PLAYBOOKS = [
 export const DEFAULT_HOST_OPTIONS: HostOptions = {
   absenLeadMin: 30,
   reportDeadlineDays: 2,
-  maxShiftHours: 12,
+  maxShiftHours: MAX_SHIFT_HOURS,
   requireAbsen: true,
   requireWaitingStatus: true,
   waitingStatus: "Waiting Report",
@@ -129,16 +136,22 @@ export function hostOptions(config: Record<string, unknown>): HostOptions {
 
 // ---- Shift (Clock In) ---------------------------------------------------------------------------
 
-export type ShiftState = "NOT_IN" | "IN" | "OUT";
+/** EXPIRED: today's clock-in passed the shift limit without a clock-out; no clock out, no second clock in. */
+export type ShiftState = "NOT_IN" | "IN" | "OUT" | "EXPIRED";
 
 export interface Shift {
   state: ShiftState;
   since: Date | null;
   until: Date | null;
   minutes: number;
+  /** IN and close to the limit. */
   overdue: boolean;
   office: string;
   row: Row | undefined;
+  /** Clock-in of an earlier shift left open past the limit (forgotten clock-out), shown as a notice. */
+  missed: Date | null;
+  /** Latest moment the running shift can still be clocked out. */
+  deadline: Date | null;
 }
 
 const checkIn = (c: Row): Date | null => clockInAt(c);
@@ -155,7 +168,7 @@ function withClock(day: Date | null, clock: string): Date | null {
 
 /**
  * A shift that was already running when `at` came: clocked in before it and clocked out after it
- * (or still open, within 36 h). A 00:30 session inside a 22:00 → 03:00 shift counts as clocked in
+ * (or still open, within the shift limit). A 00:30 session inside a 22:00 → 03:00 shift counts as clocked in
  * even though ClockInDate is the day before.
  */
 export function shiftCovers(clockIns: Row[], at: Date | null): boolean {
@@ -165,7 +178,7 @@ export function shiftCovers(clockIns: Row[], at: Date | null): boolean {
     const a = checkIn(c)?.getTime();
     if (a === undefined || a > t) return false;
     const b = checkOut(c)?.getTime();
-    return b === undefined ? t - a < 36 * 36e5 : b >= t;
+    return b === undefined ? t - a < MAX_SHIFT_HOURS * 36e5 : b >= t;
   });
 }
 
@@ -185,32 +198,40 @@ export function shiftToday(
   opts: HostOptions = DEFAULT_HOST_OPTIONS,
 ): Shift {
   const today = localDayKey(now);
-  const rows = clockIns.filter((c) => {
-    const d = clockInDay(c);
-    return d && localDayKey(d) === today;
-  });
-  // A shift still open from yesterday counts too: that is the forgotten clock-out case.
-  const open = clockIns.find(
-    (c) =>
-      checkIn(c) &&
-      !checkOut(c) &&
-      (now.getTime() - (checkIn(c)?.getTime() ?? 0)) / 36e5 < 36,
-  );
-  const row =
-    open ??
-    rows.sort(
+  const capMs = opts.maxShiftHours * 36e5;
+  const age = (c: Row) => now.getTime() - (checkIn(c)?.getTime() ?? 0);
+  const latest = (rows: Row[]) =>
+    [...rows].sort(
       (a, b) => (checkIn(b)?.getTime() ?? 0) - (checkIn(a)?.getTime() ?? 0),
     )[0];
-  if (!row)
-    return {
-      state: "NOT_IN",
-      since: null,
-      until: null,
-      minutes: 0,
-      overdue: false,
-      office: "",
-      row: undefined,
-    };
+  const openRows = clockIns.filter((c) => checkIn(c) && !checkOut(c));
+  // Still running (also from yesterday, a shift past midnight): only within the shift limit.
+  const open = latest(openRows.filter((c) => age(c) < capMs));
+  const todays = latest(
+    clockIns.filter((c) => {
+      const d = clockInDay(c);
+      return d && localDayKey(d) === today;
+    }),
+  );
+  // Forgotten clock-out of an earlier day: shown, but it does not block today's clock-in.
+  const missedRow = latest(
+    openRows.filter(
+      (c) => age(c) >= capMs && age(c) < capMs + 48 * 36e5 && c !== todays,
+    ),
+  );
+  const missed = missedRow ? checkIn(missedRow) : null;
+  const row = open ?? todays;
+  const base = {
+    since: null,
+    until: null,
+    minutes: 0,
+    overdue: false,
+    office: "",
+    row: undefined,
+    missed,
+    deadline: null,
+  };
+  if (!row) return { ...base, state: "NOT_IN" };
   const since = checkIn(row);
   const until = checkOut(row);
   const office = str(row, "CheckInOffice", "Office", "StudioName");
@@ -218,20 +239,25 @@ export function shiftToday(
     const minutes = since
       ? Math.max(0, Math.round((now.getTime() - since.getTime()) / 60000))
       : 0;
+    if (row !== open && since)
+      return { ...base, state: "EXPIRED", since, minutes, office, row };
     return {
+      ...base,
       state: "IN",
       since,
-      until: null,
       minutes,
-      overdue: minutes >= opts.maxShiftHours * 60,
+      overdue:
+        minutes >=
+        (opts.maxShiftHours - SHIFT_WARN_BEFORE_HOURS) * 60,
       office,
       row,
+      deadline: since ? new Date(since.getTime() + capMs) : null,
     };
   }
   const minutes = since
     ? Math.max(0, Math.round((until.getTime() - since.getTime()) / 60000))
     : 0;
-  return { state: "OUT", since, until, minutes, overdue: false, office, row };
+  return { ...base, state: "OUT", since, until, minutes, office, row };
 }
 
 /** Consecutive distinct clock-in days ending today (or yesterday, when today is not in yet). */

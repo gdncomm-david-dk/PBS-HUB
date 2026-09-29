@@ -67,7 +67,7 @@ Set(
             config: {
                 tolerancePct: 5,            // PBS0005A: ±5 %
                 confidenceThreshold: 0.85,
-                maxShiftHours: 12,          // sama dengan varMaxShiftHours
+                maxShiftHours: 16,          // shift maksimal (jam): clock in manual/Sesuaikan ditolak kalau lebih
                 missingReportDays: 2,
                 payrollLabelOffset: -1,     // Payroll.Periode = bulan run, data = bulan sebelumnya (P8)
                 payrollAssemblyMinutes: 30, // run baru < 30 menit dengan gate 1 terbuka = "Sedang disusun"
@@ -834,7 +834,8 @@ HostList dan di header HostDetail membuka popup:
 - **Tanggal clock out**: hari yang sama atau hari berikutnya. Jadwal 28 Sep 22:00–03:00 otomatis memilih
   29 Sep: `ClockInDate` tetap 28 (tanggal jadwal, dipakai cek "satu clock in per host per hari"), `ClockOutDate`
   29. Jadi clock in host di tanggal 29 tidak bentrok dengan shift malam tanggal 28. Clock out harus setelah
-  clock in dan shift maksimal 24 jam.
+  clock in dan shift maksimal 16 jam (`maxShiftHours`). Satu hari satu clock in, tapi tanggal 29 tetap bisa punya dua
+  clock out (shift malam tanggal 28 dan shift tanggal 29).
 - **Status**: `Hadir - Tugas` (HKTugas 180.000) dan `Hadir - Retainer` (30.000). Bisa diganti lewat
   `config.clockInStatuses` di Context, mis. `[{label: "Hadir - Tugas", hk: 180000}, {label: "Izin", hk: 0}]`.
 

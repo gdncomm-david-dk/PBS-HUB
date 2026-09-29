@@ -95,4 +95,33 @@ describe("shift past midnight", () => {
     expect([d?.key, d?.start, d?.end]).toEqual(["2026-09-28", 1320, 1620]);
     expect(addDaysKey("2026-09-30", 1)).toBe("2026-10-01");
   });
+
+  it("one clock-in per day, two clock-outs: last night's shift and today's", () => {
+    const today = {
+      ID: 2,
+      HostID: "H1",
+      ClockInDate: "2026-09-29",
+      CheckInTime: "2026-09-29T10:00:00",
+    };
+    // 03:04 on the 29th closed the 28th's shift; the 29th may still clock in once.
+    expect(shiftToday([closed], at(29, 9)).state).toBe("NOT_IN");
+    expect(shiftToday([closed, today], at(29, 12)).state).toBe("IN");
+    const done = { ...today, CheckOutTime: "2026-09-29T18:00:00", ClockOutDate: "2026-09-29" };
+    expect(shiftToday([closed, done], at(29, 20)).state).toBe("OUT");
+  });
+
+  it("a shift lasts at most 16 hours", () => {
+    // 21:55 + 14 h → warned, deadline 13:55 on the 29th.
+    const warn = shiftToday([open], at(29, 12));
+    expect([warn.state, warn.overdue, warn.deadline?.getHours(), warn.deadline?.getMinutes()]).toEqual(["IN", true, 13, 55]);
+    expect(shiftToday([open], at(29, 10)).overdue).toBe(false);
+    // Past 16 h the 28th's shift is no longer running: the 29th can clock in, with a notice.
+    const late = shiftToday([open], at(29, 14));
+    expect([late.state, late.missed?.getDate()]).toEqual(["NOT_IN", 28]);
+    expect(shiftCovers([open], at(29, 14))).toBe(false);
+    // Today's own clock-in past 16 h: no clock out, and no second clock-in.
+    const early = { ...open, ClockInDate: "2026-09-29", CheckInTime: "2026-09-29T01:00:00", ClockInTime: "01:00" };
+    const exp = shiftToday([early], at(29, 18));
+    expect([exp.state, exp.missed]).toEqual(["EXPIRED", null]);
+  });
 });

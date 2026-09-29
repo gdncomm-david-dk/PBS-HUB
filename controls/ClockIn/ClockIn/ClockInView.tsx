@@ -1,8 +1,8 @@
 import * as React from "react";
 import { ModuleContext, UseActionResult } from "../../../shared/contract";
 import { Row, num, str } from "../../../shared/data";
-import { fmtLongDate, fmtTime } from "../../../shared/format";
-import { hostName, hostOptions, shiftToday } from "../../../shared/hostApp";
+import { fmtDateTimeShort, fmtLongDate, fmtTime } from "../../../shared/format";
+import { Shift, hostName, hostOptions, shiftToday } from "../../../shared/hostApp";
 import { PreparedImage, prepareImage } from "../../../shared/hostImage";
 import {
   GeoFix,
@@ -83,7 +83,11 @@ export function ClockInView(props: ClockInViewProps): React.ReactElement {
   );
   const shift = shiftToday(props.clockIns, now, hopts);
   const dir: "IN" | "OUT" | "DONE" =
-    shift.state === "IN" ? "OUT" : shift.state === "OUT" ? "DONE" : "IN";
+    shift.state === "IN"
+      ? "OUT"
+      : shift.state === "NOT_IN"
+        ? "IN"
+        : "DONE"; // OUT, or EXPIRED: one clock-in per day
 
   const [geo, setGeo] = React.useState<GeoState>({ kind: "idle" });
   const [selfie, setSelfie] = React.useState<{
@@ -283,11 +287,7 @@ export function ClockInView(props: ClockInViewProps): React.ReactElement {
           <div className="hc-main">
             <ShiftSummary
               dir={dir}
-              since={shift.since}
-              until={shift.until}
-              minutes={shift.minutes}
-              office={shift.office}
-              overdue={shift.overdue}
+              shift={shift}
               maxHours={hopts.maxShiftHours}
               sessions={sessions.length}
               reports={reportsToday.length}
@@ -437,11 +437,7 @@ export function ClockInView(props: ClockInViewProps): React.ReactElement {
           <aside className="hc-aside">
             <ShiftSummary
               dir={dir}
-              since={shift.since}
-              until={shift.until}
-              minutes={shift.minutes}
-              office={shift.office}
-              overdue={shift.overdue}
+              shift={shift}
               maxHours={hopts.maxShiftHours}
               sessions={sessions.length}
               reports={reportsToday.length}
@@ -595,45 +591,58 @@ function LocationBlock(props: {
 
 function ShiftSummary(props: {
   dir: "IN" | "OUT" | "DONE";
-  since: Date | null;
-  until: Date | null;
-  minutes: number;
-  office: string;
-  overdue: boolean;
+  shift: Shift;
   maxHours: number;
   sessions: number;
   reports: number;
 }): React.ReactElement {
-  const { dir } = props;
-  const tone = dir === "IN" ? "" : " ok";
+  const { dir, shift } = props;
+  const expired = shift.state === "EXPIRED";
+  const tone = dir === "IN" || expired ? "" : " ok";
   return (
     <div className="hc-card hc-shift">
       <div className="hc-shift-h">
         <span className={`hc-ic${tone}`}>
-          <Icon name={dir === "DONE" ? "check" : "clock"} size={20} />
+          <Icon name={dir === "DONE" && !expired ? "check" : "clock"} size={20} />
         </span>
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ fontWeight: 700, fontSize: 15 }}>
             {dir === "IN"
               ? "Belum clock in"
               : dir === "OUT"
-                ? `Shift berjalan ${fmtDur(props.minutes)}`
-                : `Shift selesai · ${fmtDur(props.minutes)}`}
+                ? `Shift berjalan ${fmtDur(shift.minutes)}`
+                : expired
+                  ? `Shift lewat ${props.maxHours} jam tanpa clock out`
+                  : `Shift selesai · ${fmtDur(shift.minutes)}`}
           </div>
           <div className="pbs-muted" style={{ fontSize: 12.5 }}>
             {dir === "IN"
               ? props.sessions
                 ? `${props.sessions} sesi hari ini. Clock in sebelum sesi pertama.`
                 : "Tidak ada jadwal hari ini."
-              : `${fmtTime(props.since)}${props.until ? `–${fmtTime(props.until)}` : ""}${props.office ? ` · ${props.office}` : ""} · ${props.reports}/${props.sessions} report`}
+              : `${fmtTime(shift.since)}${shift.until ? `–${fmtTime(shift.until)}` : ""}${shift.office ? ` · ${shift.office}` : ""} · ${props.reports}/${props.sessions} report`}
           </div>
         </div>
         {dir === "OUT" ? <Badge tone="success">Aktif</Badge> : null}
       </div>
-      {dir === "OUT" && props.overdue ? (
+      {dir === "OUT" && shift.overdue ? (
         <InfoBanner tone="warn">
-          Shift sudah lebih dari {props.maxHours} jam. Clock out sekarang supaya
-          jam kerjamu tercatat benar.
+          Shift maksimal {props.maxHours} jam. Clock out sebelum{" "}
+          {fmtTime(shift.deadline)}; lewat dari itu clock out tidak bisa lagi.
+        </InfoBanner>
+      ) : null}
+      {expired ? (
+        <InfoBanner tone="err">
+          Clock in hari ini sudah lewat {props.maxHours} jam, jadi clock out
+          ditutup. Satu hari hanya satu clock in. Minta tim PBS mengisi jam
+          clock out.
+        </InfoBanner>
+      ) : null}
+      {dir === "IN" && shift.missed ? (
+        <InfoBanner tone="warn">
+          Shift {fmtDateTimeShort(shift.missed)} belum di-clock out dan sudah lewat{" "}
+          {props.maxHours} jam. Tim PBS akan mengisi jam clock out-nya. Kamu
+          tetap bisa clock in hari ini.
         </InfoBanner>
       ) : null}
     </div>

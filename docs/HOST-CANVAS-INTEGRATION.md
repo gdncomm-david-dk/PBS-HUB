@@ -40,7 +40,7 @@ Set(varHostCtx, JSON({
         requireAbsen: true,        // false kalau tenant tidak memakai Host Absence: clock in saja membuka report
         absenLeadMin: 30,          // absen bisa dari 30 menit sebelum sesi mulai
         reportDeadlineDays: 2,     // report "Terlambat" setelah H+2 (sama dengan missingReportDays di Ops)
-        maxShiftHours: 12,         // shift terbuka lebih lama dari ini diberi peringatan "lupa clock out"
+        maxShiftHours: 16,         // shift maksimal; 2 jam sebelumnya host diberi peringatan, lewat dari itu clock out ditutup
         tolerancePct: 5,           // PBS0005A ±5 % (layar revisi)
         imageMaxPx: 2000,          // sisi terpanjang screenshot setelah dikompres
         imageMaxKb: 1200           // batas ukuran JPEG yang dikirim ke flow
@@ -551,7 +551,10 @@ If(!IsBlank(Self.ActionPayload),
                 Switch(act,
                     "CLOCK_IN",
                         If(!IsBlank(LookUp(clockInFiltered, HostID = varMe.Title && ClockInDate = Today())),
-                            Set(varCkResult, JSON({requestId: rid, status: "conflict", message: "Kamu sudah clock in hari ini."}, JSONFormat.Compact)),
+                            Set(varCkResult, JSON({requestId: rid, status: "conflict", message: "Kamu sudah clock in hari ini. Satu hari hanya satu clock in."}, JSONFormat.Compact)),
+                        // Shift semalam yang masih berjalan (< 16 jam) harus di-clock out dulu. 16 = maxShiftHours.
+                        !IsBlank(LookUp(clockInFiltered, HostID = varMe.Title && IsBlank(CheckOutTime) && DateDiff(CheckInTime, Now(), TimeUnit.Minutes) < 16 * 60)),
+                            Set(varCkResult, JSON({requestId: rid, status: "conflict", message: "Shift sebelumnya masih berjalan. Clock out dulu."}, JSONFormat.Compact)),
                             IfError(
                                 // Selfie dulu: nama file tidak butuh ID, jadi upload gagal tidak meninggalkan baris tanpa foto.
                                 // PBS Power Apps/Absence/<yyyy>/<mmmm>/<dd-mm-yyyy>/<file> lewat Graph (sama dengan screenshot report).
@@ -585,6 +588,9 @@ If(!IsBlank(Self.ActionPayload),
                         With({cur: LookUp(clockInFiltered, ID = Value(p.clockInId) && HostID = varMe.Title)},
                             If(IsBlank(cur) || !IsBlank(cur.CheckOutTime),
                                 Set(varCkResult, JSON({requestId: rid, status: "conflict", message: "Shift ini sudah di-clock out. Muat ulang."}, JSONFormat.Compact)),
+                            // Shift maksimal 16 jam (= maxShiftHours): lewat dari itu jam clock out diisi Ops.
+                            DateDiff(cur.CheckInTime, Now(), TimeUnit.Minutes) > 16 * 60,
+                                Set(varCkResult, JSON({requestId: rid, status: "conflict", message: "Shift sudah lewat 16 jam, clock out ditutup. Minta tim PBS mengisi jam clock out."}, JSONFormat.Compact)),
                                 IfError(
                                     // Folder tanggal clock in (bukan hari ini): shift lewat tengah malam tetap satu folder.
                                     With({up: Office365Groups.HttpRequest(
@@ -625,8 +631,13 @@ Catatan:
   `checkOutTime` di payload hanya untuk log.
 - Selfie di-upload **sebelum** baris ditulis (clock in) / di-patch (clock out). Upload gagal → `IfError` membalas
   error, tidak ada baris setengah jadi, host tinggal menekan tombol lagi.
-- `ClockInDate = Today()` di pengecekan konflik: satu baris clock in per host per hari (sama dengan clock in manual
-  di Ops).
+- **Satu hari maksimal satu clock in, tapi bisa dua clock out.** `ClockInDate = Today()` di pengecekan konflik:
+  satu baris clock in per host per hari (sama dengan clock in manual di Ops). Clock out dihitung per shift, jadi
+  tanggal 29 bisa punya dua clock out: 03:00 (menutup shift tanggal 28) dan 18:00 (menutup shift tanggal 29).
+- **Shift maksimal 16 jam** (`maxShiftHours`). Mulai jam ke-14 host diberi peringatan dengan batas jam clock out.
+  Lewat 16 jam, shift itu dianggap lupa clock out: `CLOCK_OUT` ditolak dan jam clock out diisi Ops lewat
+  *Sesuaikan* di HostDetail. Kalau shift itu dari hari sebelumnya, host tetap bisa clock in hari ini. Kalau dari
+  hari ini, tidak ada clock in kedua. Angka `16` di formula harus sama dengan `maxShiftHours`.
 - **Shift lewat tengah malam** (jadwal 28 Sep 22:00 → 29 Sep 03:00): `ClockInDate` = 28 (hari clock in),
   `CLOCK_OUT` menulis `ClockOutDate: Today()` = 29. Pengecekan konflik hanya melihat `ClockInDate`, jadi host tetap
   bisa clock in lagi tanggal 29 untuk jadwal berikutnya. Selama shift masih terbuka (jam 02:00 tanggal 29), layar

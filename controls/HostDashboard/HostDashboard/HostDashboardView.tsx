@@ -12,6 +12,7 @@ import {
   str,
 } from "../../../shared/data";
 import {
+  fmtDateTimeShort,
   fmtDayMonth,
   fmtLongDate,
   fmtNumber,
@@ -425,8 +426,9 @@ function ShiftCard(props: {
         </div>
         {shift.overdue ? (
           <InfoBanner tone="warn">
-            Shift sudah lebih dari {props.maxHours} jam. Lupa clock out? Clock
-            out sekarang supaya jam kerjamu tercatat benar.
+            Shift maksimal {props.maxHours} jam. Lupa clock out? Clock out
+            sebelum {fmtTime(shift.deadline)}; lewat dari itu clock out tidak
+            bisa lagi.
           </InfoBanner>
         ) : null}
         <button
@@ -436,6 +438,28 @@ function ShiftCard(props: {
         >
           Clock Out
         </button>
+      </div>
+    );
+  }
+  if (shift.state === "EXPIRED") {
+    return (
+      <div className="hc-card hc-shift">
+        <div className="hc-shift-h">
+          <span className="hc-ic">
+            <Icon name="clock" size={20} />
+          </span>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontWeight: 700, fontSize: 15 }}>
+              Shift lewat {props.maxHours} jam tanpa clock out
+            </div>
+            <div className="pbs-muted" style={{ fontSize: 12.5 }}>
+              Clock in {fmtTime(shift.since)}
+              {shift.office ? ` · ${shift.office}` : ""}. Satu hari hanya satu
+              clock in; minta tim PBS mengisi jam clock out.
+            </div>
+          </div>
+          <Badge tone="danger">Tanpa clock out</Badge>
+        </div>
       </div>
     );
   }
@@ -473,6 +497,12 @@ function ShiftCard(props: {
           </div>
         </div>
       </div>
+      {shift.missed ? (
+        <InfoBanner tone="warn">
+          Shift {fmtDateTimeShort(shift.missed)} belum di-clock out dan sudah
+          lewat {props.maxHours} jam. Tim PBS akan mengisi jam clock out-nya.
+        </InfoBanner>
+      ) : null}
       <button
         type="button"
         className={`pbs-btn ${props.hasToday ? "primary" : "secondary"} hc-big`}

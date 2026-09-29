@@ -1,6 +1,7 @@
 import * as React from "react";
 import { ModuleContext, UseActionResult } from "./contract";
 import {
+  MAX_SHIFT_HOURS,
   Row,
   addDaysKey,
   clockText,
@@ -171,7 +172,7 @@ export function ClockInModal(props: {
   const a = tin === "" ? null : Number(tin);
   const b = tout === "" ? null : Number(tout) + (outNext ? 1440 : 0);
   const order = a !== null && b !== null && b <= a;
-  const tooLong = a !== null && b !== null && b - a > 1440;
+  const tooLong = a !== null && b !== null && b - a > MAX_SHIFT_HOURS * 60;
   const ok = !!picked && a !== null && b !== null && !order && !tooLong && !!st;
   const outKey = picked ? addDaysKey(picked.key, outNext ? 1 : 0) : "";
 
@@ -365,7 +366,7 @@ export function ClockInModal(props: {
               </InfoBanner>
             ) : tooLong ? (
               <InfoBanner tone="warn">
-                Shift lebih dari 24 jam. Periksa lagi tanggal clock out.
+                Shift maksimal {MAX_SHIFT_HOURS} jam. Periksa lagi jam dan tanggal clock out.
               </InfoBanner>
             ) : null}
             {res ? (
