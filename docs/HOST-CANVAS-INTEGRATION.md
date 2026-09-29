@@ -1,6 +1,6 @@
 # Integrasi canvas — PBS Hub Host App
 
-Solusi terpisah dari Ops Console: **`PBSHubHostApp`** (managed, `dist/PBSHubHostApp_1_0_13_0_managed.zip`), berisi
+Solusi terpisah dari Ops Console: **`PBSHubHostApp`** (managed, `dist/PBSHubHostApp_1_0_14_0_managed.zip`), berisi
 ketujuh control host dengan identifier baru `pbs_HostApp.*`. Solusi ini menggantikan `PBSHubHostPCF` +
 `PBSHubHostSchedulePCF` (control lama `pbs_Host.*`). Karena nama solusi dan namespace control berbeda, solusi baru
 bisa diimport berdampingan dengan yang lama tanpa bentrok. Publisher dan prefix tetap sama (`PBSHub` / `pbs`).
@@ -18,7 +18,7 @@ bisa diimport berdampingan dengan yang lama tanpa bentrok. Publisher dan prefix 
 Aturan kontrak sama dengan Ops (lihat [`CANVAS-INTEGRATION.md` §1](CANVAS-INTEGRATION.md#1-aturan-kontrak-berlaku-untuk-semua-control)):
 control **tidak pernah menulis ke SharePoint**, tombol mengirim `ActionPayload`, canvas menulis di `OnChange`
 dan membalas lewat `ActionResult` dengan `requestId` yang sama. Aksi yang **mengunci** (wajib dibalas):
-`ABSEN`, `SUBMIT_REPORT`, `RESUBMIT_REPORT`, `DISPUTE_REVIEW`, `CLOCK_IN`, `CLOCK_OUT` (ClockIn). Sisanya navigasi, tidak perlu dibalas.
+`ABSEN`, `SUBMIT_REPORT`, `RESUBMIT_REPORT`, `DISPUTE_REVIEW`, `DELETE_REPORT`, `CLOCK_IN`, `CLOCK_OUT` (ClockIn). Sisanya navigasi, tidak perlu dibalas.
 
 > **Baru mulai memasang?** Ikuti [`HOST-SETUP.md`](HOST-SETUP.md): Langkah 0–12 berurutan, setiap layar lengkap
 > (OnVisible, semua properti dengan formula utuh, OnChange), plus tes alur report dan troubleshooting. Dokumen ini
@@ -313,6 +313,18 @@ sanggahan di ApprovalComment.
     ),
 ```
 
+### DELETE_REPORT 🔒
+
+Host boleh menghapus report **miliknya sendiri yang belum Match**: `Match` bukan `Match`, `ApprovalStatus`
+bukan `Done` dan bukan `LiveBreak` (report Live Break dibuat otomatis). Tombol *Delete Report* muncul di bawah
+report (lihat maupun revisi); host mengisi alasan (min. 5 karakter) lalu konfirmasi. Baris Report Automation
+(AI Report) dengan Title yang sama ikut dihapus.
+
+Payload: `{reportId, title, scheduleId, hostId, liveDate, expectedModified, reason, deletedBy, scheduleStatus}`.
+`scheduleStatus` dihitung control: `Waiting Report` kalau report sisanya di sesi itu belum menutup durasi
+jadwal (atau tidak ada report lain), `Finished` kalau sudah. Canvas mengecek ulang aturan Match sebelum
+`Remove`, lalu kembali ke layar sebelumnya (`Back()`). Rumus lengkap ada di bagian 10.3.
+
 ### Aksi lain
 
 | Aksi | Canvas |
@@ -447,7 +459,7 @@ Sesi tanpa clock in diarahkan minta clock in manual ke tim PBS, sesi batal hanya
 
 ## 8. Pemasangan
 
-1. Import `dist/PBSHubHostApp_1_0_13_0_managed.zip` (Solutions → Import). Bisa di environment yang sama dengan
+1. Import `dist/PBSHubHostApp_1_0_14_0_managed.zip` (Solutions → Import). Bisa di environment yang sama dengan
    `PBSHubOpsPCF` dan dengan solusi host lama.
    **Pindah dari solusi lama** (`PBSHubHostPCF` / `PBSHubHostSchedulePCF`, control `pbs_Host.*`): control baru tidak
    otomatis menggantikan yang lama di canvas. Di tiap layar hapus control lama, tambahkan control `pbs_HostApp.*`
@@ -1298,6 +1310,31 @@ If(!IsBlank(Self.ActionPayload),
                                     ClearCollect(colMrdSesRep, Filter(reportFiltered, HostID = varMe.Title, ScheduleID = varMrdSch.Title));
                                     Set(varMrdResult, JSON({requestId: rid, status: "ok", message: "Sanggahan terkirim ke reviewer."}, JSONFormat.Compact)),
                                     Set(varMrdResult, JSON({requestId: rid, status: "error", message: "Gagal mengirim sanggahan: " & FirstError.Message}, JSONFormat.Compact))
+                                )
+                            )
+                        ),
+                    "DELETE_REPORT",
+                        With({cur: LookUp(reportFiltered, ID = Value(p.reportId) && HostID = varMe.Title)},
+                            If(IsBlank(cur),
+                                Set(varMrdResult, JSON({requestId: rid, status: "conflict", message: "Report ini sudah tidak ada. Muat ulang dulu."}, JSONFormat.Compact)),
+                            // Sudah Match / Done / Live Break: host tidak boleh menghapus (sama dengan aturan di control).
+                            Coalesce(cur.Match.Value, "") = "Match" || cur.ApprovalStatus.Value in ["Done", "LiveBreak"],
+                                Set(varMrdResult, JSON({requestId: rid, status: "conflict", message: "Report ini sudah Match atau disetujui, jadi tidak bisa dihapus. Hubungi tim PBS."}, JSONFormat.Compact)),
+                                IfError(
+                                    // AI Report (Report Automation) dengan Title yang sama ikut dihapus.
+                                    RemoveIf('Report Automation - PBS Hub', Title = cur.Title);
+                                    Remove('Report - PBS Hub', LookUp('Report - PBS Hub', ID = cur.ID));
+                                    RemoveIf(reportFiltered, ID = cur.ID);
+                                    // Status jadwal dihitung control: kembali Waiting Report kalau report sisanya belum menutup durasi sesi.
+                                    With({s: LookUp(scheduleFiltered, Title = cur.ScheduleID && HostID = varMe.Title)},
+                                        If(!IsBlank(s) && !IsBlank(Text(p.scheduleStatus)) && s.Status.Value <> Text(p.scheduleStatus),
+                                            With({_upd: Patch('Schedule - PBS Hub', s, {Status: {Value: Text(p.scheduleStatus)}})}, RemoveIf(scheduleFiltered, ID = _upd.ID); Collect(scheduleFiltered, _upd); _upd)));
+                                    Set(varRptId, Blank()); Set(varMrdRep, LookUp(reportFiltered, ID = -1));
+                                    Set(varMrdSch, LookUp(scheduleFiltered, ID = varMrdSch.ID));
+                                    ClearCollect(colMrdSesRep, Filter(reportFiltered, HostID = varMe.Title, ScheduleID = varMrdSch.Title));
+                                    Set(varMrdResult, JSON({requestId: rid, status: "ok", message: "Report " & Text(p.title) & " dihapus."}, JSONFormat.Compact));
+                                    Back(),
+                                    Set(varMrdResult, JSON({requestId: rid, status: "error", message: "Gagal menghapus report: " & FirstError.Message}, JSONFormat.Compact))
                                 )
                             )
                         ),

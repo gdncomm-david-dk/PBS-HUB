@@ -278,6 +278,31 @@ def dispute(R, after):
         )
     ),'''
 
+def delete(R, after):
+    return f'''"DELETE_REPORT",
+    With({{cur: LookUp(reportFiltered, ID = Value(p.reportId) && HostID = varMe.Title)}},
+        If(IsBlank(cur),
+            {res(R, "conflict", '"Report ini sudah tidak ada. Muat ulang dulu."')},
+        // Sudah Match / Done / Live Break: host tidak boleh menghapus (sama dengan aturan di control).
+        Coalesce(cur.Match.Value, "") = "Match" || cur.ApprovalStatus.Value in ["Done", "LiveBreak"],
+            {res(R, "conflict", '"Report ini sudah Match atau disetujui, jadi tidak bisa dihapus. Hubungi tim PBS."')},
+            IfError(
+                // AI Report (Report Automation) dengan Title yang sama ikut dihapus.
+                RemoveIf('Report Automation - PBS Hub', Title = cur.Title);
+                Remove('Report - PBS Hub', LookUp('Report - PBS Hub', ID = cur.ID));
+                RemoveIf(reportFiltered, ID = cur.ID);
+                // Status jadwal dihitung control: kembali Waiting Report kalau report sisanya belum menutup durasi sesi.
+                With({{s: LookUp(scheduleFiltered, Title = cur.ScheduleID && HostID = varMe.Title)}},
+                    If(!IsBlank(s) && !IsBlank(Text(p.scheduleStatus)) && s.Status.Value <> Text(p.scheduleStatus),
+                        With({{_upd: Patch('Schedule - PBS Hub', s, {{Status: {{Value: Text(p.scheduleStatus)}}}})}}, RemoveIf(scheduleFiltered, ID = _upd.ID); Collect(scheduleFiltered, _upd); _upd)));
+{ind(after, 16)}
+                {res(R, "ok", '"Report " & Text(p.title) & " dihapus."')};
+                Back(),
+                {res(R, "error", '"Gagal menghapus report: " & FirstError.Message')}
+            )
+        )
+    ),'''
+
 def shell(handlers, upload=False):
     data = ', data: Self.UploadData' if upload else ''
     return f'''If(!IsBlank(Self.ActionPayload),
@@ -334,6 +359,7 @@ mrd = shell('\n'.join([
  submit('varMrdResult', mrd_after_submit),
  resubmit('varMrdResult', mrd_after),
  dispute('varMrdResult', mrd_after),
+ delete('varMrdResult', "Set(varRptId, Blank()); Set(varMrdRep, LookUp(reportFiltered, ID = -1));\n" + mrd_sch),
  '"OPEN_EVIDENCE", Launch(Text(p.url)),',
  '"BACK", Back(),',
 ]), upload=True)

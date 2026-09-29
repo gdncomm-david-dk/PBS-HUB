@@ -93,6 +93,7 @@ Izin kalau `permissions` kosong (model legacy `Role - PBS Hub`, satu-satunya yan
 |---|---|---|---|
 | `SCHEDULE_CREATE` (tombol Upload massal / Buat jadwal) | ✓ | ✓ | – |
 | `REPORT_ADJUDICATE` (Setujui, Perlu revisi, bulk approve) | ✓ | ✓ | – |
+| `REPORT_DELETE` (Delete Report di ReportDetail) | ✓ | ✓ | – |
 | `RECONCILIATION_CONFIG` (tombol Konfigurasi toleransi) | ✓ | ✓ | – |
 | `PAYROLL_VIEW` (tombol Buka payroll) | ✓ | – | – |
 | `PAYROLL_RUN` (Jalankan payroll, Kirim ulang slip) | ✓ | – | – |
@@ -431,6 +432,7 @@ SchedulesJson = JSON(ForAll(Filter(scheduleFiltered, Title = LookUp(reportFilter
 | `APPROVE_WITHOUT_EVIDENCE` | `Done` | kosong (jangan diubah) | `[Tanpa bukti] …` (wajib diisi) |
 | `REQUEST_REVISION` | `Need Revision` | `Unmatch` | catatan + `Metrik yang perlu diperbaiki: …`; `flaggedMetrics: ["Penjualan","CTOR"]` (hanya metrik yang selisihnya ≠ 0 %) |
 | `REMIND_HOST` | – | – | kirim email/notifikasi ke host (`hostId`) |
+| `DELETE_REPORT` | – | – | hapus baris Report **dan** baris Report Automation dengan Title yang sama (`reportId`, `title`, `scheduleId`, `hostId`, `liveDate`, `reason`, `deletedBy`). Tombol *Delete Report* hanya tampil untuk izin `REPORT_DELETE` (PBS_Team / FAS_Team kalau Context tidak mengirim daftar izin), tidak di mode ReadOnly |
 
 **OnChange**
 
@@ -453,6 +455,26 @@ If(!IsBlank(Self.ActionPayload),
                             );
                             Set(varRdResult, JSON({requestId: rid, status: "ok"}, JSONFormat.Compact)),
                             Set(varRdResult, JSON({requestId: rid, status: "error", message: FirstError.Message}, JSONFormat.Compact))
+                        ),
+                    // Hapus report yang salah (butuh REPORT_DELETE), sekaligus baris Report Automation dengan Title yang sama.
+                    "DELETE_REPORT",
+                        With({cur: LookUp(reportFiltered, ID = Value(p.reportId))},
+                            If(IsBlank(cur),
+                                Set(varRdResult, JSON({requestId: rid, status: "conflict", message: "Report ini sudah tidak ada. Reload."}, JSONFormat.Compact)),
+                                IfError(
+                                    RemoveIf('Report Automation - PBS Hub', Title = cur.Title);
+                                    Remove('Report - PBS Hub', LookUp('Report - PBS Hub', ID = cur.ID));
+                                    RemoveIf(reportFiltered, ID = cur.ID);
+                                    Refresh('Report Automation - PBS Hub');
+                                    // Tidak ada report lain di sesi itu → jadwal kembali Waiting Report supaya host bisa kirim ulang.
+                                    With({s: LookUp(scheduleFiltered, Title = cur.ScheduleID)},
+                                        If(!IsBlank(s) && IsBlank(LookUp(reportFiltered, ScheduleID = cur.ScheduleID)) && s.Status.Value <> "Waiting Report",
+                                            With({_upd: Patch('Schedule - PBS Hub', s, {Status: {Value: "Waiting Report"}})}, RemoveIf(scheduleFiltered, ID = _upd.ID); Collect(scheduleFiltered, _upd); _upd)));
+                                    Set(varRdResult, JSON({requestId: rid, status: "ok", message: "Report " & Text(p.title) & " dihapus."}, JSONFormat.Compact));
+                                    Back(),
+                                    Set(varRdResult, JSON({requestId: rid, status: "error", message: "Gagal menghapus " & Text(p.title) & ": " & FirstError.Message}, JSONFormat.Compact))
+                                )
+                            )
                         ),
                     // APPROVE, APPROVE_WITHOUT_EVIDENCE, REQUEST_REVISION
                     If(!(act in ["APPROVE", "APPROVE_WITHOUT_EVIDENCE", "REQUEST_REVISION"]),
@@ -1275,7 +1297,7 @@ belum ada di v1, bulk approve tidak akan muncul — itu disengaja.
 
 1. Power Platform admin center → environment → **Settings → Product → Features** → aktifkan
    *Allow publishing of canvas apps with code components*.
-2. make.powerapps.com → **Solutions → Import solution** → `PBSHubOpsPCF_1_6_12_0_managed.zip`
+2. make.powerapps.com → **Solutions → Import solution** → `PBSHubOpsPCF_1_6_13_0_managed.zip`
    (sudah pernah import versi lama? Import ini meng-**upgrade** solusi yang sama — pilih *Upgrade*, bukan
    *Stage for upgrade* yang belum di-*Apply*).
 3. Di canvas app: **Insert → Get more components → Code** → pilih `PBS Ops Dashboard`,

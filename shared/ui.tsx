@@ -5,6 +5,7 @@ import { MASCOT_CHEER } from "./assets.generated";
 
 export type IconName =
   | "checkSquare"
+  | "trash"
   | "mapPin"
   | "clock"
   | "file"
@@ -102,6 +103,7 @@ const PATHS: Record<IconName, React.ReactNode> = {
     </>
   ),
   x: <path d="M18 6L6 18M6 6l12 12" />,
+  trash: <path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14M10 11v6M14 11v6" />,
   chevronDown: <path d="M6 9l6 6 6-6" />,
   arrowLeft: <path d="M19 12H5M12 19l-7-7 7-7" />,
   external: (

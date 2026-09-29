@@ -72,7 +72,7 @@ belum ada di list lama, cek dulu.
 
 ## Langkah 1 — Import solusi dan tambahkan data source
 
-1. Power Apps → **Solutions → Import solution** → pilih `dist/PBSHubHostApp_1_0_13_0_managed.zip` → Import.
+1. Power Apps → **Solutions → Import solution** → pilih `dist/PBSHubHostApp_1_0_14_0_managed.zip` → Import.
 2. Sekali per environment: Power Platform admin center → environment → **Settings → Product → Features** →
    *Allow publishing of canvas apps with code components* = **On**. Tanpa ini control tidak muncul di tab Code.
 3. Panel **Data → Add data → SharePoint** → site PBS Hub → centang semua list di Langkah 0.
@@ -1751,6 +1751,31 @@ If(!IsBlank(Self.ActionPayload),
                                     ClearCollect(colMrdSesRep, Filter(reportFiltered, HostID = varMe.Title, ScheduleID = varMrdSch.Title));
                                     Set(varMrdResult, JSON({requestId: rid, status: "ok", message: "Sanggahan terkirim ke reviewer."}, JSONFormat.Compact)),
                                     Set(varMrdResult, JSON({requestId: rid, status: "error", message: "Gagal mengirim sanggahan: " & FirstError.Message}, JSONFormat.Compact))
+                                )
+                            )
+                        ),
+                    "DELETE_REPORT",
+                        With({cur: LookUp(reportFiltered, ID = Value(p.reportId) && HostID = varMe.Title)},
+                            If(IsBlank(cur),
+                                Set(varMrdResult, JSON({requestId: rid, status: "conflict", message: "Report ini sudah tidak ada. Muat ulang dulu."}, JSONFormat.Compact)),
+                            // Sudah Match / Done / Live Break: host tidak boleh menghapus (sama dengan aturan di control).
+                            Coalesce(cur.Match.Value, "") = "Match" || cur.ApprovalStatus.Value in ["Done", "LiveBreak"],
+                                Set(varMrdResult, JSON({requestId: rid, status: "conflict", message: "Report ini sudah Match atau disetujui, jadi tidak bisa dihapus. Hubungi tim PBS."}, JSONFormat.Compact)),
+                                IfError(
+                                    // AI Report (Report Automation) dengan Title yang sama ikut dihapus.
+                                    RemoveIf('Report Automation - PBS Hub', Title = cur.Title);
+                                    Remove('Report - PBS Hub', LookUp('Report - PBS Hub', ID = cur.ID));
+                                    RemoveIf(reportFiltered, ID = cur.ID);
+                                    // Status jadwal dihitung control: kembali Waiting Report kalau report sisanya belum menutup durasi sesi.
+                                    With({s: LookUp(scheduleFiltered, Title = cur.ScheduleID && HostID = varMe.Title)},
+                                        If(!IsBlank(s) && !IsBlank(Text(p.scheduleStatus)) && s.Status.Value <> Text(p.scheduleStatus),
+                                            With({_upd: Patch('Schedule - PBS Hub', s, {Status: {Value: Text(p.scheduleStatus)}})}, RemoveIf(scheduleFiltered, ID = _upd.ID); Collect(scheduleFiltered, _upd); _upd)));
+                                    Set(varRptId, Blank()); Set(varMrdRep, LookUp(reportFiltered, ID = -1));
+                                    Set(varMrdSch, LookUp(scheduleFiltered, ID = varMrdSch.ID));
+                                    ClearCollect(colMrdSesRep, Filter(reportFiltered, HostID = varMe.Title, ScheduleID = varMrdSch.Title));
+                                    Set(varMrdResult, JSON({requestId: rid, status: "ok", message: "Report " & Text(p.title) & " dihapus."}, JSONFormat.Compact));
+                                    Back(),
+                                    Set(varMrdResult, JSON({requestId: rid, status: "error", message: "Gagal menghapus report: " & FirstError.Message}, JSONFormat.Compact))
                                 )
                             )
                         ),

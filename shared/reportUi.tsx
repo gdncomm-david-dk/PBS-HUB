@@ -52,6 +52,7 @@ export const DECISION_DONE_TEXT: Record<string, string> = {
   REQUEST_REVISION: "Permintaan revisi terkirim ke host.",
   REMIND_HOST: "Pengingat terkirim ke host.",
   BULK_APPROVE: "Report terpilih disetujui.",
+  DELETE_REPORT: "Report dihapus.",
 };
 
 export function fmtMetric(def: MetricDef, v: number | null): string {

@@ -34,7 +34,10 @@ import {
   sanityWarnings,
   statusAfterReport,
   statusAllowsReport,
+  hostCanDelete,
+  statusAfterDelete,
 } from "./hostApp";
+import { DeleteReportCard } from "./deleteReport";
 import { useAbsen, useAbsenceMemory } from "./hostAbsen";
 import { PreparedImage, fmtBytes, prepareImage } from "./hostImage";
 import {
@@ -216,6 +219,22 @@ export function MyReportDetailView(
       ) : (
         <ViewReport {...props} report={report} session={session} />
       )}
+      {report && hostCanDelete(report) ? (
+        <div style={{ marginTop: 16 }}>
+          <DeleteReportCard
+            report={report}
+            action={action}
+            className="hc-card"
+            deletedBy={ctx.userEmail}
+            extra={{
+              scheduleStatus: session
+                ? statusAfterDelete(session, report, opts)
+                : "",
+            }}
+            text="Report yang belum Match boleh kamu hapus kalau salah isi, lalu kirim ulang dari sesi ini."
+          />
+        </div>
+      ) : null}
     </div>
   );
 }

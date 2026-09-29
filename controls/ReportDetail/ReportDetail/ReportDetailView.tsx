@@ -3,7 +3,9 @@ import {
   ModuleContext,
   UseActionResult,
   configNumber,
+  hasPermission,
 } from "../../../shared/contract";
+import { DeleteReportCard } from "../../../shared/deleteReport";
 import { Row, date, person, str } from "../../../shared/data";
 import { fmtAgo } from "../../../shared/format";
 import { REASONS, reviewBadge } from "../../../shared/reconcile";
@@ -180,6 +182,14 @@ function Detail(
             tolerancePct={tolerancePct}
             now={now}
           />
+          {!props.readOnly && hasPermission(ctx, "REPORT_DELETE") ? (
+            <DeleteReportCard
+              report={report}
+              action={action}
+              deletedBy={ctx.userEmail}
+              text="Untuk report yang salah (dobel, salah sesi atau akun). Baris AI Report (Report Automation) untuk report ini ikut dihapus."
+            />
+          ) : null}
         </div>
         <EvidenceRail
           item={item}

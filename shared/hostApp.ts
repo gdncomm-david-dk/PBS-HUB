@@ -587,6 +587,30 @@ export function statusAfterReport(
   };
 }
 
+/**
+ * The host may delete their own report while it is not matched: not Match, not decided (Done) and not
+ * the automatic Live Break report.
+ */
+export function hostCanDelete(report: Row | undefined): boolean {
+  if (!report) return false;
+  if (str(report, "Match").toLowerCase() === "match") return false;
+  const st = reviewState(report);
+  return st !== "DONE_AUTO" && st !== "DONE_MANUAL" && st !== "LIVE_BREAK";
+}
+
+/** Schedule.Status once `report` is gone: done only if the other reports still cover the session. */
+export function statusAfterDelete(
+  s: HostSession,
+  report: Row,
+  opts: HostOptions,
+): string {
+  const others = s.reports.filter((r) => rowId(r) !== rowId(report));
+  if (!others.length) return opts.waitingStatus;
+  return reportCoverage(others, s.requiredMin).remainingMin === 0
+    ? opts.doneStatus
+    : opts.waitingStatus;
+}
+
 /** Schedule.Status allows a report: Waiting Report (or the check is off in config). */
 export const statusAllowsReport = (
   s: HostSession,

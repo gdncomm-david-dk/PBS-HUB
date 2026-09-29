@@ -47,6 +47,19 @@ const assert = (c, m) => { if (!c) { console.log("FAIL", m); process.exitCode = 
   assert((await p.getByRole("button", { name: "Approve", exact: true }).count()) === 0, "decision bar gone after decision");
   await shot("f-approved");
 
+  // Ops deletes a wrong report (REPORT_DELETE); a host role does not see the button.
+  await go("c=ReportDetail&r=REP-20862");
+  await p.getByRole("button", { name: "Delete Report" }).click();
+  await p.fill("#pbs-del-reason", "Report dobel untuk sesi yang sama");
+  await p.getByRole("dialog").getByRole("button", { name: "Delete Report" }).click();
+  await p.waitForTimeout(1200);
+  pl = await payloads();
+  const od = pl.find((x) => x.action === "DELETE_REPORT");
+  assert(od && od.payload.reportId === "20862" && od.payload.title === "REP-20862" && od.payload.reason.startsWith("Report dobel"), "Ops DELETE_REPORT payload");
+  assert(await p.getByText("Report REP-20862 dihapus.").isVisible(), "Ops sees the report deleted");
+  await go("c=ReportDetail&r=REP-20862&role=HOST");
+  assert((await p.getByRole("button", { name: "Delete Report" }).count()) === 0, "no Delete Report without REPORT_DELETE");
+
   // Role spelled differently still decides; a missing role says what the control received.
   await go("c=ReportDetail&r=REP-20862&role=PBS%20Team");
   assert(await p.getByRole("button", { name: "Approve", exact: true }).isVisible(), "role 'PBS Team' may decide");
@@ -704,6 +717,20 @@ const assert = (c, m) => { if (!c) { console.log("FAIL", m); process.exitCode = 
   assert(pl.some((x) => x.action === "DISPUTE_REVIEW" && x.payload.reason.startsWith("Angka penjualan")), "DISPUTE_REVIEW payload");
   await go("c=MyReportDetail&r=REP-20902");
   assert((await p.getByRole("button", { name: "Fix Report" }).count()) === 0, "done report is read-only");
+  assert((await p.getByRole("button", { name: "Delete Report" }).count()) === 0, "done report cannot be deleted by the host");
+  // Host deletes a report that is not matched yet: reason first, then DELETE_REPORT with the schedule status.
+  await go("c=MyReportDetail&r=REP-20901");
+  await p.getByRole("button", { name: "Delete Report" }).click();
+  const hdel = p.getByRole("dialog").getByRole("button", { name: "Delete Report" });
+  assert(await hdel.isDisabled(), "host delete needs a reason");
+  await p.fill("#pbs-del-reason", "Salah pilih akun");
+  await shot("f-host-delete");
+  await hdel.click();
+  await p.waitForTimeout(1200);
+  pl = await payloads();
+  const hd = pl.find((x) => x.action === "DELETE_REPORT");
+  assert(hd && hd.payload.reportId === "20901" && hd.payload.reason === "Salah pilih akun" && hd.payload.scheduleStatus === "Waiting Report", "host DELETE_REPORT payload");
+  assert(await p.getByText("Report REP-20901 dihapus.").isVisible(), "host sees the report deleted");
 
   // ---- Host app: my schedule --------------------------------------------------------------------
   await go("c=MySchedule&view=List");
