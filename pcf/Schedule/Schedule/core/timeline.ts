@@ -190,11 +190,13 @@ function reportStep(reports: ReportRow[], phase: string, end: Date | null, now: 
         };
     }
     const total = reports.reduce((t, r) => t + (r.penjualan ?? 0), 0);
+    const mins = reports.reduce((t, r) => t + (r.durasiMin ?? 0), 0);
     return {
         ...base,
         state: "done",
         when: reports.length > 1 ? `${reports.length} report` : reports[0].reportId,
-        detail: `GMV ${rp(total)}`,
+        // A live that dropped and restarted has one report per part; the totals cover all of them.
+        detail: reports.length > 1 ? `GMV ${rp(total)} · ${reports.length} bagian live${mins ? ` · ${num(mins)} menit` : ""}` : `GMV ${rp(total)}`,
         record: reports.map((r) => ({
             section: `Report ${r.reportId || ""}`.trim(),
             rows: [
@@ -246,7 +248,7 @@ function verdictStep(reports: ReportRow[], ev: EvidenceRow[]): Step {
         {
             section: "Hasil review",
             rows: reports.flatMap((r) => [
-                [r.reportId || "Report", `${r.approvalStatus || "—"} · ${r.match || ev[0]?.status || "belum dicocokkan"}`],
+                [r.reportId || "Report", `${r.approvalStatus || "—"} · ${r.match || ev.find((e) => low(e.title) === low(r.reportId))?.status || "belum dicocokkan"}`],
                 ...(r.approvalComment ? [["Komentar", r.approvalComment]] : []),
                 ...(r.approverEmail ? [["Approver", r.approverEmail]] : []),
             ]) as [string, string][],

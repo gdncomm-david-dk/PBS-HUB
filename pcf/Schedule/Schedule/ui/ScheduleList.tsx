@@ -21,6 +21,29 @@ const monthRange = (todayKey: string): [string, string] => {
     return [toDateKey(new Date(d.getFullYear(), d.getMonth(), 1)), toDateKey(new Date(d.getFullYear(), d.getMonth() + 1, 0))];
 };
 
+const BOARD_KEY = "pbs.scheduleHub.board";
+interface BoardState {
+    view: View;
+    lanes: Lanes;
+    f: Filters;
+}
+function readBoardState(): BoardState | null {
+    try {
+        const o = JSON.parse(window.sessionStorage.getItem(BOARD_KEY) ?? "null") as BoardState | null;
+        const date = /^\d{4}-\d{2}-\d{2}$/;
+        return o && o.f && date.test(o.f.from) && date.test(o.f.to) ? o : null;
+    } catch {
+        return null;
+    }
+}
+function writeBoardState(s: BoardState): void {
+    try {
+        window.sessionStorage.setItem(BOARD_KEY, JSON.stringify(s));
+    } catch {
+        // Storage can be blocked (private mode, embedded host); the board then starts on this week.
+    }
+}
+
 export function rangeLabel(from: string, to: string): string {
     const a = dateKeyToDate(from);
     const b = dateKeyToDate(to);
@@ -37,10 +60,14 @@ export function ScheduleList(props: {
     onAi: () => void;
 }): React.ReactElement {
     const { env } = props;
-    const [view, setView] = React.useState<View>("calendar");
-    const [lanes, setLanes] = React.useState<Lanes>("brand");
+    // The board remembers its week, view and filters for the app session, so leaving the screen and coming
+    // back (the control is recreated then) returns to the same place instead of this week.
+    const saved = React.useMemo(readBoardState, []);
+    const [view, setView] = React.useState<View>(saved?.view ?? "calendar");
+    const [lanes, setLanes] = React.useState<Lanes>(saved?.lanes ?? "brand");
     const wk = weekStart(env.todayKey);
-    const [f, setF] = React.useState<Filters>({ from: wk, to: shiftDay(wk, 6), brandId: "", hostId: "", studioId: "", platform: "", status: "", q: "", only: "" });
+    const [f, setF] = React.useState<Filters>(saved?.f ?? { from: wk, to: shiftDay(wk, 6), brandId: "", hostId: "", studioId: "", platform: "", status: "", q: "", only: "" });
+    React.useEffect(() => writeBoardState({ view, lanes, f }), [view, lanes, f]);
     const [confirmDelete, setConfirmDelete] = React.useState<ScheduleRow | null>(null);
     const [picked, setPicked] = React.useState<Set<string>>(new Set());
     const [bulk, setBulk] = React.useState<"" | "duplicate" | "delete">("");
