@@ -368,6 +368,7 @@ the whole list:
 |---|---|---|
 | `scheduleFiltered` | `'Schedule - PBS Hub'` | EDIT, DELETE, BULK_DELETE |
 | `reportFiltered` | `'Report - PBS Hub'` | DELETE / BULK_DELETE (report check), REVIEW_REPORT |
+| `automationFiltered` | `'Report Automation - PBS Hub'` | LOAD_EVIDENCE, REVIEW_REPORT (rows to mark Unmatch) |
 | `clockInFiltered` | `'Clock In - PBS Hub'` | not used by the handler today; use it for any clock-in lookup you add |
 | `absenceFiltered` | `'Host Absence - PBS Hub'` | not used by the handler today; use it for any absence lookup you add |
 
@@ -379,7 +380,10 @@ keeps its `ID`, so SharePoint knows which item to change. Keep in mind:
   report outside the period will not block the delete.
 - If they are **collections** (`ClearCollect`), re-collect them after a write (for example after `Refresh(...)`),
   otherwise the next action reads stale rows. Named formulas (App › Formulas) update by themselves.
-- `REVIEW_REPORT` still patches `'Report Automation - PBS Hub'` directly (no filtered table for it).
+- `LOAD_EVIDENCE` exists for Report Automation rows whose `LiveDate` is blank or outside the period. If
+  `automationFiltered` is filtered on `LiveDate`, those rows are not in it either. Keep `automationFiltered`
+  unfiltered by date (for example `ShowColumns('Report Automation - PBS Hub', …)`), or the lookup finds nothing.
+  With `ShowColumns`, keep at least `ID, Title, Status, Penjualan, Pesanan, TotalViewer, StartHour, EndHour, LiveDate`.
 
 `varSiteID` and `varDriveID` are the site and drive IDs your current Graph upload already uses
 (the `PBS Power Apps` library on `sites/StudioTeamBlibli`).
@@ -483,7 +487,7 @@ If(rid <> varLastSchedRid,
             // (its LiveDate is blank or outside the loaded period). Title = is delegable. Replies itself.
             Set(varSchedResult, JSON({
                 requestId: rid, status: "ok", message: "",
-                data: { rows: ForAll(Filter('Report Automation - PBS Hub', Title = Text(p.reportId)) As ra, {
+                data: { rows: ForAll(Filter(automationFiltered, Title = Text(p.reportId)) As ra, {
                     ID: ra.ID, Title: ra.Title, Status: ra.Status.Value,
                     Penjualan: ra.Penjualan, Pesanan: ra.Pesanan, TotalViewer: ra.TotalViewer,
                     StartHour: ra.StartHour, EndHour: ra.EndHour, LiveDate: Text(ra.LiveDate, "yyyy-mm-dd") }) } },
@@ -505,7 +509,7 @@ If(rid <> varLastSchedRid,
                         ApprovalComment: If(IsBlank(Text(p.comment)), rep.ApprovalComment, Text(p.comment)),
                         ApproverEmail: User().Email });
                     If(revise,
-                        ForAll(Filter('Report Automation - PBS Hub', Title = Text(p.reportId)) As ra,
+                        ForAll(Filter(automationFiltered, Title = Text(p.reportId)) As ra,
                             Patch('Report Automation - PBS Hub', ra, { Status: { Value: "Unmatch" } })));
                     Set(varSchedMsg, Text(p.reportId) & If(revise, " dikembalikan ke host untuk revisi.", " disetujui."))); true,
                 Set(varSchedOk, false); Set(varSchedErr, FirstError.Message))
@@ -590,6 +594,6 @@ file was uploaded.
 | Deleted schedule comes back after reopening the screen | `schedules` is bound to a collection, or `DELETE_SCHEDULE` has no `Refresh` | Bind to the list / `Filter(...)` and keep the `Refresh('Schedule - PBS Hub')` in C4 |
 | Every week change shows a loading grid | The app still runs 1.5.0 or older | Import the current zip; the header should read `pbs_Ops.ScheduleHub 1.5.3` |
 | Week/filter resets after leaving the screen | Browser storage is blocked in the host | The board then starts on this week; everything else works |
-| *Bukti AI* says no OCR result, but the report is Done/Match | The Report Automation row is not in `evidence` (LiveDate blank or outside the period, or `Filter` not delegable) | Add the `LOAD_EVIDENCE` branch in C4. The detail then looks the row up by Title and shows its LiveDate |
+| *Bukti AI* says no OCR result, but the report is Done/Match | The Report Automation row is not in `evidence` (LiveDate blank or outside the period, or `Filter` not delegable) | Add the `LOAD_EVIDENCE` branch in C4, and make sure `automationFiltered` is not filtered on `LiveDate`. The detail then looks the row up by Title and shows its LiveDate |
 | New schedules from a flow do not appear | Canvas apps are not pushed SharePoint changes | Press **Muat ulang**, or add the Timer in C4 *Auto update* |
 | Bulk: notification OK and file in *Bulk Schedule*, but no schedules | `PBS0001A….Run()` was removed; the flow has a Power Apps trigger | Keep the `.Run()` at the bottom of the C4 handler |
