@@ -47,8 +47,9 @@ export const COMPARED_METRICS: MetricDef[] = [
   { key: "CTR", label: "CTR", format: "pct", fields: ["CTR"] },
   { key: "CTOR", label: "CTOR", format: "pct", fields: ["CTOR"] },
   {
+    // SharePoint column PeakViewer actually holds the average view duration (typo when the list was made).
     key: "PeakViewer",
-    label: "Peak viewer",
+    label: "Avg View Duration",
     format: "int",
     fields: ["PeakViewer", "Peak_x0020_Viewer"],
   },

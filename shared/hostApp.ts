@@ -780,13 +780,6 @@ export function sanityWarnings(
       key: "ProdukTerjual",
       text: "Produk terjual lebih kecil dari pesanan — setiap pesanan berisi minimal satu produk.",
     });
-  const peak = g("PeakViewer");
-  const total = g("TotalViewer");
-  if (peak !== null && total !== null && total > 0 && peak > total)
-    out.push({
-      key: "PeakViewer",
-      text: "Peak viewer lebih besar dari total viewer.",
-    });
   const sales = g("Penjualan");
   if (sales !== null && sales > 0 && orders === 0)
     out.push({ key: "Pesanan", text: "Ada penjualan tapi pesanan 0." });

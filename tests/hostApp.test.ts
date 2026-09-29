@@ -275,8 +275,7 @@ describe("submit form", () => {
       "CTR",
       "JumlahPembeli",
       "ProdukTerjual",
-      "PeakViewer",
-    ]);
+    ]); // PeakViewer holds Avg View Duration: no longer compared with TotalViewer
     const hist = [{ CTOR: 2 }, { CTOR: 2.5 }, { CTOR: 1.5 }];
     expect(sanityWarnings({ CTOR: 9 }, hist).map((w) => w.key)).toEqual([
       "CTOR",

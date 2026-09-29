@@ -1,6 +1,6 @@
 # Integrasi canvas — PBS Hub Host App
 
-Solusi terpisah dari Ops Console: **`PBSHubHostApp`** (managed, `dist/PBSHubHostApp_1_0_11_0_managed.zip`), berisi
+Solusi terpisah dari Ops Console: **`PBSHubHostApp`** (managed, `dist/PBSHubHostApp_1_0_12_0_managed.zip`), berisi
 ketujuh control host dengan identifier baru `pbs_HostApp.*`. Solusi ini menggantikan `PBSHubHostPCF` +
 `PBSHubHostSchedulePCF` (control lama `pbs_Host.*`). Karena nama solusi dan namespace control berbeda, solusi baru
 bisa diimport berdampingan dengan yang lama tanpa bentrok. Publisher dan prefix tetap sama (`PBSHub` / `pbs`).
@@ -447,7 +447,7 @@ Sesi tanpa clock in diarahkan minta clock in manual ke tim PBS, sesi batal hanya
 
 ## 8. Pemasangan
 
-1. Import `dist/PBSHubHostApp_1_0_11_0_managed.zip` (Solutions → Import). Bisa di environment yang sama dengan
+1. Import `dist/PBSHubHostApp_1_0_12_0_managed.zip` (Solutions → Import). Bisa di environment yang sama dengan
    `PBSHubOpsPCF` dan dengan solusi host lama.
    **Pindah dari solusi lama** (`PBSHubHostPCF` / `PBSHubHostSchedulePCF`, control `pbs_Host.*`): control baru tidak
    otomatis menggantikan yang lama di canvas. Di tiap layar hapus control lama, tambahkan control `pbs_HostApp.*`
@@ -765,7 +765,7 @@ If(!IsBlank(Self.ActionPayload),
                                                             With({liveMin: CountRows(Filter(slots, Covered)) * varSlotMin,
                                                                   t1Win: CountRows(Filter(slots, Covered && (SlotStart < 360 || (SlotStart >= 1440 && SlotStart < 1800)))) * varSlotMin,     // 00:00–06:00
                                                                   t2Win: CountRows(Filter(slots, Covered && ((SlotStart >= 1260 && SlotStart < 1440) || SlotStart >= 2700))) * varSlotMin,  // 21:00–24:00
-                                                                  // Akun terbaik hari itu: TotalViewer dijumlah, Peak dan CTR diambil maksimum.
+                                                                  // Akun terbaik hari itu: TotalViewer dijumlah, Avg View Duration (kolom PeakViewer) dan CTR diambil maksimum.
                                                                   best: First(Sort(ForAll(Distinct(repDay, Account.Value) As D,
                                                                             With({r: Filter(repDay, Account.Value = D.Value)},
                                                                                 {Account: D.Value, TotalViewer: Sum(r, TotalViewer), PeakViewer: Max(r, PeakViewer), CTR: Max(r, CTR)})),
@@ -793,14 +793,14 @@ If(!IsBlank(Self.ActionPayload),
                                                                         hol, "Auto Tier 1 karena Tanggal Merah (Libur Nasional)",
                                                                         tier = "No",
                                                                             "Belum mencapai target minimum. Views: " & Coalesce(best.TotalViewer, 0) & " (min " & t3.MinViews & "), CTR: " &
-                                                                            Coalesce(best.CTR, 0) & " (min " & t3.CTR & "), Peak: " & Coalesce(best.PeakViewer, 0) & " (min " & t3.AvgViewDur &
+                                                                            Coalesce(best.CTR, 0) & " (min " & t3.CTR & "), Avg View Duration: " & Coalesce(best.PeakViewer, 0) & " (min " & t3.AvgViewDur &
                                                                             "), Durasi: " & jam & " jam (min " & t3.Duration & " jam)",
                                                                         tier & " karena " & Concat(Filter([
                                                                             If(w1, "Jam Live 00:00-06:00 (" & t1Win & " menit, min " & varT1MinInWindow & ")", ""),
                                                                             If(w2, "Jam Live 21:00-24:00 (" & t2Win & " menit, min " & varT2MinInWindow & ")", ""),
-                                                                            If(m1, "Metric Tier 1 (Views " & best.TotalViewer & ", CTR " & best.CTR & ", Peak " & best.PeakViewer & ")", ""),
-                                                                            If(m2 && !m1, "Metric Tier 2 (Views " & best.TotalViewer & ", CTR " & best.CTR & ", Peak " & best.PeakViewer & ")", ""),
-                                                                            If(m3 && !m2, "Metric Tier 3 (Views " & best.TotalViewer & ", CTR " & best.CTR & ", Peak " & best.PeakViewer & ")", ""),
+                                                                            If(m1, "Metric Tier 1 (Views " & best.TotalViewer & ", CTR " & best.CTR & ", Avg View Duration " & best.PeakViewer & ")", ""),
+                                                                            If(m2 && !m1, "Metric Tier 2 (Views " & best.TotalViewer & ", CTR " & best.CTR & ", Avg View Duration " & best.PeakViewer & ")", ""),
+                                                                            If(m3 && !m2, "Metric Tier 3 (Views " & best.TotalViewer & ", CTR " & best.CTR & ", Avg View Duration " & best.PeakViewer & ")", ""),
                                                                             If(d1, "Durasi Live >= " & t1.Duration & " Jam (" & jam & " jam)", ""),
                                                                             If(d2 && !d1, "Durasi Live >= " & t2.Duration & " Jam (" & jam & " jam)", ""),
                                                                             If(d3 && !d2, "Durasi Live >= " & t3.Duration & " Jam (" & jam & " jam)", ""),
@@ -964,7 +964,7 @@ If(!IsBlank(Self.ActionPayload),
                                                             With({liveMin: CountRows(Filter(slots, Covered)) * varSlotMin,
                                                                   t1Win: CountRows(Filter(slots, Covered && (SlotStart < 360 || (SlotStart >= 1440 && SlotStart < 1800)))) * varSlotMin,     // 00:00–06:00
                                                                   t2Win: CountRows(Filter(slots, Covered && ((SlotStart >= 1260 && SlotStart < 1440) || SlotStart >= 2700))) * varSlotMin,  // 21:00–24:00
-                                                                  // Akun terbaik hari itu: TotalViewer dijumlah, Peak dan CTR diambil maksimum.
+                                                                  // Akun terbaik hari itu: TotalViewer dijumlah, Avg View Duration (kolom PeakViewer) dan CTR diambil maksimum.
                                                                   best: First(Sort(ForAll(Distinct(repDay, Account.Value) As D,
                                                                             With({r: Filter(repDay, Account.Value = D.Value)},
                                                                                 {Account: D.Value, TotalViewer: Sum(r, TotalViewer), PeakViewer: Max(r, PeakViewer), CTR: Max(r, CTR)})),
@@ -992,14 +992,14 @@ If(!IsBlank(Self.ActionPayload),
                                                                         hol, "Auto Tier 1 karena Tanggal Merah (Libur Nasional)",
                                                                         tier = "No",
                                                                             "Belum mencapai target minimum. Views: " & Coalesce(best.TotalViewer, 0) & " (min " & t3.MinViews & "), CTR: " &
-                                                                            Coalesce(best.CTR, 0) & " (min " & t3.CTR & "), Peak: " & Coalesce(best.PeakViewer, 0) & " (min " & t3.AvgViewDur &
+                                                                            Coalesce(best.CTR, 0) & " (min " & t3.CTR & "), Avg View Duration: " & Coalesce(best.PeakViewer, 0) & " (min " & t3.AvgViewDur &
                                                                             "), Durasi: " & jam & " jam (min " & t3.Duration & " jam)",
                                                                         tier & " karena " & Concat(Filter([
                                                                             If(w1, "Jam Live 00:00-06:00 (" & t1Win & " menit, min " & varT1MinInWindow & ")", ""),
                                                                             If(w2, "Jam Live 21:00-24:00 (" & t2Win & " menit, min " & varT2MinInWindow & ")", ""),
-                                                                            If(m1, "Metric Tier 1 (Views " & best.TotalViewer & ", CTR " & best.CTR & ", Peak " & best.PeakViewer & ")", ""),
-                                                                            If(m2 && !m1, "Metric Tier 2 (Views " & best.TotalViewer & ", CTR " & best.CTR & ", Peak " & best.PeakViewer & ")", ""),
-                                                                            If(m3 && !m2, "Metric Tier 3 (Views " & best.TotalViewer & ", CTR " & best.CTR & ", Peak " & best.PeakViewer & ")", ""),
+                                                                            If(m1, "Metric Tier 1 (Views " & best.TotalViewer & ", CTR " & best.CTR & ", Avg View Duration " & best.PeakViewer & ")", ""),
+                                                                            If(m2 && !m1, "Metric Tier 2 (Views " & best.TotalViewer & ", CTR " & best.CTR & ", Avg View Duration " & best.PeakViewer & ")", ""),
+                                                                            If(m3 && !m2, "Metric Tier 3 (Views " & best.TotalViewer & ", CTR " & best.CTR & ", Avg View Duration " & best.PeakViewer & ")", ""),
                                                                             If(d1, "Durasi Live >= " & t1.Duration & " Jam (" & jam & " jam)", ""),
                                                                             If(d2 && !d1, "Durasi Live >= " & t2.Duration & " Jam (" & jam & " jam)", ""),
                                                                             If(d3 && !d2, "Durasi Live >= " & t3.Duration & " Jam (" & jam & " jam)", ""),
@@ -1096,7 +1096,7 @@ If(!IsBlank(Self.ActionPayload),
                                                 With({liveMin: CountRows(Filter(slots, Covered)) * varSlotMin,
                                                       t1Win: CountRows(Filter(slots, Covered && (SlotStart < 360 || (SlotStart >= 1440 && SlotStart < 1800)))) * varSlotMin,     // 00:00–06:00
                                                       t2Win: CountRows(Filter(slots, Covered && ((SlotStart >= 1260 && SlotStart < 1440) || SlotStart >= 2700))) * varSlotMin,  // 21:00–24:00
-                                                      // Akun terbaik hari itu: TotalViewer dijumlah, Peak dan CTR diambil maksimum.
+                                                      // Akun terbaik hari itu: TotalViewer dijumlah, Avg View Duration (kolom PeakViewer) dan CTR diambil maksimum.
                                                       best: First(Sort(ForAll(Distinct(repDay, Account.Value) As D,
                                                                 With({r: Filter(repDay, Account.Value = D.Value)},
                                                                     {Account: D.Value, TotalViewer: Sum(r, TotalViewer), PeakViewer: Max(r, PeakViewer), CTR: Max(r, CTR)})),
@@ -1124,14 +1124,14 @@ If(!IsBlank(Self.ActionPayload),
                                                             hol, "Auto Tier 1 karena Tanggal Merah (Libur Nasional)",
                                                             tier = "No",
                                                                 "Belum mencapai target minimum. Views: " & Coalesce(best.TotalViewer, 0) & " (min " & t3.MinViews & "), CTR: " &
-                                                                Coalesce(best.CTR, 0) & " (min " & t3.CTR & "), Peak: " & Coalesce(best.PeakViewer, 0) & " (min " & t3.AvgViewDur &
+                                                                Coalesce(best.CTR, 0) & " (min " & t3.CTR & "), Avg View Duration: " & Coalesce(best.PeakViewer, 0) & " (min " & t3.AvgViewDur &
                                                                 "), Durasi: " & jam & " jam (min " & t3.Duration & " jam)",
                                                             tier & " karena " & Concat(Filter([
                                                                 If(w1, "Jam Live 00:00-06:00 (" & t1Win & " menit, min " & varT1MinInWindow & ")", ""),
                                                                 If(w2, "Jam Live 21:00-24:00 (" & t2Win & " menit, min " & varT2MinInWindow & ")", ""),
-                                                                If(m1, "Metric Tier 1 (Views " & best.TotalViewer & ", CTR " & best.CTR & ", Peak " & best.PeakViewer & ")", ""),
-                                                                If(m2 && !m1, "Metric Tier 2 (Views " & best.TotalViewer & ", CTR " & best.CTR & ", Peak " & best.PeakViewer & ")", ""),
-                                                                If(m3 && !m2, "Metric Tier 3 (Views " & best.TotalViewer & ", CTR " & best.CTR & ", Peak " & best.PeakViewer & ")", ""),
+                                                                If(m1, "Metric Tier 1 (Views " & best.TotalViewer & ", CTR " & best.CTR & ", Avg View Duration " & best.PeakViewer & ")", ""),
+                                                                If(m2 && !m1, "Metric Tier 2 (Views " & best.TotalViewer & ", CTR " & best.CTR & ", Avg View Duration " & best.PeakViewer & ")", ""),
+                                                                If(m3 && !m2, "Metric Tier 3 (Views " & best.TotalViewer & ", CTR " & best.CTR & ", Avg View Duration " & best.PeakViewer & ")", ""),
                                                                 If(d1, "Durasi Live >= " & t1.Duration & " Jam (" & jam & " jam)", ""),
                                                                 If(d2 && !d1, "Durasi Live >= " & t2.Duration & " Jam (" & jam & " jam)", ""),
                                                                 If(d3 && !d2, "Durasi Live >= " & t3.Duration & " Jam (" & jam & " jam)", ""),
@@ -1222,7 +1222,7 @@ If(!IsBlank(Self.ActionPayload),
                                         With({liveMin: CountRows(Filter(slots, Covered)) * varSlotMin,
                                               t1Win: CountRows(Filter(slots, Covered && (SlotStart < 360 || (SlotStart >= 1440 && SlotStart < 1800)))) * varSlotMin,     // 00:00–06:00
                                               t2Win: CountRows(Filter(slots, Covered && ((SlotStart >= 1260 && SlotStart < 1440) || SlotStart >= 2700))) * varSlotMin,  // 21:00–24:00
-                                              // Akun terbaik hari itu: TotalViewer dijumlah, Peak dan CTR diambil maksimum.
+                                              // Akun terbaik hari itu: TotalViewer dijumlah, Avg View Duration (kolom PeakViewer) dan CTR diambil maksimum.
                                               best: First(Sort(ForAll(Distinct(repDay, Account.Value) As D,
                                                         With({r: Filter(repDay, Account.Value = D.Value)},
                                                             {Account: D.Value, TotalViewer: Sum(r, TotalViewer), PeakViewer: Max(r, PeakViewer), CTR: Max(r, CTR)})),
@@ -1250,14 +1250,14 @@ If(!IsBlank(Self.ActionPayload),
                                                     hol, "Auto Tier 1 karena Tanggal Merah (Libur Nasional)",
                                                     tier = "No",
                                                         "Belum mencapai target minimum. Views: " & Coalesce(best.TotalViewer, 0) & " (min " & t3.MinViews & "), CTR: " &
-                                                        Coalesce(best.CTR, 0) & " (min " & t3.CTR & "), Peak: " & Coalesce(best.PeakViewer, 0) & " (min " & t3.AvgViewDur &
+                                                        Coalesce(best.CTR, 0) & " (min " & t3.CTR & "), Avg View Duration: " & Coalesce(best.PeakViewer, 0) & " (min " & t3.AvgViewDur &
                                                         "), Durasi: " & jam & " jam (min " & t3.Duration & " jam)",
                                                     tier & " karena " & Concat(Filter([
                                                         If(w1, "Jam Live 00:00-06:00 (" & t1Win & " menit, min " & varT1MinInWindow & ")", ""),
                                                         If(w2, "Jam Live 21:00-24:00 (" & t2Win & " menit, min " & varT2MinInWindow & ")", ""),
-                                                        If(m1, "Metric Tier 1 (Views " & best.TotalViewer & ", CTR " & best.CTR & ", Peak " & best.PeakViewer & ")", ""),
-                                                        If(m2 && !m1, "Metric Tier 2 (Views " & best.TotalViewer & ", CTR " & best.CTR & ", Peak " & best.PeakViewer & ")", ""),
-                                                        If(m3 && !m2, "Metric Tier 3 (Views " & best.TotalViewer & ", CTR " & best.CTR & ", Peak " & best.PeakViewer & ")", ""),
+                                                        If(m1, "Metric Tier 1 (Views " & best.TotalViewer & ", CTR " & best.CTR & ", Avg View Duration " & best.PeakViewer & ")", ""),
+                                                        If(m2 && !m1, "Metric Tier 2 (Views " & best.TotalViewer & ", CTR " & best.CTR & ", Avg View Duration " & best.PeakViewer & ")", ""),
+                                                        If(m3 && !m2, "Metric Tier 3 (Views " & best.TotalViewer & ", CTR " & best.CTR & ", Avg View Duration " & best.PeakViewer & ")", ""),
                                                         If(d1, "Durasi Live >= " & t1.Duration & " Jam (" & jam & " jam)", ""),
                                                         If(d2 && !d1, "Durasi Live >= " & t2.Duration & " Jam (" & jam & " jam)", ""),
                                                         If(d3 && !d2, "Durasi Live >= " & t3.Duration & " Jam (" & jam & " jam)", ""),
@@ -1397,7 +1397,7 @@ If(!IsBlank(Self.ActionPayload),
                                                             With({liveMin: CountRows(Filter(slots, Covered)) * varSlotMin,
                                                                   t1Win: CountRows(Filter(slots, Covered && (SlotStart < 360 || (SlotStart >= 1440 && SlotStart < 1800)))) * varSlotMin,     // 00:00–06:00
                                                                   t2Win: CountRows(Filter(slots, Covered && ((SlotStart >= 1260 && SlotStart < 1440) || SlotStart >= 2700))) * varSlotMin,  // 21:00–24:00
-                                                                  // Akun terbaik hari itu: TotalViewer dijumlah, Peak dan CTR diambil maksimum.
+                                                                  // Akun terbaik hari itu: TotalViewer dijumlah, Avg View Duration (kolom PeakViewer) dan CTR diambil maksimum.
                                                                   best: First(Sort(ForAll(Distinct(repDay, Account.Value) As D,
                                                                             With({r: Filter(repDay, Account.Value = D.Value)},
                                                                                 {Account: D.Value, TotalViewer: Sum(r, TotalViewer), PeakViewer: Max(r, PeakViewer), CTR: Max(r, CTR)})),
@@ -1425,14 +1425,14 @@ If(!IsBlank(Self.ActionPayload),
                                                                         hol, "Auto Tier 1 karena Tanggal Merah (Libur Nasional)",
                                                                         tier = "No",
                                                                             "Belum mencapai target minimum. Views: " & Coalesce(best.TotalViewer, 0) & " (min " & t3.MinViews & "), CTR: " &
-                                                                            Coalesce(best.CTR, 0) & " (min " & t3.CTR & "), Peak: " & Coalesce(best.PeakViewer, 0) & " (min " & t3.AvgViewDur &
+                                                                            Coalesce(best.CTR, 0) & " (min " & t3.CTR & "), Avg View Duration: " & Coalesce(best.PeakViewer, 0) & " (min " & t3.AvgViewDur &
                                                                             "), Durasi: " & jam & " jam (min " & t3.Duration & " jam)",
                                                                         tier & " karena " & Concat(Filter([
                                                                             If(w1, "Jam Live 00:00-06:00 (" & t1Win & " menit, min " & varT1MinInWindow & ")", ""),
                                                                             If(w2, "Jam Live 21:00-24:00 (" & t2Win & " menit, min " & varT2MinInWindow & ")", ""),
-                                                                            If(m1, "Metric Tier 1 (Views " & best.TotalViewer & ", CTR " & best.CTR & ", Peak " & best.PeakViewer & ")", ""),
-                                                                            If(m2 && !m1, "Metric Tier 2 (Views " & best.TotalViewer & ", CTR " & best.CTR & ", Peak " & best.PeakViewer & ")", ""),
-                                                                            If(m3 && !m2, "Metric Tier 3 (Views " & best.TotalViewer & ", CTR " & best.CTR & ", Peak " & best.PeakViewer & ")", ""),
+                                                                            If(m1, "Metric Tier 1 (Views " & best.TotalViewer & ", CTR " & best.CTR & ", Avg View Duration " & best.PeakViewer & ")", ""),
+                                                                            If(m2 && !m1, "Metric Tier 2 (Views " & best.TotalViewer & ", CTR " & best.CTR & ", Avg View Duration " & best.PeakViewer & ")", ""),
+                                                                            If(m3 && !m2, "Metric Tier 3 (Views " & best.TotalViewer & ", CTR " & best.CTR & ", Avg View Duration " & best.PeakViewer & ")", ""),
                                                                             If(d1, "Durasi Live >= " & t1.Duration & " Jam (" & jam & " jam)", ""),
                                                                             If(d2 && !d1, "Durasi Live >= " & t2.Duration & " Jam (" & jam & " jam)", ""),
                                                                             If(d3 && !d2, "Durasi Live >= " & t3.Duration & " Jam (" & jam & " jam)", ""),
@@ -1580,7 +1580,7 @@ If(!IsBlank(Self.ActionPayload),
                                                             With({liveMin: CountRows(Filter(slots, Covered)) * varSlotMin,
                                                                   t1Win: CountRows(Filter(slots, Covered && (SlotStart < 360 || (SlotStart >= 1440 && SlotStart < 1800)))) * varSlotMin,     // 00:00–06:00
                                                                   t2Win: CountRows(Filter(slots, Covered && ((SlotStart >= 1260 && SlotStart < 1440) || SlotStart >= 2700))) * varSlotMin,  // 21:00–24:00
-                                                                  // Akun terbaik hari itu: TotalViewer dijumlah, Peak dan CTR diambil maksimum.
+                                                                  // Akun terbaik hari itu: TotalViewer dijumlah, Avg View Duration (kolom PeakViewer) dan CTR diambil maksimum.
                                                                   best: First(Sort(ForAll(Distinct(repDay, Account.Value) As D,
                                                                             With({r: Filter(repDay, Account.Value = D.Value)},
                                                                                 {Account: D.Value, TotalViewer: Sum(r, TotalViewer), PeakViewer: Max(r, PeakViewer), CTR: Max(r, CTR)})),
@@ -1608,14 +1608,14 @@ If(!IsBlank(Self.ActionPayload),
                                                                         hol, "Auto Tier 1 karena Tanggal Merah (Libur Nasional)",
                                                                         tier = "No",
                                                                             "Belum mencapai target minimum. Views: " & Coalesce(best.TotalViewer, 0) & " (min " & t3.MinViews & "), CTR: " &
-                                                                            Coalesce(best.CTR, 0) & " (min " & t3.CTR & "), Peak: " & Coalesce(best.PeakViewer, 0) & " (min " & t3.AvgViewDur &
+                                                                            Coalesce(best.CTR, 0) & " (min " & t3.CTR & "), Avg View Duration: " & Coalesce(best.PeakViewer, 0) & " (min " & t3.AvgViewDur &
                                                                             "), Durasi: " & jam & " jam (min " & t3.Duration & " jam)",
                                                                         tier & " karena " & Concat(Filter([
                                                                             If(w1, "Jam Live 00:00-06:00 (" & t1Win & " menit, min " & varT1MinInWindow & ")", ""),
                                                                             If(w2, "Jam Live 21:00-24:00 (" & t2Win & " menit, min " & varT2MinInWindow & ")", ""),
-                                                                            If(m1, "Metric Tier 1 (Views " & best.TotalViewer & ", CTR " & best.CTR & ", Peak " & best.PeakViewer & ")", ""),
-                                                                            If(m2 && !m1, "Metric Tier 2 (Views " & best.TotalViewer & ", CTR " & best.CTR & ", Peak " & best.PeakViewer & ")", ""),
-                                                                            If(m3 && !m2, "Metric Tier 3 (Views " & best.TotalViewer & ", CTR " & best.CTR & ", Peak " & best.PeakViewer & ")", ""),
+                                                                            If(m1, "Metric Tier 1 (Views " & best.TotalViewer & ", CTR " & best.CTR & ", Avg View Duration " & best.PeakViewer & ")", ""),
+                                                                            If(m2 && !m1, "Metric Tier 2 (Views " & best.TotalViewer & ", CTR " & best.CTR & ", Avg View Duration " & best.PeakViewer & ")", ""),
+                                                                            If(m3 && !m2, "Metric Tier 3 (Views " & best.TotalViewer & ", CTR " & best.CTR & ", Avg View Duration " & best.PeakViewer & ")", ""),
                                                                             If(d1, "Durasi Live >= " & t1.Duration & " Jam (" & jam & " jam)", ""),
                                                                             If(d2 && !d1, "Durasi Live >= " & t2.Duration & " Jam (" & jam & " jam)", ""),
                                                                             If(d3 && !d2, "Durasi Live >= " & t3.Duration & " Jam (" & jam & " jam)", ""),
@@ -1712,7 +1712,7 @@ If(!IsBlank(Self.ActionPayload),
                                                 With({liveMin: CountRows(Filter(slots, Covered)) * varSlotMin,
                                                       t1Win: CountRows(Filter(slots, Covered && (SlotStart < 360 || (SlotStart >= 1440 && SlotStart < 1800)))) * varSlotMin,     // 00:00–06:00
                                                       t2Win: CountRows(Filter(slots, Covered && ((SlotStart >= 1260 && SlotStart < 1440) || SlotStart >= 2700))) * varSlotMin,  // 21:00–24:00
-                                                      // Akun terbaik hari itu: TotalViewer dijumlah, Peak dan CTR diambil maksimum.
+                                                      // Akun terbaik hari itu: TotalViewer dijumlah, Avg View Duration (kolom PeakViewer) dan CTR diambil maksimum.
                                                       best: First(Sort(ForAll(Distinct(repDay, Account.Value) As D,
                                                                 With({r: Filter(repDay, Account.Value = D.Value)},
                                                                     {Account: D.Value, TotalViewer: Sum(r, TotalViewer), PeakViewer: Max(r, PeakViewer), CTR: Max(r, CTR)})),
@@ -1740,14 +1740,14 @@ If(!IsBlank(Self.ActionPayload),
                                                             hol, "Auto Tier 1 karena Tanggal Merah (Libur Nasional)",
                                                             tier = "No",
                                                                 "Belum mencapai target minimum. Views: " & Coalesce(best.TotalViewer, 0) & " (min " & t3.MinViews & "), CTR: " &
-                                                                Coalesce(best.CTR, 0) & " (min " & t3.CTR & "), Peak: " & Coalesce(best.PeakViewer, 0) & " (min " & t3.AvgViewDur &
+                                                                Coalesce(best.CTR, 0) & " (min " & t3.CTR & "), Avg View Duration: " & Coalesce(best.PeakViewer, 0) & " (min " & t3.AvgViewDur &
                                                                 "), Durasi: " & jam & " jam (min " & t3.Duration & " jam)",
                                                             tier & " karena " & Concat(Filter([
                                                                 If(w1, "Jam Live 00:00-06:00 (" & t1Win & " menit, min " & varT1MinInWindow & ")", ""),
                                                                 If(w2, "Jam Live 21:00-24:00 (" & t2Win & " menit, min " & varT2MinInWindow & ")", ""),
-                                                                If(m1, "Metric Tier 1 (Views " & best.TotalViewer & ", CTR " & best.CTR & ", Peak " & best.PeakViewer & ")", ""),
-                                                                If(m2 && !m1, "Metric Tier 2 (Views " & best.TotalViewer & ", CTR " & best.CTR & ", Peak " & best.PeakViewer & ")", ""),
-                                                                If(m3 && !m2, "Metric Tier 3 (Views " & best.TotalViewer & ", CTR " & best.CTR & ", Peak " & best.PeakViewer & ")", ""),
+                                                                If(m1, "Metric Tier 1 (Views " & best.TotalViewer & ", CTR " & best.CTR & ", Avg View Duration " & best.PeakViewer & ")", ""),
+                                                                If(m2 && !m1, "Metric Tier 2 (Views " & best.TotalViewer & ", CTR " & best.CTR & ", Avg View Duration " & best.PeakViewer & ")", ""),
+                                                                If(m3 && !m2, "Metric Tier 3 (Views " & best.TotalViewer & ", CTR " & best.CTR & ", Avg View Duration " & best.PeakViewer & ")", ""),
                                                                 If(d1, "Durasi Live >= " & t1.Duration & " Jam (" & jam & " jam)", ""),
                                                                 If(d2 && !d1, "Durasi Live >= " & t2.Duration & " Jam (" & jam & " jam)", ""),
                                                                 If(d3 && !d2, "Durasi Live >= " & t3.Duration & " Jam (" & jam & " jam)", ""),
@@ -1837,7 +1837,7 @@ If(!IsBlank(Self.ActionPayload),
                                         With({liveMin: CountRows(Filter(slots, Covered)) * varSlotMin,
                                               t1Win: CountRows(Filter(slots, Covered && (SlotStart < 360 || (SlotStart >= 1440 && SlotStart < 1800)))) * varSlotMin,     // 00:00–06:00
                                               t2Win: CountRows(Filter(slots, Covered && ((SlotStart >= 1260 && SlotStart < 1440) || SlotStart >= 2700))) * varSlotMin,  // 21:00–24:00
-                                              // Akun terbaik hari itu: TotalViewer dijumlah, Peak dan CTR diambil maksimum.
+                                              // Akun terbaik hari itu: TotalViewer dijumlah, Avg View Duration (kolom PeakViewer) dan CTR diambil maksimum.
                                               best: First(Sort(ForAll(Distinct(repDay, Account.Value) As D,
                                                         With({r: Filter(repDay, Account.Value = D.Value)},
                                                             {Account: D.Value, TotalViewer: Sum(r, TotalViewer), PeakViewer: Max(r, PeakViewer), CTR: Max(r, CTR)})),
@@ -1865,14 +1865,14 @@ If(!IsBlank(Self.ActionPayload),
                                                     hol, "Auto Tier 1 karena Tanggal Merah (Libur Nasional)",
                                                     tier = "No",
                                                         "Belum mencapai target minimum. Views: " & Coalesce(best.TotalViewer, 0) & " (min " & t3.MinViews & "), CTR: " &
-                                                        Coalesce(best.CTR, 0) & " (min " & t3.CTR & "), Peak: " & Coalesce(best.PeakViewer, 0) & " (min " & t3.AvgViewDur &
+                                                        Coalesce(best.CTR, 0) & " (min " & t3.CTR & "), Avg View Duration: " & Coalesce(best.PeakViewer, 0) & " (min " & t3.AvgViewDur &
                                                         "), Durasi: " & jam & " jam (min " & t3.Duration & " jam)",
                                                     tier & " karena " & Concat(Filter([
                                                         If(w1, "Jam Live 00:00-06:00 (" & t1Win & " menit, min " & varT1MinInWindow & ")", ""),
                                                         If(w2, "Jam Live 21:00-24:00 (" & t2Win & " menit, min " & varT2MinInWindow & ")", ""),
-                                                        If(m1, "Metric Tier 1 (Views " & best.TotalViewer & ", CTR " & best.CTR & ", Peak " & best.PeakViewer & ")", ""),
-                                                        If(m2 && !m1, "Metric Tier 2 (Views " & best.TotalViewer & ", CTR " & best.CTR & ", Peak " & best.PeakViewer & ")", ""),
-                                                        If(m3 && !m2, "Metric Tier 3 (Views " & best.TotalViewer & ", CTR " & best.CTR & ", Peak " & best.PeakViewer & ")", ""),
+                                                        If(m1, "Metric Tier 1 (Views " & best.TotalViewer & ", CTR " & best.CTR & ", Avg View Duration " & best.PeakViewer & ")", ""),
+                                                        If(m2 && !m1, "Metric Tier 2 (Views " & best.TotalViewer & ", CTR " & best.CTR & ", Avg View Duration " & best.PeakViewer & ")", ""),
+                                                        If(m3 && !m2, "Metric Tier 3 (Views " & best.TotalViewer & ", CTR " & best.CTR & ", Avg View Duration " & best.PeakViewer & ")", ""),
                                                         If(d1, "Durasi Live >= " & t1.Duration & " Jam (" & jam & " jam)", ""),
                                                         If(d2 && !d1, "Durasi Live >= " & t2.Duration & " Jam (" & jam & " jam)", ""),
                                                         If(d3 && !d2, "Durasi Live >= " & t3.Duration & " Jam (" & jam & " jam)", ""),
