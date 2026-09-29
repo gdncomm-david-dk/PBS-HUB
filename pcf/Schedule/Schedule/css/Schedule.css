@@ -45,6 +45,9 @@
 .pbs-sc input, .pbs-sc select, .pbs-sc textarea { font: inherit; }
 
 .sc-page { padding: 24px 28px 40px; display: flex; flex-direction: column; gap: 16px; min-width: 1040px; }
+/* Wraps the board so it stays mounted behind the session detail; keeps the page's section spacing. */
+.sc-listhost { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+.sc-listhost[hidden] { display: none; }
 .sc-mono { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; font-size: 12px; }
 .sc-muted { color: var(--text-secondary); font-size: 12px; }
 .sc-strong { font-weight: 600; }
