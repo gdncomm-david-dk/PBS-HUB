@@ -94,14 +94,14 @@ describe("timeline", () => {
         expect(rep?.state).toBe("active");
         expect(rep?.todo).toBe("Report belum masuk — host belum submit, 1 hari setelah sesi.");
         expect(rep?.remind).toBe(true);
-        expect(ev.isLocked(s)).toBe(false);
+        expect(ev.hasHostReport(s)).toBe(false);
     });
     it("completes and locks the session once the report is approved", () => {
         const reports = mapReports(recs([{ Title: "RPT-1", ScheduleID: "SCD-9", Penjualan: 1500000, ApprovalStatus: "Done", Match: "Match" }]));
         const ev = new Evidence(reports, [{ key: "a", absId: "ABS-1", scheduleId: "SCD-9", hostId: "HST-1", status: "Present", keterangan: "", dateKey: "2026-09-20" }], [], [{ key: "e", itemId: 7, title: "RPT-1", scheduleId: "SCD-9", status: "Match", penjualan: 1500000, pesanan: null, totalViewer: null, durasiMin: null, startHour: "10:00", endHour: "12:00", liveDateKey: "", metrics: [] }]);
         const steps = buildTimeline(s, ev, new Date(2026, 8, 22, 9, 0));
         expect(steps.map((x) => x.state)).toEqual(["done", "failed", "done", "done", "done", "done", "pending"]);
-        expect(ev.isLocked(s)).toBe(true);
+        expect(ev.hasHostReport(s)).toBe(true);
     });
     it("skips every later step for a cancelled session", () => {
         const [c] = sched([{ Title: "SCD-10", Date: "2026-09-20", StudioID: "CWG-05", HostID: "HST-1", StartTime: "10:00", EndTime: "12:00", Status: "Cancelled" }]);
@@ -352,7 +352,7 @@ describe("Live Break lock", () => {
         ]));
         const ev = new Evidence(reports, [], [], []);
         expect([a, b, c].map((s) => ev.isLiveBreak(s))).toEqual([true, true, false]);
-        expect([a, b, c].map((s) => ev.isLocked(s))).toEqual([false, false, true]);
+        expect([a, b, c].map((s) => ev.hasHostReport(s))).toEqual([false, false, true]);
     });
 });
 
@@ -372,14 +372,14 @@ describe("Co-Host is not an account clash", () => {
     });
 });
 
-describe("Waiting Report is never locked", () => {
-    it("unlocks a Waiting Report schedule even with a report row", () => {
+describe("host report marker", () => {
+    it("marks any schedule with a real host report, whatever its status", () => {
         const base = { Date: "2026-09-14", StudioID: "CWG-05", HostID: "HST-1", StartTime: "10:00", EndTime: "12:00" };
         const [a, b] = sched([{ ...base, Title: "SCD-70", Status: "Waiting Report" }, { ...base, Title: "SCD-71", Status: "Finished" }]);
         const ev = new Evidence(mapReports(recs([
             { Title: "REP-70", ScheduleID: "SCD-70", ApprovalStatus: "Waiting Approval" },
             { Title: "REP-71", ScheduleID: "SCD-71", ApprovalStatus: "Waiting Approval" },
         ])), [], [], []);
-        expect([ev.isLocked(a), ev.isLocked(b)]).toEqual([false, true]);
+        expect([ev.hasHostReport(a), ev.hasHostReport(b)]).toEqual([true, true]);
     });
 });

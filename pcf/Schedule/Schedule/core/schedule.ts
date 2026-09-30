@@ -9,9 +9,6 @@ const low = (s: string): string => s.trim().toLowerCase();
 /** Title join key: case and spaces are ignored ("REP-2044 " and "rep-2044" are the same report). */
 const titleKey = (s: string): string => s.toLowerCase().replace(/\s+/g, "");
 
-/** Schedule.Status = Waiting Report (also "WaitingReport", "Waiting_Report"). */
-export const isWaitingReport = (s: { status: string }): boolean => /^waiting[\s_-]*report$/i.test(s.status.trim());
-
 export type ConflictKind = "host" | "studio" | "account";
 
 export interface Conflict {
@@ -164,13 +161,11 @@ export class Evidence {
     }
 
     /**
-     * Delete lock. Every schedule can be edited; one with a submitted host report cannot be deleted,
-     * because that would orphan the report (DESIGN.md).
-     * Never locked: a Live Break session (whatever its status, so a doubled one can be deleted) and a
-     * session whose status is still Waiting Report.
+     * A real host report has come in. Nothing is locked any more (every schedule can be edited and deleted);
+     * this only drives the report marker and the warnings in the edit and delete dialogs.
      */
-    isLocked(s: ScheduleRow): boolean {
-        return !this.isLiveBreak(s) && !isWaitingReport(s) && this.realReportsFor(s).length > 0;
+    hasHostReport(s: ScheduleRow): boolean {
+        return this.realReportsFor(s).length > 0;
     }
 
     absencesFor(s: ScheduleRow): AbsenceRow[] {

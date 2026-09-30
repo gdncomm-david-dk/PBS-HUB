@@ -19,7 +19,7 @@ export function ScheduleDetail(props: { env: Env; schedule: ScheduleRow; onBack:
     const [showFiles, setShowFiles] = React.useState(false);
     React.useEffect(() => setSel(firstOpen), [s.key]);
 
-    const locked = env.ev.isLocked(s);
+    const locked = env.ev.hasHostReport(s);
     const clash = env.conflicts.get(s.key) ?? [];
     const phase = phaseOf(s, env.now);
     const off = scheduleStatus(s.status).chip === "off";
@@ -90,7 +90,7 @@ export function ScheduleDetail(props: { env: Env; schedule: ScheduleRow; onBack:
                             <Button variant="ghost" size="sm" icon={Icon.plus(14)} onClick={props.onDuplicate}>
                                 Duplikat
                             </Button>
-                            <Button variant="secondary" size="sm" icon={Icon.trash(14)} disabled={locked || !s.scheduleId} title={locked ? "Report host sudah masuk — jadwal tidak bisa dihapus" : undefined} onClick={() => setConfirmDelete(true)}>
+                            <Button variant="secondary" size="sm" icon={Icon.trash(14)} disabled={!s.scheduleId} onClick={() => setConfirmDelete(true)}>
                                 Hapus
                             </Button>
                             <Button variant="secondary" size="sm" icon={Icon.edit(14)} disabled={!s.scheduleId} title={locked ? "Report host sudah masuk — perubahan jam atau host membuat report tidak cocok lagi" : undefined} onClick={props.onEdit}>
@@ -106,9 +106,9 @@ export function ScheduleDetail(props: { env: Env; schedule: ScheduleRow; onBack:
                     {Icon.info(14)} {env.ev.noReportReason(s) === "livebreak" ? "Live Break — sesi ini tidak perlu report." : "Co-Host — report sesi ini dibuat oleh Main Host, jadi tidak ada report dari host ini."}
                 </Banner>
             )}
-            {locked && env.ev.realReportsFor(s).length > 0 && (
+            {locked && (
                 <Banner tone="info">
-                    {Icon.lock(14)} Report host untuk sesi ini sudah masuk, jadi jadwal tidak bisa dihapus. Jadwal tetap bisa diubah, tapi mengubah jam atau host membuat report tidak cocok lagi.
+                    {Icon.file(14)} Report host untuk sesi ini sudah masuk. Jadwal tetap bisa diubah atau dihapus, tapi report-nya jadi tidak cocok lagi atau tidak punya jadwal.
                 </Banner>
             )}
             {clash.length > 0 && (

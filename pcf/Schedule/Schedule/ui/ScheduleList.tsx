@@ -293,7 +293,7 @@ export function ScheduleList(props: {
                     <span><i className="sc-dot sc-dot--done" /> Selesai</span>
                     <span><i className="sc-dot sc-dot--off" /> Batal / cuti</span>
                     <span><i className="sc-conflictdot" /> Bentrok</span>
-                    <span>{Icon.lock(12)} Report masuk</span>
+                    <span>{Icon.file(12)} Report masuk</span>
                 </div>
             </div>
 
@@ -428,7 +428,7 @@ function EmptyState(props: { env: Env; filtered: boolean; onClear: () => void; o
 
 function ListRow(props: { env: Env; s: ScheduleRow; picked: boolean; onPick: (on: boolean) => void; onEdit: () => void; onDelete: () => void }): React.ReactElement {
     const { env, s } = props;
-    const locked = env.ev.isLocked(s);
+    const locked = env.ev.hasHostReport(s);
     const clash = env.conflicts.get(s.key);
     const live = phaseOf(s, env.now) === "live" && scheduleStatus(s.status).chip !== "off";
     return (
@@ -460,16 +460,16 @@ function ListRow(props: { env: Env; s: ScheduleRow; picked: boolean; onPick: (on
                 <StatusBadge status={s.status} />
                 {env.ev.isLiveBreak(s) && <span className="sc-lbtag" title="Live Break — tidak perlu report, bisa diubah atau dihapus">Live Break</span>}
                 {live && <span className="sc-livetag">Live</span>}
-                {locked && <span className="sc-lock" title="Report host sudah masuk — jadwal tidak bisa dihapus">{Icon.lock(13)}</span>}
+                {locked && <span className="sc-lock" title="Report host sudah masuk">{Icon.file(13)}</span>}
             </td>
             <td className="sc-right" onClick={(e) => e.stopPropagation()}>
-                <RowMenu env={env} locked={locked} onOpen={() => env.open(s)} onEdit={props.onEdit} onDelete={props.onDelete} />
+                <RowMenu env={env} onOpen={() => env.open(s)} onEdit={props.onEdit} onDelete={props.onDelete} />
             </td>
         </tr>
     );
 }
 
-function RowMenu(props: { env: Env; locked: boolean; onOpen: () => void; onEdit: () => void; onDelete: () => void }): React.ReactElement {
+function RowMenu(props: { env: Env; onOpen: () => void; onEdit: () => void; onDelete: () => void }): React.ReactElement {
     const [open, setOpen] = React.useState(false);
     const ref = React.useRef<HTMLDivElement>(null);
     React.useEffect(() => {
@@ -480,7 +480,6 @@ function RowMenu(props: { env: Env; locked: boolean; onOpen: () => void; onEdit:
         document.addEventListener("mousedown", close);
         return () => document.removeEventListener("mousedown", close);
     }, [open]);
-    const lockedWhy = "Report host sudah masuk — jadwal tidak bisa dihapus";
     return (
         <div className="sc-menu" ref={ref}>
             <button type="button" className="sc-iconbtn" aria-label="Menu baris" aria-expanded={open} onClick={() => setOpen((o) => !o)}>
@@ -496,7 +495,7 @@ function RowMenu(props: { env: Env; locked: boolean; onOpen: () => void; onEdit:
                             <button type="button" role="menuitem" onClick={() => { setOpen(false); props.onEdit(); }}>
                                 {Icon.edit(14)} Ubah
                             </button>
-                            <button type="button" role="menuitem" className="is-danger" disabled={props.locked} title={props.locked ? lockedWhy : undefined} onClick={() => { setOpen(false); props.onDelete(); }}>
+                            <button type="button" role="menuitem" className="is-danger" onClick={() => { setOpen(false); props.onDelete(); }}>
                                 {Icon.trash(14)} Hapus
                             </button>
                         </>
@@ -615,7 +614,7 @@ function CalChip(props: { env: Env; s: ScheduleRow; lane: Lanes }): React.ReactE
     const { env, s } = props;
     const st = scheduleStatus(s.status);
     const clash = env.conflicts.get(s.key);
-    const locked = env.ev.isLocked(s);
+    const locked = env.ev.hasHostReport(s);
     const live = st.chip !== "off" && phaseOf(s, env.now) === "live";
     const title = [`${s.scheduleId || "ID belum terisi"} · ${st.label}${env.ev.isLiveBreak(s) ? " · Live Break" : ""}`, `${timeRange(s)} · ${s.brandName}`, `${s.hostName} · ${s.platform}${s.accountName ? " · " + s.accountName : ""}`, ...(clash ?? []).map((c) => "⚠ " + c.message)].join("\n");
     return (
@@ -623,7 +622,7 @@ function CalChip(props: { env: Env; s: ScheduleRow; lane: Lanes }): React.ReactE
             <span className="sc-calchip__top">
                 <span className="sc-mono">{timeRange(s)}</span>
                 {env.ev.isLiveBreak(s) && <span className="sc-lbtag sc-lbtag--sm" title="Live Break">LB</span>}
-                {locked && <span className="sc-calchip__lock">{Icon.lock(11)}</span>}
+                {locked && <span className="sc-calchip__lock" title="Report host sudah masuk">{Icon.file(11)}</span>}
                 {clash && <i className="sc-conflictdot" />}
             </span>
             {props.lane === "brand" ? (

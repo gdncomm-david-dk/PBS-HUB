@@ -6,7 +6,7 @@ for the Studio screens and part C for the Schedule screen.
 | Control | Display name | Solution (managed) | Version | Screens |
 |---|---|---|---|---|
 | `pbs_Ops.StudioHub` | PBS Studio Hub | `releases/PBSStudioHub_managed_1.7.0.zip` (`PBSStudioHub`) | 1.7.0 | Studio list, Studio detail |
-| `pbs_Ops.ScheduleHub` | PBS Schedule Hub | `releases/PBSScheduleHub_managed_1.6.1.zip` (`PBSScheduleHub`) | 1.6.1 | Schedule board, session detail, create/edit, bulk & AI upload |
+| `pbs_Ops.ScheduleHub` | PBS Schedule Hub | `releases/PBSScheduleHub_managed_1.6.2.zip` (`PBSScheduleHub`) | 1.6.2 | Schedule board, session detail, create/edit, bulk & AI upload |
 
 Neither control writes to SharePoint. Each one emits an `ActionPayload` `{ action, requestId, payload }`; the
 canvas app does the `Patch` and replies through `ActionResult` with the same `requestId`. Until that reply
@@ -237,13 +237,13 @@ These are display metrics. Nothing that money depends on is computed in the cont
 
 ---
 
-# C. PBS Schedule Hub (`pbs_Ops.ScheduleHub` 1.6.1)
+# C. PBS Schedule Hub (`pbs_Ops.ScheduleHub` 1.6.2)
 
 > **Moving from the old `pbs_Ops.Schedule` (1.4.x).** Since 1.5.0 the control has a new identity (`pbs_Ops.ScheduleHub`, solution `PBSScheduleHub`), so Power Apps cannot keep loading a cached old build.
-> 1. Import `releases/PBSScheduleHub_managed_1.6.1.zip`.
+> 1. Import `releases/PBSScheduleHub_managed_1.6.2.zip`.
 > 2. In the app, copy the old control's **Items / Context / Mode / ActionResult / SelectedScheduleId / OnChange** formulas somewhere safe, then delete that control.
 > 3. **Insert → Get more components → Code → PBS Schedule Hub**, then paste the formulas back (same names as in C2–C4).
-> 4. Check that the header reads `pbs_Ops.ScheduleHub 1.6.1`. Once no app uses the old control, the `PBSSchedule` solution can be deleted.
+> 4. Check that the header reads `pbs_Ops.ScheduleHub 1.6.2`. Once no app uses the old control, the `PBSSchedule` solution can be deleted.
 
 The control renders the **Schedule board (S-1)** as a calendar (week × brand lanes, or studio lanes) or a list, grouped by brand and sorted by start time,, and the
 **session detail (S-2)** with the seven-step evidence chain. It also provides three ways to create schedules:
@@ -299,7 +299,7 @@ lists which IDs are unmatched — that means the `brands`/`hosts` dataset is not
 | `evidence` | `Report Automation - PBS Hub` | `Filter('Report Automation - PBS Hub', LiveDate >= varSchedStart && LiveDate <= varSchedEnd)`. Fields: `ID`, `Title` (= `Report.Title`, e.g. `REP-120`), `Status` (Match / Unmatch), `Penjualan`, `Pesanan`, `TotalViewer`, durasi, `StartHour`, `EndHour` |
 
 `reports`, `absences`, `clockins` and `evidence` are optional. Without them the detail page shows those steps as
-"belum". A session that has a report is **locked**: it cannot be edited or deleted. For each dataset,
+"belum". A session that has a host report shows the report icon; it can still be edited and deleted. For each dataset,
 open **Fields → Edit** and add the columns listed in the property's description.
 
 Each dataset also has a `*Json` fallback (`SchedulesJson`, `BrandsJson`, …). A non-empty value wins over
@@ -373,7 +373,7 @@ the whole list:
 | Table | Replaces | Used by |
 |---|---|---|
 | `scheduleFiltered` | `'Schedule - PBS Hub'` | EDIT, DELETE, BULK_DELETE |
-| `reportFiltered` | `'Report - PBS Hub'` | DELETE / BULK_DELETE (report check), REVIEW_REPORT |
+| `reportFiltered` | `'Report - PBS Hub'` | REVIEW_REPORT |
 | `automationFiltered` | `'Report Automation - PBS Hub'` | LOAD_EVIDENCE, REVIEW_REPORT (rows to mark Unmatch) |
 | `clockInFiltered` | `'Clock In - PBS Hub'` | not used by the handler today; use it for any clock-in lookup you add |
 | `absenceFiltered` | `'Host Absence - PBS Hub'` | not used by the handler today; use it for any absence lookup you add |
@@ -382,8 +382,6 @@ the whole list:
 keeps its `ID`, so SharePoint knows which item to change. Keep in mind:
 - The filtered tables must hold every row the control shows, at least the current period (`varSchedStart`–`varSchedEnd`).
   A session outside them is not found, and EDIT/DELETE then fail with a blank-record error.
-- The *report exists* check before a delete only sees `reportFiltered`. Filter it on the same period, or a
-  report outside the period will not block the delete.
 - If they are **collections** (`ClearCollect`), re-collect them after a write (for example after `Refresh(...)`),
   otherwise the next action reads stale rows. Named formulas (App › Formulas) update by themselves.
 - `LOAD_EVIDENCE` exists for Report Automation rows whose `LiveDate` is blank or outside the period. If
@@ -434,15 +432,10 @@ If(rid <> varLastSchedRid,
                 Set(varSchedOk, false); Set(varSchedErr, FirstError.Message)),
 
         "DELETE_SCHEDULE",
-            // Blocked only by a real host report. Never blocked: a Live Break session (p.liveBreak, or only
-            // LiveBreak placeholder reports), whatever its status, and a schedule still in Waiting Report.
-            If(!Boolean(p.liveBreak)
-                    && LookUp(scheduleFiltered, Title = Text(p.scheduleId)).Status.Value <> "Waiting Report"
-                    && !IsBlank(LookUp(reportFiltered, ScheduleID = Text(p.scheduleId) && ApprovalStatus.Value <> "LiveBreak")),
-                Set(varSchedOk, false); Set(varSchedErr, "Report host sudah ada untuk jadwal ini."),
-                IfError(Remove('Schedule - PBS Hub', LookUp(scheduleFiltered, Title = Text(p.scheduleId)));
-                        Refresh('Schedule - PBS Hub'); true,
-                    Set(varSchedOk, false); Set(varSchedErr, FirstError.Message))),
+            // Every schedule can be deleted (the control warns when a host report exists; the report stays).
+            IfError(Remove('Schedule - PBS Hub', LookUp(scheduleFiltered, Title = Text(p.scheduleId)));
+                    Refresh('Schedule - PBS Hub'); true,
+                Set(varSchedOk, false); Set(varSchedErr, FirstError.Message)),
 
         "UPLOAD_SCHEDULE_FILE",
             IfError(
@@ -485,12 +478,8 @@ If(rid <> varLastSchedRid,
         // List view: tick sessions, then Hapus. The control already leaves out sessions with a report.
         "BULK_DELETE_SCHEDULE",
             IfError(
-                With({ lb: ForAll(Table(p.liveBreakIds) As y, { Value: Text(y.Value) }) },
-                    ForAll(Table(p.scheduleIds) As x,
-                        If(Text(x.Value) in lb.Value
-                                || LookUp(scheduleFiltered, Title = Text(x.Value)).Status.Value = "Waiting Report"
-                                || IsBlank(LookUp(reportFiltered, ScheduleID = Text(x.Value) && ApprovalStatus.Value <> "LiveBreak")),
-                            Remove('Schedule - PBS Hub', LookUp(scheduleFiltered, Title = Text(x.Value))))));
+                ForAll(Table(p.scheduleIds) As x,
+                    Remove('Schedule - PBS Hub', LookUp(scheduleFiltered, Title = Text(x.Value))));
                 Set(varSchedMsg, CountRows(Table(p.scheduleIds)) & " jadwal dihapus.");
                 Refresh('Schedule - PBS Hub'); true,
                 Set(varSchedOk, false); Set(varSchedErr, FirstError.Message)),
@@ -542,20 +531,15 @@ One live can have a Main Host and one or more Co-Hosts on the same account and t
 **Co-Host** is therefore never flagged as *Account … sudah live* (board, create form and bulk upload). Host
 double-booking and studio capacity still count Co-Hosts, because the person and the seat are still taken.
 
-### Live Break sessions
+### Live Break sessions and editing
 
 A session is **Live Break** when its `LiveBreak` column is Yes, or when its only reports are `LiveBreak`
-placeholders. The list shows a purple **Live Break** tag (calendar: **LB**). Live Break sessions are never
-locked, whatever their status (also *Finished*), so a doubled one can be edited or deleted. The control sends
-`liveBreak` (DELETE) and `liveBreakIds` (BULK_DELETE) so the handler lets them through. The LiveBreak
-placeholder row in the Report list is not deleted with the schedule.
+placeholders. The list shows a purple **Live Break** tag (calendar: **LB**).
 
-**Editing is always allowed.** Every schedule can be edited, including one with a host report; the form then
-warns that changing date, time, host or account makes the report stop matching. The lock below is only about
-**deleting**.
-
-A schedule whose status is **Waiting Report** is not locked either, even when a report row already exists
-for it, so it can be edited or deleted. The handler checks the status itself (`scheduleFiltered`).
+**Nothing is locked.** Every schedule can be edited and deleted, whatever its status and whether or not a host
+report has come in. A schedule with a host report shows the report icon; the edit form warns that changing date,
+time, host or account makes the report stop matching, and the delete dialog warns that the report stays without
+a schedule. Deleting never removes rows from the Report list.
 
 ### Several reports for one schedule
 
@@ -620,11 +604,11 @@ file was uploaded.
 | Upload dialog: *Aplikasi tidak membalas dalam 180 detik* / *belum dikonfirmasi*, but the file and the flow are fine | The reply (`varSchedResult`) is never set (the final `If(action in [...])` block commented out or missing), or set after `PBS0001A….Run()` | Use the C4 handler: upload branch sets the message only, `.Run()` at the bottom after the reply. Check that `"UPLOAD_SCHEDULE_FILE"` is in the `If(action in [...])` list and that `ActionResult` = `varSchedResult` |
 | Upload works, but the reply never comes (or only REVIEW_REPORT replies) | The `)` that closes `Switch(` sits inside a `/* … */` comment, so the reply block became part of the last Switch branch | Keep `);` after the last branch outside any comment (C4) |
 | Schedule opens a session detail straight away instead of the list | Before Schedule 1.4.0 the bound `SelectedScheduleId` reopened the last session on return | Import 1.4.0: the control always starts on the list |
-| Lampiran shows only *Memuat lampiran dari SharePoint…* | The app still runs Schedule 1.4.1/1.4.2 | Import the current zip, accept **Update code components**, then check the header reads `pbs_Ops.ScheduleHub 1.6.1` |
+| Lampiran shows only *Memuat lampiran dari SharePoint…* | The app still runs Schedule 1.4.1/1.4.2 | Import the current zip, accept **Update code components**, then check the header reads `pbs_Ops.ScheduleHub 1.6.2` |
 | Lampiran report says *belum punya lampiran* although the report has links | `Attachment` is not in the `reports` dataset (or `reportFiltered`), or the text holds no full `https://` URL | Add `Attachment` under **Fields → Edit** (C4c) |
 | Bulk Duplikat / Hapus shows *tidak membalas* | `BULK_CREATE_SCHEDULE` / `BULK_DELETE_SCHEDULE` are missing from the Switch or from the reply list | Add both branches and both names as in C4 |
 | Deleted schedule comes back after reopening the screen | `schedules` is bound to a collection, or `DELETE_SCHEDULE` has no `Refresh` | Bind to the list / `Filter(...)` and keep the `Refresh('Schedule - PBS Hub')` in C4 |
-| Every week change shows a loading grid | The app still runs 1.5.0 or older | Import the current zip; the header should read `pbs_Ops.ScheduleHub 1.6.1` |
+| Every week change shows a loading grid | The app still runs 1.5.0 or older | Import the current zip; the header should read `pbs_Ops.ScheduleHub 1.6.2` |
 | Board opens on an old week | Build 1.5.2–1.5.6 kept the week in browser storage | Update to 1.5.7: the week is kept only while the app page is open; a browser refresh or new session starts on this week |
 | *Bukti AI* says no OCR result, but the report is Done/Match | The Report Automation row is not in `evidence` (LiveDate blank or outside the period, or `Filter` not delegable) | Add the `LOAD_EVIDENCE` branch in C4, and make sure `automationFiltered` is not filtered on `LiveDate`. The detail then looks the row up by Title and shows its LiveDate |
 | New schedules from a flow do not appear | Canvas apps are not pushed SharePoint changes | Press **Muat ulang**, or add the Timer in C4 *Auto update* |

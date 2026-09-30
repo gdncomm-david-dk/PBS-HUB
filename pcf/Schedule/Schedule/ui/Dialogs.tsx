@@ -9,12 +9,12 @@ export function DeleteDialog(props: { env: Env; schedule: ScheduleRow; onClose: 
     const { env, schedule: s } = props;
     const [busy, setBusy] = React.useState(false);
     const [error, setError] = React.useState("");
-    const locked = env.ev.isLocked(s);
+    const reports = env.ev.realReportsFor(s);
     const go = async (): Promise<void> => {
         setBusy(true);
         setError("");
         try {
-            const r = await env.request("DELETE_SCHEDULE", { scheduleId: s.scheduleId, itemId: s.itemId, liveBreak: env.ev.isLiveBreak(s) });
+            const r = await env.request("DELETE_SCHEDULE", { scheduleId: s.scheduleId, itemId: s.itemId });
             if (r.status === "ok") {
                 env.hide([s]);
                 env.notify("success", `Jadwal ${s.scheduleId} dihapus.`);
@@ -34,7 +34,7 @@ export function DeleteDialog(props: { env: Env; schedule: ScheduleRow; onClose: 
                     <Button variant="ghost" onClick={props.onClose} disabled={busy}>
                         Batal
                     </Button>
-                    <Button variant="primary" className="sc-btn--danger" disabled={busy || locked || !s.scheduleId} onClick={() => void go()}>
+                    <Button variant="primary" className="sc-btn--danger" disabled={busy || !s.scheduleId} onClick={() => void go()}>
                         {busy ? "Menghapus…" : "Hapus jadwal"}
                     </Button>
                 </>
@@ -47,16 +47,13 @@ export function DeleteDialog(props: { env: Env; schedule: ScheduleRow; onClose: 
                     {formatDateLong(s.dateKey)} · {timeRange(s)} · {s.studioId}
                 </span>
             </p>
-            {locked ? (
-                <Banner tone="warning">Report untuk sesi ini sudah masuk. Jadwal tidak bisa dihapus — batalkan lewat status jika perlu.</Banner>
-            ) : (
-                <>
-                    <p className="sc-muted">Jadwal dihapus dari Schedule - PBS Hub. Host tidak lagi melihatnya di aplikasi host.</p>
-                    {env.ev.isLiveBreak(s) && (
-                        <Banner tone="info">Sesi Live Break: tidak ada report host, jadi boleh dihapus walau statusnya {s.status || "sudah selesai"} (misalnya jadwal dobel). Baris LiveBreak di list Report tidak ikut terhapus.</Banner>
-                    )}
-                </>
+            <p className="sc-muted">Jadwal dihapus dari Schedule - PBS Hub. Host tidak lagi melihatnya di aplikasi host.</p>
+            {reports.length > 0 && (
+                <Banner tone="warning">
+                    Report host untuk jadwal ini sudah masuk ({reports.map((r) => r.reportId).join(", ")}). Report-nya tidak ikut terhapus, tapi tidak punya jadwal lagi.
+                </Banner>
             )}
+            {reports.length === 0 && env.ev.isLiveBreak(s) && <Banner tone="info">Sesi Live Break. Baris LiveBreak di list Report tidak ikut terhapus.</Banner>}
             {error && <Banner tone="danger">{error}</Banner>}
         </Modal>
     );
@@ -185,8 +182,9 @@ export function BulkDuplicateDialog(props: { env: Env; rows: ScheduleRow[]; onCl
 
 export function BulkDeleteDialog(props: { env: Env; rows: ScheduleRow[]; onClose: () => void; onDone: () => void }): React.ReactElement {
     const { env } = props;
-    const locked = props.rows.filter((s) => env.ev.isLocked(s) || !s.scheduleId);
+    const locked = props.rows.filter((s) => !s.scheduleId);
     const rows = props.rows.filter((s) => !locked.includes(s));
+    const withReport = rows.filter((s) => env.ev.realReportsFor(s).length > 0);
     const [busy, setBusy] = React.useState(false);
     const [error, setError] = React.useState("");
     const pg = usePaged(rows);
@@ -195,7 +193,7 @@ export function BulkDeleteDialog(props: { env: Env; rows: ScheduleRow[]; onClose
         setBusy(true);
         setError("");
         try {
-            const r = await env.request("BULK_DELETE_SCHEDULE", { scheduleIds: rows.map((s) => s.scheduleId), itemIds: rows.map((s) => s.itemId), liveBreakIds: rows.filter((s) => env.ev.isLiveBreak(s)).map((s) => s.scheduleId), count: rows.length }, 60000 + rows.length * 1000);
+            const r = await env.request("BULK_DELETE_SCHEDULE", { scheduleIds: rows.map((s) => s.scheduleId), itemIds: rows.map((s) => s.itemId), count: rows.length }, 60000 + rows.length * 1000);
             if (r.status === "ok") {
                 env.hide(rows);
                 env.notify("success", r.message || `${rows.length} jadwal dihapus.`);
@@ -224,8 +222,13 @@ export function BulkDeleteDialog(props: { env: Env; rows: ScheduleRow[]; onClose
         >
             {locked.length > 0 && (
                 <Banner tone="warning">
-                    {locked.length} jadwal dilewati karena report host-nya sudah masuk atau ID-nya belum terisi: {locked.slice(0, 5).map((s) => s.scheduleId || "tanpa ID").join(", ")}
-                    {locked.length > 5 ? ", …" : ""}
+                    {locked.length} jadwal dilewati karena ID-nya belum terisi.
+                </Banner>
+            )}
+            {withReport.length > 0 && (
+                <Banner tone="warning">
+                    {withReport.length} jadwal sudah punya report host: {withReport.slice(0, 5).map((s) => s.scheduleId).join(", ")}
+                    {withReport.length > 5 ? ", …" : ""}. Report-nya tidak ikut terhapus, tapi tidak punya jadwal lagi.
                 </Banner>
             )}
             {rows.length > 0 ? (
