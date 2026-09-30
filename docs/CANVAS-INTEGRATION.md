@@ -43,7 +43,7 @@ app (`BlibliUniversalSidebar`).
   ClearCollect(scheduleFiltered, Filter('Schedule - PBS Hub', Date >= varFilterFrom, Date <= varFilterTo));
   ClearCollect(clockInFiltered, Filter('Clock In - PBS Hub', ClockInDate >= varFilterFrom));
   ClearCollect(absenceFiltered, Filter('Host Absence - PBS Hub', LiveDate >= varFilterFrom));
-  ClearCollect(reportFiltered, Filter('Report - PBS Hub', LiveDate >= varFilterFrom));
+  ClearCollect(reportFiltered, Filter('Report - PBS Hub', LiveDate >= DateAdd(Today(), -90)));
   ```
 
   Perubahan dari luar app (flow PBS0005A memutuskan report, host lain clock in) baru terlihat setelah koleksi
@@ -317,7 +317,7 @@ If(!IsBlank(Self.ActionPayload),
                 Collect(colPbsProcessed, {Id: rid});
                 Switch(act,
                     "OPEN_EVIDENCE", Launch(Text(p.url)),
-                    "RELOAD", ClearCollect(reportFiltered, Filter('Report - PBS Hub', LiveDate >= varFilterFrom)); ClearCollect(colRrReport, FirstN(Sort(reportFiltered, ID, SortOrder.Descending), varRrTop)),
+                    "RELOAD", ClearCollect(reportFiltered, Filter('Report - PBS Hub', LiveDate >= DateAdd(Today(), -90))); ClearCollect(colRrReport, FirstN(Sort(reportFiltered, ID, SortOrder.Descending), varRrTop)),
                     "REMIND_HOST",
                         IfError(
                             Office365Outlook.SendEmailV2(
@@ -444,7 +444,7 @@ If(!IsBlank(Self.ActionPayload),
                 Collect(colPbsProcessed, {Id: rid});
                 Switch(act,
                     "BACK", Back(),
-                    "RELOAD", ClearCollect(reportFiltered, Filter('Report - PBS Hub', LiveDate >= varFilterFrom)); Refresh('Report Automation - PBS Hub'),
+                    "RELOAD", ClearCollect(reportFiltered, Filter('Report - PBS Hub', LiveDate >= DateAdd(Today(), -90))); Refresh('Report Automation - PBS Hub'),
                     "OPEN_EVIDENCE", Launch(Text(p.url)),
                     "REMIND_HOST",
                         IfError(
