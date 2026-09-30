@@ -90,10 +90,10 @@ export function ScheduleDetail(props: { env: Env; schedule: ScheduleRow; onBack:
                             <Button variant="ghost" size="sm" icon={Icon.plus(14)} onClick={props.onDuplicate}>
                                 Duplikat
                             </Button>
-                            <Button variant="secondary" size="sm" icon={Icon.trash(14)} disabled={locked || !s.scheduleId} title={locked ? "Report sudah masuk — jadwal terkunci" : undefined} onClick={() => setConfirmDelete(true)}>
+                            <Button variant="secondary" size="sm" icon={Icon.trash(14)} disabled={locked || !s.scheduleId} title={locked ? "Report host sudah masuk — jadwal tidak bisa dihapus" : undefined} onClick={() => setConfirmDelete(true)}>
                                 Hapus
                             </Button>
-                            <Button variant="secondary" size="sm" icon={Icon.edit(14)} disabled={locked || !s.scheduleId} title={locked ? "Report sudah masuk — jadwal terkunci" : undefined} onClick={props.onEdit}>
+                            <Button variant="secondary" size="sm" icon={Icon.edit(14)} disabled={!s.scheduleId} title={locked ? "Report host sudah masuk — perubahan jam atau host membuat report tidak cocok lagi" : undefined} onClick={props.onEdit}>
                                 Ubah
                             </Button>
                         </>
@@ -108,7 +108,7 @@ export function ScheduleDetail(props: { env: Env; schedule: ScheduleRow; onBack:
             )}
             {locked && env.ev.realReportsFor(s).length > 0 && (
                 <Banner tone="info">
-                    {Icon.lock(14)} Report host untuk sesi ini sudah masuk, jadi jadwal terkunci. Mengubah jam atau host sekarang akan membuat report tidak cocok lagi.
+                    {Icon.lock(14)} Report host untuk sesi ini sudah masuk, jadi jadwal tidak bisa dihapus. Jadwal tetap bisa diubah, tapi mengubah jam atau host membuat report tidak cocok lagi.
                 </Banner>
             )}
             {clash.length > 0 && (

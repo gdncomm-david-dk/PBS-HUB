@@ -164,7 +164,8 @@ export class Evidence {
     }
 
     /**
-     * A session with a submitted host report is locked: editing it would orphan the report (DESIGN.md).
+     * Delete lock. Every schedule can be edited; one with a submitted host report cannot be deleted,
+     * because that would orphan the report (DESIGN.md).
      * Never locked: a Live Break session (whatever its status, so a doubled one can be deleted) and a
      * session whose status is still Waiting Report.
      */

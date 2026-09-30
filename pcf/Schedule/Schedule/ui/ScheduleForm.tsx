@@ -157,6 +157,11 @@ export function ScheduleForm(props: {
                 </>
             }
         >
+            {props.mode === "edit" && props.schedule && env.ev.realReportsFor(props.schedule).length > 0 && (
+                <Banner tone="warning">
+                    Report host untuk jadwal ini sudah masuk ({env.ev.realReportsFor(props.schedule).map((r) => r.reportId).join(", ")}). Mengubah tanggal, jam, host atau account membuat report tidak cocok lagi dengan jadwal.
+                </Banner>
+            )}
             <div className="sc-formgrid">
                 <Field label="Tanggal" htmlFor="f-date" hint={err("date")} hintTone="danger">
                     <input id="f-date" type="date" className={cx("sc-input", err("date") && "is-danger")} value={v.date} onChange={(e) => set({ date: e.target.value })} />

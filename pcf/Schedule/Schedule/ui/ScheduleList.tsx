@@ -460,7 +460,7 @@ function ListRow(props: { env: Env; s: ScheduleRow; picked: boolean; onPick: (on
                 <StatusBadge status={s.status} />
                 {env.ev.isLiveBreak(s) && <span className="sc-lbtag" title="Live Break — tidak perlu report, bisa diubah atau dihapus">Live Break</span>}
                 {live && <span className="sc-livetag">Live</span>}
-                {locked && <span className="sc-lock" title="Report sudah masuk — jadwal terkunci">{Icon.lock(13)}</span>}
+                {locked && <span className="sc-lock" title="Report host sudah masuk — jadwal tidak bisa dihapus">{Icon.lock(13)}</span>}
             </td>
             <td className="sc-right" onClick={(e) => e.stopPropagation()}>
                 <RowMenu env={env} locked={locked} onOpen={() => env.open(s)} onEdit={props.onEdit} onDelete={props.onDelete} />
@@ -480,7 +480,7 @@ function RowMenu(props: { env: Env; locked: boolean; onOpen: () => void; onEdit:
         document.addEventListener("mousedown", close);
         return () => document.removeEventListener("mousedown", close);
     }, [open]);
-    const lockedWhy = "Report sudah masuk — jadwal terkunci";
+    const lockedWhy = "Report host sudah masuk — jadwal tidak bisa dihapus";
     return (
         <div className="sc-menu" ref={ref}>
             <button type="button" className="sc-iconbtn" aria-label="Menu baris" aria-expanded={open} onClick={() => setOpen((o) => !o)}>
@@ -493,7 +493,7 @@ function RowMenu(props: { env: Env; locked: boolean; onOpen: () => void; onEdit:
                     </button>
                     {props.env.canEdit && (
                         <>
-                            <button type="button" role="menuitem" disabled={props.locked} title={props.locked ? lockedWhy : undefined} onClick={() => { setOpen(false); props.onEdit(); }}>
+                            <button type="button" role="menuitem" onClick={() => { setOpen(false); props.onEdit(); }}>
                                 {Icon.edit(14)} Ubah
                             </button>
                             <button type="button" role="menuitem" className="is-danger" disabled={props.locked} title={props.locked ? lockedWhy : undefined} onClick={() => { setOpen(false); props.onDelete(); }}>
