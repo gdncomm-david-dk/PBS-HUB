@@ -371,3 +371,15 @@ describe("Co-Host is not an account clash", () => {
         expect(acc(2)).toEqual(["SCD-60"]);
     });
 });
+
+describe("Waiting Report is never locked", () => {
+    it("unlocks a Waiting Report schedule even with a report row", () => {
+        const base = { Date: "2026-09-14", StudioID: "CWG-05", HostID: "HST-1", StartTime: "10:00", EndTime: "12:00" };
+        const [a, b] = sched([{ ...base, Title: "SCD-70", Status: "Waiting Report" }, { ...base, Title: "SCD-71", Status: "Finished" }]);
+        const ev = new Evidence(mapReports(recs([
+            { Title: "REP-70", ScheduleID: "SCD-70", ApprovalStatus: "Waiting Approval" },
+            { Title: "REP-71", ScheduleID: "SCD-71", ApprovalStatus: "Waiting Approval" },
+        ])), [], [], []);
+        expect([ev.isLocked(a), ev.isLocked(b)]).toEqual([false, true]);
+    });
+});

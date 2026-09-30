@@ -9,6 +9,9 @@ const low = (s: string): string => s.trim().toLowerCase();
 /** Title join key: case and spaces are ignored ("REP-2044 " and "rep-2044" are the same report). */
 const titleKey = (s: string): string => s.toLowerCase().replace(/\s+/g, "");
 
+/** Schedule.Status = Waiting Report (also "WaitingReport", "Waiting_Report"). */
+export const isWaitingReport = (s: { status: string }): boolean => /^waiting[\s_-]*report$/i.test(s.status.trim());
+
 export type ConflictKind = "host" | "studio" | "account";
 
 export interface Conflict {
@@ -162,10 +165,11 @@ export class Evidence {
 
     /**
      * A session with a submitted host report is locked: editing it would orphan the report (DESIGN.md).
-     * A Live Break session never is, whatever its status, so a doubled one can be deleted.
+     * Never locked: a Live Break session (whatever its status, so a doubled one can be deleted) and a
+     * session whose status is still Waiting Report.
      */
     isLocked(s: ScheduleRow): boolean {
-        return !this.isLiveBreak(s) && this.realReportsFor(s).length > 0;
+        return !this.isLiveBreak(s) && !isWaitingReport(s) && this.realReportsFor(s).length > 0;
     }
 
     absencesFor(s: ScheduleRow): AbsenceRow[] {
