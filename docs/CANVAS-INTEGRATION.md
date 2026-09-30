@@ -983,24 +983,24 @@ If(!IsBlank(Self.ActionPayload),
                             If(IsBlank(cur) || (!IsBlank(Text(p.expectedModified)) && Text(cur.Modified, DateTimeFormat.UTC) <> Text(DateTimeValue(Text(p.expectedModified)), DateTimeFormat.UTC)),
                                 Set(varHdResult, JSON({requestId: rid, status: "conflict", message: "Baris clock in ini sudah diubah orang lain. Muat ulang lalu coba lagi."}, JSONFormat.Compact)),
                                 IfError(
-                                    With({_upd: Patch('Clock In - PBS Hub', cur,
+                                    With({_upd: Patch('Clock In - PBS Hub', cur, {
+                                        // Satu record dengan field tetap (If per field, bukan If yang mengembalikan record beda bentuk).
                                         // Baris GeoAttendance memakai CheckInTime/CheckOutTime (DateTime); baris manual memakai ClockInTime/ClockOutTime (teks).
-                                        If(Boolean(p.manualRow),
-                                            {ClockInTime: Text(p.clockInTime), ClockOutTime: Text(p.clockOutTime),
-                                             ClockOutDate: If(IsBlank(Text(p.clockOutDate)), Blank(), DateValue(Text(p.clockOutDate)))},
-                                            {CheckInTime: DateTimeValue(Text(p.checkInAt)),
-                                             CheckOutTime: If(IsBlank(Text(p.checkOutAt)), Blank(), DateTimeValue(Text(p.checkOutAt))),
-                                             ClockOutDate: If(IsBlank(Text(p.clockOutDate)), Blank(), DateValue(Text(p.clockOutDate)))}),
-                                        {
-                                            Status: {Value: Text(p.status)},
-                                            HKTugas: Value(p.hkTugas),
-                                            Tier: If(IsBlank(Text(p.tier)), Blank(), {Value: Text(p.tier)}),   // kolom Text: Text(p.tier)
-                                            Insentif: Value(p.insentif),
-                                            Streak: Value(p.streak),
-                                            AdjustedBy: User().FullName,           // kolom opsional untuk audit
-                                            AdjustedAt: Now(),
-                                            AdjustReason: Text(p.reason)
-                                        }
+                                        CheckInTime: If(Boolean(p.manualRow), cur.CheckInTime, DateTimeValue(Text(p.checkInAt))),
+                                        CheckOutTime: If(Boolean(p.manualRow), cur.CheckOutTime, If(IsBlank(Text(p.checkOutAt)), Blank(), DateTimeValue(Text(p.checkOutAt)))),
+                                        ClockInTime: If(Boolean(p.manualRow), Text(p.clockInTime), cur.ClockInTime),
+                                        ClockOutTime: If(Boolean(p.manualRow), Text(p.clockOutTime), cur.ClockOutTime),
+                                        ClockOutDate: If(IsBlank(Text(p.clockOutDate)), Blank(), DateValue(Text(p.clockOutDate))),
+                                        Status: {Value: Text(p.status)},
+                                        HKTugas: Value(p.hkTugas),
+                                        Tier: If(IsBlank(Text(p.tier)), Blank(), {Value: Text(p.tier)}),   // kolom Tier Text (bukan Choice): Tier: Text(p.tier)
+                                        Insentif: Value(p.insentif),
+                                        Streak: Value(p.streak),
+                                        // Kolom audit opsional. Belum dibuat di list? Hapus tiga baris ini.
+                                        AdjustedBy: User().FullName,
+                                        AdjustedAt: Now(),
+                                        AdjustReason: Text(p.reason)
+                                    }
                                     )}, RemoveIf(clockInFiltered, ID = _upd.ID); Collect(clockInFiltered, _upd); _upd);
                                     ClearCollect(colHdClockIn, Filter(clockInFiltered, HostID = varSelectedHostId, ClockInDate >= varHdFrom));
                                     Set(varHdResult, JSON({requestId: rid, status: "ok",
