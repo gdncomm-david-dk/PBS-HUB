@@ -1,6 +1,6 @@
 # Integrasi canvas — PBS Hub Host App
 
-Solusi terpisah dari Ops Console: **`PBSHubHostApp`** (managed, `dist/PBSHubHostApp_1_0_15_0_managed.zip`), berisi
+Solusi terpisah dari Ops Console: **`PBSHubHostApp`** (managed, `dist/PBSHubHostApp_1_0_16_0_managed.zip`), berisi
 ketujuh control host dengan identifier baru `pbs_HostApp.*`. Solusi ini menggantikan `PBSHubHostPCF` +
 `PBSHubHostSchedulePCF` (control lama `pbs_Host.*`). Karena nama solusi dan namespace control berbeda, solusi baru
 bisa diimport berdampingan dengan yang lama tanpa bentrok. Publisher dan prefix tetap sama (`PBSHub` / `pbs`).
@@ -464,7 +464,7 @@ Sesi tanpa clock in diarahkan minta clock in manual ke tim PBS, sesi batal hanya
 
 ## 8. Pemasangan
 
-1. Import `dist/PBSHubHostApp_1_0_15_0_managed.zip` (Solutions → Import). Bisa di environment yang sama dengan
+1. Import `dist/PBSHubHostApp_1_0_16_0_managed.zip` (Solutions → Import). Bisa di environment yang sama dengan
    `PBSHubOpsPCF` dan dengan solusi host lama.
    **Pindah dari solusi lama** (`PBSHubHostPCF` / `PBSHubHostSchedulePCF`, control `pbs_Host.*`): control baru tidak
    otomatis menggantikan yang lama di canvas. Di tiap layar hapus control lama, tambahkan control `pbs_HostApp.*`
