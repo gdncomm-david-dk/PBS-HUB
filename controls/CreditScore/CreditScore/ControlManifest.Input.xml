@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8" ?>
 <manifest>
-  <control namespace="HostApp" constructor="CreditScore" version="1.0.14" display-name-key="PBS Host App Credit Score" description-key="PBS Hub host app H-7 Skor saya: the credit score of the signed-in host with its level, points this month, the levels of the studio and every reward and penalty." control-type="standard">
+  <control namespace="HostApp" constructor="CreditScore" version="1.0.15" display-name-key="PBS Host App Credit Score" description-key="PBS Hub host app H-7 Skor saya: the credit score of the signed-in host with its level, points this month, the levels of the studio and every reward and penalty." control-type="standard">
     <external-service-usage enabled="false"></external-service-usage>
 
     <property name="Context" display-name-key="Context" description-key="JSON {userEmail,userName,roles,permissions,config}. config: scoreInitial, scoreMin, scoreMax from [FAS STUDIO] ScoreConfig, used when the Host row has no score." of-type="Multiple" usage="input" required="false" />
