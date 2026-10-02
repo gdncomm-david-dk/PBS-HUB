@@ -658,26 +658,21 @@ export const fmtMinutes = (m: number): string => {
 // ---- Absen --------------------------------------------------------------------------------------
 
 /**
- * ABSEN payload. `liveBreak` comes from the popup: a live break owes no report, but canvas still
- * creates a Report row with every metric 0 and ApprovalStatus LiveBreak so the list stays complete.
+ * ABSEN payload. Absen only records attendance: whether the session was a live break is decided later,
+ * when the host is about to report (LIVE_BREAK), because a live that was cut short still needs a report.
  * `scheduleStatus` is what canvas writes to Schedule.Status: Waiting Report when a report is owed,
- * Done for a live break or a Co-Host.
+ * Done for a Co-Host.
  */
 export function absenPayload(
   s: HostSession,
   host: Row | undefined,
-  liveBreak = false,
   opts: HostOptions = DEFAULT_HOST_OPTIONS,
 ): Record<string, unknown> {
   const coHost = noReportReason(s.row) === "CO_HOST";
-  const hostId = str(host, "Title") || str(s.row, "HostID");
-  const zeros = metricColumns(
-    Object.fromEntries(ALL_METRICS.map((d) => [d.key, 0])),
-  );
   return {
     scheduleId: s.title,
     scheduleItemId: s.id,
-    hostId,
+    hostId: str(host, "Title") || str(s.row, "HostID"),
     hostName: str(host, "NamaHost", "HostName"),
     liveDate: s.dayKey,
     brandId: s.brandId,
@@ -686,18 +681,55 @@ export function absenPayload(
     account: s.accountId,
     accountName: s.account,
     position: str(s.row, "Position"),
-    liveBreak,
-    scheduleStatus: liveBreak || coHost ? opts.doneStatus : opts.waitingStatus,
-    report: liveBreak
-      ? {
-          approvalStatus: "LiveBreak",
-          metrics: zeros,
-          liveId: "",
-          playbook: "",
-          durationMin: 0,
-          fileName: "",
-        }
-      : null,
+    scheduleStatus: coHost ? opts.doneStatus : opts.waitingStatus,
+  };
+}
+
+/**
+ * The host may mark a session as Live Break from the report form, before anything was reported for it
+ * (a live that dropped halfway is reported in parts instead). Same preconditions as a report.
+ */
+export function canMarkLiveBreak(
+  s: HostSession,
+  opts: HostOptions = DEFAULT_HOST_OPTIONS,
+): boolean {
+  return !s.reports.length && reportBlocker(s, opts) === null;
+}
+
+/**
+ * LIVE_BREAK payload: no report is owed, but canvas still creates a Report row with every metric 0 and
+ * ApprovalStatus LiveBreak so the list stays complete, sets Schedule.LiveBreak = Yes and the schedule to
+ * Done.
+ */
+export function liveBreakPayload(
+  s: HostSession,
+  host: Row | undefined,
+  opts: HostOptions = DEFAULT_HOST_OPTIONS,
+): Record<string, unknown> {
+  const zeros = metricColumns(
+    Object.fromEntries(ALL_METRICS.map((d) => [d.key, 0])),
+  );
+  return {
+    scheduleId: s.title,
+    scheduleItemId: s.id,
+    hostId: str(host, "Title") || str(s.row, "HostID"),
+    hostName: str(host, "NamaHost", "HostName"),
+    liveDate: s.dayKey,
+    brandId: s.brandId,
+    studioId: s.studioId,
+    platform: s.platform,
+    account: s.accountId,
+    accountName: s.account,
+    absId: str(s.absence, "Title"),
+    scheduleStatus: opts.doneStatus,
+    report: {
+      approvalStatus: "LiveBreak",
+      metrics: zeros,
+      liveId: "",
+      playbook: "",
+      durationMin: 0,
+      fileName: "",
+    },
   };
 }
 

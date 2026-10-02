@@ -20,13 +20,6 @@ const assert = (c, m) => { if (!c) { console.log("FAIL", m); process.exitCode = 
   };
   const payloads = () => p.evaluate(() => window.__payloads);
   const shot = (n) => p.$("#stage").then((e) => e.screenshot({ path: path.join(out, n + ".png") }));
-  // Absen asks "Live Break?" first; answer and send.
-  const absenDialog = async (liveBreak) => {
-    const d = p.getByRole("dialog");
-    await d.getByText(liveBreak ? "Ya, Live Break" : "Tidak, live seperti biasa").click();
-    await d.getByRole("button", { name: "Mark Attendance", exact: true }).click();
-    await p.waitForTimeout(700);
-  };
   const fillReport = async (v) => {
     for (const [k, x] of Object.entries(v)) {
       if (k === "Playbook") await p.selectOption("#hc-m-Playbook", x);
@@ -517,12 +510,12 @@ const assert = (c, m) => { if (!c) { console.log("FAIL", m); process.exitCode = 
   assert(await p.getByText("Report Emina belum lengkap — kurang 2 jam").isVisible(), "split live short of minutes is a to-do");
   assert((await p.locator(".hc-wk-d").count()) === 7 && (await p.locator(".hc-split .hc-aside").getByText("Skor saya").isVisible()), "desktop: week strip in the main column, score in the context column");
   await p.getByRole("button", { name: "Mark Attendance", exact: true }).click();
-  assert(await p.getByRole("dialog").getByText(/Apakah sesi ini/).isVisible(), "absen asks whether the session is a live break");
-  assert(await p.getByRole("dialog").getByRole("button", { name: "Mark Attendance", exact: true }).isDisabled(), "absen needs an answer first");
-  await absenDialog(false);
+  await p.waitForTimeout(700);
+  assert((await p.getByRole("dialog").count()) === 0, "absen is one tap: no live break question");
+  await p.waitForTimeout(700);
   pl = await payloads();
   const ab = pl.find((x) => x.action === "ABSEN");
-  assert(ab && ab.payload.scheduleId === "SCD-3201" && ab.payload.hostId === "HST-001" && ab.payload.liveDate === "2026-09-14" && ab.payload.liveBreak === false && ab.payload.scheduleStatus === "Waiting Report" && ab.payload.report === null, "ABSEN payload for the live session (not a live break: Waiting Report)");
+  assert(ab && ab.payload.scheduleId === "SCD-3201" && ab.payload.hostId === "HST-001" && ab.payload.liveDate === "2026-09-14" && !("liveBreak" in ab.payload) && ab.payload.scheduleStatus === "Waiting Report" && !("report" in ab.payload), "ABSEN payload for the live session (not a live break: Waiting Report)");
   assert((await p.getByRole("button", { name: "Mark Attendance", exact: true }).count()) === 0, "absen button gone once canvas returns the row");
   await p.getByRole("button", { name: "Clock Out" }).click();
   pl = await payloads();
@@ -688,7 +681,7 @@ const assert = (c, m) => { if (!c) { console.log("FAIL", m); process.exitCode = 
   assert(await p.getByText("Sesi ini tidak punya catatan clock in").isVisible(), "no clock-in blocks the report");
   await go("c=MyReportDetail&sch=SCD-3201");
   await p.getByRole("button", { name: "Mark Attendance Now" }).click();
-  await absenDialog(false);
+  await p.waitForTimeout(700);
   assert(await p.getByText("Absen tercatat untuk SCD-3201.").isVisible(), "absen from the report screen");
 
   // ---- Host app: revision + dispute -------------------------------------------------------------
@@ -752,7 +745,7 @@ const assert = (c, m) => { if (!c) { console.log("FAIL", m); process.exitCode = 
   await p.getByRole("button", { name: "Reset" }).click();
   assert((await schRows()) === 15 && (await p.getByText(/dari 20 sesi/).isVisible()), "reset clears the filters");
   await p.getByRole("button", { name: "Mark Attendance", exact: true }).click();
-  await absenDialog(false);
+  await p.waitForTimeout(700);
   pl = await payloads();
   assert(pl.some((x) => x.action === "ABSEN" && x.payload.scheduleId === "SCD-3201" && x.payload.hostId === "HST-001"), "ABSEN from the today strip");
   assert(await p.getByRole("button", { name: "Send Report" }).isVisible(), "today strip moves on to Kirim report after absen");
@@ -772,7 +765,7 @@ const assert = (c, m) => { if (!c) { console.log("FAIL", m); process.exitCode = 
   assert(await p.getByText("Sesi sedang live — absen sekarang").isVisible(), "live session asks for absen");
   assert(await p.getByRole("button", { name: "Send Report", exact: true }).isDisabled(), "Kirim report disabled before absen (Schedule.Status still Planned)");
   await p.getByRole("button", { name: "Mark Attendance", exact: true }).first().click();
-  await absenDialog(false);
+  await p.waitForTimeout(700);
   assert(await p.getByText("Absen tercatat untuk SCD-3201.").isVisible() && (await p.getByText("Kirim report sesi ini").isVisible()), "after absen the next step is the report");
   assert((await p.locator("#hc-report").count()) === 0, "the form stays closed until Kirim report");
   await p.locator(".hc-ph-a").getByRole("button", { name: "Send Report" }).click();
@@ -853,17 +846,22 @@ const assert = (c, m) => { if (!c) { console.log("FAIL", m); process.exitCode = 
   // Canvas says ok but AbsenceJson never gets the row: the Absen button must not stay clickable.
   await go("c=ScheduleDetail&sch=SCD-3201&stale=1");
   await p.getByRole("button", { name: "Mark Attendance", exact: true }).first().click();
-  await absenDialog(false);
+  await p.waitForTimeout(700);
   await p.waitForTimeout(300);
   assert((await p.getByRole("button", { name: "Mark Attendance", exact: true }).count()) === 0, "absen ok but no row back from canvas: Absen button still hidden (no double absen)");
 
-  // Live break: absen "Ya" = no report, but a Report row of zeros with ApprovalStatus LiveBreak.
+  // Live break is asked when the host is about to report: "Ya" = no report, a Report row of zeros with ApprovalStatus LiveBreak.
   await go("c=ScheduleDetail&sch=SCD-3201");
   await p.getByRole("button", { name: "Mark Attendance", exact: true }).first().click();
-  await absenDialog(true);
+  await p.waitForTimeout(700);
+  await p.locator(".hc-ph-a").getByRole("button", { name: /Send Report/ }).click();
+  await p.waitForTimeout(300);
+  assert(await p.getByText("Apakah sesi ini Live Break?").isVisible() && (await p.locator("#hc-report").count()) === 0, "before the form the host is asked whether the session is a live break");
+  await p.getByRole("button", { name: /Ya, Live Break/ }).click();
+  await p.waitForTimeout(1200);
   pl = await payloads();
-  const lbAbs = pl.filter((x) => x.action === "ABSEN").pop();
-  assert(lbAbs && lbAbs.payload.liveBreak === true && lbAbs.payload.scheduleStatus === "Finished" && lbAbs.payload.report.approvalStatus === "LiveBreak" && Object.values(lbAbs.payload.report.metrics).every((v) => v === 0), "LiveBreak ABSEN payload: Finished + report of zeros");
+  const lbAbs = pl.filter((x) => x.action === "LIVE_BREAK").pop();
+  assert(lbAbs && lbAbs.payload.scheduleId === "SCD-3201" && lbAbs.payload.scheduleStatus === "Finished" && lbAbs.payload.report.approvalStatus === "LiveBreak" && Object.values(lbAbs.payload.report.metrics).every((v) => v === 0), "LIVE_BREAK payload: Finished + report of zeros");
   assert((await p.locator(".hc-ph-a").getByRole("button", { name: /Send Report/ }).count()) === 0 && (await p.getByText("Live break · tanpa report").isVisible()), "live break: no Kirim report");
   assert(await p.locator(".hc-part").getByText("Live break").isVisible(), "the LiveBreak report row is listed");
 

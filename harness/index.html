@@ -323,7 +323,7 @@
       }, Number(q.get("delay") || 400));
       return;
     }
-    if (["ABSEN", "SUBMIT_REPORT", "RESUBMIT_REPORT", "DISPUTE_REVIEW"].includes(p.action) && document.getElementById("auto").checked) {
+    if (["ABSEN", "LIVE_BREAK", "SUBMIT_REPORT", "RESUBMIT_REPORT", "DISPUTE_REVIEW"].includes(p.action) && document.getElementById("auto").checked) {
       // Canvas stand-in for the host app writes.
       const up = ctl.getOutputs().UploadData;
       if (up) log(`UploadData ${Math.round((up.length * 3) / 4 / 1024)} KB base64 JPEG`);
@@ -340,12 +340,15 @@
           const rows = JSON.parse(params.AbsenceJson || "[]");
           rows.push({ ID: 8899, Title: "ABS-8899", HostID: p.payload.hostId, ScheduleID: p.payload.scheduleId, AbsenceDate: p.payload.liveDate, CheckInTime: S.REF, Created: S.REF });
           params.AbsenceJson = J(rows);
-          patchSchedule(p.payload.scheduleId, Object.assign({ Status: { Value: p.payload.scheduleStatus } }, p.payload.liveBreak ? { LiveBreak: { Value: "Yes" } } : {}));
-          if (p.payload.liveBreak && p.payload.report) {
-            const lb = Object.assign({ ID: window.__rid, Title: "REP-" + window.__rid, ScheduleID: p.payload.scheduleId, HostID: p.payload.hostId, BrandID: p.payload.brandId, Platform: { Value: p.payload.platform }, LiveDate: p.payload.liveDate, ApprovalStatus: { Value: "LiveBreak" }, Created: S.REF, Modified: S.REF }, p.payload.report.metrics);
-            params[repKey] = J(JSON.parse(params[repKey] || "[]").concat([lb]));
-          }
-          message = p.payload.liveBreak ? `Absen tercatat untuk ${p.payload.scheduleId}. Live break: report 0 dibuat otomatis.` : `Absen tercatat untuk ${p.payload.scheduleId}.`;
+          patchSchedule(p.payload.scheduleId, { Status: { Value: p.payload.scheduleStatus } });
+          message = `Absen tercatat untuk ${p.payload.scheduleId}.`;
+        }
+        if (!fail && p.action === "LIVE_BREAK") {
+          patchSchedule(p.payload.scheduleId, { Status: { Value: p.payload.scheduleStatus }, LiveBreak: { Value: "Yes" } });
+          const lb = Object.assign({ ID: window.__rid, Title: "REP-" + window.__rid, ScheduleID: p.payload.scheduleId, HostID: p.payload.hostId, BrandID: p.payload.brandId, Platform: { Value: p.payload.platform }, LiveDate: p.payload.liveDate, ApprovalStatus: { Value: "LiveBreak" }, Created: S.REF, Modified: S.REF }, p.payload.report.metrics);
+          if (c === "ScheduleDetail") params.ReportsJson = J(JSON.parse(params.ReportsJson || "[]").concat([lb]));
+          else { params.SessionReportsJson = J(JSON.parse(params.SessionReportsJson || "[]").concat([lb])); params.ReportJson = J([lb]); }
+          message = `Sesi ${p.payload.scheduleId} ditandai Live Break.`;
         }
         if (!fail && p.action === "SUBMIT_REPORT") {
           const t = "REP-" + window.__rid;

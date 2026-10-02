@@ -116,14 +116,12 @@ def absen(R, col, after=''):
     err = lambda msg: res(R, "error", msg)
     now = "LookUp(scheduleFiltered, ID = s.ID).Status.Value"
     dup = res(R, "conflict", '"Absen sesi ini sudah tercatat (" & ex.Title & "). Status jadwal " & ' + now + ' & "."')
-    ok_new = res(R, "ok", 'If(lb, "Absen tercatat (ABS-" & row.ID & "). Live Break: report 0 dibuat otomatis.", '
-                          '"Absen tercatat (ABS-" & row.ID & "). Status jadwal sekarang " & ' + now + ' & ".")')
+    ok_new = res(R, "ok", '"Absen tercatat (ABS-" & row.ID & "). Status jadwal sekarang " & ' + now + ' & "."')
     return f'''"ABSEN",
     // Jadwal dicari lewat ID SharePoint (scheduleItemId), Title hanya dicocokkan.
     With({{s: LookUp(scheduleFiltered, ID = Value(p.scheduleItemId)),
           ex: LookUp(absenceFiltered, ScheduleID = Text(p.scheduleId) && HostID = varMe.Title),
-          lb: Boolean(p.liveBreak),
-          st: Coalesce(Text(p.scheduleStatus), "Waiting Report")}},   // dari control: Waiting Report, atau Finished (Live Break / Co-Host)
+          st: Coalesce(Text(p.scheduleStatus), "Waiting Report")}},   // dari control: Waiting Report, atau Finished (Co-Host)
         If(
             IsBlank(s) || s.Title <> Text(p.scheduleId) || s.HostID <> varMe.Title,
                 {err('"Jadwal " & Text(p.scheduleId) & " tidak ditemukan untuk akunmu. Muat ulang dulu."')},
@@ -150,21 +148,6 @@ def absen(R, col, after=''):
                             If(!IsBlank(row),
                                 With({{_upd: Patch('Host Absence - PBS Hub', row, {{Title: "ABS-" & row.ID}})}}, RemoveIf(absenceFiltered, ID = _upd.ID); Collect(absenceFiltered, _upd); _upd);
                                 Collect({col}, LookUp(absenceFiltered, ID = row.ID));
-                                // 3. Live Break: host tidak perlu report, tapi baris Report tetap dibuat, semua angka 0.
-                                If(lb,
-                                    With({{_upd: Patch('Schedule - PBS Hub', LookUp(scheduleFiltered, ID = s.ID), {{LiveBreak: {{Value: "Yes"}}}})}}, RemoveIf(scheduleFiltered, ID = _upd.ID); Collect(scheduleFiltered, _upd); _upd);   // Choice Yes/No
-                                    With({{rep: With({{_new: Patch('Report - PBS Hub', Defaults('Report - PBS Hub'), {{
-                                            ScheduleID: s.Title, HostID: varMe.Title, BrandID: s.BrandID, Platform: {{Value: s.Platform.Value}},
-                                            AccountID: s.Account, HostName: Coalesce(LookUp('Host - PBS Hub', Title = varMe.Title).NamaHost, Text(p.hostName)),   // nama host dari list Host
-                                            Account: LookUp(Choices([@'Report - PBS Hub'].Account), Value = LookUp(colAccounts, Title = s.Account).AccountName || Value = s.Account),   // nama akun dari list Account
-                                            LiveDate: s.Date, AbsID: "ABS-" & row.ID,
-{ind(ZERO, 44)},
-                                            ApprovalStatus: {{Value: "LiveBreak"}}
-                                        }})}}, Collect(reportFiltered, _new); _new)}},
-                                        With({{_upd: Patch('Report - PBS Hub', rep, {{Title: "REP-" & rep.ID}})}}, RemoveIf(reportFiltered, ID = _upd.ID); Collect(reportFiltered, _upd); _upd)
-                                    );
-{ind(tier("s.Date").rstrip(';'), 36)}
-                                );
 {new_after}                                // Pesan membaca ulang SharePoint, jadi yang tampil adalah status yang benar-benar tersimpan.
                                 {ok_new}
                             )
@@ -219,6 +202,43 @@ def submit(R, after):
                     )
                 ),
                 {res(R, "error", '"Gagal mengirim report: " & FirstError.Message')}
+            )
+        )
+    ),'''
+
+def live_break(R, after):
+    """LIVE_BREAK: asked when the host is about to report. No report is owed: Schedule.LiveBreak = Yes, status Finished,
+    and a Report row of zeros with ApprovalStatus LiveBreak so the list stays complete."""
+    return f'''"LIVE_BREAK",
+    With({{s: LookUp(scheduleFiltered, Title = Text(p.scheduleId) && HostID = varMe.Title),
+          ex: LookUp(absenceFiltered, ScheduleID = Text(p.scheduleId) && HostID = varMe.Title)}},
+        If(IsBlank(s),
+            {res(R, "error", '"Jadwal " & Text(p.scheduleId) & " tidak ditemukan untuk akunmu. Muat ulang dulu."')},
+        // Sama dengan report: harus sudah absen dan jadwal Waiting Report.
+        IsBlank(ex),
+            {res(R, "error", '"Absen sesi ini belum tercatat."')},
+        s.Status.Value <> "Waiting Report",
+            {res(R, "conflict", '"Status jadwal " & s.Status.Value & ", Live Break tidak bisa ditandai. Muat ulang dulu."')},
+        // Sudah ada report untuk sesi ini (live terputus sebagian): bukan Live Break lagi.
+        !IsBlank(LookUp(reportFiltered, ScheduleID = s.Title && HostID = varMe.Title)),
+            {res(R, "conflict", '"Sesi ini sudah punya report, jadi tidak bisa ditandai Live Break."')},
+            IfError(
+                With({{rep: With({{_new: Patch('Report - PBS Hub', Defaults('Report - PBS Hub'), {{
+                        ScheduleID: s.Title, HostID: varMe.Title, BrandID: s.BrandID, Platform: {{Value: s.Platform.Value}},
+                        AccountID: s.Account, HostName: Coalesce(LookUp('Host - PBS Hub', Title = varMe.Title).NamaHost, Text(p.hostName)),   // nama host dari list Host
+                        Account: LookUp(Choices([@'Report - PBS Hub'].Account), Value = LookUp(colAccounts, Title = s.Account).AccountName || Value = s.Account),   // nama akun dari list Account
+                        LiveDate: s.Date, AbsID: ex.Title,
+{ind(ZERO, 24)},
+                        ApprovalStatus: {{Value: "LiveBreak"}}
+                    }})}}, Collect(reportFiltered, _new); _new)}},
+                    With({{_upd: Patch('Report - PBS Hub', rep, {{Title: "REP-" & rep.ID}})}}, RemoveIf(reportFiltered, ID = _upd.ID); Collect(reportFiltered, _upd); _upd);
+                    // LiveBreak = Yes (Choice Yes/No) dan Status jadwal Finished.
+                    With({{_upd: Patch('Schedule - PBS Hub', s, {{LiveBreak: {{Value: "Yes"}}, Status: {{Value: Text(p.scheduleStatus)}}}})}}, RemoveIf(scheduleFiltered, ID = _upd.ID); Collect(scheduleFiltered, _upd); _upd);
+{ind(tier("s.Date"), 20)}
+{ind(after, 20)}
+                    {res(R, "ok", '"Sesi " & s.Title & " ditandai Live Break. Report 0 dibuat (REP-" & rep.ID & ")."')}
+                ),
+                {res(R, "error", '"Gagal menandai Live Break: " & FirstError.Message')}
             )
         )
     ),'''
@@ -357,6 +377,7 @@ mrd_after = "Set(varMrdRep, LookUp(reportFiltered, ID = cur.ID));\n" + mrd_sch
 mrd = shell('\n'.join([
  absen('varMrdResult','colMrdAbs', mrd_sch),
  submit('varMrdResult', mrd_after_submit),
+ live_break('varMrdResult', mrd_after_submit),
  resubmit('varMrdResult', mrd_after),
  dispute('varMrdResult', mrd_after),
  delete('varMrdResult', "Set(varRptId, Blank()); Set(varMrdRep, LookUp(reportFiltered, ID = -1));\n" + mrd_sch),
@@ -398,6 +419,7 @@ sd_after = sd_after_submit
 sd = shell('\n'.join([
  absen('varSdResult','colSdAbs', sd_after_submit),
  submit('varSdResult', sd_after_submit),
+ live_break('varSdResult', sd_after_submit),
  resubmit('varSdResult', sd_after),
  dispute('varSdResult', sd_after),
  '"CLOCK_IN", Navigate(scrClockIn),',

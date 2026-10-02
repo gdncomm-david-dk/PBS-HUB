@@ -710,7 +710,6 @@ export function MyScheduleView(props: MyScheduleProps): React.ReactElement {
           }
         />
       )}
-      {absen.dialog}
     </div>
   );
 }

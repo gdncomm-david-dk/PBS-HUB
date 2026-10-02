@@ -538,7 +538,6 @@ export function ScheduleDetailView(
           ) : null}
         </aside>
       </div>
-      {absen.dialog}
     </div>
   );
 }
@@ -669,7 +668,7 @@ function NextStep(props: {
           : "Absen sekarang";
         text = s.noReport
           ? "Absen menandai kamu hadir di sesi ini. Sesi ini tidak perlu report."
-          : "Absen menandai kamu hadir di sesi ini. Kamu akan ditanya apakah sesi ini Live Break; kalau bukan, kirim report lewat Kirim report.";
+          : "Absen menandai kamu hadir di sesi ini. Soal Live Break ditanya saat kamu mau kirim report.";
         btn = (
           <Button size="sm" onClick={props.onAbsen} disabled={props.pending}>
             {props.busy ? <Spinner small /> : null} Mark Attendance

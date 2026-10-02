@@ -111,7 +111,7 @@ Clock out) memutar spinner sampai balasan itu datang.
 
 ```text
 Clock in
-  └─ Absen → pop-up "Live Break?"
+  └─ Absen (satu ketukan) → Kirim report → "Apakah sesi ini Live Break?"
        ├─ Tidak   → Schedule.Status = Waiting Report
        │             └─ Send Report (boleh beberapa kali, satu per Live ID)
        │                  ├─ total Durasi < durasi jadwal → tetap Waiting Report ("kurang X menit")
@@ -287,7 +287,7 @@ Set(varT2MinInWindow, 120)                                          // ≥ 2 jam
 
     doc.append("""### Aturan Tier (dihitung setiap report terkirim)
 
-Setiap **Send Report**, **Kirim revisi** dan **Absen → Live Break**, OnChange menghitung Tier host itu untuk tanggal
+Setiap **Send Report**, **Kirim revisi** dan **Live Break**, OnChange menghitung Tier host itu untuk tanggal
 live tersebut dan menulisnya ke baris `Clock In - PBS Hub` (`HostID` + `ClockInDate`). Belum clock in = belum ada
 baris = dilewati; hitung ulang bulanan yang sudah kamu punya tetap bisa dijalankan dan hasilnya sama.
 
@@ -561,7 +561,7 @@ Pakai satu jadwal milik akunmu (`HostID = varMe.Title`), hari ini, **sudah mulai
 | 5 | Report berikutnya dengan Live ID `111` | ditolak: *Live ID sudah dipakai* | — |
 | 6 | Live ID `222`, Durasi `60` | *Durasi sesi terpenuhi*, tombol hilang | Report kedua; Schedule `Status = Finished` |
 | 7 | Jadwal TikTok | tidak ada kolom AddToCart | `AddToCart` kosong |
-| 8 | Jadwal lain → Absen → *Ya, Live Break* | *Live Break · tanpa report* | Schedule `Finished`, `LiveBreak = Yes`; Report semua 0, `ApprovalStatus = LiveBreak` |
+| 8 | Jadwal lain → Absen → Kirim report → *Ya, Live Break* | *Live Break · tanpa report* | Schedule `Finished`, `LiveBreak = Yes`; Report semua 0, `ApprovalStatus = LiveBreak` |
 | 9 | Jadwal `Position = Co-Host` → Absen | tanpa pop-up, tanpa Send Report | Schedule `Finished`, tidak ada Report |
 | 10 | Ops set report #4 ke `Need Revision` → buka sesi | form revisi (angka, Live ID, Playbook, Durasi) | — |
 | 11 | Durasi jadi `50` → Kirim revisi | *Revisi terkirim* | Report `Waiting Approval Revision`; Schedule kembali `Waiting Report` (110 < 120) |

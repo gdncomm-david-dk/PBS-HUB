@@ -36,6 +36,8 @@ import {
   statusAllowsReport,
   hostCanDelete,
   statusAfterDelete,
+  canMarkLiveBreak,
+  liveBreakPayload,
 } from "./hostApp";
 import { DeleteReportCard } from "./deleteReport";
 import { useAbsen, useAbsenceMemory } from "./hostAbsen";
@@ -486,6 +488,15 @@ export function SubmitReport(
   const absen = useAbsen(action, host, opts, props.onAbsenSent);
   const res = action.lastResult;
   const sent = res?.action === "SUBMIT_REPORT" && res.status === "ok";
+  const lbSent = res?.action === "LIVE_BREAK" && res.status === "ok";
+  const lbPending = action.pending?.action === "LIVE_BREAK";
+  // First report of a session: ask whether it was a live break before showing the form. A draft means
+  // the host already chose to report.
+  const [lbAnswer, setLbAnswer] = React.useState<"no" | null>(
+    draft && Object.values(draft.texts).some(Boolean) ? "no" : null,
+  );
+  const askLb =
+    !!session && lbAnswer === null && canMarkLiveBreak(session, opts);
   const minutes = values.Durasi ?? null;
   const after = session ? statusAfterReport(session, minutes ?? 0, opts) : null;
   const dupLive =
@@ -595,6 +606,33 @@ export function SubmitReport(
     <Badge tone="warning">Absen belum ada</Badge>
   ) : null;
 
+  if (lbSent) {
+    return (
+      <div
+        className="hc-card"
+        style={{ textAlign: "center", padding: "32px 20px" }}
+      >
+        <span
+          className="hc-ic ok"
+          style={{ width: 48, height: 48, borderRadius: 24 }}
+        >
+          <Icon name="check" size={24} />
+        </span>
+        <h2 style={{ margin: "14px 0 6px", fontSize: 18 }}>
+          Sesi ditandai Live Break
+        </h2>
+        <p className="pbs-muted" style={{ margin: "0 0 16px" }}>
+          Tidak perlu kirim report. Status jadwal menjadi {opts.doneStatus}.
+        </p>
+        {props.embedded ? null : (
+          <Button onClick={() => action.fire("BACK", {})}>
+            Back to My Reports
+          </Button>
+        )}
+      </div>
+    );
+  }
+
   if (sent) {
     const left = sentInfo
       ? sentInfo.complete
@@ -690,7 +728,51 @@ export function SubmitReport(
       ? `${missing.map((m) => m.label).join(", ")} masih kosong. Isi 0 kalau memang nol.`
       : undefined;
 
-  const form = (
+  const lbCard =
+    session && askLb ? (
+      <div className="hc-card">
+        <h3 style={{ margin: "0 0 4px", fontSize: 16 }}>
+          Apakah sesi ini Live Break?
+        </h3>
+        <p className="pbs-muted" style={{ margin: "0 0 14px", fontSize: 13 }}>
+          {session.title} · {session.startText || "—"}–{session.endText || "—"}{" "}
+          · {session.platform || "—"}
+        </p>
+        {res?.action === "LIVE_BREAK" && res.status !== "ok" ? (
+          <InfoBanner tone="err">{res.message || "Gagal menyimpan."}</InfoBanner>
+        ) : null}
+        <div className="hc-stack" style={{ gap: 8 }}>
+          <Button
+            variant="secondary"
+            disabled={lbPending}
+            onClick={() => setLbAnswer("no")}
+          >
+            Tidak, kirim report
+          </Button>
+          <Button
+            disabled={!!action.pending}
+            onClick={() =>
+              action.dispatch("LIVE_BREAK", liveBreakPayload(session, host, opts))
+            }
+          >
+            {lbPending ? (
+              <>
+                <Spinner small /> Saving…
+              </>
+            ) : (
+              "Ya, Live Break (tanpa report)"
+            )}
+          </Button>
+        </div>
+        <p className="pbs-muted" style={{ margin: "12px 0 0", fontSize: 12 }}>
+          Live Break tidak perlu report. Report tetap dibuat otomatis dengan
+          semua angka 0 dan status LiveBreak. Kalau live-nya sempat jalan lalu
+          terputus, pilih Tidak dan kirim report-nya.
+        </p>
+      </div>
+    ) : null;
+
+  const form = lbCard ?? (
     <>
       {draft && Object.values(draft.texts).some(Boolean) ? (
         <InfoBanner
@@ -876,7 +958,6 @@ export function SubmitReport(
           )}
         </Button>
       </div>
-      {absen.dialog}
     </>
   );
 

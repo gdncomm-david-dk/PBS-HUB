@@ -11,6 +11,8 @@ import {
   reviewerNote,
   sanityWarnings,
   absenPayload,
+  canMarkLiveBreak,
+  liveBreakPayload,
   hostOptions,
   parsePlaybooks,
   reportCoverage,
@@ -361,6 +363,8 @@ describe("split live: reports in parts until Durasi covers the session", () => {
       partial: true,
     });
     expect(reportBlocker(s)).toBeNull();
+    // A live that already has a part is reported in parts, not marked Live Break.
+    expect(canMarkLiveBreak(s)).toBe(false);
     expect(statusAfterReport(s, 120, DEFAULT_HOST_OPTIONS)).toEqual({
       status: "Waiting Report",
       complete: false,
@@ -432,20 +436,20 @@ describe("absen payload", () => {
     },
     now,
   )[0]!;
-  it("normal live: Waiting Report, no report row", () => {
-    expect(absenPayload(s, { Title: "H1", NamaHost: "Dinda" })).toMatchObject({
+  it("absen: Waiting Report, no live break question and no report row", () => {
+    const p = absenPayload(s, { Title: "H1", NamaHost: "Dinda" });
+    expect(p).toMatchObject({
       scheduleId: "SCD-2",
       hostId: "H1",
-      liveBreak: false,
       scheduleStatus: "Waiting Report",
-      report: null,
       accountName: "brand.official",
     });
+    expect(p).not.toHaveProperty("liveBreak");
+    expect(p).not.toHaveProperty("report");
   });
-  it("live break: Finished plus a Report row of zeros with ApprovalStatus LiveBreak", () => {
-    const p = absenPayload(s, undefined, true);
+  it("live break (asked at report time): Finished plus a Report row of zeros with ApprovalStatus LiveBreak", () => {
+    const p = liveBreakPayload(s, undefined);
     expect(p).toMatchObject({
-      liveBreak: true,
       scheduleStatus: "Finished",
       report: { approvalStatus: "LiveBreak" },
     });
@@ -469,10 +473,9 @@ describe("absen payload", () => {
       absenPayload(
         co,
         undefined,
-        false,
         hostOptions({ scheduleDoneStatus: "Finished" }),
       ),
-    ).toMatchObject({ scheduleStatus: "Finished", report: null });
+    ).toMatchObject({ scheduleStatus: "Finished" });
   });
 });
 
