@@ -2,13 +2,15 @@
 
 | Control | Screens | Managed solution | Canvas setup |
 |---|---|---|---|
-| `pbs_Ops.StudioHub` | Studio list, Studio detail | `releases/PBSStudioHub_managed_1.7.0.zip` | [`docs/SETUP.md` § B](docs/SETUP.md) |
+| `pbs_Ops.StudioHub` | Studio list, Studio detail | `releases/PBSStudioHub_managed_1.8.0.zip` | [`docs/SETUP.md` § B](docs/SETUP.md) |
 | `pbs_Ops.ScheduleHub` | Schedule board, session detail, create/edit, bulk & AI upload | `releases/PBSScheduleHub_managed_1.7.0.zip` | [`docs/SETUP.md` § C](docs/SETUP.md) |
 
 ## `pbs_Ops.StudioHub` (Studio list + Studio detail)
 
 Power Apps code component for the **Studio** and **Studio detail** screens of the PBS Hub Ops Console,
 built on the SharePoint data model in `DESIGN.md`.
+
+- **Phone and tablet** — the layout follows the control width: desktop, tablet/landscape (single-column detail and geofence editor) and phone portrait (studio cards, 2×2 KPIs, full-width dialogs).
 
 - **Studio list** — KPIs (utilization today / this month with delta, studios in use, studios needing action),
   "Sedang digunakan sekarang" tiles (which brand and which host is live in each studio right now), daily

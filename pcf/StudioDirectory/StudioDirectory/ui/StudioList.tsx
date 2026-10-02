@@ -371,8 +371,8 @@ export function StudioList(props: { env: Env; onCreate: () => void }): React.Rea
                 </div>
             </div>
 
-            <div className="sd-tablewrap">
-                <table className="sd-table">
+            <div className="sd-tablewrap sd-tablewrap--list">
+                <table className="sd-table sd-table--list">
                     <thead>
                         <tr>
                             <th>StudioID</th>
@@ -433,10 +433,10 @@ export function StudioList(props: { env: Env; onCreate: () => void }): React.Rea
                                 const live = liveInfo(idx, s, todayKey, nowMin);
                                 return (
                                     <tr key={s.key} className={cx("sd-row", !s.isActive && "is-inactive")} onClick={() => env.openStudio(s.studioId)}>
-                                        <td className="sd-mono">{s.studioId}</td>
-                                        <td className="sd-strong">{s.namaStudio || "—"}</td>
-                                        <td>{s.kapasitasHost > 0 ? `${s.kapasitasHost} host` : <span className="sd-warntext" title="KapasitasHost kosong — utilisasi dihitung dengan kapasitas 1">— host</span>}</td>
-                                        <td className="sd-loccell" title={s.lokasiStudio}>
+                                        <td className="sd-mono sd-c-id">{s.studioId}</td>
+                                        <td className="sd-strong sd-c-name">{s.namaStudio || "—"}</td>
+                                        <td className="sd-c-cap">{s.kapasitasHost > 0 ? `${s.kapasitasHost} host` : <span className="sd-warntext" title="KapasitasHost kosong — utilisasi dihitung dengan kapasitas 1">— host</span>}</td>
+                                        <td className="sd-loccell sd-c-loc" title={s.lokasiStudio}>
                                             {loc ? (
                                                 <>
                                                     <span className="sd-strong">{locationKey(loc)}</span>
@@ -449,16 +449,16 @@ export function StudioList(props: { env: Env; onCreate: () => void }): React.Rea
                                             )}
                                             {s.lokasiStudio && <div className="sd-muted sd-ellipsis">{s.lokasiStudio}</div>}
                                         </td>
-                                        <td>
+                                        <td className="sd-c-today">
                                             <span className={cx("sd-pct", `sd-pct--${utilTone(d.ratio)}`)}>{s.isActive ? pct(d.ratio) : "—"}</span>
                                         </td>
-                                        <td className="sd-utilcell">
+                                        <td className="sd-utilcell sd-c-util">
                                             <div className={cx("sd-utilcell__num", utilTone(m.ratio) === "danger" && "is-danger")}>
                                                 {hours(m.usedMin)} / {hours(m.capacityMin)} jam
                                             </div>
                                             <Bar ratio={m.ratio} />
                                         </td>
-                                        <td className="sd-nowcell">
+                                        <td className="sd-nowcell sd-c-now">
                                             {live.running.length ? (
                                                 <>
                                                     <span className="sd-livebadge sd-livebadge--sm">
@@ -472,13 +472,13 @@ export function StudioList(props: { env: Env; onCreate: () => void }): React.Rea
                                                 <span className="sd-muted">—</span>
                                             )}
                                         </td>
-                                        <td>
+                                        <td className="sd-c-status">
                                             <StudioStatusBadge studio={s} />
                                         </td>
-                                        <td onClick={(e) => e.stopPropagation()}>
+                                        <td className="sd-c-geo" onClick={(e) => e.stopPropagation()}>
                                             <GeoCell loc={loc} link={link} onFix={() => env.openStudio(s.studioId)} />
                                         </td>
-                                        <td className="sd-right">
+                                        <td className="sd-right sd-c-open">
                                             <button type="button" className="sd-link" onClick={(e) => { e.stopPropagation(); env.openStudio(s.studioId); }}>
                                                 Buka
                                             </button>

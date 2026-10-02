@@ -24,6 +24,7 @@ export interface AppProps {
     op: OperatingHours;
     selectedStudioId: string;
     height: number;
+    width: number;
     emit: (action: ActionName, payload: Record<string, unknown>) => string;
     onSelectStudio: (studioId: string) => void;
     getPosition: () => Promise<LatLon>;
@@ -70,7 +71,7 @@ export interface Env {
 const REQUEST_TIMEOUT_MS = 30000;
 
 /** Shown on the page so the app maker can see which build the canvas app is running. Keep in step with the manifest. */
-export const CONTROL_VERSION = "pbs_Ops.StudioHub 1.7.0";
+export const CONTROL_VERSION = "pbs_Ops.StudioHub 1.8.0";
 
 const SUCCESS_TEXT: Partial<Record<ActionName, string>> = {
     CREATE_STUDIO: "Studio berhasil ditambahkan.",
@@ -92,6 +93,12 @@ function useNow(intervalMs: number): Date {
 export function App(props: AppProps): React.ReactElement {
     const now = useNow(30000);
     const todayKey = toDateKey(now);
+    const [winW, setWinW] = React.useState(() => window.innerWidth);
+    React.useEffect(() => {
+        const on = () => setWinW(window.innerWidth);
+        window.addEventListener("resize", on);
+        return () => window.removeEventListener("resize", on);
+    }, []);
     const [monthKey, setMonthKey] = React.useState(() => toMonthKey(new Date()));
     const [openId, setOpenId] = React.useState(props.selectedStudioId || "");
     const [pending, setPending] = React.useState<Pending | null>(null);
@@ -239,8 +246,12 @@ export function App(props: AppProps): React.ReactElement {
         setForm({ ...form, error: undefined });
     };
 
+    // Layout size from the width the canvas gives the control (falls back to the window width).
+    const w = props.width > 0 ? props.width : winW;
+    const size = w < 640 ? "s" : w < 1040 ? "m" : "l";
+
     return (
-        <div className="pbs-sd" style={props.height > 0 ? { height: props.height } : undefined}>
+        <div className="pbs-sd" data-size={size} style={props.height > 0 ? { height: props.height } : undefined}>
             <div className="sd-page">
                 {banner && (
                     <Banner tone={banner.tone} onClose={() => setBanner(null)}>

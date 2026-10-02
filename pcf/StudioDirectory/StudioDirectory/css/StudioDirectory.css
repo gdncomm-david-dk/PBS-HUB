@@ -43,7 +43,7 @@
 .pbs-sd button { font: inherit; color: inherit; }
 .pbs-sd input, .pbs-sd select, .pbs-sd textarea { font: inherit; }
 
-.sd-page { padding: 24px 28px 40px; display: flex; flex-direction: column; gap: 16px; min-width: 1040px; }
+.sd-page { padding: 24px 28px 40px; display: flex; flex-direction: column; gap: 16px; min-width: 0; }
 .sd-mono { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; font-size: 12px; }
 .sd-muted { color: var(--text-secondary); font-size: 12px; }
 .sd-strong { font-weight: 600; }
@@ -427,3 +427,108 @@ button.sd-geo--danger:hover { text-decoration: underline; }
 .sd-pager__gap { padding: 0 4px; color: var(--text-muted); }
 .sd-iconbtn:disabled { opacity: .35; cursor: default; background: transparent; }
 
+
+/* Responsive. data-size on .pbs-sd comes from the width the canvas gives the control:
+   l >= 1040px (desktop), m 640–1039px (tablet, phone landscape), s < 640px (phone portrait). */
+.pbs-sd:not([data-size="l"]) .sd-page { padding: 16px 16px 32px; gap: 14px; }
+.pbs-sd:not([data-size="l"]) .sd-pagehead { flex-wrap: wrap; align-items: flex-start; }
+.pbs-sd:not([data-size="l"]) .sd-pagehead__actions { flex-wrap: wrap; gap: 8px; }
+.pbs-sd:not([data-size="l"]) .sd-grid2,
+.pbs-sd:not([data-size="l"]) .sd-geo-layout { grid-template-columns: minmax(0, 1fr); }
+.pbs-sd:not([data-size="l"]) .sd-kpis { gap: 10px; }
+.pbs-sd[data-size="m"] .sd-kpi { padding: 12px 14px; }
+.pbs-sd:not([data-size="l"]) .sd-toolbar { flex-wrap: wrap; }
+.pbs-sd:not([data-size="l"]) .sd-search { flex: 1 1 240px; width: auto; min-width: 0; }
+.pbs-sd:not([data-size="l"]) .sd-tablewrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+.pbs-sd:not([data-size="l"]) .sd-tabs { overflow-x: auto; flex-wrap: nowrap; }
+.pbs-sd:not([data-size="l"]) .sd-tab { white-space: nowrap; flex: none; }
+.pbs-sd:not([data-size="l"]) .sd-record { flex-wrap: wrap; row-gap: 12px; }
+.pbs-sd:not([data-size="l"]) .sd-record__cell { padding: 0 14px; }
+.pbs-sd:not([data-size="l"]) .sd-record__end { flex-wrap: wrap; }
+.pbs-sd:not([data-size="l"]) .sd-map { min-height: 320px; }
+
+/* Phone portrait */
+.pbs-sd[data-size="s"] .sd-page { padding: 12px 12px 28px; gap: 12px; }
+.pbs-sd[data-size="s"] .sd-h1 { font-size: 20px; }
+.pbs-sd[data-size="s"] .sd-card { padding: 12px 14px; }
+.pbs-sd[data-size="s"] .sd-pagehead > div:first-child { flex-basis: 100%; }
+.pbs-sd[data-size="s"] .sd-pagehead__actions { width: 100%; }
+.pbs-sd[data-size="s"] .sd-pagehead__actions > * { flex: 1 1 auto; }
+.pbs-sd[data-size="s"] .sd-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.pbs-sd[data-size="s"] .sd-kpi { gap: 4px; }
+.pbs-sd[data-size="s"] .sd-kpi__value { font-size: 20px; min-height: 26px; }
+.pbs-sd[data-size="s"] .sd-kpi__label, .pbs-sd[data-size="s"] .sd-kpi__foot { font-size: 11px; }
+.pbs-sd[data-size="s"] .sd-livegrid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.pbs-sd[data-size="s"] .sd-search { flex-basis: 100%; }
+.pbs-sd[data-size="s"] .sd-locselect { flex: 1 1 100%; max-width: none; min-width: 0; }
+.pbs-sd[data-size="s"] .sd-chips { flex-wrap: wrap; flex-basis: 100%; }
+.pbs-sd[data-size="s"] .sd-chips .sd-chip { flex: 1 1 auto; }
+.pbs-sd[data-size="s"] .sd-chart { overflow-x: auto; }
+.pbs-sd[data-size="s"] .sd-legend { gap: 6px 12px; font-size: 10.5px; }
+
+/* Studio list as cards */
+.pbs-sd[data-size="s"] .sd-tablewrap--list { overflow: visible; border: 0; background: transparent; }
+.pbs-sd[data-size="s"] .sd-table--list thead { display: none; }
+.pbs-sd[data-size="s"] .sd-table--list,
+.pbs-sd[data-size="s"] .sd-table--list tbody { display: block; }
+.pbs-sd[data-size="s"] .sd-table--list tr.sd-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas: "id status" "name today" "loc loc" "util util" "now now" "cap geo";
+    gap: 6px 10px;
+    align-items: center;
+    margin-bottom: 8px;
+    padding: 12px 14px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: #fff;
+}
+.pbs-sd[data-size="s"] .sd-table--list tr.sd-row td { display: block; padding: 0; border: 0; background: transparent !important; min-width: 0; max-width: none; }
+.pbs-sd[data-size="s"] .sd-table--list .sd-c-id { grid-area: id; font-weight: 700; }
+.pbs-sd[data-size="s"] .sd-table--list .sd-c-status { grid-area: status; justify-self: end; }
+.pbs-sd[data-size="s"] .sd-table--list .sd-c-name { grid-area: name; font-size: 14px; }
+.pbs-sd[data-size="s"] .sd-table--list .sd-c-today { grid-area: today; justify-self: end; }
+.pbs-sd[data-size="s"] .sd-table--list .sd-c-today::before { content: "Hari ini "; font-size: 11px; color: var(--text-secondary); }
+.pbs-sd[data-size="s"] .sd-table--list .sd-c-loc { grid-area: loc; }
+.pbs-sd[data-size="s"] .sd-table--list .sd-c-loc .sd-ellipsis { max-width: none; }
+.pbs-sd[data-size="s"] .sd-table--list .sd-c-util { grid-area: util; }
+.pbs-sd[data-size="s"] .sd-table--list .sd-c-now { grid-area: now; }
+.pbs-sd[data-size="s"] .sd-table--list .sd-c-now:has(> .sd-muted:only-child) { display: none; }
+.pbs-sd[data-size="s"] .sd-table--list .sd-nowcell__text { max-width: calc(100% - 60px); }
+.pbs-sd[data-size="s"] .sd-table--list .sd-c-cap { grid-area: cap; color: var(--text-secondary); }
+.pbs-sd[data-size="s"] .sd-table--list .sd-c-geo { grid-area: geo; justify-self: end; }
+.pbs-sd[data-size="s"] .sd-table--list .sd-c-open { display: none !important; }
+.pbs-sd[data-size="s"] .sd-table--list tr.sd-skel-row { display: block; border: 1px solid var(--border); border-radius: 8px; margin-bottom: 8px; }
+.pbs-sd[data-size="s"] .sd-table--list tr.sd-skel-row td { display: block; border: 0; padding: 8px 12px; }
+.pbs-sd[data-size="s"] .sd-tablewrap--list > .sd-pager { border: 1px solid var(--border); border-radius: 8px; background: #fff; }
+
+/* Studio detail on phone portrait */
+.pbs-sd[data-size="s"] .sd-record { padding: 14px; row-gap: 10px; }
+.pbs-sd[data-size="s"] .sd-record__id { flex-basis: 100%; padding-right: 0; font-size: 18px; }
+.pbs-sd[data-size="s"] .sd-record__cell { flex: 1 1 calc(50% - 8px); padding: 0; border-left: 0; min-width: 0; }
+.pbs-sd[data-size="s"] .sd-record__cell b { white-space: normal; overflow-wrap: anywhere; }
+.pbs-sd[data-size="s"] .sd-record__end { flex-basis: 100%; margin-left: 0; justify-content: flex-start; }
+.pbs-sd[data-size="s"] .sd-dl { grid-template-columns: 96px minmax(0, 1fr); }
+.pbs-sd[data-size="s"] .sd-dl dd { overflow-wrap: anywhere; }
+.pbs-sd[data-size="s"] .sd-gmv__top { flex-wrap: wrap; align-items: flex-start; }
+.pbs-sd[data-size="s"] .sd-gmv__stats { flex-wrap: wrap; gap: 10px 20px; }
+.pbs-sd[data-size="s"] .sd-gmv__brand { grid-template-columns: minmax(0, 1fr) 80px 44px; }
+.pbs-sd[data-size="s"] .sd-gmv__btrack { grid-column: 1 / -1; grid-row: 2; }
+.pbs-sd[data-size="s"] .sd-upcoming__date { width: 76px; }
+.pbs-sd[data-size="s"] .sd-slotstrip { overflow-x: auto; grid-auto-columns: minmax(34px, 1fr); }
+.pbs-sd[data-size="s"] .sd-map { min-height: 260px; }
+.pbs-sd[data-size="s"] .sd-banner { align-items: flex-start; flex-wrap: wrap; padding: 10px 12px; }
+
+/* Dialogs on phone portrait: full-width sheet from the bottom */
+.pbs-sd[data-size="s"] .sd-modal { align-items: flex-end; }
+.pbs-sd[data-size="s"] .sd-modal__panel { width: 100% !important; max-width: 100%; max-height: 94%; border-radius: 12px 12px 0 0; }
+.pbs-sd[data-size="s"] .sd-modal__body { padding: 14px; }
+.pbs-sd[data-size="s"] .sd-modal__foot { flex-wrap: wrap; padding: 10px 14px; }
+.pbs-sd[data-size="s"] .sd-modal__foot .sd-btn { flex: 1 1 auto; }
+.pbs-sd[data-size="s"] .sd-formgrid { grid-template-columns: minmax(0, 1fr); }
+.pbs-sd[data-size="m"] .sd-modal__panel { max-height: calc(100% - 16px); }
+@media (max-height: 480px) { .pbs-sd .sd-modal__body { padding: 12px 16px; } }
+.pbs-sd[data-size="s"] .sd-tabs { flex-wrap: wrap; overflow: visible; }
+.pbs-sd[data-size="s"] .sd-tabs__end { flex-basis: 100%; margin-left: 0; padding: 8px 0; order: 1; }
+.pbs-sd[data-size="s"] .sd-tabs__end > * { width: 100%; justify-content: space-between; }
+.pbs-sd[data-size="s"] .sd-map__tl { left: 56px; text-align: right; }

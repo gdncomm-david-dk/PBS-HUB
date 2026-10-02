@@ -148,6 +148,7 @@ export class StudioHub implements ComponentFramework.StandardControl<IInputs, IO
             op: { startMin: opStart * 60, endMin: opEnd * 60 },
             selectedStudioId: inSelected,
             height: context.mode.allocatedHeight > 0 ? context.mode.allocatedHeight : 0,
+            width: context.mode.allocatedWidth > 0 ? context.mode.allocatedWidth : 0,
             emit: this.emit,
             onSelectStudio: this.onSelectStudio,
             getPosition: this.getPosition,

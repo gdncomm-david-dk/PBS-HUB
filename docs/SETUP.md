@@ -5,7 +5,7 @@ for the Studio screens and part C for the Schedule screen.
 
 | Control | Display name | Solution (managed) | Version | Screens |
 |---|---|---|---|---|
-| `pbs_Ops.StudioHub` | PBS Studio Hub | `releases/PBSStudioHub_managed_1.7.0.zip` (`PBSStudioHub`) | 1.7.0 | Studio list, Studio detail |
+| `pbs_Ops.StudioHub` | PBS Studio Hub | `releases/PBSStudioHub_managed_1.8.0.zip` (`PBSStudioHub`) | 1.8.0 | Studio list, Studio detail |
 | `pbs_Ops.ScheduleHub` | PBS Schedule Hub | `releases/PBSScheduleHub_managed_1.7.0.zip` (`PBSScheduleHub`) | 1.7.0 | Schedule board, session detail, create/edit, bulk & AI upload |
 
 Neither control writes to SharePoint. Each one emits an `ActionPayload` `{ action, requestId, payload }`; the
@@ -27,7 +27,7 @@ arrives the control stays locked. It gives up after 30 seconds for a save, or 3 
 **Check the version.** From 1.5.0 the Studio control is a new component, **PBS Studio Hub**
 (`pbs_Ops.StudioHub`, solution `PBSStudioHub`), so the app cannot keep running a cached older build. Delete the old
 *PBS Studio Master* / *PBS Studio Directory* control from the screen, insert *PBS Studio Hub* and set the same
-properties and `OnChange` on it. The header then shows `pbs_Ops.StudioHub 1.7.0`.
+properties and `OnChange` on it. The header then shows `pbs_Ops.StudioHub 1.8.0`.
 
 The old solutions `PBSStudioMaster`, `PBSHubStudio` and `PBSStudioDirectory` can be deleted once the app runs
 `pbs_Ops.StudioHub`.
@@ -69,7 +69,7 @@ in the tables below.
 
 ---
 
-# B. PBS Studio Hub (`pbs_Ops.StudioHub` 1.7.0)
+# B. PBS Studio Hub (`pbs_Ops.StudioHub` 1.8.0)
 
 ## B1. Period variables
 
@@ -126,6 +126,11 @@ A non-empty `*Json` value wins over its dataset.
 | `SelectedStudioId` | blank for the list, or a StudioID to deep-link. Read it back to know which studio is open |
 
 If `Context.permissions` is non-empty, edit actions need `STUDIO_EDIT`. If it is empty, `Mode` decides.
+
+**Phone and tablet.** Like the Schedule control (C4d), the layout follows the control width: desktop from 1040 px;
+640–1039 px (tablet, phone landscape) a single-column detail and geofence editor; under 640 px (phone portrait) studio
+cards instead of the table, 2×2 KPIs and full-width dialogs. Size the control to the screen
+(`Width: Parent.Width, Height: Parent.Height`) and turn off *Scale to fit* and *Lock orientation*.
 
 ## B4. Handle actions (`OnChange`)
 
@@ -629,7 +634,7 @@ file was uploaded.
 |---|---|---|
 | Schedule Detail screen shows the board, or Kembali does nothing | `View` is not `"Detail"`, or `OnChange` lacks `"NAV_BACK", Back(),` | See C4d |
 | On a phone the Schedule screen is cut off or tiny | The control is not sized to the screen, or the app uses *Scale to fit* | Set Width/Height to `Parent.Width`/`Parent.Height` and turn off *Scale to fit* and *Lock orientation* (C4d *Phone and tablet*) |
-| Studio header does not show `pbs_Ops.StudioHub 1.7.0` | The screen still holds the old control, or the code component was not updated | Delete the control, insert **PBS Studio Hub**, then save and publish. After an import, accept **Update code components** |
+| Studio header does not show `pbs_Ops.StudioHub 1.8.0` | The screen still holds the old control, or the code component was not updated | Delete the control, insert **PBS Studio Hub**, then save and publish. After an import, accept **Update code components** |
 | *Mapping lokasi* banner: studios not linked | `LocationID` is missing from **Fields** on `studios` or `locations` | Open **Lihat kolom** in the banner to see which columns actually arrive. Add `LocationID` under **Fields → Edit** on both datasets, or use `StudiosJson` as in B2 |
 | *LocationID tidak ditemukan* on a studio | The studio's `LocationID` is not carried by any item in the `locations` dataset (typo, extra space, or the item is filtered out) | Bind the whole `Studio Location - PBS` list, or pick another location in the Geofence tab |
 | Brand or host shows an ID, with a yellow banner | `brands` / `hosts` are not bound, or lack `ID`, `Title`, `BrandID`/`HostID` or the name column | See C2 *Names, not IDs* |
