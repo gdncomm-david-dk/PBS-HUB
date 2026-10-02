@@ -1,6 +1,7 @@
 import * as React from "react";
 import { ModuleContext, UseActionResult } from "../../../shared/contract";
 import { Row, num, str } from "../../../shared/data";
+import { detectDevice } from "../../../shared/device";
 import { fmtDateTimeShort, fmtLongDate, fmtTime } from "../../../shared/format";
 import { Shift, hostName, hostOptions, shiftToday } from "../../../shared/hostApp";
 import { PreparedImage, prepareImage } from "../../../shared/hostImage";
@@ -184,6 +185,10 @@ export function ClockInView(props: ClockInViewProps): React.ReactElement {
   const submit = () => {
     if (!fix || !geofence || !selfie || blockers.length) return;
     const at = props.clock();
+    const device = detectDevice(
+      undefined,
+      typeof window === "undefined" ? undefined : window.screen,
+    );
     const kind = dir === "OUT" ? "OUT" : "IN";
     const meta = {
       name: selfieFileName(hostId || str(shift.row, "HostID"), at, kind),
@@ -206,6 +211,7 @@ export function ClockInView(props: ClockInViewProps): React.ReactElement {
             selfie: meta,
             now: at,
             opts,
+            device,
           })
         : clockInPayload({
             host,
@@ -218,6 +224,7 @@ export function ClockInView(props: ClockInViewProps): React.ReactElement {
             selfie: meta,
             now: at,
             opts,
+            device,
           });
     props.setUpload(selfie.img.base64);
     action.dispatch(dir === "OUT" ? "CLOCK_OUT" : "CLOCK_IN", payload);

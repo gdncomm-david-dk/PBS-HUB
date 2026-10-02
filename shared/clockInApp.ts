@@ -1,3 +1,4 @@
+import { DeviceInfo } from "./device";
 import { Row, bool, date, localDayKey, num, reportScheduleId, str } from "./data";
 import { sessionStatus } from "./host";
 import { clockInStatuses } from "./clockIn";
@@ -202,6 +203,8 @@ export interface ClockInInput {
   selfie: SelfieMeta;
   now: Date;
   opts: ClockInOptions;
+  /** HP / tablet / laptop the host is on (detectDevice); written to CheckInDevice* / CheckOutDevice*. */
+  device?: DeviceInfo;
 }
 
 export function clockInPayload(i: ClockInInput): Record<string, unknown> {
@@ -221,6 +224,8 @@ export function clockInPayload(i: ClockInInput): Record<string, unknown> {
     ...geoPayload(i.fix, i.geofence),
     reason: i.geofence.inside ? "" : i.reason.trim(),
     selfieSource: i.selfie.source,
+    deviceType: i.device?.type ?? "",
+    deviceInfo: i.device?.info ?? "",
     file: { name: i.selfie.name, ext: "jpg", contentType: "image/jpeg", bytes: i.selfie.bytes, width: i.selfie.width, height: i.selfie.height },
   };
 }
@@ -257,6 +262,8 @@ export function clockOutPayload(i: ClockOutInput): Record<string, unknown> {
     reason,
     reasonText: reason ? (prevReason ? `${prevReason}\n[Clock out] ${reason}` : `[Clock out] ${reason}`) : prevReason,
     selfieSource: i.selfie.source,
+    deviceType: i.device?.type ?? "",
+    deviceInfo: i.device?.info ?? "",
     file: { name: i.selfie.name, ext: "jpg", contentType: "image/jpeg", bytes: i.selfie.bytes, width: i.selfie.width, height: i.selfie.height },
   };
 }

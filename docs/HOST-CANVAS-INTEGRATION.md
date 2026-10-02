@@ -549,11 +549,11 @@ lewat tengah malam. `webUrl` dari respons → `SelfiePhotoUrl` / `SelfieOutPhoto
 
 `CLOCK_IN`: `{hostId, hostName, employeeName, employeeEmail, clockInDate, checkInTime (ISO), clockInTime ("HH:mm"),
 status, hkTugas, scheduleCount, latitude, longitude, accuracy, distance, office, locationId, inside, radius,
-positionSource ("device" | "canvas"), reason, selfieSource ("Camera" | "Gallery"), file: {name, ext, contentType, bytes, width, height}}`
+positionSource ("device" | "canvas"), reason, selfieSource ("Camera" | "Gallery"), deviceType ("Mobile" | "Tablet" | "Desktop"), deviceInfo (mis. "Android 14 · Chrome 126 · 412x915"), file: {name, ext, contentType, bytes, width, height}}`
 
 `CLOCK_OUT`: `{clockInId, clockInTitle, hostId, clockOutDate, checkOutTime, clockOutTime, workingMinutes, workingHours,
 scheduleCount, totalReports, statusAbsence, latitude, longitude, accuracy, distance, office, locationId, inside,
-radius, positionSource, reason, reasonText, selfieSource, file}`. `reasonText` = alasan clock in + `[Clock out] …`
+radius, positionSource, reason, reasonText, selfieSource, deviceType, deviceInfo, file}`. `reasonText` = alasan clock in + `[Clock out] …`
 (satu kolom `Reason` untuk dua ujung shift). `scheduleCount` / `totalReports` dihitung untuk **hari clock in**
 (shift yang lewat tengah malam tetap milik hari itu).
 
@@ -591,6 +591,7 @@ If(!IsBlank(Self.ActionPayload),
                                             CheckInAccuracy: Value(p.accuracy), CheckInDistance: Value(p.distance),
                                             CheckInOffice: Text(p.office), IsInsideGeofence: Boolean(p.inside),
                                             Reason: Text(p.reason), SelfieSource: Text(p.selfieSource),
+                                            CheckInDevice: Text(p.deviceType), CheckInDeviceInfo: Text(p.deviceInfo),   // kolom Text baru: HP / tablet / laptop
                                             SelfiePhotoUrl: Text(up.webUrl)
                                         })}, Collect(clockInFiltered, _new); _new)},
                                         With({_upd: Patch('Clock In - PBS Hub', row, {Title: "CLK-" & Text(row.ID, "0000")})}, RemoveIf(clockInFiltered, ID = _upd.ID); Collect(clockInFiltered, _upd); _upd);
@@ -622,6 +623,7 @@ If(!IsBlank(Self.ActionPayload),
                                             CheckOutLatitude: Value(p.latitude), CheckOutLongitude: Value(p.longitude),
                                             CheckOutAccuracy: Value(p.accuracy), CheckOutDistance: Value(p.distance),
                                             CheckOutOffice: Text(p.office),
+                                            CheckOutDevice: Text(p.deviceType), CheckOutDeviceInfo: Text(p.deviceInfo),   // kolom Text baru
                                             WorkingDuration: DateDiff(Coalesce(cur.CheckInTime, Now()), Now(), TimeUnit.Minutes),  // menit; pakai /60 kalau kolomnya jam
                                             ScheduleCount: Value(p.scheduleCount), TotalReports: Value(p.totalReports),
                                             Reason: Text(p.reasonText),
@@ -660,6 +662,7 @@ Catatan:
   bisa clock in lagi tanggal 29 untuk jadwal berikutnya. Selama shift masih terbuka (jam 02:00 tanggal 29), layar
   Clock In menampilkan shift tanggal 28 dengan tombol *Clock Out* — karena itu `colCkClk` memuat `Today() - 1`.
   Sesi yang mulai sesudah tengah malam di dalam shift itu (29 Sep 00:30) dihitung sudah clock in.
+- **Perangkat.** Control membaca browser yang dipakai (aplikasi Power Apps di HP, browser HP, browser laptop) dan mengirim `deviceType` = `Mobile` / `Tablet` / `Desktop` plus `deviceInfo` (OS · browser · ukuran layar). Buat 4 kolom **Text** di `Clock In - PBS Hub`: `CheckInDevice`, `CheckInDeviceInfo`, `CheckOutDevice`, `CheckOutDeviceInfo` (`Note` untuk yang `…Info`). Kolom belum dibuat? Hapus barisnya dari formula. Di PBS Console tab *Kehadiran* muncul kolom *Perangkat* (HP / Tablet / Laptop; *HP → Laptop* kalau clock out dari perangkat lain) kalau `ClockInJson` HostDetail ikut mengirim keempat kolom itu.
 - Izin lokasi: Power Apps mobile meminta izin lokasi saat pertama kali; di browser, situs `apps.powerapps.com` harus
   diizinkan. Kalau ditolak, control memakai `DeviceLocationJson` (sinyal `Location` canvas) bila terisi.
 

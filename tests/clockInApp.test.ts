@@ -79,8 +79,10 @@ describe("payloads", () => {
   const l = parseLocations(LOCS);
   test("clock in inside the radius", () => {
     const fix = fixAt(-6.2248, 106.8031);
-    const p = clockInPayload({ host, ctxEmail: "", ctxName: "", schedules, fix, geofence: checkGeofence(fix, l), reason: "ignored", selfie, now, opts: DEFAULT_CLOCKIN_OPTIONS });
+    const p = clockInPayload({ host, ctxEmail: "", ctxName: "", schedules, fix, geofence: checkGeofence(fix, l), reason: "ignored", selfie, now, opts: DEFAULT_CLOCKIN_OPTIONS, device: { type: "Mobile", info: "Android 14 · Chrome 126 · 412x915" } });
     expect(p).toMatchObject({
+      deviceType: "Mobile",
+      deviceInfo: "Android 14 · Chrome 126 · 412x915",
       hostId: "HST-001",
       hostName: "Nadia Putri",
       employeeEmail: "nadia@example.com",

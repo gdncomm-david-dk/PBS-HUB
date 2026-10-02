@@ -604,6 +604,23 @@ font-family:"Blibli","Helvetica Neue",Arial,sans-serif;font-size:13px;line-heigh
   .hc-todo-b{flex-basis:calc(100% - 54px)}
   .hc-todo>button{margin-left:54px}
 }
+/* Phone in landscape: little height, plenty of width. Tighter padding, side-by-side columns again, room for the notch. */
+@media (orientation:landscape) and (max-height:520px){
+  .hc-col{padding:12px max(16px,env(safe-area-inset-right)) 20px max(16px,env(safe-area-inset-left))}
+  .pbs-page{padding:12px max(16px,env(safe-area-inset-right)) 20px max(16px,env(safe-area-inset-left))}
+  .hc-ph h1,.pbs-h1{font-size:20px}
+  .hc-hi{margin-bottom:10px}
+  .pbs-modal-b{max-height:calc(100vh - 130px)}
+  @container (min-width:640px){
+    .hc-split{grid-template-columns:minmax(0,3fr) minmax(0,2fr)}
+    .hc-grid4,.hc-kpis{grid-template-columns:repeat(4,minmax(0,1fr))}
+    .hc-cal-wrap{grid-template-columns:minmax(0,3fr) minmax(0,2fr)}
+  }
+}
+/* Touch screens: 16px fields (iOS does not zoom on focus) and finger-sized buttons. */
+@media (pointer:coarse){
+  .pbs-root input:not([type=checkbox]):not([type=radio]),.pbs-root select,.pbs-root textarea{font-size:16px}
+}
 `;
 
 let fontsInjected = false;

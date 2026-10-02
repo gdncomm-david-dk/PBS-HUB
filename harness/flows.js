@@ -426,6 +426,7 @@ const assert = (c, m) => { if (!c) { console.log("FAIL", m); process.exitCode = 
   await p.waitForTimeout(150);
   assert(await p.getByText(/sudah memakai kehadiran Agustus 2026/).isVisible(), "payroll run using August is named before editing");
   const augRow = await pageTo(p.locator("tr", { hasText: "Senin, 3 Agustus" }));
+  assert((await augRow.getByText("HP", { exact: false }).isVisible()) && (await augRow.getByText("→ Laptop").isVisible()), "Perangkat column: clocked in on HP, out on Laptop");
   await augRow.getByRole("button", { name: "Edit", exact: true }).click();
   const adj = p.getByRole("dialog");
   const saveAdj = adj.getByRole("button", { name: "Save Changes" });
@@ -941,6 +942,7 @@ const assert = (c, m) => { if (!c) { console.log("FAIL", m); process.exitCode = 
   pl = await payloads();
   const kIn = pl.find((x) => x.action === "CLOCK_IN");
   assert(kIn && kIn.payload.hostId === "HST-001" && kIn.payload.clockInDate === "2026-09-14" && kIn.payload.clockInTime === "11:42" && kIn.payload.office === "Studio CWG Jakarta" && kIn.payload.locationId === "LOC-01" && kIn.payload.inside === true && kIn.payload.distance === 44 && kIn.payload.accuracy === 12 && kIn.payload.hkTugas === 180000 && kIn.payload.status === "Hadir - Tugas" && kIn.payload.reason === "", "CLOCK_IN payload maps to Clock In columns");
+  assert(["Mobile", "Tablet", "Desktop"].includes(kIn.payload.deviceType) && typeof kIn.payload.deviceInfo === "string" && kIn.payload.deviceInfo.length > 0, "CLOCK_IN carries deviceType + deviceInfo");
   assert(kIn && /^HST-001_20260914_IN_1142\.jpg$/.test(kIn.payload.file.name) && kIn.payload.selfieSource === "Camera", "selfie file name and source");
   assert(await p.getByText("Clock in tersimpan. Selamat bekerja!").isVisible() && (await p.getByRole("button", { name: "Clock Out Now" }).isVisible()), "after clock in the screen turns to clock out");
   await shot("f-clockin-done");

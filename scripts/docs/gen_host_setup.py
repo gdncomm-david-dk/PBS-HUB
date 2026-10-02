@@ -513,8 +513,8 @@ Set(varCkLoading, false)"""
                       "Clock in dan clock out: GPS terhadap radius `Studio Location - PBS`, selfie, alasan kalau di luar radius. "
                       "Kolom `Clock In - PBS Hub` yang ditulis: `HostID, HostName, EmployeeName, EmployeeEmail, ClockInDate, "
                       "CheckInTime, ClockInTime, Status, HKTugas, ScheduleCount, CheckInLatitude/Longitude/Accuracy/Distance, "
-                      "CheckInOffice, IsInsideGeofence, Reason, SelfieSource, SelfiePhotoUrl`, dan saat clock out `CheckOutTime, "
-                      "ClockOutDate (Date only), ClockOutTime (teks \"HH:mm\"), CheckOut…, WorkingDuration, TotalReports, SelfieOutPhotoUrl`. Hapus dari formula kolom yang "
+                      "CheckInOffice, IsInsideGeofence, Reason, SelfieSource, CheckInDevice, CheckInDeviceInfo, SelfiePhotoUrl`, dan saat clock out `CheckOutTime, "
+                      "ClockOutDate (Date only), ClockOutTime (teks \"HH:mm\"), CheckOut…, CheckOutDevice, CheckOutDeviceInfo, WorkingDuration, TotalReports, SelfieOutPhotoUrl` (kolom Device: Text, baru, buat dulu). Hapus dari formula kolom yang "
                       "tidak ada di list kamu.",
                       ck_vis, ck_rows, clockin_onchange(),
                       "Clock in → baris `CLK-…` baru dengan `SelfiePhotoUrl`; kembali ke Hari ini kartu shift berubah jadi *Sedang shift*."))

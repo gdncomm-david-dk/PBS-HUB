@@ -1953,7 +1953,7 @@ If(!IsBlank(Self.ActionPayload),
 
 ## Langkah 10 — Layar Clock in (`scrClockIn`)
 
-Clock in dan clock out: GPS terhadap radius `Studio Location - PBS`, selfie, alasan kalau di luar radius. Kolom `Clock In - PBS Hub` yang ditulis: `HostID, HostName, EmployeeName, EmployeeEmail, ClockInDate, CheckInTime, ClockInTime, Status, HKTugas, ScheduleCount, CheckInLatitude/Longitude/Accuracy/Distance, CheckInOffice, IsInsideGeofence, Reason, SelfieSource, SelfiePhotoUrl`, dan saat clock out `CheckOutTime, ClockOutDate (Date only), ClockOutTime (teks "HH:mm"), CheckOut…, WorkingDuration, TotalReports, SelfieOutPhotoUrl`. Hapus dari formula kolom yang tidak ada di list kamu.
+Clock in dan clock out: GPS terhadap radius `Studio Location - PBS`, selfie, alasan kalau di luar radius. Kolom `Clock In - PBS Hub` yang ditulis: `HostID, HostName, EmployeeName, EmployeeEmail, ClockInDate, CheckInTime, ClockInTime, Status, HKTugas, ScheduleCount, CheckInLatitude/Longitude/Accuracy/Distance, CheckInOffice, IsInsideGeofence, Reason, SelfieSource, CheckInDevice, CheckInDeviceInfo, SelfiePhotoUrl`, dan saat clock out `CheckOutTime, ClockOutDate (Date only), ClockOutTime (teks "HH:mm"), CheckOut…, CheckOutDevice, CheckOutDeviceInfo, WorkingDuration, TotalReports, SelfieOutPhotoUrl` (kolom Device: Text, baru, buat dulu). Hapus dari formula kolom yang tidak ada di list kamu.
 
 **10.1 Buat layar dan control.** Buat layar baru bernama `scrClockIn`. Insert → *Get more components* → tab **Code** → pilih **PBS Host App Clock In** → Import, lalu tarik control itu ke layar. Atur X = 0, Y = 0, Width = `Parent.Width`, Height = `Parent.Height` (atau area konten kalau ada header/tab bar).
 
@@ -2067,6 +2067,7 @@ If(!IsBlank(Self.ActionPayload),
                                             CheckInAccuracy: Value(p.accuracy), CheckInDistance: Value(p.distance),
                                             CheckInOffice: Text(p.office), IsInsideGeofence: Boolean(p.inside),
                                             Reason: Text(p.reason), SelfieSource: Text(p.selfieSource),
+                                            CheckInDevice: Text(p.deviceType), CheckInDeviceInfo: Text(p.deviceInfo),   // kolom Text baru: HP / tablet / laptop
                                             SelfiePhotoUrl: Text(up.webUrl)
                                         })}, Collect(clockInFiltered, _new); _new)},
                                         With({_upd: Patch('Clock In - PBS Hub', row, {Title: "CLK-" & Text(row.ID, "0000")})}, RemoveIf(clockInFiltered, ID = _upd.ID); Collect(clockInFiltered, _upd); _upd);
@@ -2098,6 +2099,7 @@ If(!IsBlank(Self.ActionPayload),
                                             CheckOutLatitude: Value(p.latitude), CheckOutLongitude: Value(p.longitude),
                                             CheckOutAccuracy: Value(p.accuracy), CheckOutDistance: Value(p.distance),
                                             CheckOutOffice: Text(p.office),
+                                            CheckOutDevice: Text(p.deviceType), CheckOutDeviceInfo: Text(p.deviceInfo),   // kolom Text baru
                                             WorkingDuration: DateDiff(Coalesce(cur.CheckInTime, Now()), Now(), TimeUnit.Minutes),  // menit; pakai /60 kalau kolomnya jam
                                             ScheduleCount: Value(p.scheduleCount), TotalReports: Value(p.totalReports),
                                             Reason: Text(p.reasonText),

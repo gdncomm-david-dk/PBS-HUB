@@ -1,3 +1,4 @@
+import { deviceLabel } from "./device";
 import * as React from "react";
 import { ModuleContext, UseActionResult, configNumber } from "./contract";
 import {
@@ -108,6 +109,10 @@ export interface AttendanceDay {
   total: number;
   outsideGeofence: boolean;
   manual: boolean;
+  /** Device the clock in / out was made on (Mobile | Tablet | Desktop), "" for rows without it. */
+  deviceIn: string;
+  deviceOut: string;
+  deviceInfo: string;
   adjusted: { by: string; at: Date | null; reason: string } | null;
 }
 
@@ -158,6 +163,11 @@ export function buildAttendance(
         c.IsInsideGeofence === false ||
         str(c, "IsInsideGeofence").toLowerCase() === "false",
       // Manual rows (ADD_CLOCK_IN) carry text times and no GPS check-in.
+      deviceIn: str(c, "CheckInDevice"),
+      deviceOut: str(c, "CheckOutDevice"),
+      deviceInfo: [str(c, "CheckInDeviceInfo"), str(c, "CheckOutDeviceInfo")]
+        .filter(Boolean)
+        .join(" → "),
       manual: !date(c, "CheckInTime") && !!str(c, "ClockInTime"),
       adjusted:
         adjAt || adjBy
@@ -319,6 +329,7 @@ export function AttendanceTab(props: {
                 <th>Clock in</th>
                 <th>Clock out</th>
                 <th>Durasi</th>
+                <th>Perangkat</th>
                 <th>Status</th>
                 <th>Tier</th>
                 <th className="r">Insentif</th>
@@ -330,7 +341,7 @@ export function AttendanceTab(props: {
             </thead>
             <tbody>
               {firstLoad ? (
-                <SkeletonRows rows={6} cols={props.canEdit ? 11 : 10} />
+                <SkeletonRows rows={6} cols={props.canEdit ? 12 : 11} />
               ) : (
                 paged.rows.map((d) => {
                   const open = !!d.inAt && !d.outAt;
@@ -366,6 +377,21 @@ export function AttendanceTab(props: {
                         style={{ whiteSpace: "nowrap" }}
                       >
                         {dur(d.minutes)}
+                      </td>
+                      <td style={{ whiteSpace: "nowrap" }} title={d.deviceInfo}>
+                        {d.deviceIn ? (
+                          <>
+                            {deviceLabel(d.deviceIn)}
+                            {d.deviceOut && d.deviceOut !== d.deviceIn ? (
+                              <span className="pbs-muted">
+                                {" → "}
+                                {deviceLabel(d.deviceOut)}
+                              </span>
+                            ) : null}
+                          </>
+                        ) : (
+                          <span className="pbs-muted">—</span>
+                        )}
                       </td>
                       <td style={{ whiteSpace: "nowrap" }}>
                         {d.status || <span className="pbs-muted">—</span>}

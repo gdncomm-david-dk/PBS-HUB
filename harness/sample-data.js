@@ -155,6 +155,9 @@
       clockInsAug.push({
         ID: cid++, HostID: h.Title, EmployeeName: h.NamaHost, ClockInDate: a(day), CheckInTime: a(day, "08:0" + (i % 10)), CheckOutTime: openShift ? "" : a(day, "17:1" + (i % 10)),
         IsInsideGeofence: !(i === 5 && day === 12), HKTugas: 180000, Tier: day % 3 === 0 ? `Tier ${tier}` : "", Insentif: day % 3 === 0 ? TIER_RATE[tier] : 0, Streak: new Date(2026, 7, day).getDay() === 6 && i < 6 ? 75000 : 0,
+        // phone on odd days, laptop otherwise; day 3 clocked in on the phone and out on the laptop
+        CheckInDevice: day % 2 ? "Mobile" : "Desktop", CheckInDeviceInfo: day % 2 ? "Android 14 · Chrome 126 · 412x915" : "Windows · Edge 126 · 1920x1080",
+        CheckOutDevice: day === 3 ? "Desktop" : day % 2 ? "Mobile" : "Desktop", CheckOutDeviceInfo: day === 3 ? "Windows · Edge 126 · 1920x1080" : "",
       });
     });
   });
