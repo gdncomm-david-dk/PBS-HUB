@@ -20,6 +20,12 @@ const assert = (c, m) => { if (!c) { console.log("FAIL", m); process.exitCode = 
   };
   const payloads = () => p.evaluate(() => window.__payloads);
   const shot = (n) => p.$("#stage").then((e) => e.screenshot({ path: path.join(out, n + ".png") }));
+  // First report of a session asks about Live Break first; these flows report normally.
+  const skipLb = async () => {
+    await p.waitForTimeout(150);
+    const b = p.getByRole("button", { name: "Tidak, kirim report" });
+    if (await b.isVisible().catch(() => false)) await b.click();
+  };
   const fillReport = async (v) => {
     for (const [k, x] of Object.entries(v)) {
       if (k === "Playbook") await p.selectOption("#hc-m-Playbook", x);
@@ -645,6 +651,7 @@ const assert = (c, m) => { if (!c) { console.log("FAIL", m); process.exitCode = 
   // ---- Host app: submit report with screenshot --------------------------------------------------
   const png = await p.screenshot({ clip: { x: 0, y: 0, width: 600, height: 900 } });
   await go("c=MyReportDetail&sch=SCD-3302");
+  await skipLb();
   const submit = p.getByRole("button", { name: "Send Report", exact: true });
   assert(await submit.isDisabled(), "submit disabled on an empty form");
   assert((await p.locator("#hc-m-AddToCart").count()) === 0 && (await p.locator("#hc-m-Share").count()) === 0, "TikTok: no AddToCart, no Share");
@@ -671,15 +678,19 @@ const assert = (c, m) => { if (!c) { console.log("FAIL", m); process.exitCode = 
 
   // Draft survives a reload (device only).
   await go("c=MyReportDetail&sch=SCD-3303");
+  await skipLb();
   await p.fill("#hc-m-Penjualan", "999.000");
   await p.getByRole("button", { name: "Save Draft" }).click();
   await go("c=MyReportDetail&sch=SCD-3303");
+  await skipLb();
   assert(await p.getByText(/draft/i).first().isVisible(), "draft restore offered after reload");
 
   // Blockers.
   await go("c=MyReportDetail&sch=SCD-3304");
+  await skipLb();
   assert(await p.getByText("Sesi ini tidak punya catatan clock in").isVisible(), "no clock-in blocks the report");
   await go("c=MyReportDetail&sch=SCD-3201");
+  await skipLb();
   await p.getByRole("button", { name: "Mark Attendance Now" }).click();
   await p.waitForTimeout(700);
   assert(await p.getByText("Absen tercatat untuk SCD-3201.").isVisible(), "absen from the report screen");
@@ -769,6 +780,7 @@ const assert = (c, m) => { if (!c) { console.log("FAIL", m); process.exitCode = 
   assert(await p.getByText("Absen tercatat untuk SCD-3201.").isVisible() && (await p.getByText("Kirim report sesi ini").isVisible()), "after absen the next step is the report");
   assert((await p.locator("#hc-report").count()) === 0, "the form stays closed until Kirim report");
   await p.locator(".hc-ph-a").getByRole("button", { name: "Send Report" }).click();
+  await skipLb();
   await p.waitForTimeout(200);
   assert((await p.locator("#hc-report").count()) === 1 && (await p.locator("#hc-m-LiveID").isVisible()), "Kirim report opens the form");
   const sdSubmit = p.locator("#hc-report").getByRole("button", { name: "Send Report", exact: true });
@@ -856,7 +868,7 @@ const assert = (c, m) => { if (!c) { console.log("FAIL", m); process.exitCode = 
   await p.waitForTimeout(700);
   await p.locator(".hc-ph-a").getByRole("button", { name: /Send Report/ }).click();
   await p.waitForTimeout(300);
-  assert(await p.getByText("Apakah sesi ini Live Break?").isVisible() && (await p.locator("#hc-report").count()) === 0, "before the form the host is asked whether the session is a live break");
+  assert(await p.getByText("Apakah sesi ini Live Break?").isVisible() && (await p.locator("#hc-m-LiveID").count()) === 0, "before the form the host is asked whether the session is a live break");
   await p.getByRole("button", { name: /Ya, Live Break/ }).click();
   await p.waitForTimeout(1200);
   pl = await payloads();
