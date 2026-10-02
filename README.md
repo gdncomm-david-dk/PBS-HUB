@@ -3,7 +3,7 @@
 | Control | Screens | Managed solution | Canvas setup |
 |---|---|---|---|
 | `pbs_Ops.StudioHub` | Studio list, Studio detail | `releases/PBSStudioHub_managed_1.7.0.zip` | [`docs/SETUP.md` § B](docs/SETUP.md) |
-| `pbs_Ops.ScheduleHub` | Schedule board, session detail, create/edit, bulk & AI upload | `releases/PBSScheduleHub_managed_1.6.2.zip` | [`docs/SETUP.md` § C](docs/SETUP.md) |
+| `pbs_Ops.ScheduleHub` | Schedule board, session detail, create/edit, bulk & AI upload | `releases/PBSScheduleHub_managed_1.7.0.zip` | [`docs/SETUP.md` § C](docs/SETUP.md) |
 
 ## `pbs_Ops.StudioHub` (Studio list + Studio detail)
 
@@ -38,6 +38,8 @@ built on the SharePoint data model in `DESIGN.md`.
 - **Session detail** — the evidence chain Dijadwalkan → Clock in → Absen → Report host → Bukti AI → Verdict →
   Baris payroll; each step says what is missing and offers "Ingatkan host"; conflicts; other sessions of the
   same host or studio that day. Edit, duplicate, delete: nothing is locked; a schedule with a host report shows a warning first.
+- **Separate Schedule Detail screen** — `View = "Detail"` shows only the session in `SelectedScheduleId`; Kembali emits `NAV_BACK` (SETUP C4d).
+- **Phone and tablet** — the layout follows the control width: desktop, tablet/landscape (single-column detail, sideways-scrolling calendar) and phone portrait (list as cards, stacked filters, full-width dialogs).
 - **Buat jadwal** (single, from the app) — Tanggal, Studio, Brand → Account, Host, Platform, jam, Posisi
   (Main Host / Co-Host); Brand → Account dependent dropdowns, host / studio / account conflict and
   capacity warnings that must each be ticked before saving.

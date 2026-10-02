@@ -163,7 +163,8 @@ export type ActionName =
     | "REFRESH"
     | "BULK_CREATE_SCHEDULE"
     | "BULK_DELETE_SCHEDULE"
-    | "NAV_SESSION_DETAIL";
+    | "NAV_SESSION_DETAIL"
+    | "NAV_BACK";
 
 export interface ActionResult {
     requestId: string;

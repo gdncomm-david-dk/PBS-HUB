@@ -7,7 +7,7 @@
     The control never writes. It emits ActionPayload; the canvas app performs the Patch, the Graph upload
     or the flow call, and answers through ActionResult with the same requestId.
   -->
-  <control namespace="Ops" constructor="ScheduleHub" version="1.6.2" display-name-key="PBS Schedule Hub" description-key="PBS Hub schedule board, session detail, single create and bulk or AI schedule upload." control-type="standard">
+  <control namespace="Ops" constructor="ScheduleHub" version="1.7.0" display-name-key="PBS Schedule Hub" description-key="PBS Hub schedule board, session detail, single create and bulk or AI schedule upload." control-type="standard">
     <external-service-usage enabled="false">
     </external-service-usage>
     <data-set name="schedules" display-name-key="Schedules (Schedule - PBS Hub)" description-key="Bind to the Schedule - PBS Hub list filtered to the selected period. Columns: Title, Date, BrandID, StudioID, HostID, Account, Platform, Shift, Sesi, StartTime, EndTime, JamLive, Status, CampaignName, TotalAccount, Position, LiveBreak." />
@@ -32,6 +32,10 @@
     <property name="Mode" display-name-key="Mode" description-key="Admin can create, edit, delete and upload. ReadOnly only views." of-type="Enum" usage="input" required="false" default-value="Admin">
       <value name="Admin" display-name-key="Admin">Admin</value>
       <value name="ReadOnly" display-name-key="ReadOnly">ReadOnly</value>
+    </property>
+    <property name="View" display-name-key="View" description-key="Board shows the schedule board. Detail opens SelectedScheduleId on its own (a separate detail screen); Kembali emits NAV_BACK." of-type="Enum" usage="input" required="false" default-value="Board">
+      <value name="Board" display-name-key="Board">Board</value>
+      <value name="Detail" display-name-key="Detail">Detail</value>
     </property>
     <property name="ActionResult" display-name-key="ActionResult" description-key="JSON reply from canvas: { requestId, status: ok or error, message, data }." of-type="Multiple" usage="input" required="false" />
     <property name="SelectedScheduleId" display-name-key="SelectedScheduleId" description-key="ScheduleID of the open session, blank for the board. Set it to deep-link." of-type="SingleLine.Text" usage="bound" required="false" />

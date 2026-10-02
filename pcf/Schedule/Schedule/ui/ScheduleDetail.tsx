@@ -9,7 +9,7 @@ import { DeleteDialog } from "./Dialogs";
 import { ReportReview } from "./ReportReview";
 import { AttachmentsDialog } from "./Attachments";
 
-export function ScheduleDetail(props: { env: Env; schedule: ScheduleRow; onBack: () => void; onEdit: () => void; onDuplicate: () => void }): React.ReactElement {
+export function ScheduleDetail(props: { env: Env; schedule: ScheduleRow; backLabel?: string; onBack: () => void; onEdit: () => void; onDuplicate: () => void }): React.ReactElement {
     const { env, schedule: s } = props;
     const steps = React.useMemo(() => buildTimeline(s, env.ev, env.now), [s, env.ev, env.now]);
     const firstOpen = (steps.find((x) => x.state === "active" || x.state === "failed") ?? steps.find((x) => x.state === "pending") ?? steps[steps.length - 1]).id;
@@ -53,7 +53,7 @@ export function ScheduleDetail(props: { env: Env; schedule: ScheduleRow; onBack:
         <>
             <div className="sc-detailbar">
                 <Button variant="secondary" size="sm" icon={Icon.left(14)} onClick={props.onBack}>
-                    Kembali ke Schedule
+                    {props.backLabel ?? "Kembali ke Schedule"}
                 </Button>
                 <Button variant="secondary" size="sm" icon={Icon.file(14)} disabled={reports.length === 0} title={reports.length ? `Lampiran dari ${reports.length} report` : "Belum ada report, jadi belum ada lampiran"} onClick={() => setShowFiles(true)}>
                     Lampiran report{reports.length > 1 ? ` (${reports.length})` : ""}

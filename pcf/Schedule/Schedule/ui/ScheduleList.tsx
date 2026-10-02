@@ -328,8 +328,8 @@ export function ScheduleList(props: {
                         </Button>
                     </div>
                 )}
-                <div className="sc-tablewrap">
-                    <table className="sc-table">
+                <div className="sc-tablewrap sc-tablewrap--list">
+                    <table className="sc-table sc-table--list">
                         <thead>
                             <tr>
                                 {env.canEdit && (
@@ -438,31 +438,31 @@ function ListRow(props: { env: Env; s: ScheduleRow; picked: boolean; onPick: (on
                     <input type="checkbox" aria-label={`Pilih ${s.scheduleId || "jadwal"}`} checked={props.picked} onChange={(e) => props.onPick(e.target.checked)} />
                 </td>
             )}
-            <td className="sc-nowrap">
+            <td className="sc-nowrap sc-c-date">
                 <b>{formatDateShort(s.dateKey)}</b>
                 <div className="sc-muted">{HARI[dateKeyToDate(s.dateKey).getDay()]}</div>
             </td>
-            <td className="sc-nowrap sc-mono">
+            <td className="sc-nowrap sc-mono sc-c-time">
                 {timeRange(s)}
                 {clash && <i className="sc-conflictdot" title={clash.map((c) => c.message).join("\n")} />}
             </td>
-            <td className="sc-ellipsis" title={s.accountName}>
+            <td className="sc-ellipsis sc-c-acc" title={s.accountName}>
                 {s.accountName || "—"}
                 <div className="sc-muted sc-mono">{s.scheduleId || "ID belum terisi"}</div>
             </td>
-            <td>
+            <td className="sc-c-host">
                 <b>{s.hostName || "—"}</b>
                 {s.position && <div className="sc-muted">{s.position}</div>}
             </td>
-            <td className="sc-nowrap">{s.studioId || "—"}</td>
-            <td>{s.platform || "—"}</td>
-            <td className="sc-nowrap">
+            <td className="sc-nowrap sc-c-studio">{s.studioId || "—"}</td>
+            <td className="sc-c-plat">{s.platform || "—"}</td>
+            <td className="sc-nowrap sc-c-status">
                 <StatusBadge status={s.status} />
                 {env.ev.isLiveBreak(s) && <span className="sc-lbtag" title="Live Break — tidak perlu report, bisa diubah atau dihapus">Live Break</span>}
                 {live && <span className="sc-livetag">Live</span>}
                 {locked && <span className="sc-lock" title="Report host sudah masuk">{Icon.file(13)}</span>}
             </td>
-            <td className="sc-right" onClick={(e) => e.stopPropagation()}>
+            <td className="sc-right sc-c-menu" onClick={(e) => e.stopPropagation()}>
                 <RowMenu env={env} onOpen={() => env.open(s)} onEdit={props.onEdit} onDelete={props.onDelete} />
             </td>
         </tr>

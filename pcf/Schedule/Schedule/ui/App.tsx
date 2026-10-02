@@ -3,7 +3,7 @@ import { AbsenceRow, AccountRow, ActionName, ActionResult, BrandRow, ClockRow, E
 import { buildLookups, jsonRecords, mapEvidence } from "../core/data";
 import { conflictIndex, distinct, Evidence } from "../core/schedule";
 import { toDateKey } from "../core/time";
-import { Banner } from "./components";
+import { Banner, Card } from "./components";
 import { Config, Env, Pending } from "./shared";
 import { ScheduleList } from "./ScheduleList";
 import { ScheduleDetail } from "./ScheduleDetail";
@@ -26,7 +26,10 @@ export interface AppProps {
     mode: "Admin" | "ReadOnly";
     actionResult: ActionResult | null;
     selectedScheduleId: string;
+    /** Board (default) or Detail: a separate screen that shows only SelectedScheduleId. */
+    view: "Board" | "Detail";
     height: number;
+    width: number;
     emit: (action: ActionName, payload: Record<string, unknown>) => string;
     onSelect: (scheduleId: string) => void;
     openUrl: (url: string) => void;
@@ -57,8 +60,13 @@ function useNow(intervalMs: number): Date {
 export function App(props: AppProps): React.ReactElement {
     const now = useNow(30000);
     const todayKey = toDateKey(now);
-    // Start on the board; only a SelectedScheduleId that changes after load opens a session.
-    const [openId, setOpenId] = React.useState("");
+    const detailMode = props.view === "Detail";
+    // Board: start on the board; only a SelectedScheduleId that changes after load opens a session.
+    // Detail: open the linked session straight away.
+    const [openId, setOpenId] = React.useState(() => (detailMode ? props.selectedScheduleId : ""));
+    // Detail mode: sessions opened from the detail (clash links, same-day list) so Kembali steps back
+    // through them before leaving the screen.
+    const trail = React.useRef<string[]>([]);
     const [pending, setPending] = React.useState<Pending | null>(null);
     const [banner, setBanner] = React.useState<{ tone: "success" | "danger" | "warning"; text: string } | null>(null);
     const [dialog, setDialog] = React.useState<Dialog | null>(null);
@@ -80,6 +88,7 @@ export function App(props: AppProps): React.ReactElement {
     React.useEffect(() => {
         if (props.selectedScheduleId !== lastInput.current) {
             lastInput.current = props.selectedScheduleId;
+            if (detailMode) trail.current = [];
             setOpenId(props.selectedScheduleId || "");
         }
     }, [props.selectedScheduleId]);
@@ -193,15 +202,36 @@ export function App(props: AppProps): React.ReactElement {
     );
     const notify = React.useCallback((tone: "success" | "danger" | "warning", text: string) => setBanner({ tone, text }), []);
 
+    const openIdRef = React.useRef(openId);
+    openIdRef.current = openId;
+    const show = React.useCallback(
+        (id: string) => {
+            setOpenId(id);
+            setBanner(null);
+            const out = id.startsWith("#") ? "" : id;
+            // Our own output echoes back as SelectedScheduleId; only a change from the app counts as a new link.
+            lastInput.current = out;
+            props.onSelect(out);
+        },
+        [props.onSelect],
+    );
     const open = React.useCallback(
         (s: ScheduleRow | null) => {
             const id = s ? s.scheduleId || (s.itemId !== null ? `#${s.itemId}` : "") : "";
-            setOpenId(id);
-            setBanner(null);
-            props.onSelect(s?.scheduleId ?? "");
+            if (detailMode) {
+                if (!s) {
+                    // Kembali: step back through sessions opened here, then leave the screen.
+                    const prev = trail.current.pop();
+                    if (prev !== undefined) show(prev);
+                    else props.emit("NAV_BACK", { scheduleId: openIdRef.current.startsWith("#") ? "" : openIdRef.current });
+                    return;
+                }
+                if (id && id !== openIdRef.current) trail.current.push(openIdRef.current);
+            }
+            show(id);
             if (s?.scheduleId) props.emit("NAV_SESSION_DETAIL", { scheduleId: s.scheduleId });
         },
-        [props.onSelect, props.emit],
+        [detailMode, show, props.emit],
     );
 
     const env: Env = {
@@ -234,8 +264,73 @@ export function App(props: AppProps): React.ReactElement {
         ? schedules.find((s) => (openId.startsWith("#") ? `#${s.itemId}` === openId : s.scheduleId.toLowerCase() === openId.toLowerCase()))
         : undefined;
 
+    const dialogs = (
+        <>
+            {dialog && (dialog.kind === "create" || dialog.kind === "edit") && (
+                <ScheduleForm
+                    env={env}
+                    mode={dialog.kind}
+                    schedule={dialog.kind === "edit" ? dialog.schedule : undefined}
+                    preset={dialog.kind === "create" ? dialog.preset : undefined}
+                    onClose={() => setDialog(null)}
+                    onSaved={(id, created) => {
+                        setDialog(null);
+                        setBanner({ tone: "success", text: created ? `Jadwal ${id || ""} dibuat.`.replace("  ", " ") : "Perubahan jadwal tersimpan." });
+                        if (created && id) {
+                            if (detailMode && id !== openIdRef.current) trail.current.push(openIdRef.current);
+                            show(id);
+                        }
+                    }}
+                />
+            )}
+            {dialog?.kind === "bulk" && <BulkUpload env={env} onClose={() => setDialog(null)} />}
+            {dialog?.kind === "ai" && <AiUpload env={env} onClose={() => setDialog(null)} />}
+        </>
+    );
+
+    // Layout size from the width the canvas gives the control (falls back to the window width).
+    const [winW, setWinW] = React.useState(() => window.innerWidth);
+    React.useEffect(() => {
+        const on = () => setWinW(window.innerWidth);
+        window.addEventListener("resize", on);
+        return () => window.removeEventListener("resize", on);
+    }, []);
+    const w = props.width > 0 ? props.width : winW;
+    const size = w < 640 ? "s" : w < 1040 ? "m" : "l";
+
+    if (detailMode) {
+        return (
+            <div className="pbs-sc" data-size={size} style={props.height > 0 ? { height: props.height } : undefined}>
+                <div className="sc-page">
+                    {banner && (
+                        <Banner tone={banner.tone} onClose={() => setBanner(null)}>
+                            {banner.text}
+                        </Banner>
+                    )}
+                    {openRow ? (
+                        <ScheduleDetail
+                            env={env}
+                            schedule={openRow}
+                            backLabel="Kembali"
+                            onBack={() => open(null)}
+                            onEdit={() => setDialog({ kind: "edit", schedule: openRow })}
+                            onDuplicate={() => setDialog({ kind: "create", preset: openRow })}
+                        />
+                    ) : props.loading ? (
+                        <Card className="sc-loadcard">Memuat jadwal {openId}…</Card>
+                    ) : (
+                        <Banner tone="warning" action={<button type="button" className="sc-link" onClick={() => open(null)}>Kembali</button>}>
+                            {openId ? `Jadwal “${openId}” tidak ditemukan. Mungkin sudah dihapus, atau tanggalnya di luar data yang dimuat screen ini.` : "Belum ada jadwal yang dipilih (SelectedScheduleId kosong)."}
+                        </Banner>
+                    )}
+                </div>
+                {dialogs}
+            </div>
+        );
+    }
+
     return (
-        <div className="pbs-sc" style={props.height > 0 ? { height: props.height } : undefined}>
+        <div className="pbs-sc" data-size={size} style={props.height > 0 ? { height: props.height } : undefined}>
             <div className="sc-page">
                 {banner && (
                     <Banner tone={banner.tone} onClose={() => setBanner(null)}>
@@ -268,25 +363,7 @@ export function App(props: AppProps): React.ReactElement {
                     />
                 </div>
             </div>
-            {dialog && (dialog.kind === "create" || dialog.kind === "edit") && (
-                <ScheduleForm
-                    env={env}
-                    mode={dialog.kind}
-                    schedule={dialog.kind === "edit" ? dialog.schedule : undefined}
-                    preset={dialog.kind === "create" ? dialog.preset : undefined}
-                    onClose={() => setDialog(null)}
-                    onSaved={(id, created) => {
-                        setDialog(null);
-                        setBanner({ tone: "success", text: created ? `Jadwal ${id || ""} dibuat.`.replace("  ", " ") : "Perubahan jadwal tersimpan." });
-                        if (created && id) {
-                            setOpenId(id);
-                            props.onSelect(id);
-                        }
-                    }}
-                />
-            )}
-            {dialog?.kind === "bulk" && <BulkUpload env={env} onClose={() => setDialog(null)} />}
-            {dialog?.kind === "ai" && <AiUpload env={env} onClose={() => setDialog(null)} />}
+            {dialogs}
         </div>
     );
 }

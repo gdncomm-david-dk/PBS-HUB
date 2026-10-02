@@ -145,6 +145,8 @@
     var state = {
         mode: params.get("mode") || "Admin",
         selected: params.get("schedule") || "",
+        // ?view=Detail&schedule=SCD-…: the separate Schedule Detail screen.
+        view: params.get("view") === "Detail" ? "Detail" : "Board",
         actionResult: "",
         loading: params.get("loading") === "1",
         empty: params.get("empty") === "1",
@@ -167,6 +169,7 @@
             Mode: { raw: state.mode },
             ActionResult: { raw: state.actionResult },
             SelectedScheduleId: { raw: state.selected },
+            View: { raw: state.view },
         };
         ["Schedules", "Brands", "Accounts", "Studios", "Hosts", "Reports", "Absences", "ClockIns", "Evidence"].forEach(function (n) { p[n + "Json"] = { raw: "" }; });
         return { parameters: p, mode: { trackContainerResize: function () {}, allocatedHeight: host.clientHeight, allocatedWidth: host.clientWidth }, device: {} };
@@ -252,6 +255,9 @@
                         .map(function (x) { return Object.assign({ "{Identifier}": "x" + x.ID, Author: { Email: "ops@example.com" } }, x); }); // whole rows, as JSON(Filter(...))
                     reply(req.requestId, "ok", "", { rows: rows });
                 });
+                return;
+            case "NAV_BACK":
+                window.__navBack = (window.__navBack || 0) + 1;
                 return;
             case "SET_FILTER":
                 window.__filters = (window.__filters || 0) + 1;

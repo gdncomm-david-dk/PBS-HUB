@@ -44,7 +44,7 @@
 .pbs-sc button { font: inherit; color: inherit; }
 .pbs-sc input, .pbs-sc select, .pbs-sc textarea { font: inherit; }
 
-.sc-page { padding: 24px 28px 40px; display: flex; flex-direction: column; gap: 16px; min-width: 1040px; }
+.sc-page { padding: 24px 28px 40px; display: flex; flex-direction: column; gap: 16px; min-width: 0; }
 /* Wraps the board so it stays mounted behind the session detail; keeps the page's section spacing. */
 .sc-listhost { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
 .sc-listhost[hidden] { display: none; }
@@ -461,3 +461,134 @@
 /* Live Break tag (list row and calendar chip) */
 .sc-lbtag { display: inline-flex; align-items: center; margin-left: 6px; padding: 1px 6px; border-radius: 6px; font-size: 10px; font-weight: 700; line-height: 16px; color: #5b3fb8; background: #efeaff; border: 1px solid #d9ceff; white-space: nowrap; }
 .sc-lbtag--sm { margin-left: 4px; padding: 0 4px; font-size: 9px; line-height: 14px; }
+
+/* Responsive. data-size on .pbs-sc comes from the width the canvas gives the control:
+   l >= 1040px (desktop), m 640–1039px (tablet, phone landscape), s < 640px (phone portrait). */
+.sc-loadcard { color: var(--text-secondary); }
+@media (hover: none) { .sc-cal__add { display: inline-flex; } }
+
+.pbs-sc:not([data-size="l"]) .sc-page { padding: 16px 16px 32px; gap: 14px; }
+.pbs-sc:not([data-size="l"]) .sc-pagehead { flex-wrap: wrap; align-items: flex-start; }
+.pbs-sc:not([data-size="l"]) .sc-pagehead__actions { flex-wrap: wrap; gap: 8px; }
+.pbs-sc:not([data-size="l"]) .sc-grid2,
+.pbs-sc:not([data-size="l"]) .sc-detail { grid-template-columns: minmax(0, 1fr); }
+.pbs-sc:not([data-size="l"]) .sc-kpis { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
+.pbs-sc[data-size="m"] .sc-kpi { padding: 12px 14px; gap: 4px; }
+.pbs-sc[data-size="m"] .sc-kpi__value { font-size: 20px; min-height: 26px; }
+.pbs-sc[data-size="s"] .sc-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.pbs-sc:not([data-size="l"]) .sc-toolbar { flex-wrap: wrap; }
+.pbs-sc:not([data-size="l"]) .sc-legend--inline { margin-left: 0; flex-basis: 100%; gap: 10px 14px; }
+.pbs-sc:not([data-size="l"]) .sc-filters .sc-search { margin-left: 0; flex: 1 1 240px; width: auto; min-width: 0; }
+.pbs-sc:not([data-size="l"]) .sc-tablewrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+.pbs-sc:not([data-size="l"]) .sc-tabs { overflow-x: auto; flex-wrap: nowrap; }
+.pbs-sc:not([data-size="l"]) .sc-tab { white-space: nowrap; flex: none; }
+/* Calendar: the week scrolls sideways; the brand or studio column stays in place. */
+.pbs-sc:not([data-size="l"]) .sc-cal { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+.pbs-sc:not([data-size="l"]) .sc-cal__row { grid-template-columns: 130px repeat(7, minmax(112px, 1fr)); min-width: 914px; }
+.pbs-sc:not([data-size="l"]) .sc-cal__lane { position: sticky; left: 0; z-index: 2; background: #fff; }
+.pbs-sc:not([data-size="l"]) .sc-cal__row--head .sc-cal__lane { background: var(--surface); }
+.pbs-sc:not([data-size="l"]) .sc-record__cell { padding: 0 14px; }
+
+/* Phone portrait */
+.pbs-sc[data-size="s"] .sc-page { padding: 12px 12px 28px; gap: 12px; }
+.pbs-sc[data-size="s"] .sc-h1 { font-size: 20px; }
+.pbs-sc[data-size="s"] .sc-card { padding: 12px 14px; }
+.pbs-sc[data-size="s"] .sc-pagehead > div:first-child { flex-basis: 100%; }
+.pbs-sc[data-size="s"] .sc-pagehead__actions { width: 100%; }
+.pbs-sc[data-size="s"] .sc-pagehead__actions .sc-btn { flex: 1 1 calc(50% - 4px); padding: 0 10px; }
+.pbs-sc[data-size="s"] .sc-kpis { gap: 8px; }
+.pbs-sc[data-size="s"] .sc-kpi { gap: 4px; }
+.pbs-sc[data-size="s"] .sc-kpi__value { font-size: 20px; min-height: 26px; }
+.pbs-sc[data-size="s"] .sc-kpi__foot, .pbs-sc[data-size="s"] .sc-kpi__label { font-size: 11px; }
+.pbs-sc[data-size="s"] .sc-filters { padding: 12px; gap: 10px; }
+.pbs-sc[data-size="s"] .sc-filters__row { gap: 8px; }
+.pbs-sc[data-size="s"] .sc-range { flex-basis: 100%; }
+.pbs-sc[data-size="s"] .sc-input--date { flex: 1 1 0; width: auto; min-width: 0; }
+.pbs-sc[data-size="s"] .sc-chips { flex-wrap: wrap; flex-basis: 100%; }
+.pbs-sc[data-size="s"] .sc-chips .sc-chip { flex: 1 1 auto; }
+.pbs-sc[data-size="s"] .sc-filters .sc-search { flex-basis: 100%; }
+.pbs-sc[data-size="s"] .sc-select { flex: 1 1 calc(50% - 4px); min-width: 0; }
+.pbs-sc[data-size="s"] .sc-select select { max-width: none; width: 100%; min-width: 0; }
+.pbs-sc[data-size="s"] .sc-toolbar { gap: 8px; }
+.pbs-sc[data-size="s"] .sc-month { flex: 1 1 100%; justify-content: space-between; order: -1; }
+.pbs-sc[data-size="s"] .sc-legend--inline { font-size: 10.5px; gap: 6px 12px; }
+.pbs-sc[data-size="s"] .sc-cal__row { grid-template-columns: 96px repeat(7, 116px); min-width: 0; }
+.pbs-sc[data-size="s"] .sc-cal__lane { padding: 8px; }
+.pbs-sc[data-size="s"] .sc-cal__lane b { overflow-wrap: anywhere; }
+
+/* List as cards on phone portrait */
+.pbs-sc[data-size="s"] .sc-tablewrap--list { overflow: visible; border: 0; background: transparent; }
+.pbs-sc[data-size="s"] .sc-table--list thead { display: none; }
+.pbs-sc[data-size="s"] .sc-table--list,
+.pbs-sc[data-size="s"] .sc-table--list tbody { display: block; }
+.pbs-sc[data-size="s"] .sc-table--list tr.sc-row {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto auto;
+    grid-template-areas: "sel date time menu" "sel host host status" "sel acc acc acc" "sel studio plat plat";
+    gap: 4px 10px;
+    align-items: center;
+    margin-bottom: 8px;
+    padding: 10px 8px 10px 12px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: #fff;
+}
+.pbs-sc[data-size="s"] .sc-table--list tr.sc-row td { display: block; padding: 0; border: 0; background: transparent !important; box-shadow: none !important; min-width: 0; }
+.pbs-sc[data-size="s"] .sc-table--list tr.is-today { border-left: 3px solid var(--primary); }
+.pbs-sc[data-size="s"] .sc-table--list tr.is-live { background: #F3F9FF; }
+.pbs-sc[data-size="s"] .sc-table--list tr.is-selected { background: var(--primary-light); border-color: var(--primary); }
+.pbs-sc[data-size="s"] .sc-table--list .sc-selcell { grid-area: sel; align-self: start; width: auto; padding-top: 2px !important; }
+.pbs-sc[data-size="s"] .sc-table--list .sc-c-date { grid-area: date; display: flex !important; gap: 6px; align-items: baseline; }
+.pbs-sc[data-size="s"] .sc-table--list .sc-c-date .sc-muted { display: inline; }
+.pbs-sc[data-size="s"] .sc-table--list .sc-c-time { grid-area: time; }
+.pbs-sc[data-size="s"] .sc-table--list .sc-c-menu { grid-area: menu; }
+.pbs-sc[data-size="s"] .sc-table--list .sc-c-host { grid-area: host; }
+.pbs-sc[data-size="s"] .sc-table--list .sc-c-host .sc-muted { display: inline; margin-left: 6px; }
+.pbs-sc[data-size="s"] .sc-table--list .sc-c-host .sc-muted::before { content: "· "; }
+.pbs-sc[data-size="s"] .sc-table--list .sc-c-status { grid-area: status; justify-self: end; }
+.pbs-sc[data-size="s"] .sc-table--list .sc-c-acc { grid-area: acc; max-width: none; }
+.pbs-sc[data-size="s"] .sc-table--list .sc-c-acc .sc-muted { display: inline; margin-left: 6px; }
+.pbs-sc[data-size="s"] .sc-table--list .sc-c-studio { grid-area: studio; color: var(--text-secondary); }
+.pbs-sc[data-size="s"] .sc-table--list .sc-c-plat { grid-area: plat; color: var(--text-secondary); }
+.pbs-sc[data-size="s"] .sc-table--list tr.sc-group,
+.pbs-sc[data-size="s"] .sc-table--list tr.sc-group td { display: block; }
+.pbs-sc[data-size="s"] .sc-table--list tr.sc-group td { border: 0; border-radius: 6px; margin: 4px 0 8px; }
+.pbs-sc[data-size="s"] .sc-table--list tr.sc-skel-row { display: block; border: 1px solid var(--border); border-radius: 8px; margin-bottom: 8px; }
+.pbs-sc[data-size="s"] .sc-table--list tr.sc-skel-row td { display: block; border: 0; padding: 8px 12px; }
+.pbs-sc[data-size="s"] .sc-tablewrap--list > .sc-state,
+.pbs-sc[data-size="s"] .sc-tablewrap--list > .sc-pager,
+.pbs-sc[data-size="s"] .sc-tablewrap--list > .sc-tablefoot { border: 1px solid var(--border); border-radius: 8px; background: #fff; }
+
+/* Session detail on phone portrait */
+.pbs-sc[data-size="s"] .sc-record { padding: 14px; row-gap: 10px; }
+.pbs-sc[data-size="s"] .sc-record__id { flex-basis: 100%; padding-right: 0; font-size: 18px; }
+.pbs-sc[data-size="s"] .sc-record__cell { flex: 1 1 calc(50% - 8px); padding: 0; border-left: 0; min-width: 0; }
+.pbs-sc[data-size="s"] .sc-record__cell b { max-width: none; white-space: normal; overflow-wrap: anywhere; }
+.pbs-sc[data-size="s"] .sc-record__end { flex-basis: 100%; margin-left: 0; justify-content: flex-start; }
+.pbs-sc[data-size="s"] .sc-detailbar .sc-btn { flex: 1 1 auto; }
+.pbs-sc[data-size="s"] .sc-dl { grid-template-columns: 96px minmax(0, 1fr); }
+.pbs-sc[data-size="s"] .sc-kv .sc-dl { grid-template-columns: 112px minmax(0, 1fr); }
+.pbs-sc[data-size="s"] .sc-dl dd { overflow-wrap: anywhere; }
+.pbs-sc[data-size="s"] .sc-step__remind { margin-left: 0; }
+.pbs-sc[data-size="s"] .sc-todo { flex-wrap: wrap; }
+.pbs-sc[data-size="s"] .sc-review__badges { margin-left: 0; }
+.pbs-sc[data-size="s"] .sc-banner { align-items: flex-start; flex-wrap: wrap; padding: 10px 12px; }
+
+/* Dialogs and forms on phone portrait: full-width sheet from the bottom */
+.pbs-sc[data-size="s"] .sc-modal { align-items: flex-end; }
+.pbs-sc[data-size="s"] .sc-modal__panel { width: 100% !important; max-width: 100%; max-height: 94%; border-radius: 12px 12px 0 0; }
+.pbs-sc[data-size="s"] .sc-modal__head { padding: 12px 14px; }
+.pbs-sc[data-size="s"] .sc-modal__body { padding: 14px; }
+.pbs-sc[data-size="s"] .sc-modal__foot { flex-wrap: wrap; padding: 10px 14px; }
+.pbs-sc[data-size="s"] .sc-modal__foot .sc-btn { flex: 1 1 auto; }
+.pbs-sc[data-size="s"] .sc-foot-note, .pbs-sc[data-size="s"] .sc-foot-left { flex-basis: 100%; margin-right: 0; }
+.pbs-sc[data-size="s"] .sc-formgrid { grid-template-columns: minmax(0, 1fr); }
+.pbs-sc[data-size="s"] .sc-warning { flex-wrap: wrap; }
+.pbs-sc[data-size="s"] .sc-file { flex-wrap: wrap; }
+.pbs-sc[data-size="s"] .sc-file__why { max-width: none; text-align: left; }
+.pbs-sc[data-size="s"] .sc-summary { flex-wrap: wrap; gap: 8px; }
+.pbs-sc[data-size="s"] .sc-summary__chips { margin-left: 0; }
+.pbs-sc[data-size="s"] .sc-reasons { min-width: 160px; }
+/* Phone landscape is short: keep dialogs inside the visible height */
+.pbs-sc[data-size="m"] .sc-modal__panel { max-height: calc(100% - 16px); }
+@media (max-height: 480px) { .pbs-sc .sc-modal__body { padding: 12px 16px; } .pbs-sc .sc-modal__head, .pbs-sc .sc-modal__foot { padding: 10px 16px; } }

@@ -70,10 +70,15 @@ export class ScheduleHub implements ComponentFramework.StandardControl<IInputs, 
         this.context = context;
         this.notifyOutputChanged = notifyOutputChanged;
         context.mode.trackContainerResize(true);
-        // Always start on the Schedule board. A bound SelectedScheduleId keeps its last value when the
-        // user leaves and returns to the screen, which used to reopen that session straight away.
-        this.selectedScheduleId = "";
-        if (context.parameters.SelectedScheduleId?.raw) window.setTimeout(() => this.notifyOutputChanged(), 0);
+        // Board: always start on the board. A bound SelectedScheduleId keeps its last value when the user
+        // leaves and returns to the screen, which used to reopen that session straight away.
+        // Detail: the incoming SelectedScheduleId is the session this screen was opened for.
+        if (context.parameters.View?.raw === "Detail") {
+            this.selectedScheduleId = context.parameters.SelectedScheduleId?.raw ?? "";
+        } else {
+            this.selectedScheduleId = "";
+            if (context.parameters.SelectedScheduleId?.raw) window.setTimeout(() => this.notifyOutputChanged(), 0);
+        }
         for (const name of DATASETS) {
             try {
                 this.ds(context, name)?.paging?.setPageSize?.(PAGE_SIZE);
@@ -158,7 +163,9 @@ export class ScheduleHub implements ComponentFramework.StandardControl<IInputs, 
             mode: p.Mode?.raw === "ReadOnly" ? "ReadOnly" : "Admin",
             actionResult: this.lastActionResult,
             selectedScheduleId: p.SelectedScheduleId?.raw ?? "",
+            view: p.View?.raw === "Detail" ? "Detail" : "Board",
             height: context.mode.allocatedHeight > 0 ? context.mode.allocatedHeight : 0,
+            width: context.mode.allocatedWidth > 0 ? context.mode.allocatedWidth : 0,
             emit: this.emit,
             onSelect: this.onSelect,
             openUrl: this.openUrl,
