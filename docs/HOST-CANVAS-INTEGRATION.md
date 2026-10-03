@@ -1099,7 +1099,6 @@ If(!IsBlank(Self.ActionPayload),
                                         );
                                         Set(varMrdSch, LookUp(scheduleFiltered, ID = varMrdSch.ID));
                                         ClearCollect(colMrdSesRep, Filter(reportFiltered, HostID = varMe.Title, ScheduleID = varMrdSch.Title));
-                                        If(Boolean(p.complete), Set(varRptId, row.ID); Set(varMrdRep, LookUp(reportFiltered, ID = row.ID)));
                                         Set(varMrdResult, JSON({requestId: rid, status: "ok", message: "Sesi " & s.Title & " ditandai Live Break. Report 0 dibuat (REP-" & rep.ID & ")."}, JSONFormat.Compact))
                                     ),
                                     Set(varMrdResult, JSON({requestId: rid, status: "error", message: "Gagal menandai Live Break: " & FirstError.Message}, JSONFormat.Compact))

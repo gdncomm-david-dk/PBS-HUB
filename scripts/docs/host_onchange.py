@@ -377,7 +377,7 @@ mrd_after = "Set(varMrdRep, LookUp(reportFiltered, ID = cur.ID));\n" + mrd_sch
 mrd = shell('\n'.join([
  absen('varMrdResult','colMrdAbs', mrd_sch),
  submit('varMrdResult', mrd_after_submit),
- live_break('varMrdResult', mrd_after_submit),
+ live_break('varMrdResult', mrd_sch),
  resubmit('varMrdResult', mrd_after),
  dispute('varMrdResult', mrd_after),
  delete('varMrdResult', "Set(varRptId, Blank()); Set(varMrdRep, LookUp(reportFiltered, ID = -1));\n" + mrd_sch),
