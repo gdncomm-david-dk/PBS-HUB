@@ -315,3 +315,17 @@ export function fetchWindow(from: string, to: string, loaded: { from: string; to
     if (loaded && loaded.from <= shiftDay(from, -7) && loaded.to >= shiftDay(to, 7)) return null;
     return { from: shiftDay(from, -FETCH_MARGIN_DAYS), to: shiftDay(to, FETCH_MARGIN_DAYS) };
 }
+
+/**
+ * Finds the session for SelectedScheduleId. Accepts the ScheduleID ("SCD-3828"), the SharePoint item ID
+ * ("3828" or "#3828"), which is what an app often has at hand, and is case- and space-insensitive.
+ */
+export function findSchedule(rows: ScheduleRow[], id: string): ScheduleRow | undefined {
+    const k = id.trim().toLowerCase();
+    if (!k) return undefined;
+    const byId = rows.find((s) => s.scheduleId.trim().toLowerCase() === k);
+    if (byId) return byId;
+    const num = /^#?\s*(\d+)$/.exec(k)?.[1];
+    if (!num) return undefined;
+    return rows.find((s) => s.itemId !== null && String(s.itemId) === num) ?? rows.find((s) => s.scheduleId.trim().toLowerCase() === `scd-${num}`);
+}

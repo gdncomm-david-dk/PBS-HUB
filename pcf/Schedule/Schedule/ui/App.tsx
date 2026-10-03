@@ -1,7 +1,7 @@
 import * as React from "react";
 import { AbsenceRow, AccountRow, ActionName, ActionResult, BrandRow, ClockRow, EvidenceRow, HostRow, ModuleContext, ReportRow, ScheduleRow, StudioRow } from "../core/types";
 import { buildLookups, jsonRecords, mapEvidence } from "../core/data";
-import { conflictIndex, distinct, Evidence } from "../core/schedule";
+import { conflictIndex, distinct, Evidence, findSchedule } from "../core/schedule";
 import { toDateKey } from "../core/time";
 import { Banner, Card } from "./components";
 import { Config, Env, Pending } from "./shared";
@@ -260,9 +260,7 @@ export function App(props: AppProps): React.ReactElement {
         evSearch,
     };
 
-    const openRow = openId
-        ? schedules.find((s) => (openId.startsWith("#") ? `#${s.itemId}` === openId : s.scheduleId.toLowerCase() === openId.toLowerCase()))
-        : undefined;
+    const openRow = openId ? findSchedule(schedules, openId) : undefined;
 
     const dialogs = (
         <>

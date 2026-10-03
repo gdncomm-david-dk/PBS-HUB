@@ -1,6 +1,6 @@
 # PBS Hub — canvas formulas (copy sheet)
 
-All `Items`, inputs and `OnChange` for the three screens, for **Studio Hub 1.8.0** and **Schedule Hub 1.7.0**.
+All `Items`, inputs and `OnChange` for the three screens, for **Studio Hub 1.8.0** and **Schedule Hub 1.7.1**.
 Explanations and troubleshooting are in [`SETUP.md`](SETUP.md); this file only collects what you paste.
 
 For every dataset, also open **Fields → Edit** and add the columns the property description lists.
@@ -336,7 +336,8 @@ Navigate(scrScheduleDetail)
 
 ```powerfx
 Set(varSchedResult, "");
-Set(varDetailDate, LookUp('Schedule - PBS Hub', Title = varLinkScheduleId).Date)
+// varLinkScheduleId may be the ScheduleID ("SCD-3828") or just the number ("3828")
+Set(varDetailDate, LookUp('Schedule - PBS Hub', Title = varLinkScheduleId || Title = "SCD-" & varLinkScheduleId).Date)
 ```
 
 ### Datasets (`Items`)
@@ -357,7 +358,7 @@ The session's day ± 1 day, so the conflict check and the evidence chain have wh
 | Property | Value |
 |---|---|
 | `View` | `"Detail"` |
-| `SelectedScheduleId` | `varLinkScheduleId` |
+| `SelectedScheduleId` | `varLinkScheduleId`: the ScheduleID (`SCD-3828`) or the SharePoint item ID (`3828`); both work from 1.7.1 |
 | `Context`, `Mode`, `ActionResult` | same as the Schedule screen |
 
 ### OnChange

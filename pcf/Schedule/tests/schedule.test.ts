@@ -1,7 +1,7 @@
 import { strToU8, zipSync } from "fflate";
 import { EvidenceRow, ReportRow } from "../Schedule/core/types";
 import { approvalKind, buildLookups, jsonRecords, mapAccounts, mapBrands, mapEvidence, mapHosts, mapReports, mapSchedules, mapStudios } from "../Schedule/core/data";
-import { applyFilters, conflictIndex, conflictsFor, Evidence, phaseOf, weekStart } from "../Schedule/core/schedule";
+import { applyFilters, conflictIndex, conflictsFor, Evidence, findSchedule, phaseOf, weekStart } from "../Schedule/core/schedule";
 import { buildTimeline } from "../Schedule/core/timeline";
 import { compareReport } from "../Schedule/core/review";
 import { readWorkbook, serialToDateKey, serialToMinutes } from "../Schedule/core/xlsx";
@@ -381,5 +381,21 @@ describe("host report marker", () => {
             { Title: "REP-71", ScheduleID: "SCD-71", ApprovalStatus: "Waiting Approval" },
         ])), [], [], []);
         expect([ev.hasHostReport(a), ev.hasHostReport(b)]).toEqual([true, true]);
+    });
+});
+
+describe("SelectedScheduleId lookup", () => {
+    const rows = sched([
+        { ID: 3828, Title: "SCD-3828", Date: "2026-10-03", BrandID: "BR-01", StudioID: "CWG-05", HostID: "HST-1", StartTime: "10:00", EndTime: "12:00" },
+        { ID: 77, Title: "SCD-9001", Date: "2026-10-03", BrandID: "BR-01", StudioID: "CWG-05", HostID: "HST-2", StartTime: "13:00", EndTime: "15:00" },
+    ]);
+    it("accepts the ScheduleID, the SharePoint item ID and #ID", () => {
+        expect(findSchedule(rows, "SCD-3828")?.itemId).toBe(3828);
+        expect(findSchedule(rows, " scd-3828 ")?.itemId).toBe(3828);
+        expect(findSchedule(rows, "3828")?.scheduleId).toBe("SCD-3828");
+        expect(findSchedule(rows, "#77")?.scheduleId).toBe("SCD-9001");
+        expect(findSchedule(rows, "9001")?.scheduleId).toBe("SCD-9001");
+        expect(findSchedule(rows, "123")).toBeUndefined();
+        expect(findSchedule(rows, "")).toBeUndefined();
     });
 });
