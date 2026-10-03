@@ -1,5 +1,7 @@
 # PBS Hub — canvas app setup
 
+Every formula to paste, per screen, is collected in [`FORMULAS.md`](FORMULAS.md).
+
 Setup for the two PBS Hub code components in the Ops Console canvas app. Follow part A once, then part B
 for the Studio screens and part C for the Schedule screen.
 
@@ -481,7 +483,7 @@ If(rid <> varLastSchedRid,
                 Refresh('Schedule - PBS Hub'); true,
                 Set(varSchedOk, false); Set(varSchedErr, FirstError.Message)),
 
-        // List view: tick sessions, then Hapus. The control already leaves out sessions with a report.
+        // List view: tick sessions, then Hapus. Sessions with a report can be deleted too (the report stays).
         "BULK_DELETE_SCHEDULE",
             IfError(
                 ForAll(Table(p.scheduleIds) As x,
@@ -503,6 +505,9 @@ If(rid <> varLastSchedRid,
             // "Muat ulang" button: reload every list the control is bound to.
             Refresh('Schedule - PBS Hub'); Refresh('Report - PBS Hub'); Refresh('Report Automation - PBS Hub'),
 
+        // Only sent with View = "Detail" (C4d): Kembali, or after the session was deleted.
+        "NAV_BACK", Back(),
+
         // Judgement on a host report after comparing it with Report Automation (Title = Report.Title).
         // revision: Report → Need Revision + Unmatch + comment + approver; Report Automation → Status Unmatch.
         // approve:  Report → Done + Match (+ comment if given) + approver.
@@ -520,7 +525,6 @@ If(rid <> varLastSchedRid,
                     Set(varSchedMsg, Text(p.reportId) & If(revise, " dikembalikan ke host untuk revisi.", " disetujui."))); true,
                 Set(varSchedOk, false); Set(varSchedErr, FirstError.Message))
         // NAV_SESSION_DETAIL is informational; SelectedScheduleId already carries the open session.
-        "NAV_BACK", Back(),   // only sent with View = "Detail" (C4d): Kembali, or after the session was deleted
         // REMIND_HOST is optional; add it here only with a channel you use (e.g. Office365Outlook.SendEmailV2).
     );   // ← this closes Switch. Keep it OUTSIDE any /* comment */, or the reply below never runs.
     // Reply for everything else, and for an upload that failed (a good upload already replied above).
@@ -587,7 +591,7 @@ is; the new screen shows only the session detail, with the same buttons (Ubah, D
    | `schedules` | the schedule and its neighbours, for the conflict check: `With({ d: LookUp('Schedule - PBS Hub', Title = varLinkScheduleId).Date }, Filter('Schedule - PBS Hub', Date >= DateAdd(d, -1, TimeUnit.Days) && Date <= DateAdd(d, 1, TimeUnit.Days)))` |
    | `reports`, `absences`, `clockins`, `evidence` | as in C2, but filtered to that same date (± 1 day) instead of `varSchedStart`/`varSchedEnd` |
    | `brands`, `accounts`, `studios`, `hosts`, `Context`, `Mode`, `ActionResult` | the same as on the Schedule screen |
-   | `OnChange` | copy the Schedule screen's handler (C4). It already holds the `"NAV_BACK", Back(),` branch |
+   | `OnChange` | the Schedule screen's handler (C4) with the session looked up in `'Schedule - PBS Hub'` / `'Report - PBS Hub'` instead of the filtered tables. The ready-made version is in [`FORMULAS.md`](FORMULAS.md) § 3 |
 
 4. Set `Screen.OnVisible` to `Set(varSchedResult, "")`.
 
