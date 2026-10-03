@@ -28,6 +28,11 @@ export interface ScoreBand {
 /** HostScoreThreshold.Tone is a Choice whose values nobody listed; accept colour words in both languages. */
 export function toneFromText(s: string): Tone {
   const t = s.trim().toLowerCase();
+  // Explicit green shade: "Hijau 1" … "Hijau 5" / "green-3" (1 = lightest, 5 = darkest); "hijau muda" = 1, "hijau tua" = 5.
+  const shade = /(?:hijau|green)[\s_-]*([1-5])\b/.exec(t)?.[1];
+  if (shade) return `green${shade}` as Tone;
+  if (/hijau\s*muda|light\s*green/.test(t)) return "green1";
+  if (/hijau\s*tua|dark\s*green/.test(t)) return "green5";
   if (/success|green|hijau|good|baik|excellent/.test(t)) return "success";
   if (/danger|red|merah|bad|buruk|critical|error/.test(t)) return "danger";
   if (/warn|yellow|kuning|amber|orange|caution/.test(t)) return "warning";
@@ -35,8 +40,23 @@ export function toneFromText(s: string): Tone {
   return "neutral";
 }
 
+/**
+ * Bands whose Tone is plain green/success get a ramp from light to dark in score order, so a ladder like
+ * 121–250, 251–500, 501–1000, 1001+ reads greener the higher it goes. An explicit "Hijau 1..5" is kept as is.
+ */
+export function greenRamp(bands: ScoreBand[]): ScoreBand[] {
+  const idx = bands.map((b, i) => (b.tone === "success" ? i : -1)).filter((i) => i >= 0);
+  if (idx.length < 2) return bands;
+  const out = bands.slice();
+  idx.forEach((bi, k) => {
+    const step = Math.min(4, Math.round((k * 4) / (idx.length - 1)));
+    out[bi] = { ...out[bi]!, tone: `green${step + 1}` as Tone };
+  });
+  return out;
+}
+
 export function parseBands(rows: Row[]): ScoreBand[] {
-  return rows
+  return greenRamp(rows
     .filter((r) => bool(r, "Active") !== false)
     .map((r, i) => ({
       id: str(r, "ThresholdID", "Title") || String(i),
@@ -47,7 +67,7 @@ export function parseBands(rows: Row[]): ScoreBand[] {
       tone: toneFromText(str(r, "Tone")),
       sort: num(r, "SortOrder") ?? i,
     }))
-    .sort((a, b) => (a.min ?? -Infinity) - (b.min ?? -Infinity) || a.sort - b.sort);
+    .sort((a, b) => (a.min ?? -Infinity) - (b.min ?? -Infinity) || a.sort - b.sort));
 }
 
 /** First band whose bounds hold the score. Nothing validates that bands do not overlap or leave gaps. */

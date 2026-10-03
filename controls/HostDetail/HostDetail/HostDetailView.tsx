@@ -62,8 +62,7 @@ import {
   SkeletonRows,
   Spinner,
   usePaged,
-  BackButton,
-} from "../../../shared/ui";
+  BackButton, BAND_TEXT } from "../../../shared/ui";
 
 export type HostTab =
   | "Summary"
@@ -99,13 +98,6 @@ const TAB_LABEL: Record<HostTab, string> = {
   Reports: "Report",
   Payroll: "Payroll",
   Personal: "Data pribadi",
-};
-const BAND_TEXT: Record<string, string> = {
-  success: "pbs-t-ok",
-  danger: "pbs-t-bad",
-  warning: "pbs-t-warn",
-  info: "pbs-t-info",
-  neutral: "",
 };
 
 const money = (n: number | null) =>

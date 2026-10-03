@@ -26,8 +26,7 @@ import {
   Pager,
   ResultBanner,
   SkeletonRows,
-  usePaged,
-} from "../../../shared/ui";
+  usePaged, BAND_TEXT } from "../../../shared/ui";
 
 export interface HostListProps {
   ctx: ModuleContext;
@@ -408,13 +407,6 @@ export function HostListView(props: HostListProps): React.ReactElement {
   );
 }
 
-const BAND_TEXT: Record<string, string> = {
-  success: "pbs-t-ok",
-  danger: "pbs-t-bad",
-  warning: "pbs-t-warn",
-  info: "pbs-t-info",
-  neutral: "",
-};
 
 function HostRow(props: {
   h: HostModel;

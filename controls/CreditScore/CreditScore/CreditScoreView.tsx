@@ -47,8 +47,7 @@ import {
   ResultBanner,
   Skeleton,
   TONE_DOT,
-  usePaged,
-} from "../../../shared/ui";
+  usePaged, BAND_TEXT } from "../../../shared/ui";
 
 export interface CreditScoreProps {
   ctx: ModuleContext;
@@ -64,13 +63,6 @@ export interface CreditScoreProps {
   action: UseActionResult;
 }
 
-const BAND_TEXT: Record<string, string> = {
-  success: "pbs-t-ok",
-  danger: "pbs-t-bad",
-  warning: "pbs-t-warn",
-  info: "pbs-t-info",
-  neutral: "",
-};
 const ALL = "All";
 
 const signed = (n: number | null) =>

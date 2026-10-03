@@ -65,8 +65,11 @@ font-family:"Blibli","Helvetica Neue",Arial,sans-serif;font-size:13px;line-heigh
 .pbs-badge.warning{background:var(--warn-bg);color:var(--warn-tx)}
 .pbs-badge.danger{background:var(--bad-bg);color:var(--bad-tx)}
 .pbs-badge.neutral{background:var(--sf);color:var(--tx2)}
+.pbs-badge.green1{background:#ECFDF3;color:#15803D}.pbs-badge.green2{background:#BBF7D0;color:#166534}.pbs-badge.green3{background:#4ADE80;color:#052E16}
+.pbs-badge.green4{background:#15803D;color:#fff}.pbs-badge.green5{background:#052E16;color:#fff}
 .pbs-pill{display:inline-flex;align-items:center;gap:6px;border-radius:20px;padding:7px 14px;font-size:12px;font-weight:600;white-space:nowrap}
 .pbs-pill.success{background:var(--ok);color:#fff}.pbs-pill.info{background:var(--p);color:#fff}
+.pbs-pill.green1{background:#86EFAC;color:#052E16}.pbs-pill.green2{background:#4ADE80;color:#052E16}.pbs-pill.green3{background:#22C55E;color:#fff}.pbs-pill.green4{background:#15803D;color:#fff}.pbs-pill.green5{background:#052E16;color:#fff}
 .pbs-pill.warning{background:var(--warn);color:#000}.pbs-pill.danger{background:var(--bad);color:#fff}.pbs-pill.neutral{background:var(--sf);color:var(--tx2)}
 .pbs-dot{width:8px;height:8px;border-radius:50%;flex:none;display:inline-block}
 .pbs-banner{display:flex;align-items:center;gap:12px;border-radius:8px;padding:12px 16px;margin:0 0 16px;font-size:13px}
@@ -211,6 +214,7 @@ font-family:"Blibli","Helvetica Neue",Arial,sans-serif;font-size:13px;line-heigh
 @media (max-width:860px){.pbs-two{grid-template-columns:minmax(0,1fr)}}
 .pbs-table tbody tr.void td{color:var(--dis);text-decoration:line-through}
 .pbs-table tbody tr.muted td{color:var(--tx2)}
+.pbs-t-g1{color:#22A559}.pbs-t-g2{color:#15803D}.pbs-t-g3{color:#166534}.pbs-t-g4{color:#14532D}.pbs-t-g5{color:#052E16}
 .pbs-t-ok{color:var(--ok-tx)}.pbs-t-bad{color:var(--bad-tx)}.pbs-t-warn{color:var(--warn-ic)}.pbs-t-info{color:var(--p-dk)}
 .pbs-ic-btn{border:0;background:none;padding:0;display:inline-flex;color:var(--warn-ic);cursor:help;vertical-align:middle}
 .pbs-periods{list-style:none;margin:10px 0 0;padding:0;display:grid;gap:6px}

@@ -65,6 +65,8 @@
   const q = new URLSearchParams(location.search);
   const c = q.get("c") || "Dashboard", s = q.get("s") || "", W = Number(q.get("w") || 1060), H = Number(q.get("ht") || 1400);
   const S = window.PBS_SAMPLE;
+  // bands=ladder: open-ended score ladder, every green band plain "Success" (the control shades them light to dark)
+  if (q.get("bands") === "ladder") S.thresholds = [["≤120", 0, 120, "Danger"], ["121–250", 121, 250, "Success"], ["251–500", 251, 500, "Success"], ["501–1000", 501, 1000, "Success"], ["1001+", 1001, null, "Success"]].map(([Label, MinimumScore, MaximumScore, Tone], i) => ({ ThresholdID: "BAND-" + (i + 1), Label, Description: "", MinimumScore, MaximumScore, Tone: { Value: Tone }, Active: true, SortOrder: i + 1 }));
   const J = (x) => JSON.stringify(x);
   const params = { Context: J(S.context), ReferenceDate: S.REF, ActionResult: "", IsLoading: s === "loading", HasMore: false, Mode: q.get("mode") || "Admin", DefaultTab: q.get("tab") || "Waiting" };
   const empty = s === "loading" || s === "empty";

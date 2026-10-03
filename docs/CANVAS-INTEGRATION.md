@@ -752,7 +752,7 @@ hanya muncul untuk `PAYROLL_RUN` dan hanya aktif kalau ada slip Gagal/Bounce di 
 | (belum ada) | `DeactivatedDate` | Opsional. Tanpa kolom ini, "periode terdampak" = bulan berjalan + bulan lalu |
 | `[FAS STUDIO] HostScoreTransactions` | `ScoreTxJson` / `LedgerJson` | Hanya `Status = Active` (atau kosong) yang dihitung; `Void` dan `Reversal` (baris koreksi) tidak |
 | `[FAS STUDIO] HostScoreRule` | `RulesJson` | Rule aktif untuk form Tambah / Kurangi poin (HostScore) |
-| `[FAS STUDIO] HostScoreThreshold` | `ThresholdsJson` | `Tone` boleh `Success/Warning/Danger/Info` atau hijau/kuning/merah/biru |
+| `[FAS STUDIO] HostScoreThreshold` | `ThresholdsJson` | `Tone` boleh `Success/Warning/Danger/Info` atau hijau/kuning/merah/biru. **Skor tanpa batas atas:** kosongkan `MaximumScore` di band teratas (mis. `1001+`). **Hijau bertingkat:** beberapa band `Success` otomatis dibuat hijau muda → hijau tua sesuai urutan skor; mau diatur sendiri, isi `Tone` dengan `Hijau 1` … `Hijau 5` (1 paling muda, 5 paling tua). Batas dan label diatur di list ini |
 
 Kalau `HostJson`/`HostsJson` ternyata memuat `KTP`, `NoRekening`, `Alamat`, `PhoneNumber`, `PersonalEmail`,
 `NamaRekening` atau `Employee_ID`, control tetap menyamarkannya **dan** menampilkan banner merah: datanya

@@ -106,7 +106,18 @@ export type ReasonCode =
   | "ORPHAN_EVIDENCE"
   | "ALL_MATCH";
 
-export type Tone = "success" | "info" | "warning" | "danger" | "neutral";
+/** green1 (lightest) … green5 (darkest): score bands that get greener the higher the score. */
+export type Tone =
+  | "success"
+  | "info"
+  | "warning"
+  | "danger"
+  | "neutral"
+  | "green1"
+  | "green2"
+  | "green3"
+  | "green4"
+  | "green5";
 
 export const REASONS: Record<ReasonCode, { label: string; tone: Tone }> = {
   OUT_OF_TOLERANCE: { label: "Di luar toleransi", tone: "warning" },

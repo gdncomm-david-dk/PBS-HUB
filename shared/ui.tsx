@@ -255,6 +255,25 @@ export const TONE_DOT: Record<Tone, string> = {
   warning: "#FFCD00",
   danger: "#FF4646",
   neutral: "#B9BFC4",
+  green1: "#86EFAC",
+  green2: "#4ADE80",
+  green3: "#22C55E",
+  green4: "#15803D",
+  green5: "#052E16",
+};
+
+/** Text colour class for a score band (the big score number next to its badge). */
+export const BAND_TEXT: Record<string, string> = {
+  success: "pbs-t-ok",
+  danger: "pbs-t-bad",
+  warning: "pbs-t-warn",
+  info: "pbs-t-info",
+  neutral: "",
+  green1: "pbs-t-g1",
+  green2: "pbs-t-g2",
+  green3: "pbs-t-g3",
+  green4: "pbs-t-g4",
+  green5: "pbs-t-g5",
 };
 
 export function Dot(props: { tone: Tone }): React.ReactElement {

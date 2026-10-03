@@ -1,6 +1,6 @@
 import { hasPermission, parseContext } from "../shared/contract";
 import { availableClockInDates, clockInStatuses } from "../shared/clockIn";
-import { bandOf, buildHost, buildLedger, buildSessions, checkLedger, deactivationImpact, maskedPii, parseBands, revealedFor, sensitiveKeysIn, sessionStatus, toneFromText } from "../shared/host";
+import { greenRamp, bandOf, buildHost, buildLedger, buildSessions, checkLedger, deactivationImpact, maskedPii, parseBands, revealedFor, sensitiveKeysIn, sessionStatus, toneFromText } from "../shared/host";
 
 const NOW = new Date("2026-09-14T11:42:00");
 const bands = parseBands([
@@ -148,5 +148,35 @@ describe("role spelling", () => {
   it("still denies an empty or other role, and an explicit permission list wins", () => {
     expect([can(""), can("HOST"), can("Viewer")]).toEqual([false, false, false]);
     expect(hasPermission(parseContext(JSON.stringify({ roles: "PBS_Team", permissions: "HOST_EDIT" })), "REPORT_ADJUDICATE")).toBe(false);
+  });
+});
+
+describe("green ramp for open-ended score ladders", () => {
+  const row = (id: string, min: number, max: number | null, tone: string) => ({
+    ThresholdID: id,
+    Label: id,
+    MinimumScore: min,
+    MaximumScore: max,
+    Tone: { Value: tone },
+    Active: true,
+  });
+  it("shades plain green bands light to dark in score order; the last band has no upper bound", () => {
+    const b = parseBands([
+      row("a", 0, 120, "Danger"),
+      row("b", 121, 250, "Success"),
+      row("c", 251, 500, "Success"),
+      row("d", 501, 1000, "Success"),
+      row("e", 1001, null, "Success"),
+    ]);
+    expect(b.map((x) => x.tone)).toEqual(["danger", "green1", "green2", "green4", "green5"]);
+    expect(bandOf(5000, b)?.id).toBe("e");
+    expect(bandOf(1001, b)?.id).toBe("e");
+  });
+  it("an explicit shade wins, a lone green stays plain success", () => {
+    expect(toneFromText("Hijau 3")).toBe("green3");
+    expect(toneFromText("green-5")).toBe("green5");
+    expect(toneFromText("hijau tua")).toBe("green5");
+    expect(parseBands([row("x", 0, null, "Success")])[0]!.tone).toBe("success");
+    expect(greenRamp([]).length).toBe(0);
   });
 });

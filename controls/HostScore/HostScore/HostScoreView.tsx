@@ -65,8 +65,7 @@ import {
   SkeletonRows,
   Spinner,
   TONE_DOT,
-  usePaged,
-} from "../../../shared/ui";
+  usePaged, BAND_TEXT } from "../../../shared/ui";
 
 export interface HostScoreProps {
   ctx: ModuleContext;
@@ -86,13 +85,6 @@ type Dialog =
   | { kind: "add"; type: TxType; host: HostModel | null }
   | { kind: "void"; tx: ScoreTx; host: HostModel };
 
-const BAND_TEXT: Record<string, string> = {
-  success: "pbs-t-ok",
-  danger: "pbs-t-bad",
-  warning: "pbs-t-warn",
-  info: "pbs-t-info",
-  neutral: "",
-};
 
 const range = (b: ScoreBand) =>
   b.min !== null && b.max !== null
