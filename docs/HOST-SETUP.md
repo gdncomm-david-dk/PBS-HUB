@@ -368,7 +368,7 @@ If(!IsBlank(Self.ActionPayload),
                                             With({row: IfError(With({_new: Patch('Host Absence - PBS Hub', Defaults('Host Absence - PBS Hub'), {
                                                         ScheduleID: s.Title, HostID: varMe.Title, HostName: Coalesce(LookUp('Host - PBS Hub', Title = varMe.Title).NamaHost, Text(p.hostName)), LiveDate: s.Date,
                                                         BrandID: s.BrandID, Platform: {Value: s.Platform.Value},
-                                                        Account: LookUp(Choices([@'Host Absence - PBS Hub'].Account), Value = s.Account || Value = LookUp(colAccounts, Title = s.Account).AccountName),
+                                                        Account: Coalesce(LookUp(colAccounts, Title = s.Account).AccountName, Text(p.accountName), s.Account),
                                                         Status: {Value: "Hadir"}   // Choice Status di Host Absence; kalau kolomnya teks: Status: "Hadir"
                                                     })}, Collect(absenceFiltered, _new); _new),
                                                     Set(varHdResult, JSON({requestId: rid, status: "error", message: "Status jadwal sudah " & st & ", tapi absen gagal dicatat: " & FirstError.Message}, JSONFormat.Compact)); Blank())},
@@ -571,7 +571,7 @@ If(!IsBlank(Self.ActionPayload),
                                             With({row: IfError(With({_new: Patch('Host Absence - PBS Hub', Defaults('Host Absence - PBS Hub'), {
                                                         ScheduleID: s.Title, HostID: varMe.Title, HostName: Coalesce(LookUp('Host - PBS Hub', Title = varMe.Title).NamaHost, Text(p.hostName)), LiveDate: s.Date,
                                                         BrandID: s.BrandID, Platform: {Value: s.Platform.Value},
-                                                        Account: LookUp(Choices([@'Host Absence - PBS Hub'].Account), Value = s.Account || Value = LookUp(colAccounts, Title = s.Account).AccountName),
+                                                        Account: Coalesce(LookUp(colAccounts, Title = s.Account).AccountName, Text(p.accountName), s.Account),
                                                         Status: {Value: "Hadir"}   // Choice Status di Host Absence; kalau kolomnya teks: Status: "Hadir"
                                                     })}, Collect(absenceFiltered, _new); _new),
                                                     Set(varSdResult, JSON({requestId: rid, status: "error", message: "Status jadwal sudah " & st & ", tapi absen gagal dicatat: " & FirstError.Message}, JSONFormat.Compact)); Blank())},
@@ -604,7 +604,7 @@ If(!IsBlank(Self.ActionPayload),
                                     With({row: With({_new: Patch('Report - PBS Hub', Defaults('Report - PBS Hub'), {
                                             ScheduleID: s.Title, HostID: varMe.Title, BrandID: s.BrandID, Platform: {Value: s.Platform.Value},
                                             AccountID: s.Account, HostName: Coalesce(LookUp('Host - PBS Hub', Title = varMe.Title).NamaHost, Text(p.hostName)),   // nama host dari list Host
-                                            Account: LookUp(Choices([@'Report - PBS Hub'].Account), Value = LookUp(colAccounts, Title = s.Account).AccountName || Value = s.Account),   // nama akun dari list Account
+                                            Account: Coalesce(LookUp(colAccounts, Title = s.Account).AccountName, Text(p.accountName), s.Account),   // nama akun dari list Account
                                             LiveDate: s.Date, AbsID: Text(p.absId),
                                             Penjualan: Value(m.Penjualan), Pesanan: Value(m.Pesanan), ProdukTerjual: Value(m.ProdukTerjual),
                                             JumlahPembeli: Value(m.JumlahPembeli), CTR: Value(m.CTR), CTOR: Value(m.CTOR), PeakViewer: Value(m.PeakViewer),
@@ -735,7 +735,7 @@ If(!IsBlank(Self.ActionPayload),
                                     With({rep: With({_new: Patch('Report - PBS Hub', Defaults('Report - PBS Hub'), {
                                             ScheduleID: s.Title, HostID: varMe.Title, BrandID: s.BrandID, Platform: {Value: s.Platform.Value},
                                             AccountID: s.Account, HostName: Coalesce(LookUp('Host - PBS Hub', Title = varMe.Title).NamaHost, Text(p.hostName)),   // nama host dari list Host
-                                            Account: LookUp(Choices([@'Report - PBS Hub'].Account), Value = LookUp(colAccounts, Title = s.Account).AccountName || Value = s.Account),   // nama akun dari list Account
+                                            Account: Coalesce(LookUp(colAccounts, Title = s.Account).AccountName, Text(p.accountName), s.Account),   // nama akun dari list Account
                                             LiveDate: s.Date, AbsID: ex.Title,
                                             Penjualan: 0, Pesanan: 0, ProdukTerjual: 0, JumlahPembeli: 0, CTR: 0, CTOR: 0, PeakViewer: 0,
                                             'Durasi(Min)': 0, AddToCart: 0, TotalViewer: 0, Comment: 0,
@@ -1295,7 +1295,7 @@ If(!IsBlank(Self.ActionPayload),
                                             With({row: IfError(With({_new: Patch('Host Absence - PBS Hub', Defaults('Host Absence - PBS Hub'), {
                                                         ScheduleID: s.Title, HostID: varMe.Title, HostName: Coalesce(LookUp('Host - PBS Hub', Title = varMe.Title).NamaHost, Text(p.hostName)), LiveDate: s.Date,
                                                         BrandID: s.BrandID, Platform: {Value: s.Platform.Value},
-                                                        Account: LookUp(Choices([@'Host Absence - PBS Hub'].Account), Value = s.Account || Value = LookUp(colAccounts, Title = s.Account).AccountName),
+                                                        Account: Coalesce(LookUp(colAccounts, Title = s.Account).AccountName, Text(p.accountName), s.Account),
                                                         Status: {Value: "Hadir"}   // Choice Status di Host Absence; kalau kolomnya teks: Status: "Hadir"
                                                     })}, Collect(absenceFiltered, _new); _new),
                                                     Set(varMrdResult, JSON({requestId: rid, status: "error", message: "Status jadwal sudah " & st & ", tapi absen gagal dicatat: " & FirstError.Message}, JSONFormat.Compact)); Blank())},
@@ -1328,7 +1328,7 @@ If(!IsBlank(Self.ActionPayload),
                                     With({row: With({_new: Patch('Report - PBS Hub', Defaults('Report - PBS Hub'), {
                                             ScheduleID: s.Title, HostID: varMe.Title, BrandID: s.BrandID, Platform: {Value: s.Platform.Value},
                                             AccountID: s.Account, HostName: Coalesce(LookUp('Host - PBS Hub', Title = varMe.Title).NamaHost, Text(p.hostName)),   // nama host dari list Host
-                                            Account: LookUp(Choices([@'Report - PBS Hub'].Account), Value = LookUp(colAccounts, Title = s.Account).AccountName || Value = s.Account),   // nama akun dari list Account
+                                            Account: Coalesce(LookUp(colAccounts, Title = s.Account).AccountName, Text(p.accountName), s.Account),   // nama akun dari list Account
                                             LiveDate: s.Date, AbsID: Text(p.absId),
                                             Penjualan: Value(m.Penjualan), Pesanan: Value(m.Pesanan), ProdukTerjual: Value(m.ProdukTerjual),
                                             JumlahPembeli: Value(m.JumlahPembeli), CTR: Value(m.CTR), CTOR: Value(m.CTOR), PeakViewer: Value(m.PeakViewer),
@@ -1460,7 +1460,7 @@ If(!IsBlank(Self.ActionPayload),
                                     With({rep: With({_new: Patch('Report - PBS Hub', Defaults('Report - PBS Hub'), {
                                             ScheduleID: s.Title, HostID: varMe.Title, BrandID: s.BrandID, Platform: {Value: s.Platform.Value},
                                             AccountID: s.Account, HostName: Coalesce(LookUp('Host - PBS Hub', Title = varMe.Title).NamaHost, Text(p.hostName)),   // nama host dari list Host
-                                            Account: LookUp(Choices([@'Report - PBS Hub'].Account), Value = LookUp(colAccounts, Title = s.Account).AccountName || Value = s.Account),   // nama akun dari list Account
+                                            Account: Coalesce(LookUp(colAccounts, Title = s.Account).AccountName, Text(p.accountName), s.Account),   // nama akun dari list Account
                                             LiveDate: s.Date, AbsID: ex.Title,
                                             Penjualan: 0, Pesanan: 0, ProdukTerjual: 0, JumlahPembeli: 0, CTR: 0, CTOR: 0, PeakViewer: 0,
                                             'Durasi(Min)': 0, AddToCart: 0, TotalViewer: 0, Comment: 0,
@@ -1898,7 +1898,7 @@ If(!IsBlank(Self.ActionPayload),
                                             With({row: IfError(With({_new: Patch('Host Absence - PBS Hub', Defaults('Host Absence - PBS Hub'), {
                                                         ScheduleID: s.Title, HostID: varMe.Title, HostName: Coalesce(LookUp('Host - PBS Hub', Title = varMe.Title).NamaHost, Text(p.hostName)), LiveDate: s.Date,
                                                         BrandID: s.BrandID, Platform: {Value: s.Platform.Value},
-                                                        Account: LookUp(Choices([@'Host Absence - PBS Hub'].Account), Value = s.Account || Value = LookUp(colAccounts, Title = s.Account).AccountName),
+                                                        Account: Coalesce(LookUp(colAccounts, Title = s.Account).AccountName, Text(p.accountName), s.Account),
                                                         Status: {Value: "Hadir"}   // Choice Status di Host Absence; kalau kolomnya teks: Status: "Hadir"
                                                     })}, Collect(absenceFiltered, _new); _new),
                                                     Set(varMsResult, JSON({requestId: rid, status: "error", message: "Status jadwal sudah " & st & ", tapi absen gagal dicatat: " & FirstError.Message}, JSONFormat.Compact)); Blank())},
@@ -2265,7 +2265,7 @@ Pakai satu jadwal milik akunmu (`HostID = varMe.Title`), hari ini, **sudah mulai
 |---|---|---|
 | *Name isn't valid. 'varXxx' isn't recognized* | variabel belum pernah di-Set | pastikan blok 4 di Langkah 3 ada, lalu **Run OnStart** |
 | *No type found for variable 'varMrdRep'* | variabel record hanya di-Set ke `Blank()` | pakai `LookUp(reportFiltered, ID = -1)` seperti Langkah 3 |
-| *The type of this argument 'Account' does not match the expected type 'Record'* | `Account` di Report / Host Absence adalah Lookup/Choice | formula OnChange sudah memakai `LookUp(Choices([@'…'].Account), …)`; kalau kolomnya ternyata teks, ganti jadi `LookUp(colAccounts, Title = s.Account).AccountName` |
+| *Name isn't valid* / *type does not match* pada `Account` | `Account` di Report / Host Absence harus kolom teks | formula OnChange mengisi teks: `Coalesce(LookUp(colAccounts, Title = s.Account).AccountName, Text(p.accountName), s.Account)` |
 | Nama akun kosong | `colAccounts` belum dimuat / `Schedule.Account` ≠ `Title` di list Account | Run OnStart; cek isi kedua kolom |
 | Klik tombol, spinner berputar terus | OnChange belum ditempel, atau `ActionResult` bukan variabel layar itu | tempel OnChange langkah layar itu; cek `ActionResult` |
 | Tombol Absen masih bisa diklik setelah absen | `AbsenceJson` tidak dari koleksi yang di-`Collect` OnChange (mis. dari koleksi lain yang tidak dimuat ulang) | `AbsenceJson` harus dari `colSdAbs` / `colMsAbs` / `colMyAbs` / `colMrdAbs` sesuai layar. Control 1.0.2 juga menyembunyikan tombol begitu canvas membalas ok / sudah tercatat |

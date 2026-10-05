@@ -28,11 +28,7 @@ Nama yang dipakai: layar `scrHome` (Hari ini), `scrMyReports`, `scrMyReportDetai
 nama di app berbeda. Schedule tidak punya kolom nama akun: `Schedule.Account` adalah `Title` di list Account, dan
 namanya diambil dari `colAccounts` (dimuat di App.OnStart). `AccountID` di Report diisi kode akun (`s.Account`).
 
-Kolom **`Account` di Report dan Host Absence adalah kolom Lookup/Choice** (bukan teks), jadi nilainya harus record.
-Formula memakai `LookUp(Choices([@'Report - PBS Hub'].Account), Value = kode || Value = nama)`: mengambil pilihan
-yang cocok dengan kode akun (kalau lookup menampilkan `Title`) atau nama akun (kalau menampilkan `AccountName`).
-Kalau di list kamu `Account` ternyata teks biasa, `Choices` akan error — ganti dengan
-`Account: LookUp(colAccounts, Title = s.Account).AccountName`.
+Kolom **`Account` di Report dan Host Absence adalah teks**: diisi nama akun dari `colAccounts` (`Title = s.Account` → `AccountName`), dengan cadangan `accountName` dari payload lalu kode akun.
 
 | Layar | Variabel `ActionResult` | Koleksi yang diperbarui |
 |---|---|---|

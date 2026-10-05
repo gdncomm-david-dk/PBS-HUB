@@ -141,7 +141,7 @@ def absen(R, col, after=''):
                         With({{row: IfError(With({{_new: Patch('Host Absence - PBS Hub', Defaults('Host Absence - PBS Hub'), {{
                                     ScheduleID: s.Title, HostID: varMe.Title, HostName: Coalesce(LookUp('Host - PBS Hub', Title = varMe.Title).NamaHost, Text(p.hostName)), LiveDate: s.Date,
                                     BrandID: s.BrandID, Platform: {{Value: s.Platform.Value}},
-                                    Account: LookUp(Choices([@'Host Absence - PBS Hub'].Account), Value = s.Account || Value = LookUp(colAccounts, Title = s.Account).AccountName),
+                                    Account: Coalesce(LookUp(colAccounts, Title = s.Account).AccountName, Text(p.accountName), s.Account),
                                     Status: {{Value: "Hadir"}}   // Choice Status di Host Absence; kalau kolomnya teks: Status: "Hadir"
                                 }})}}, Collect(absenceFiltered, _new); _new),
                                 {err('"Status jadwal sudah " & st & ", tapi absen gagal dicatat: " & FirstError.Message')}; Blank())}},
@@ -180,7 +180,7 @@ def submit(R, after):
                 With({{row: With({{_new: Patch('Report - PBS Hub', Defaults('Report - PBS Hub'), {{
                         ScheduleID: s.Title, HostID: varMe.Title, BrandID: s.BrandID, Platform: {{Value: s.Platform.Value}},
                         AccountID: s.Account, HostName: Coalesce(LookUp('Host - PBS Hub', Title = varMe.Title).NamaHost, Text(p.hostName)),   // nama host dari list Host
-                        Account: LookUp(Choices([@'Report - PBS Hub'].Account), Value = LookUp(colAccounts, Title = s.Account).AccountName || Value = s.Account),   // nama akun dari list Account
+                        Account: Coalesce(LookUp(colAccounts, Title = s.Account).AccountName, Text(p.accountName), s.Account),   // nama akun dari list Account
                         LiveDate: s.Date, AbsID: Text(p.absId),
 {ind(METRICS, 24)}
                         ApprovalStatus: {{Value: "Waiting Approval"}}
@@ -226,7 +226,7 @@ def live_break(R, after):
                 With({{rep: With({{_new: Patch('Report - PBS Hub', Defaults('Report - PBS Hub'), {{
                         ScheduleID: s.Title, HostID: varMe.Title, BrandID: s.BrandID, Platform: {{Value: s.Platform.Value}},
                         AccountID: s.Account, HostName: Coalesce(LookUp('Host - PBS Hub', Title = varMe.Title).NamaHost, Text(p.hostName)),   // nama host dari list Host
-                        Account: LookUp(Choices([@'Report - PBS Hub'].Account), Value = LookUp(colAccounts, Title = s.Account).AccountName || Value = s.Account),   // nama akun dari list Account
+                        Account: Coalesce(LookUp(colAccounts, Title = s.Account).AccountName, Text(p.accountName), s.Account),   // nama akun dari list Account
                         LiveDate: s.Date, AbsID: ex.Title,
 {ind(ZERO, 24)},
                         ApprovalStatus: {{Value: "LiveBreak"}}
