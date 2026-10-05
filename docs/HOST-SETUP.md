@@ -605,7 +605,7 @@ If(!IsBlank(Self.ActionPayload),
                                             ScheduleID: s.Title, HostID: varMe.Title, BrandID: s.BrandID, Platform: {Value: s.Platform.Value},
                                             AccountID: s.Account, HostName: Coalesce(LookUp('Host - PBS Hub', Title = varMe.Title).NamaHost, Text(p.hostName)),   // nama host dari list Host
                                             Account: With({nm: Trim(Coalesce(LookUp(colAccounts, Title = s.Account).AccountName, Text(p.accountName), s.Account)), cd: Trim(s.Account)},
-                            Coalesce(LookUp(Choices([@'Report - PBS Hub'].Account), Lower(Trim(Value)) = Lower(nm) || Lower(Trim(Value)) = Lower(cd) || (Len(nm) > 0 && Lower(nm) in Lower(Value)) || (Len(cd) > 0 && Lower(cd) in Lower(Value))), {Value: nm})),   // Choice: cocokkan nama akun, cadangan teks nama
+                                                Coalesce(LookUp(Choices([@'Report - PBS Hub'].Account), Lower(Trim(Value)) = Lower(nm) || Lower(Trim(Value)) = Lower(cd) || (Len(nm) > 0 && Lower(nm) in Lower(Value)) || (Len(cd) > 0 && Lower(cd) in Lower(Value))), {Value: nm})),   // Choice: cocokkan nama akun, cadangan teks nama
                                             LiveDate: s.Date, AbsID: Text(p.absId),
                                             Penjualan: Value(m.Penjualan), Pesanan: Value(m.Pesanan), ProdukTerjual: Value(m.ProdukTerjual),
                                             JumlahPembeli: Value(m.JumlahPembeli), CTR: Value(m.CTR), CTOR: Value(m.CTOR), PeakViewer: Value(m.PeakViewer),
@@ -737,7 +737,7 @@ If(!IsBlank(Self.ActionPayload),
                                             ScheduleID: s.Title, HostID: varMe.Title, BrandID: s.BrandID, Platform: {Value: s.Platform.Value},
                                             AccountID: s.Account, HostName: Coalesce(LookUp('Host - PBS Hub', Title = varMe.Title).NamaHost, Text(p.hostName)),   // nama host dari list Host
                                             Account: With({nm: Trim(Coalesce(LookUp(colAccounts, Title = s.Account).AccountName, Text(p.accountName), s.Account)), cd: Trim(s.Account)},
-                            Coalesce(LookUp(Choices([@'Report - PBS Hub'].Account), Lower(Trim(Value)) = Lower(nm) || Lower(Trim(Value)) = Lower(cd) || (Len(nm) > 0 && Lower(nm) in Lower(Value)) || (Len(cd) > 0 && Lower(cd) in Lower(Value))), {Value: nm})),   // Choice: cocokkan nama akun, cadangan teks nama
+                                                Coalesce(LookUp(Choices([@'Report - PBS Hub'].Account), Lower(Trim(Value)) = Lower(nm) || Lower(Trim(Value)) = Lower(cd) || (Len(nm) > 0 && Lower(nm) in Lower(Value)) || (Len(cd) > 0 && Lower(cd) in Lower(Value))), {Value: nm})),   // Choice: cocokkan nama akun, cadangan teks nama
                                             LiveDate: s.Date, AbsID: ex.Title,
                                             Penjualan: 0, Pesanan: 0, ProdukTerjual: 0, JumlahPembeli: 0, CTR: 0, CTOR: 0, PeakViewer: 0,
                                             'Durasi(Min)': 0, AddToCart: 0, TotalViewer: 0, Comment: 0,
@@ -1331,7 +1331,7 @@ If(!IsBlank(Self.ActionPayload),
                                             ScheduleID: s.Title, HostID: varMe.Title, BrandID: s.BrandID, Platform: {Value: s.Platform.Value},
                                             AccountID: s.Account, HostName: Coalesce(LookUp('Host - PBS Hub', Title = varMe.Title).NamaHost, Text(p.hostName)),   // nama host dari list Host
                                             Account: With({nm: Trim(Coalesce(LookUp(colAccounts, Title = s.Account).AccountName, Text(p.accountName), s.Account)), cd: Trim(s.Account)},
-                            Coalesce(LookUp(Choices([@'Report - PBS Hub'].Account), Lower(Trim(Value)) = Lower(nm) || Lower(Trim(Value)) = Lower(cd) || (Len(nm) > 0 && Lower(nm) in Lower(Value)) || (Len(cd) > 0 && Lower(cd) in Lower(Value))), {Value: nm})),   // Choice: cocokkan nama akun, cadangan teks nama
+                                                Coalesce(LookUp(Choices([@'Report - PBS Hub'].Account), Lower(Trim(Value)) = Lower(nm) || Lower(Trim(Value)) = Lower(cd) || (Len(nm) > 0 && Lower(nm) in Lower(Value)) || (Len(cd) > 0 && Lower(cd) in Lower(Value))), {Value: nm})),   // Choice: cocokkan nama akun, cadangan teks nama
                                             LiveDate: s.Date, AbsID: Text(p.absId),
                                             Penjualan: Value(m.Penjualan), Pesanan: Value(m.Pesanan), ProdukTerjual: Value(m.ProdukTerjual),
                                             JumlahPembeli: Value(m.JumlahPembeli), CTR: Value(m.CTR), CTOR: Value(m.CTOR), PeakViewer: Value(m.PeakViewer),
@@ -1464,7 +1464,7 @@ If(!IsBlank(Self.ActionPayload),
                                             ScheduleID: s.Title, HostID: varMe.Title, BrandID: s.BrandID, Platform: {Value: s.Platform.Value},
                                             AccountID: s.Account, HostName: Coalesce(LookUp('Host - PBS Hub', Title = varMe.Title).NamaHost, Text(p.hostName)),   // nama host dari list Host
                                             Account: With({nm: Trim(Coalesce(LookUp(colAccounts, Title = s.Account).AccountName, Text(p.accountName), s.Account)), cd: Trim(s.Account)},
-                            Coalesce(LookUp(Choices([@'Report - PBS Hub'].Account), Lower(Trim(Value)) = Lower(nm) || Lower(Trim(Value)) = Lower(cd) || (Len(nm) > 0 && Lower(nm) in Lower(Value)) || (Len(cd) > 0 && Lower(cd) in Lower(Value))), {Value: nm})),   // Choice: cocokkan nama akun, cadangan teks nama
+                                                Coalesce(LookUp(Choices([@'Report - PBS Hub'].Account), Lower(Trim(Value)) = Lower(nm) || Lower(Trim(Value)) = Lower(cd) || (Len(nm) > 0 && Lower(nm) in Lower(Value)) || (Len(cd) > 0 && Lower(cd) in Lower(Value))), {Value: nm})),   // Choice: cocokkan nama akun, cadangan teks nama
                                             LiveDate: s.Date, AbsID: ex.Title,
                                             Penjualan: 0, Pesanan: 0, ProdukTerjual: 0, JumlahPembeli: 0, CTR: 0, CTOR: 0, PeakViewer: 0,
                                             'Durasi(Min)': 0, AddToCart: 0, TotalViewer: 0, Comment: 0,

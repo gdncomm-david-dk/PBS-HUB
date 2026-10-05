@@ -180,8 +180,8 @@ def submit(R, after):
                 With({{row: With({{_new: Patch('Report - PBS Hub', Defaults('Report - PBS Hub'), {{
                         ScheduleID: s.Title, HostID: varMe.Title, BrandID: s.BrandID, Platform: {{Value: s.Platform.Value}},
                         AccountID: s.Account, HostName: Coalesce(LookUp('Host - PBS Hub', Title = varMe.Title).NamaHost, Text(p.hostName)),   // nama host dari list Host
-                        Account: With({nm: Trim(Coalesce(LookUp(colAccounts, Title = s.Account).AccountName, Text(p.accountName), s.Account)), cd: Trim(s.Account)},
-                            Coalesce(LookUp(Choices([@'Report - PBS Hub'].Account), Lower(Trim(Value)) = Lower(nm) || Lower(Trim(Value)) = Lower(cd) || (Len(nm) > 0 && Lower(nm) in Lower(Value)) || (Len(cd) > 0 && Lower(cd) in Lower(Value))), {Value: nm})),   // Choice: cocokkan nama akun, cadangan teks nama
+                        Account: With({{nm: Trim(Coalesce(LookUp(colAccounts, Title = s.Account).AccountName, Text(p.accountName), s.Account)), cd: Trim(s.Account)}},
+                            Coalesce(LookUp(Choices([@'Report - PBS Hub'].Account), Lower(Trim(Value)) = Lower(nm) || Lower(Trim(Value)) = Lower(cd) || (Len(nm) > 0 && Lower(nm) in Lower(Value)) || (Len(cd) > 0 && Lower(cd) in Lower(Value))), {{Value: nm}})),   // Choice: cocokkan nama akun, cadangan teks nama
                         LiveDate: s.Date, AbsID: Text(p.absId),
 {ind(METRICS, 24)}
                         ApprovalStatus: {{Value: "Waiting Approval"}}
@@ -227,8 +227,8 @@ def live_break(R, after):
                 With({{rep: With({{_new: Patch('Report - PBS Hub', Defaults('Report - PBS Hub'), {{
                         ScheduleID: s.Title, HostID: varMe.Title, BrandID: s.BrandID, Platform: {{Value: s.Platform.Value}},
                         AccountID: s.Account, HostName: Coalesce(LookUp('Host - PBS Hub', Title = varMe.Title).NamaHost, Text(p.hostName)),   // nama host dari list Host
-                        Account: With({nm: Trim(Coalesce(LookUp(colAccounts, Title = s.Account).AccountName, Text(p.accountName), s.Account)), cd: Trim(s.Account)},
-                            Coalesce(LookUp(Choices([@'Report - PBS Hub'].Account), Lower(Trim(Value)) = Lower(nm) || Lower(Trim(Value)) = Lower(cd) || (Len(nm) > 0 && Lower(nm) in Lower(Value)) || (Len(cd) > 0 && Lower(cd) in Lower(Value))), {Value: nm})),   // Choice: cocokkan nama akun, cadangan teks nama
+                        Account: With({{nm: Trim(Coalesce(LookUp(colAccounts, Title = s.Account).AccountName, Text(p.accountName), s.Account)), cd: Trim(s.Account)}},
+                            Coalesce(LookUp(Choices([@'Report - PBS Hub'].Account), Lower(Trim(Value)) = Lower(nm) || Lower(Trim(Value)) = Lower(cd) || (Len(nm) > 0 && Lower(nm) in Lower(Value)) || (Len(cd) > 0 && Lower(cd) in Lower(Value))), {{Value: nm}})),   // Choice: cocokkan nama akun, cadangan teks nama
                         LiveDate: s.Date, AbsID: ex.Title,
 {ind(ZERO, 24)},
                         ApprovalStatus: {{Value: "LiveBreak"}}
