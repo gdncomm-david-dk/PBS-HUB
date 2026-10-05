@@ -424,7 +424,7 @@ Set(varSdLoading, false);
 | Properti | Nilai |
 |---|---|
 | `ScheduleId` | `varSchId` (Title `SCD-…`, atau ID item) |
-| `SchedulesJson` | seperti MySchedule, dari `colSdSch` |
+| `SchedulesJson` | `JSON(ForAll(colSdSch, {ID: ID, Title: Title, Date: Text(Date, "yyyy-mm-dd"), StartTime: StartTime, EndTime: EndTime, BrandID: BrandID, StudioID: StudioID, HostID: HostID, Platform: Platform.Value, AccountID: Account, AccountName: With({a: Account}, LookUp(colAccounts, Title = a).AccountName), LiveBreak: Coalesce(LiveBreak.Value, "No"), Position: Position.Value, Status: Status.Value}), JSONFormat.Compact)` (wajib ada `AccountName`, kalau tidak kolom Akun menampilkan kode akun atau kosong) |
 | `ClockInJson` | `JSON(ForAll(colSdClk, {ID: ID, ClockInDate: Text(ClockInDate, "yyyy-mm-dd"), CheckInTime: CheckInTime, CheckOutTime: CheckOutTime, ClockOutDate: Text(ClockOutDate, "yyyy-mm-dd"), ClockInTime: ClockInTime, CheckInOffice: CheckInOffice, IsInsideGeofence: IsInsideGeofence}), JSONFormat.Compact)` |
 | `AbsenceJson` | seperti HostDashboard, plus `CheckInTime` (jam absen yang ditampilkan) |
 | `ReportsJson` | field Report lengkap seperti MyReportDetail (12 metrik, `ApprovalStatus, ApprovalComment, Approver, Modified, Playbook`) — form revisi membaca angka lama dari sini |
