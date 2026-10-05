@@ -688,7 +688,7 @@ Nama yang dipakai: layar `scrHome` (Hari ini), `scrMyReports`, `scrMyReportDetai
 nama di app berbeda. Schedule tidak punya kolom nama akun: `Schedule.Account` adalah `Title` di list Account, dan
 namanya diambil dari `colAccounts` (dimuat di App.OnStart). `AccountID` di Report diisi kode akun (`s.Account`).
 
-Kolom **`Account` di Report dan Host Absence adalah teks**: diisi nama akun dari `colAccounts` (`Title = s.Account` → `AccountName`), dengan cadangan `accountName` dari payload lalu kode akun.
+Kolom **`Account` di Report adalah Choice** (dicocokkan ke pilihan lewat nama akun, tanpa peduli huruf besar-kecil/spasi) dan **di Host Absence teks**: diisi nama akun dari `colAccounts` (`Title = s.Account` → `AccountName`), dengan cadangan `accountName` dari payload lalu kode akun.
 
 | Layar | Variabel `ActionResult` | Koleksi yang diperbarui |
 |---|---|---|
@@ -873,7 +873,8 @@ If(!IsBlank(Self.ActionPayload),
                                     With({row: With({_new: Patch('Report - PBS Hub', Defaults('Report - PBS Hub'), {
                                             ScheduleID: s.Title, HostID: varMe.Title, BrandID: s.BrandID, Platform: {Value: s.Platform.Value},
                                             AccountID: s.Account, HostName: Coalesce(LookUp('Host - PBS Hub', Title = varMe.Title).NamaHost, Text(p.hostName)),   // nama host dari list Host
-                                            Account: Coalesce(LookUp(colAccounts, Title = s.Account).AccountName, Text(p.accountName), s.Account),   // nama akun dari list Account
+                                            Account: With({nm: Trim(Coalesce(LookUp(colAccounts, Title = s.Account).AccountName, Text(p.accountName), s.Account)), cd: Trim(s.Account)},
+                            Coalesce(LookUp(Choices([@'Report - PBS Hub'].Account), Lower(Trim(Value)) = Lower(nm) || Lower(Trim(Value)) = Lower(cd) || (Len(nm) > 0 && Lower(nm) in Lower(Value)) || (Len(cd) > 0 && Lower(cd) in Lower(Value))), {Value: nm})),   // Choice: cocokkan nama akun, cadangan teks nama
                                             LiveDate: s.Date, AbsID: Text(p.absId),
                                             Penjualan: Value(m.Penjualan), Pesanan: Value(m.Pesanan), ProdukTerjual: Value(m.ProdukTerjual),
                                             JumlahPembeli: Value(m.JumlahPembeli), CTR: Value(m.CTR), CTOR: Value(m.CTOR), PeakViewer: Value(m.PeakViewer),
@@ -1005,7 +1006,8 @@ If(!IsBlank(Self.ActionPayload),
                                     With({rep: With({_new: Patch('Report - PBS Hub', Defaults('Report - PBS Hub'), {
                                             ScheduleID: s.Title, HostID: varMe.Title, BrandID: s.BrandID, Platform: {Value: s.Platform.Value},
                                             AccountID: s.Account, HostName: Coalesce(LookUp('Host - PBS Hub', Title = varMe.Title).NamaHost, Text(p.hostName)),   // nama host dari list Host
-                                            Account: Coalesce(LookUp(colAccounts, Title = s.Account).AccountName, Text(p.accountName), s.Account),   // nama akun dari list Account
+                                            Account: With({nm: Trim(Coalesce(LookUp(colAccounts, Title = s.Account).AccountName, Text(p.accountName), s.Account)), cd: Trim(s.Account)},
+                            Coalesce(LookUp(Choices([@'Report - PBS Hub'].Account), Lower(Trim(Value)) = Lower(nm) || Lower(Trim(Value)) = Lower(cd) || (Len(nm) > 0 && Lower(nm) in Lower(Value)) || (Len(cd) > 0 && Lower(cd) in Lower(Value))), {Value: nm})),   // Choice: cocokkan nama akun, cadangan teks nama
                                             LiveDate: s.Date, AbsID: ex.Title,
                                             Penjualan: 0, Pesanan: 0, ProdukTerjual: 0, JumlahPembeli: 0, CTR: 0, CTOR: 0, PeakViewer: 0,
                                             'Durasi(Min)': 0, AddToCart: 0, TotalViewer: 0, Comment: 0,
@@ -1437,7 +1439,8 @@ If(!IsBlank(Self.ActionPayload),
                                     With({row: With({_new: Patch('Report - PBS Hub', Defaults('Report - PBS Hub'), {
                                             ScheduleID: s.Title, HostID: varMe.Title, BrandID: s.BrandID, Platform: {Value: s.Platform.Value},
                                             AccountID: s.Account, HostName: Coalesce(LookUp('Host - PBS Hub', Title = varMe.Title).NamaHost, Text(p.hostName)),   // nama host dari list Host
-                                            Account: Coalesce(LookUp(colAccounts, Title = s.Account).AccountName, Text(p.accountName), s.Account),   // nama akun dari list Account
+                                            Account: With({nm: Trim(Coalesce(LookUp(colAccounts, Title = s.Account).AccountName, Text(p.accountName), s.Account)), cd: Trim(s.Account)},
+                            Coalesce(LookUp(Choices([@'Report - PBS Hub'].Account), Lower(Trim(Value)) = Lower(nm) || Lower(Trim(Value)) = Lower(cd) || (Len(nm) > 0 && Lower(nm) in Lower(Value)) || (Len(cd) > 0 && Lower(cd) in Lower(Value))), {Value: nm})),   // Choice: cocokkan nama akun, cadangan teks nama
                                             LiveDate: s.Date, AbsID: Text(p.absId),
                                             Penjualan: Value(m.Penjualan), Pesanan: Value(m.Pesanan), ProdukTerjual: Value(m.ProdukTerjual),
                                             JumlahPembeli: Value(m.JumlahPembeli), CTR: Value(m.CTR), CTOR: Value(m.CTOR), PeakViewer: Value(m.PeakViewer),
@@ -1568,7 +1571,8 @@ If(!IsBlank(Self.ActionPayload),
                                     With({rep: With({_new: Patch('Report - PBS Hub', Defaults('Report - PBS Hub'), {
                                             ScheduleID: s.Title, HostID: varMe.Title, BrandID: s.BrandID, Platform: {Value: s.Platform.Value},
                                             AccountID: s.Account, HostName: Coalesce(LookUp('Host - PBS Hub', Title = varMe.Title).NamaHost, Text(p.hostName)),   // nama host dari list Host
-                                            Account: Coalesce(LookUp(colAccounts, Title = s.Account).AccountName, Text(p.accountName), s.Account),   // nama akun dari list Account
+                                            Account: With({nm: Trim(Coalesce(LookUp(colAccounts, Title = s.Account).AccountName, Text(p.accountName), s.Account)), cd: Trim(s.Account)},
+                            Coalesce(LookUp(Choices([@'Report - PBS Hub'].Account), Lower(Trim(Value)) = Lower(nm) || Lower(Trim(Value)) = Lower(cd) || (Len(nm) > 0 && Lower(nm) in Lower(Value)) || (Len(cd) > 0 && Lower(cd) in Lower(Value))), {Value: nm})),   // Choice: cocokkan nama akun, cadangan teks nama
                                             LiveDate: s.Date, AbsID: ex.Title,
                                             Penjualan: 0, Pesanan: 0, ProdukTerjual: 0, JumlahPembeli: 0, CTR: 0, CTOR: 0, PeakViewer: 0,
                                             'Durasi(Min)': 0, AddToCart: 0, TotalViewer: 0, Comment: 0,
