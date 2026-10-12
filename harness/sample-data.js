@@ -236,7 +236,8 @@
       const before = score; score = Math.max(0, Math.min(200, score + Point)); n++;
       const row = { ID: 7000 + Object.keys(scoreTx).length * 20 + n, TransactionID: `TX-2026${md.replace("-", "")}-10${String(n).padStart(2, "0")}00`, HostID: hostId, RuleID, TransactionType: { Value: TransactionType }, Point,
         ScoreBefore: before, ScoreAfter: score, Reason, Notes: voided ? "Salah host, dibatalkan" : Point < 0 ? "Dicatat dari laporan PIC studio" : "", Status: { Value: voided ? "Void" : "Active" },
-        CreatedDate: `2026-${md}T10:${String(n * 3).padStart(2, "0")}:00`, CreatedBy: { DisplayName: "Bayu Prasetyo", Email: "bayu@example.com" } };
+        CreatedDate: `2026-${md}T10:${String(n * 3).padStart(2, "0")}:00`, CreatedBy: { DisplayName: "Bayu Prasetyo", Email: "bayu@example.com" },
+        Evidence: Point < 0 && !voided ? `https://example.sharepoint.com/sites/StudioTeamBlibli/PBS%20Power%20Apps/Credit%20Score/${hostId}/2026-${md.slice(0, 2)}/${encodeURIComponent(Reason)}%20-%20TX.jpg` : "" };
       if (voided) score = before; // the void is recorded on the row; CurrentScore is not recomputed in v1
       return row;
     });

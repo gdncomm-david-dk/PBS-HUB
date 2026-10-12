@@ -33,7 +33,7 @@ import {
   periodKey,
   periodOf,
 } from "../../../shared/payroll";
-import { BandChart } from "../../../shared/scoreUi";
+import { BandChart, EvidenceLinks } from "../../../shared/scoreUi";
 import {
   Badge,
   Button,
@@ -302,7 +302,13 @@ export function CreditScoreView(props: CreditScoreProps): React.ReactElement {
                       <Skeleton w={60} />
                     </div>
                   ))
-                : paged.rows.map((t) => <TxRow key={t.id || t.txId} t={t} />)}
+                : paged.rows.map((t) => (
+                    <TxRow
+                      key={t.id || t.txId}
+                      t={t}
+                      onOpen={(url) => action.fire("OPEN_EVIDENCE", { url, transactionId: t.txId })}
+                    />
+                  ))}
             </div>
 
             {listLoading ? null : visible.length === 0 ? (
@@ -523,7 +529,7 @@ function Spark(props: { points: ScorePoint[] }): React.ReactElement {
   );
 }
 
-function TxRow(props: { t: ScoreTx }): React.ReactElement {
+function TxRow(props: { t: ScoreTx; onOpen: (url: string) => void }): React.ReactElement {
   const { t } = props;
   const up = (t.point ?? 0) >= 0;
   return (
@@ -557,6 +563,7 @@ function TxRow(props: { t: ScoreTx }): React.ReactElement {
           </Badge>
         ) : null}
         {t.notes ? <span className="hc-tx-n">{t.notes}</span> : null}
+        <EvidenceLinks urls={t.evidence} onOpen={props.onOpen} />
         <span
           className="pbs-muted"
           style={{ display: "block", fontSize: 11.5 }}

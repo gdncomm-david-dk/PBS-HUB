@@ -1836,6 +1836,7 @@ If(!IsBlank(Self.ActionPayload),
                 Switch(act,
                     "PERIOD_CHANGED", Set(varCsPeriod, Text(p.period)),
                     "FILTER_CHANGED", Set(varCsFilter, Text(p.filter)),
+                    "OPEN_EVIDENCE", Launch(Text(p.url)),
                     "LOAD_MORE",
                         Set(varCsTop, varCsTop + 200);
                         Set(varCsLoading, true);

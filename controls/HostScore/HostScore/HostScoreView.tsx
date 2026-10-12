@@ -47,7 +47,12 @@ import {
   signed,
   signedPoint,
   VOID_REASON,
+  evidencePath,
+  evidenceRequired,
+  evidenceRuleOf,
 } from "../../../shared/scoreAdmin";
+import { fmtBytes, prepareImage } from "../../../shared/hostImage";
+import { EvidenceLinks } from "../../../shared/scoreUi";
 import {
   Badge,
   byTime,
@@ -79,6 +84,8 @@ export interface HostScoreProps {
   loading: boolean;
   now: Date;
   action: UseActionResult;
+  /** Evidence files for the next ADD_SCORE (JSON array on the UploadData output). */
+  setUpload: (data: string) => void;
 }
 
 type Dialog =
@@ -173,6 +180,7 @@ export function HostScoreView(props: HostScoreProps): React.ReactElement {
           bands={bands}
           now={props.now}
           action={action}
+          setUpload={props.setUpload}
           onClose={() => setDialog(null)}
         />
       ) : dialog?.kind === "void" ? (
@@ -876,7 +884,12 @@ function LedgerPage(
                             : "",
                         ]
                           .filter(Boolean)
-                          .join(" · ") || <span className="pbs-muted">—</span>}
+                          .join(" · ") ||
+                          (t.evidence.length ? null : <span className="pbs-muted">—</span>)}
+                        <EvidenceLinks
+                          urls={t.evidence}
+                          onOpen={(url) => action.fire("OPEN_EVIDENCE", { url, transactionId: t.txId, hostId: h?.hostId ?? "" })}
+                        />
                       </td>
                       <td
                         className="keep"
@@ -1017,6 +1030,7 @@ function ScoreModal(props: {
   bands: ScoreBand[];
   now: Date;
   action: UseActionResult;
+  setUpload: (data: string) => void;
   onClose: () => void;
 }): React.ReactElement {
   const { action, rules, bands } = props;
@@ -1029,7 +1043,11 @@ function ScoreModal(props: {
   const [overrideReason, setOverrideReason] = React.useState("");
   const [notes, setNotes] = React.useState("");
   const [ack, setAck] = React.useState(false);
+  const [files, setFiles] = React.useState<PickedFile[]>([]);
+  const [fileBusy, setFileBusy] = React.useState(false);
   const pending = action.pending?.action === "ADD_SCORE";
+  const evRule = evidenceRuleOf(props.ctx.config.scoreEvidenceRequired);
+  const evRoot = typeof props.ctx.config.scoreEvidenceFolder === "string" && props.ctx.config.scoreEvidenceFolder.trim() ? props.ctx.config.scoreEvidenceFolder.trim() : "Credit Score";
 
   const categories = categoriesFor(rules, type);
   const options = rulesFor(rules, type, category);
@@ -1055,6 +1073,8 @@ function ScoreModal(props: {
         bigPenalty,
       })
     : ["host"];
+  if (h && evidenceRequired(evRule, type) && files.length === 0) missing.push("bukti");
+  if (fileBusy) missing.push("bukti sedang diproses");
 
   const pickType = (t: TxType) => {
     setType(t);
@@ -1084,12 +1104,20 @@ function ScoreModal(props: {
       pending
     )
       return;
+    const txId = newTransactionId(props.now);
+    const evidenceMeta = files.map((f, i) => ({
+      ...evidencePath(evRoot, h.name || h.code || h.hostId, props.now, rule.name, txId, i, f.ext),
+      mimeType: f.mimeType,
+      bytes: f.bytes,
+    }));
+    // The files ride on UploadData (one JSON array, same order as payload.evidence); ActionPayload stays small.
+    props.setUpload(evidenceMeta.length ? JSON.stringify(evidenceMeta.map((m, i) => ({ path: m.path, fileName: m.fileName, mimeType: m.mimeType, base64: files[i]?.base64 ?? "" }))) : "");
     action.dispatch("ADD_SCORE", {
       hostId: h.hostId,
       hostItemId: h.id,
       hostCode: h.code,
       hostName: h.name,
-      transactionId: newTransactionId(props.now),
+      transactionId: txId,
       ruleId: rule.id,
       ruleName: rule.name,
       category: rule.category,
@@ -1111,6 +1139,8 @@ function ScoreModal(props: {
       scoreAfter: preview.after,
       bandBefore: preview.bandBefore?.label ?? "",
       bandAfter: preview.bandAfter?.label ?? "",
+      evidence: evidenceMeta,
+      evidenceCount: evidenceMeta.length,
     });
   };
 
@@ -1359,6 +1389,14 @@ function ScoreModal(props: {
             placeholder="Tulis kejadiannya, tanggal, dan sesi yang terdampak…"
           />
         </div>
+        <EvidencePicker
+          files={files}
+          setFiles={setFiles}
+          setBusy={setFileBusy}
+          disabled={pending}
+          required={evidenceRequired(evRule, type)}
+          folder={h ? evidencePath(evRoot, h.name || h.code || h.hostId, props.now, rule?.name || "Nama pelanggaran", "TX-…", 0, "jpg").display.replace(/\/[^/]*$/, "/") : `${evRoot}/<host>/<bulan>/`}
+        />
         <div className="pbs-sc-hint">
           Transaksi ini masuk ledger atas nama {props.ctx.userName || "Anda"}{" "}
           dan tidak bisa disunting setelah tersimpan — hanya bisa dibatalkan.
@@ -1536,5 +1574,130 @@ function VoidModal(props: {
         </Button>
       </div>
     </Overlay>
+  );
+}
+
+// ---- evidence picker --------------------------------------------------------------------------
+
+interface PickedFile {
+  key: string;
+  name: string;
+  ext: string;
+  mimeType: string;
+  base64: string;
+  bytes: number;
+  preview: string;
+}
+
+const MAX_EVIDENCE = 5;
+const MAX_PDF_BYTES = 4 * 1024 * 1024;
+
+function readPdf(file: File): Promise<PickedFile> {
+  return new Promise((resolve, reject) => {
+    if (file.size > MAX_PDF_BYTES) {
+      reject(new Error(`${file.name} lebih dari ${fmtBytes(MAX_PDF_BYTES)}. Kecilkan PDF-nya atau kirim screenshot.`));
+      return;
+    }
+    const r = new FileReader();
+    r.onload = () => {
+      const url = String(r.result ?? "");
+      const base64 = url.slice(url.indexOf(",") + 1);
+      resolve({ key: `${file.name}-${file.size}-${file.lastModified}`, name: file.name, ext: "pdf", mimeType: "application/pdf", base64, bytes: file.size, preview: "" });
+    };
+    r.onerror = () => reject(new Error(`${file.name} tidak bisa dibaca.`));
+    r.readAsDataURL(file);
+  });
+}
+
+async function readEvidence(file: File): Promise<PickedFile> {
+  if (file.type === "application/pdf" || /\.pdf$/i.test(file.name)) return readPdf(file);
+  // Screenshots and photos: a JPEG that stays readable but keeps the payload small.
+  const img = await prepareImage(file, 2000, 900);
+  return { key: `${file.name}-${file.size}-${file.lastModified}`, name: file.name, ext: "jpg", mimeType: "image/jpeg", base64: img.base64, bytes: img.bytes, preview: img.dataUrl };
+}
+
+function EvidencePicker(props: {
+  files: PickedFile[];
+  setFiles: (f: PickedFile[]) => void;
+  setBusy: (b: boolean) => void;
+  disabled: boolean;
+  required: boolean;
+  folder: string;
+}): React.ReactElement {
+  const input = React.useRef<HTMLInputElement>(null);
+  const [busy, setBusy] = React.useState(false);
+  const [error, setError] = React.useState("");
+  const add = async (list: FileList | null) => {
+    if (!list || list.length === 0) return;
+    setError("");
+    setBusy(true);
+    props.setBusy(true);
+    const next = [...props.files];
+    try {
+      for (const f of Array.from(list)) {
+        if (next.length >= MAX_EVIDENCE) {
+          setError(`Maksimal ${MAX_EVIDENCE} file bukti per transaksi.`);
+          break;
+        }
+        const picked = await readEvidence(f);
+        if (!next.some((x) => x.key === picked.key)) next.push(picked);
+      }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "File tidak bisa dibaca.");
+    } finally {
+      props.setFiles(next);
+      setBusy(false);
+      props.setBusy(false);
+      if (input.current) input.current.value = "";
+    }
+  };
+  return (
+    <div className="pbs-field">
+      <span className="pbs-label">
+        Bukti{props.required ? " · wajib" : " · opsional"}
+      </span>
+      {props.files.length ? (
+        <ul className="pbs-sc-files">
+          {props.files.map((f, i) => (
+            <li key={f.key}>
+              {f.preview ? <img src={f.preview} alt="" /> : <span className="pbs-sc-file-ic"><Icon name="file" size={16} /></span>}
+              <span className="pbs-sc-file-n">
+                <b>{f.name}</b>
+                <span className="pbs-muted">{fmtBytes(f.bytes)}{f.mimeType === "image/jpeg" ? " · disimpan sebagai JPG" : ""}</span>
+              </span>
+              <button
+                type="button"
+                className="pbs-link"
+                disabled={props.disabled || busy}
+                onClick={() => props.setFiles(props.files.filter((_, j) => j !== i))}
+              >
+                Hapus
+              </button>
+            </li>
+          ))}
+        </ul>
+      ) : null}
+      <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+        <Button variant="secondary" size="sm" disabled={props.disabled || busy || props.files.length >= MAX_EVIDENCE} onClick={() => input.current?.click()}>
+          {busy ? <Spinner small /> : <Icon name="upload" size={14} />} {props.files.length ? "Tambah file" : "Pilih file"}
+        </Button>
+        <span className="pbs-muted" style={{ fontSize: 12 }}>
+          Screenshot, foto atau PDF · maks {MAX_EVIDENCE} file
+        </span>
+      </div>
+      <input
+        ref={input}
+        type="file"
+        accept="image/*,application/pdf,.pdf"
+        multiple
+        hidden
+        onChange={(e) => void add(e.target.files)}
+      />
+      {error ? <InfoBanner tone="err">{error}</InfoBanner> : null}
+      <div className="pbs-sc-hint">
+        Disimpan di SharePoint <span className="pbs-mono">{props.folder}</span>. Host bisa membuka bukti ini dari
+        aplikasi host (Skor saya).
+      </div>
+    </div>
   );
 }
