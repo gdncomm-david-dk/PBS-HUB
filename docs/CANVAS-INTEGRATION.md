@@ -1106,7 +1106,7 @@ dengan `CurrentScore`. Yang perlu disiapkan di SharePoint:
 - Opsional di Context `config`: `bigPenaltyPoints` (default 10 — pengurangan lebih dari ini, atau yang membuat host
   turun band, wajib dicentang *Saya sudah memberi tahu host dan atasannya*) dan `scheduleMinScore` (kalau diisi,
   form memperingatkan bahwa host di bawah skor itu tidak bisa dijadwalkan).
-- **Bukti (evidence).** Tambahkan kolom **`Evidence`** (Multiple lines of text, plain) di
+- **Bukti (evidence)** — langkah setup lengkap: [SETUP-CREDIT-SCORE-EVIDENCE.md](SETUP-CREDIT-SCORE-EVIDENCE.md). Tambahkan kolom **`Evidence`** (Multiple lines of text, plain) di
   `HostScoreTransactions`: berisi link file SharePoint, satu per baris. Form *Tambah/Kurangi poin* bisa melampirkan
   sampai 5 file (foto dikompres jadi JPEG ±900 KB, PDF maks. 4 MB); file diunggah lewat Graph ke library
   *PBS Power Apps*:
