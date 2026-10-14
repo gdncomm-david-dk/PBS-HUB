@@ -1,6 +1,6 @@
 # PBS Hub — canvas formulas (copy sheet)
 
-All `Items`, inputs and `OnChange` for the three screens, for **Studio Hub 1.8.0** and **Schedule Hub 1.7.1**.
+All `Items`, inputs and `OnChange` for the three screens, for **Studio Hub 1.8.0** and **Schedule Hub 1.8.0**.
 Explanations and troubleshooting are in [`SETUP.md`](SETUP.md); this file only collects what you paste.
 
 For every dataset, also open **Fields → Edit** and add the columns the property description lists.
@@ -140,10 +140,10 @@ The control sends `SET_FILTER` with a period two weeks wider than the screen, so
 | Property | Formula |
 |---|---|
 | `schedules` | `Filter('Schedule - PBS Hub', Date >= DateAdd(varSchedStart, -1, TimeUnit.Days) && Date <= DateAdd(varSchedEnd, 1, TimeUnit.Days))` |
-| `brands` | `ShowColumns('Brand - PBS Hub', ID, Title, NamaBrand, Status)` (add `BrandID` if the list has it) |
+| `brands` | `ShowColumns('Brand - PBS Hub', ID, Title, NamaBrand, Status)` (add `BrandID` if the list has it, and `Alias` once that column exists — Parse PDF) |
 | `accounts` | `'Account - PBS Hub'` |
 | `studios` | `'Studio - PBS Hub'` |
-| `hosts` | `ShowColumns('Host - PBS Hub', ID, Title, NamaHost, HostName, Status)` (add `HostID` if the list has it) |
+| `hosts` | `ShowColumns('Host - PBS Hub', ID, Title, NamaHost, HostName, Status)` (add `HostID` if the list has it, and `Alias` once that column exists — Parse PDF) |
 | `reports` | `Filter('Report - PBS Hub', LiveDate >= varSchedStart && LiveDate <= varSchedEnd)` |
 | `absences` | `Filter('Host Absence - PBS Hub', LiveDate >= varSchedStart && LiveDate <= varSchedEnd)` |
 | `clockins` | `ShowColumns(Filter('Clock In - PBS Hub', ClockInDate >= varSchedStart && ClockInDate <= varSchedEnd), Title, HostID, ClockInDate, CheckInTime, CheckOutTime, ClockInTime, ClockOutTime, IsInsideGeofence, CheckInOffice, Status)` |
@@ -250,7 +250,8 @@ If(rid <> varLastSchedRid,
                 Refresh('Schedule - PBS Hub'),
                 Set(varSchedOk, false); Set(varSchedErr, FirstError.Message)),
 
-        // List view: tick sessions, then Duplikat. Each item carries the CREATE_SCHEDULE fields plus the new date.
+        // List view (Duplikat) and Parse PDF/Excel (source "PARSE"): each item carries the CREATE_SCHEDULE fields
+        // plus shift and campaign. Up to 150 items per call; a bigger parse arrives in several calls.
         "BULK_CREATE_SCHEDULE",
             IfError(
                 ForAll(Table(p.items) As it,
@@ -262,9 +263,10 @@ If(rid <> varLastSchedRid,
                             JamLive: Value(it.Value.jamLive), TotalLiveTime: Value(it.Value.jamLive),
                             Position: { Value: Text(it.Value.position) },
                             TotalAccount: Value(it.Value.totalAccount),
+                            Shift: Text(it.Value.shift), CampaignName: Text(it.Value.campaign),   // Shift is Text; a Choice needs { Value: Text(it.Value.shift) }
                             Status: { Value: "Planned" } }) },
                         Patch('Schedule - PBS Hub', n, { Title: "SCD-" & n.ID })));
-                Set(varSchedMsg, CountRows(Table(p.items)) & " jadwal berhasil diduplikat.");
+                Set(varSchedMsg, CountRows(Table(p.items)) & If(Text(p.source) = "PARSE", " jadwal dibuat dari file.", " jadwal berhasil diduplikat."));
                 Refresh('Schedule - PBS Hub'); true,
                 Set(varSchedOk, false); Set(varSchedErr, FirstError.Message)),
 
@@ -433,7 +435,8 @@ If(rid <> varLastSchedRid,
                 Refresh('Schedule - PBS Hub'),
                 Set(varSchedOk, false); Set(varSchedErr, FirstError.Message)),
 
-        // List view: tick sessions, then Duplikat. Each item carries the CREATE_SCHEDULE fields plus the new date.
+        // List view (Duplikat) and Parse PDF/Excel (source "PARSE"): each item carries the CREATE_SCHEDULE fields
+        // plus shift and campaign. Up to 150 items per call; a bigger parse arrives in several calls.
         "BULK_CREATE_SCHEDULE",
             IfError(
                 ForAll(Table(p.items) As it,
@@ -445,9 +448,10 @@ If(rid <> varLastSchedRid,
                             JamLive: Value(it.Value.jamLive), TotalLiveTime: Value(it.Value.jamLive),
                             Position: { Value: Text(it.Value.position) },
                             TotalAccount: Value(it.Value.totalAccount),
+                            Shift: Text(it.Value.shift), CampaignName: Text(it.Value.campaign),   // Shift is Text; a Choice needs { Value: Text(it.Value.shift) }
                             Status: { Value: "Planned" } }) },
                         Patch('Schedule - PBS Hub', n, { Title: "SCD-" & n.ID })));
-                Set(varSchedMsg, CountRows(Table(p.items)) & " jadwal berhasil diduplikat.");
+                Set(varSchedMsg, CountRows(Table(p.items)) & If(Text(p.source) = "PARSE", " jadwal dibuat dari file.", " jadwal berhasil diduplikat."));
                 Refresh('Schedule - PBS Hub'); true,
                 Set(varSchedOk, false); Set(varSchedErr, FirstError.Message)),
 

@@ -120,8 +120,14 @@ function extract(grid: Map<number, Map<number, Cell>>, range: { c0: number; r0: 
     return { source, headers, rows, firstRow: range.r0 + 1 };
 }
 
+interface Book {
+    files: Record<string, Uint8Array>;
+    shared: string[];
+    sheets: { name: string; path: string; hidden: boolean }[];
+}
+
 /** Throws with a Bahasa Indonesia message when the file is not a readable workbook. */
-export function readWorkbook(bytes: Uint8Array, preferTable = "Table1"): SheetTable {
+function openBook(bytes: Uint8Array): Book {
     let files: Record<string, Uint8Array>;
     try {
         files = unzipSync(bytes);
@@ -139,18 +145,55 @@ export function readWorkbook(bytes: Uint8Array, preferTable = "Table1"): SheetTa
     }
     const wb = strFromU8(wbXml);
     const wbRels = rels(files, "xl/workbook.xml");
-    const sheets: { name: string; path: string }[] = [];
+    const sheets: { name: string; path: string; hidden: boolean }[] = [];
     const sre = /<sheet\b[^>]*>/g;
     let s: RegExpExecArray | null;
     while ((s = sre.exec(wb))) {
         const rid = attr(s[0], "r:id");
         const path = rid ? wbRels.get(rid) : undefined;
-        if (path && files[path]) sheets.push({ name: attr(s[0], "name") ?? path, path });
+        if (path && files[path]) sheets.push({ name: attr(s[0], "name") ?? path, path, hidden: /hidden/i.test(attr(s[0], "state") ?? "") });
     }
     if (!sheets.length) throw new Error("Workbook tidak punya sheet.");
+    return { files, shared, sheets };
+}
+
+export interface Merge {
+    r0: number; // 1-based rows, 0-based columns, inclusive
+    c0: number;
+    r1: number;
+    c1: number;
+}
+
+export interface SheetGrid {
+    name: string;
+    /** row (1-based) → column (0-based) → value */
+    grid: Map<number, Map<number, Cell>>;
+    merges: Merge[];
+}
+
+/** Every visible sheet with its merged ranges, for free-form schedule layouts (one block per brand). */
+export function readSheets(bytes: Uint8Array): SheetGrid[] {
+    const { files, shared, sheets } = openBook(bytes);
+    // Hidden sheets are skipped: they are lookups or old copies, not schedules.
+    return sheets.filter((sh) => !sh.hidden).map((sh) => {
+        const xml = strFromU8(files[sh.path]);
+        const merges: Merge[] = [];
+        const re = /<mergeCell\b[^>]*>/g;
+        let m: RegExpExecArray | null;
+        while ((m = re.exec(xml))) {
+            const ref = attr(m[0], "ref");
+            if (ref) merges.push(parseRange(ref));
+        }
+        return { name: sh.name, grid: readSheet(xml, shared), merges };
+    });
+}
+
+/** Throws with a Bahasa Indonesia message when the file is not a readable workbook. */
+export function readWorkbook(bytes: Uint8Array, preferTable = "Table1"): SheetTable {
+    const { files, shared, sheets } = openBook(bytes);
 
     // Excel tables, per sheet.
-    const tables: { name: string; ref: string; sheet: { name: string; path: string } }[] = [];
+    const tables: { name: string; ref: string; sheet: { name: string; path: string; hidden: boolean } }[] = [];
     for (const sh of sheets) {
         for (const target of rels(files, sh.path).values()) {
             if (!/tables\/table\d+\.xml$/i.test(target) || !files[target]) continue;

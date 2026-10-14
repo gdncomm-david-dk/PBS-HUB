@@ -9,6 +9,7 @@ export interface BrandRow {
     hasName: boolean;          // a real name was found, not just the ID
     status: string;
     isActive: boolean;
+    aliases?: string[];        // Alias (optional): other names used in schedule documents, e.g. Milkita for UNIFAM
 }
 
 export interface AccountRow {
@@ -28,6 +29,7 @@ export interface StudioRow {
     kapasitasHost: number;     // KapasitasHost — concurrent host capacity
     status: string;
     isActive: boolean;
+    brands?: string[];         // Brands (optional): brands placed in this studio (names, aliases or BrandIDs)
 }
 
 export interface HostRow {
@@ -39,6 +41,7 @@ export interface HostRow {
     hasName: boolean;
     status: string;
     isActive: boolean;
+    aliases?: string[];        // Alias (optional): nicknames used in schedule documents ("Tika", "Aini")
 }
 
 export interface ScheduleRow {

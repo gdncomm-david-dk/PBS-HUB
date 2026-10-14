@@ -8,7 +8,7 @@ for the Studio screens and part C for the Schedule screen.
 | Control | Display name | Solution (managed) | Version | Screens |
 |---|---|---|---|---|
 | `pbs_Ops.StudioHub` | PBS Studio Hub | `releases/PBSStudioHub_managed_1.8.0.zip` (`PBSStudioHub`) | 1.8.0 | Studio list, Studio detail |
-| `pbs_Ops.ScheduleHub` | PBS Schedule Hub | `releases/PBSScheduleHub_managed_1.7.1.zip` (`PBSScheduleHub`) | 1.7.1 | Schedule board, session detail, create/edit, bulk & AI upload |
+| `pbs_Ops.ScheduleHub` | PBS Schedule Hub | `releases/PBSScheduleHub_managed_1.8.0.zip` (`PBSScheduleHub`) | 1.8.0 | Schedule board, session detail, create/edit, bulk & AI upload, Parse PDF/Excel |
 
 Neither control writes to SharePoint. Each one emits an `ActionPayload` `{ action, requestId, payload }`; the
 canvas app does the `Patch` and replies through `ActionResult` with the same `requestId`. Until that reply
@@ -46,6 +46,9 @@ The old solutions `PBSStudioMaster`, `PBSHubStudio` and `PBSStudioDirectory` can
 | `Schedule - PBS Hub` | `Position` (for reports) | `Co-Host` needs no report either (the main host files it): the Studio page shows *Co-Host* instead of *Belum ada report* |
 | `Report - PBS Hub` | `ApprovalStatus` | A live break's report row has `LiveBreak`. It counts as no report and adds no GMV |
 | `Brand - PBS Hub` / `Host - PBS Hub` | `NamaBrand` / `NamaHost` | Used to show names instead of IDs |
+| `Host - PBS Hub` | `Alias` (optional) | **Single line of text**: nicknames used in schedule files, comma separated (`Tika`, `Aini, Nur'aini`). Parse PDF matches full name first, then Alias |
+| `Brand - PBS Hub` | `Alias` (optional) | **Single line of text**: other names of the brand in schedule files (`Milkita` for UNIFAM, `Sido Muncul`) |
+| `Studio - PBS Hub` | `Brands` (optional) | **Single line of text**: brands placed in the studio, comma separated (`Milkita, Inlite`; names, aliases or BrandIDs). Parse PDF picks the studio from it when the file names none |
 
 ## A3. Fields decide which columns arrive
 
@@ -244,13 +247,13 @@ These are display metrics. Nothing that money depends on is computed in the cont
 
 ---
 
-# C. PBS Schedule Hub (`pbs_Ops.ScheduleHub` 1.7.1)
+# C. PBS Schedule Hub (`pbs_Ops.ScheduleHub` 1.8.0)
 
 > **Moving from the old `pbs_Ops.Schedule` (1.4.x).** Since 1.5.0 the control has a new identity (`pbs_Ops.ScheduleHub`, solution `PBSScheduleHub`), so Power Apps cannot keep loading a cached old build.
-> 1. Import `releases/PBSScheduleHub_managed_1.7.1.zip`.
+> 1. Import `releases/PBSScheduleHub_managed_1.8.0.zip`.
 > 2. In the app, copy the old control's **Items / Context / Mode / ActionResult / SelectedScheduleId / OnChange** formulas somewhere safe, then delete that control.
 > 3. **Insert → Get more components → Code → PBS Schedule Hub**, then paste the formulas back (same names as in C2–C4).
-> 4. Check that the header reads `pbs_Ops.ScheduleHub 1.7.1`. Once no app uses the old control, the `PBSSchedule` solution can be deleted.
+> 4. Check that the header reads `pbs_Ops.ScheduleHub 1.8.0`. Once no app uses the old control, the `PBSSchedule` solution can be deleted.
 
 The control renders the **Schedule board (S-1)** as a calendar (week × brand lanes, or studio lanes) or a list, grouped by brand and sorted by start time,, and the
 **session detail (S-2)** with the seven-step evidence chain. It also provides three ways to create schedules:
@@ -296,10 +299,10 @@ lists which IDs are unmatched — that means the `brands`/`hosts` dataset is not
 | Property | List (DESIGN.md) | Formula |
 |---|---|---|
 | `schedules` | `Schedule - PBS Hub` | `Filter('Schedule - PBS Hub', Date >= DateAdd(varSchedStart, -1, TimeUnit.Days) && Date <= DateAdd(varSchedEnd, 1, TimeUnit.Days))` |
-| `brands` | `Brand - PBS Hub` | `ShowColumns('Brand - PBS Hub', ID, Title, NamaBrand, Status)` (add `BrandID` if the list has it) — never bind PIC contacts |
+| `brands` | `Brand - PBS Hub` | `ShowColumns('Brand - PBS Hub', ID, Title, NamaBrand, Status)` (add `BrandID` if the list has it, and `Alias` once that column exists) — never bind PIC contacts |
 | `accounts` | `Account - PBS Hub` | `'Account - PBS Hub'` |
 | `studios` | `Studio - PBS Hub` | `'Studio - PBS Hub'` |
-| `hosts` | `Host - PBS Hub` | `ShowColumns('Host - PBS Hub', ID, Title, NamaHost, HostName, Status)` (add `HostID` if the list has it) — **never bind the whole list** (KTP, NoRekening) |
+| `hosts` | `Host - PBS Hub` | `ShowColumns('Host - PBS Hub', ID, Title, NamaHost, HostName, Status)` (add `HostID` if the list has it, and `Alias` once that column exists) — **never bind the whole list** (KTP, NoRekening) |
 | `reports` | `Report - PBS Hub` | `Filter('Report - PBS Hub', LiveDate >= varSchedStart && LiveDate <= varSchedEnd)`. Fields: `ID`, `Title`, `ScheduleID`, `AccountID`, `Platform`, `Penjualan`, `Pesanan`, `TotalViewer`, durasi, `ApprovalStatus`, `Match`, `ApprovalComment`, `ApproverEmail`, `Attachment` |
 | `absences` | `Host Absence - PBS Hub` | `Filter('Host Absence - PBS Hub', LiveDate >= varSchedStart && LiveDate <= varSchedEnd)` |
 | `clockins` | `Clock In - PBS Hub` | `ShowColumns(Filter('Clock In - PBS Hub', ClockInDate >= varSchedStart && ClockInDate <= varSchedEnd), Title, HostID, ClockInDate, CheckInTime, CheckOutTime, ClockInTime, ClockOutTime, IsInsideGeofence, CheckInOffice, Status)` — never bind GPS or selfie columns |
@@ -465,7 +468,8 @@ If(rid <> varLastSchedRid,
                 Refresh('Schedule - PBS Hub'),
                 Set(varSchedOk, false); Set(varSchedErr, FirstError.Message)),
 
-        // List view: tick sessions, then Duplikat. Each item carries the CREATE_SCHEDULE fields plus the new date.
+        // List view (Duplikat) and Parse PDF/Excel (source "PARSE"): each item carries the CREATE_SCHEDULE fields
+        // plus shift and campaign. Up to 150 items per call; a bigger parse arrives in several calls.
         "BULK_CREATE_SCHEDULE",
             IfError(
                 ForAll(Table(p.items) As it,
@@ -477,9 +481,10 @@ If(rid <> varLastSchedRid,
                             JamLive: Value(it.Value.jamLive), TotalLiveTime: Value(it.Value.jamLive),
                             Position: { Value: Text(it.Value.position) },
                             TotalAccount: Value(it.Value.totalAccount),
+                            Shift: Text(it.Value.shift), CampaignName: Text(it.Value.campaign),   // Shift is Text; a Choice needs { Value: Text(it.Value.shift) }
                             Status: { Value: "Planned" } }) },
                         Patch('Schedule - PBS Hub', n, { Title: "SCD-" & n.ID })));
-                Set(varSchedMsg, CountRows(Table(p.items)) & " jadwal berhasil diduplikat.");
+                Set(varSchedMsg, CountRows(Table(p.items)) & If(Text(p.source) = "PARSE", " jadwal dibuat dari file.", " jadwal berhasil diduplikat."));
                 Refresh('Schedule - PBS Hub'); true,
                 Set(varSchedOk, false); Set(varSchedErr, FirstError.Message)),
 
@@ -599,6 +604,47 @@ is; the new screen shows only the session detail, with the same buttons (Ubah, D
 link, *Sesi lain di hari yang sama*) stays on the screen; Kembali first steps back to the previous session. If the
 ScheduleID is not in `schedules`, the screen says *Jadwal … tidak ditemukan* with a Kembali button.
 
+### C4e. Parse PDF / Excel (no AI)
+
+**Parse PDF** (next to *Upload massal*) reads a schedule file in the control itself — no AI Builder, no flow,
+no file stored — shows every session for review, and creates the ticked ones with the existing
+`BULK_CREATE_SCHEDULE` branch (C4). Nothing else to bind.
+
+Layout it reads (the PBS brand schedule): a **Day** and **Date** column merged over the sessions of a day, then
+one block per brand under a brand title — **Start Hour · End Hour · Duration (in hours) · Host · Platform**
+(Platform, and optional *Studio* / *Account* columns, may be missing). The same layout works as:
+
+- **PDF** exported from Excel / Google Sheets (text PDF; a scan or photo has no text and is refused with a
+  message). Multi-page tables are fine: a day that starts at the bottom of a page continues on the next.
+- **Excel** (.xlsx) with any number of sheets (one per month, say) and any number of brand blocks side by side.
+  Notes to the right of the table (no *Start Hour* header above them) and *TOTAL HOURS* rows are ignored.
+
+How each value is decided — all from the lists the control is already bound to, so a new host, studio, brand or
+account works as soon as it is in SharePoint:
+
+| Field | Rule |
+|---|---|
+| Brand / BrandID | Brand title matched to `NamaBrand`, then `Brand.Alias`, then an account handle (`Milkita` → `milkita.id`). `Milkita (Shopee)` also sets the platform |
+| Account | The account the title names; else the brand's account on the row's platform; no platform → the brand's only TikTok account. Two or more fit (Sidomuncul Shopee) → left empty, *pilih akun* |
+| Platform | Platform column, else from the account |
+| StudioID | Studio column when the file has one; else the studio whose `Brands` column lists the brand; else the studio the brand used most in its last 30 loaded sessions; else *pilih studio* |
+| HostID | Full name, then `Host.Alias`, then a unique start of the name (`Wulan Anatasya` → Wulan Anatasya Putri), first name, or single name. Two or more fit (`Nayla`) → *pilih host* with the candidates starred |
+| Date | Date column; a date without a year (`5 October`) takes the year in the file name, else the current year |
+| StartTime / EndTime | `HH:mm`; `0:00` / `24:00` at the end is midnight of the same day, not a warning |
+| JamLive / TotalLiveTime | Duration column (hours, `1,5`, `1 jam 30 menit`); none → from the times. A duration that disagrees with the times is flagged |
+| Shift | From StartTime: before 12:00 *Pagi*, before 17:00 *Siang*, else *Malam* |
+| CampaignName | The brand title as written (`Milkita`) |
+| Fixed | `Status` Planned, `Position` Main Host, `TotalAccount` 1 |
+
+The preview then runs the bulk-upload checks (master lists, host and studio clashes, duplicates, past dates).
+Choosing a host, studio or account in one row fills the same empty cell in the similar rows (same host text,
+same brand and platform). Rows still missing a brand, studio or host cannot be ticked. Past dates are hidden and
+unticked by default. Clashes are checked against the period the board has loaded — the dialog says when sessions
+fall outside it (open that week first, then parse).
+
+To make matching need no clicks, add the optional columns in A2 (`Host.Alias`, `Brand.Alias`, `Studio.Brands`)
+and add them to **Fields → Edit** of the `hosts`, `brands` and `studios` datasets.
+
 ### Phone and tablet
 
 The control follows the width the canvas gives it (`Width` of the control): from 1040 px the desktop layout,
@@ -636,6 +682,10 @@ file was uploaded.
 
 | Symptom | Cause | Fix |
 |---|---|---|
+| Parse PDF: *PDF tidak berisi teks (hasil scan/foto)* | The PDF is an image | Export the sheet again as PDF (File → Download → PDF), or parse the .xlsx itself |
+| Parse PDF: every host says *tidak ada di master Host* | `hosts` misses `NamaHost`, or the file uses nicknames | Bind `NamaHost` (C2); add the nicknames to `Host.Alias` and to the dataset's Fields |
+| Parse PDF: *Studio belum diketahui* on every row | No `Studio.Brands` and no earlier session of that brand in the loaded period | Fill `Studio.Brands`, add it to the `studios` Fields, or pick the studio once (similar rows follow) |
+| Parse PDF: *Buat jadwal* says *tidak membalas* | `BULK_CREATE_SCHEDULE` is missing from the Switch or the reply list | Add it as in C4 (same branch as Duplikat) |
 | Schedule Detail screen says *Jadwal “3828” tidak ditemukan* | Before 1.7.1 only the ScheduleID (`SCD-3828`) was accepted; or the `schedules` filter does not reach that date because `varDetailDate` is blank | Import 1.7.1 (accepts the item ID too) and use the `OnVisible` in FORMULAS.md § 3, which finds the date from either form |
 | Schedule Detail screen shows the board, or Kembali does nothing | `View` is not `"Detail"`, or `OnChange` lacks `"NAV_BACK", Back(),` | See C4d |
 | On a phone the Schedule screen is cut off or tiny | The control is not sized to the screen, or the app uses *Scale to fit* | Set Width/Height to `Parent.Width`/`Parent.Height` and turn off *Scale to fit* and *Lock orientation* (C4d *Phone and tablet*) |
@@ -654,11 +704,11 @@ file was uploaded.
 | Upload dialog: *Aplikasi tidak membalas dalam 180 detik* / *belum dikonfirmasi*, but the file and the flow are fine | The reply (`varSchedResult`) is never set (the final `If(action in [...])` block commented out or missing), or set after `PBS0001A….Run()` | Use the C4 handler: upload branch sets the message only, `.Run()` at the bottom after the reply. Check that `"UPLOAD_SCHEDULE_FILE"` is in the `If(action in [...])` list and that `ActionResult` = `varSchedResult` |
 | Upload works, but the reply never comes (or only REVIEW_REPORT replies) | The `)` that closes `Switch(` sits inside a `/* … */` comment, so the reply block became part of the last Switch branch | Keep `);` after the last branch outside any comment (C4) |
 | Schedule opens a session detail straight away instead of the list | Before Schedule 1.4.0 the bound `SelectedScheduleId` reopened the last session on return | Import 1.4.0: the control always starts on the list |
-| Lampiran shows only *Memuat lampiran dari SharePoint…* | The app still runs Schedule 1.4.1/1.4.2 | Import the current zip, accept **Update code components**, then check the header reads `pbs_Ops.ScheduleHub 1.7.1` |
+| Lampiran shows only *Memuat lampiran dari SharePoint…* | The app still runs Schedule 1.4.1/1.4.2 | Import the current zip, accept **Update code components**, then check the header reads `pbs_Ops.ScheduleHub 1.8.0` |
 | Lampiran report says *belum punya lampiran* although the report has links | `Attachment` is not in the `reports` dataset (or `reportFiltered`), or the text holds no full `https://` URL | Add `Attachment` under **Fields → Edit** (C4c) |
 | Bulk Duplikat / Hapus shows *tidak membalas* | `BULK_CREATE_SCHEDULE` / `BULK_DELETE_SCHEDULE` are missing from the Switch or from the reply list | Add both branches and both names as in C4 |
 | Deleted schedule comes back after reopening the screen | `schedules` is bound to a collection, or `DELETE_SCHEDULE` has no `Refresh` | Bind to the list / `Filter(...)` and keep the `Refresh('Schedule - PBS Hub')` in C4 |
-| Every week change shows a loading grid | The app still runs 1.5.0 or older | Import the current zip; the header should read `pbs_Ops.ScheduleHub 1.7.1` |
+| Every week change shows a loading grid | The app still runs 1.5.0 or older | Import the current zip; the header should read `pbs_Ops.ScheduleHub 1.8.0` |
 | Board opens on an old week | Build 1.5.2–1.5.6 kept the week in browser storage | Update to 1.5.7: the week is kept only while the app page is open; a browser refresh or new session starts on this week |
 | *Bukti AI* says no OCR result, but the report is Done/Match | The Report Automation row is not in `evidence` (LiveDate blank or outside the period, or `Filter` not delegable) | Add the `LOAD_EVIDENCE` branch in C4, and make sure `automationFiltered` is not filtered on `LiveDate`. The detail then looks the row up by Title and shows its LiveDate |
 | New schedules from a flow do not appear | Canvas apps are not pushed SharePoint changes | Press **Muat ulang**, or add the Timer in C4 *Auto update* |

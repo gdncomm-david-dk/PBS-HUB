@@ -78,6 +78,8 @@ export function copyPayload(s: ScheduleRow, dateKey: string): Record<string, unk
         position: s.position || "Main Host",
         totalAccount: s.totalAccount ?? (s.accountId ? 1 : 0),
         status: "Planned",
+        shift: s.shift,
+        campaign: s.campaignName,
     };
 }
 

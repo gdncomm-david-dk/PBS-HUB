@@ -208,8 +208,19 @@ export const C = {
     accountBrand: ["BrandID", "Brand ID", "Brand"],
     scheduleId: ["ScheduleID", "Schedule ID"],
     liveDate: ["LiveDate", "Live Date", "Date"],
+    alias: ["Alias", "Aliases", "NamaPanggilan", "Nama Panggilan", "Panggilan", "Nickname"],
+    studioBrands: ["Brands", "Brand", "BrandPlacement", "Placement", "Brand / Placement"],
     durasi: ["Durasi_x0028_Min_x0029_0", "Durasi_x0028_Min_x0029_", "Durasi(Min)", "Durasi (Min)", "Durasi"],
 } as const;
+
+/** "Tika, Umi / Umik; U. Zakatika" → ["Tika", "Umi", "Umik", "U. Zakatika"]. A multi-choice column works too. */
+export function listText(v: unknown): string[] {
+    const raw = Array.isArray(v) ? v.map((x) => toText(x)).join(",") : toText(v);
+    return raw
+        .split(/[,;/\n|]+/)
+        .map((x) => x.trim())
+        .filter(Boolean);
+}
 
 const INACTIVE_STATUS = /(non.?aktif|inactive|tidak aktif|closed|tutup|disabled|nonactive|resign|keluar)/i;
 
@@ -241,7 +252,7 @@ export function mapBrands(recs: RawRecord[]): BrandRow[] {
         if (!brandId) continue;
         const status = toText(r.get(C.status));
         const namaBrand = toText(r.get(C.namaBrand)) || (title && title !== brandId ? title : "");
-        out.push({ key: uniqueKey(seen, brandId, r.id), itemId: toNum(r.get(C.id)), brandId, title, namaBrand: namaBrand || brandId, hasName: !!namaBrand, status, isActive: isActiveStatus(status) });
+        out.push({ key: uniqueKey(seen, brandId, r.id), itemId: toNum(r.get(C.id)), brandId, title, namaBrand: namaBrand || brandId, hasName: !!namaBrand, status, isActive: isActiveStatus(status), aliases: listText(r.get(C.alias)) });
     }
     return out;
 }
@@ -279,6 +290,7 @@ export function mapStudios(recs: RawRecord[]): StudioRow[] {
             kapasitasHost: Math.max(0, Math.round(toNum(r.get(C.kapasitas)) ?? 0)),
             status,
             isActive: isActiveStatus(status),
+            brands: listText(r.get(C.studioBrands)),
         });
     }
     return out;
@@ -293,7 +305,7 @@ export function mapHosts(recs: RawRecord[]): HostRow[] {
         if (!hostId) continue;
         const status = toText(r.get(C.status));
         const name = toText(r.get(C.namaHost)) || (title && title !== hostId ? title : "");
-        out.push({ key: uniqueKey(seen, hostId, r.id), itemId: toNum(r.get(C.id)), hostId, title, name: name || hostId, hasName: !!name, status, isActive: isActiveStatus(status) });
+        out.push({ key: uniqueKey(seen, hostId, r.id), itemId: toNum(r.get(C.id)), hostId, title, name: name || hostId, hasName: !!name, status, isActive: isActiveStatus(status), aliases: listText(r.get(C.alias)) });
     }
     return out;
 }

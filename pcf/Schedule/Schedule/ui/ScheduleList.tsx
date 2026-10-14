@@ -57,6 +57,8 @@ export function ScheduleList(props: {
     onEdit: (s: ScheduleRow) => void;
     onBulk: () => void;
     onAi: () => void;
+    onParse: () => void;
+    windowRef?: React.MutableRefObject<{ from: string; to: string } | null>;
 }): React.ReactElement {
     const { env } = props;
     // The board remembers its week, view and filters while the app page is open (see boardState).
@@ -77,6 +79,7 @@ export function ScheduleList(props: {
         const next = fetchWindow(f.from, f.to, loaded.current);
         if (!next) return;
         loaded.current = next;
+        if (props.windowRef) props.windowRef.current = next;
         env.emit("SET_FILTER", { periodStart: next.from, periodEnd: next.to });
     }, [f.from, f.to]);
 
@@ -161,6 +164,9 @@ export function ScheduleList(props: {
                         <>
                             <Button variant="secondary" icon={Icon.sparkle()} onClick={props.onAi}>
                                 AI Schedule
+                            </Button>
+                            <Button variant="secondary" icon={Icon.file()} title="Baca jadwal dari PDF / Excel tanpa AI, cek, lalu buat" onClick={props.onParse}>
+                                Parse PDF
                             </Button>
                             <Button variant="secondary" icon={Icon.upload()} onClick={props.onBulk}>
                                 Upload massal

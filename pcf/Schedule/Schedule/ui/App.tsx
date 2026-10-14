@@ -10,6 +10,7 @@ import { ScheduleDetail } from "./ScheduleDetail";
 import { ScheduleForm } from "./ScheduleForm";
 import { BulkUpload } from "./BulkUpload";
 import { AiUpload } from "./AiUpload";
+import { ParseUpload } from "./ParseUpload";
 
 export interface AppProps {
     schedules: ScheduleRow[];
@@ -41,7 +42,8 @@ type Dialog =
     | { kind: "create"; preset?: Partial<ScheduleRow> }
     | { kind: "edit"; schedule: ScheduleRow }
     | { kind: "bulk" }
-    | { kind: "ai" };
+    | { kind: "ai" }
+    | { kind: "parse" };
 
 const strList = (v: unknown): string[] =>
     Array.isArray(v) ? v.map(String).map((s) => s.trim()).filter(Boolean) : typeof v === "string" ? v.split(",").map((s) => s.trim()).filter(Boolean) : [];
@@ -173,6 +175,8 @@ export function App(props: AppProps): React.ReactElement {
     );
 
     const emit = React.useCallback((action: ActionName, payload: Record<string, unknown>) => void props.emit(action, payload), [props.emit]);
+    // Period the board last asked the canvas to load (SET_FILTER); the parse preview checks clashes within it.
+    const loadedWindow = React.useRef<{ from: string; to: string } | null>(null);
 
     // One lookup per report and control session, one at a time (canvas handles one OnChange per payload).
     const searched = React.useRef(new Set<string>());
@@ -283,6 +287,7 @@ export function App(props: AppProps): React.ReactElement {
             )}
             {dialog?.kind === "bulk" && <BulkUpload env={env} onClose={() => setDialog(null)} />}
             {dialog?.kind === "ai" && <AiUpload env={env} onClose={() => setDialog(null)} />}
+            {dialog?.kind === "parse" && <ParseUpload env={env} loaded={loadedWindow.current} onClose={() => setDialog(null)} />}
         </>
     );
 
@@ -358,6 +363,8 @@ export function App(props: AppProps): React.ReactElement {
                         onEdit={(s) => setDialog({ kind: "edit", schedule: s })}
                         onBulk={() => (config.uploadMode === "canvas" ? emit("OPEN_UPLOAD", { kind: "BULK", folder: config.bulkFolder }) : setDialog({ kind: "bulk" }))}
                         onAi={() => (config.uploadMode === "canvas" ? emit("OPEN_UPLOAD", { kind: "AI", folder: config.aiFolder }) : setDialog({ kind: "ai" }))}
+                        onParse={() => setDialog({ kind: "parse" })}
+                        windowRef={loadedWindow}
                     />
                 </div>
             </div>
