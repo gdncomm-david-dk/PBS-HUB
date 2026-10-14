@@ -46,7 +46,7 @@ The old solutions `PBSStudioMaster`, `PBSHubStudio` and `PBSStudioDirectory` can
 | `Schedule - PBS Hub` | `Position` (for reports) | `Co-Host` needs no report either (the main host files it): the Studio page shows *Co-Host* instead of *Belum ada report* |
 | `Report - PBS Hub` | `ApprovalStatus` | A live break's report row has `LiveBreak`. It counts as no report and adds no GMV |
 | `Brand - PBS Hub` / `Host - PBS Hub` | `NamaBrand` / `NamaHost` | Used to show names instead of IDs |
-| `Host - PBS Hub` | `Alias` (optional) | **Single line of text**: nicknames used in schedule files, comma separated (`Tika`, `Aini, Nur'aini`). Parse PDF matches full name first, then Alias |
+| `Host - PBS Hub` | `Alias` (optional) | **Single line of text**: nicknames used in schedule files, comma separated (`Rina`, `Uci, Ucii`). Parse PDF matches full name first, then Alias |
 | `Brand - PBS Hub` | `Alias` (optional) | **Single line of text**: other names of the brand in schedule files (`Milkita` for UNIFAM, `Sido Muncul`) |
 | `Studio - PBS Hub` | `Brands` (optional) | **Single line of text**: brands placed in the studio, comma separated (`Milkita, Inlite`; names, aliases or BrandIDs). Parse PDF picks the studio from it when the file names none |
 

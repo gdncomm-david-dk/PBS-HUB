@@ -27,7 +27,7 @@ const studios = mapStudios(recs([
 ]));
 const hosts = mapHosts(recs([
     { Title: "HOST-0003", NamaHost: "Umi Nur Zakia", Alias: "Kia" },
-    { Title: "HOST-0004", NamaHost: "Siti Nur'aini", Alias: "Aini" },
+    { Title: "HOST-0004", NamaHost: "Rina Maharani", Alias: "Uci" },
     { Title: "HOST-0012", NamaHost: "Nayla Armani" },
     { Title: "HOST-0031", NamaHost: "Nayla Bintari" },
     { Title: "FL-001", NamaHost: "Nayla Hana" },
@@ -93,7 +93,7 @@ describe("Excel layout", () => {
     set(4, 10, 0.375);
     set(4, 11, 0.54166666666666663);
     set(4, 12, 3.9999999999999991);
-    set(4, 13, "Siti Nur'aini");
+    set(4, 13, "Rina Maharani");
     set(4, 14, "Shopee");
     set(5, 10, 0.54166666666666663);
     set(5, 11, 0.66666666666666663);
@@ -116,7 +116,7 @@ describe("Excel layout", () => {
     it("reads every block of every day", () => {
         expect(r.sessions.map((s) => [s.label, s.dateKey, s.startText, s.endText, s.duration, s.host, s.platform])).toEqual([
             ["Arunakids", "2026-09-01", "19:00", "00:00", 5, "Kia", "Tiktok"],
-            ["Sembada", "2026-09-01", "09:00", "13:00", 4, "Siti Nur'aini", "Shopee"],
+            ["Sembada", "2026-09-01", "09:00", "13:00", 4, "Rina Maharani", "Shopee"],
             ["Sembada", "2026-09-01", "13:00", "16:00", 3, "Azkia", "Tiktok"],
             ["Sembada", "2026-09-02", "09:00", "12:00", 3, "Nayla", "Tiktok"],
         ]);
@@ -162,7 +162,7 @@ describe("PDF layout", () => {
             T(250, 118, "Start"), T(250, 139, "Hour"), T(302, 118, "End"), T(302, 139, "Hour"), T(346, 118, "Duration"), T(346, 139, "(in hours)"), T(452, 128, "Host"), T(527, 128, "Platform"),
             T(252, 168, "19:00"), T(305, 168, "0:00"), T(371, 168, "5"), T(426, 168, "Kia"), T(538, 168, "Tiktok"),
             T(63, 211, "Senin"), T(120, 211, "5 October"),
-            T(252, 270, "21:00"), T(305, 270, "23:00"), T(371, 270, "2"), T(426, 270, "Siti Nur'aini"), T(538, 270, "Tiktok"),
+            T(252, 270, "21:00"), T(305, 270, "23:00"), T(371, 270, "2"), T(426, 270, "Rina Maharani"), T(538, 270, "Tiktok"),
             T(60, 336, "Selasa"), T(120, 336, "6 October"),
             T(252, 421, "19:00"), T(305, 421, "21:00"), T(371, 421, "2"), T(426, 421, "Azkia Putri"), T(538, 421, "Tiktok"),
             T(64, 503, "Rabu"), T(120, 503, "7 October"),
@@ -183,7 +183,7 @@ describe("PDF layout", () => {
         const r = pdfSessions("arunakids_5-8_okt_2026.pdf", [page1, page2], 2026);
         expect(r.sessions.map((s) => [s.where, s.label, s.dateKey, s.startText, s.endText, s.duration, s.host, s.platform])).toEqual([
             ["Hal. 1", "Arunakids", "2026-10-05", "19:00", "00:00", 5, "Kia", "Tiktok"],
-            ["Hal. 1", "Arunakids", "2026-10-06", "21:00", "23:00", 2, "Siti Nur'aini", "Tiktok"],
+            ["Hal. 1", "Arunakids", "2026-10-06", "21:00", "23:00", 2, "Rina Maharani", "Tiktok"],
             ["Hal. 1", "Arunakids", "2026-10-07", "19:00", "21:00", 2, "Azkia Putri", "Tiktok"],
             ["Hal. 2", "Arunakids", "2026-10-08", "22:00", "00:00", 2, "Kia", "Tiktok"],
         ]);
@@ -197,7 +197,7 @@ describe("PDF layout", () => {
 describe("matching", () => {
     it("matches hosts by name, alias, first name and prefix", () => {
         expect(matchHost("Umi Nur Zakia", hosts).id).toBe("HOST-0003");
-        expect(matchHost("aini", hosts).id).toBe("HOST-0004");
+        expect(matchHost("uci", hosts).id).toBe("HOST-0004");
         expect(matchHost("Hana", hosts).id).toBe("HOST-0014"); // first name; "Nayla Hana" has it last
         expect(matchHost("Wulan Anggun", hosts).id).toBe("HOST-0028");
         expect(matchHost("Nayla", hosts)).toMatchObject({ id: "", options: ["HOST-0012", "HOST-0031", "FL-001"] });
@@ -212,7 +212,7 @@ describe("matching", () => {
     });
     it("takes the studio from history when Studio.Brands has nothing", () => {
         const s = resolveSession(
-            { file: "f", group: "PDF", where: "Hal. 1", order: 0, label: "Kirana", dateKey: "2026-10-01", dateText: "", startMin: 600, endMin: 720, startText: "10:00", endText: "12:00", duration: null, host: "Aini", platform: "", studio: "", account: "" },
+            { file: "f", group: "PDF", where: "Hal. 1", order: 0, label: "Kirana", dateKey: "2026-10-01", dateText: "", startMin: 600, endMin: 720, startText: "10:00", endText: "12:00", duration: null, host: "Uci", platform: "", studio: "", account: "" },
             cx,
         );
         expect([s.studioId, s.studioFrom, s.accountId, s.platform, s.jamLive]).toEqual(["TBN-02", "riwayat", "AC-008", "Tiktok", 2]);
@@ -222,7 +222,7 @@ describe("matching", () => {
 describe("conflict check", () => {
     it("warns when a parsed session overlaps one already scheduled", () => {
         const s = resolveSession(
-            { file: "f", group: "PDF", where: "Hal. 1", order: 0, label: "Kirana", dateKey: "2026-08-20", dateText: "", startMin: 660, endMin: 780, startText: "11:00", endText: "13:00", duration: 2, host: "Aini", platform: "Tiktok", studio: "", account: "" },
+            { file: "f", group: "PDF", where: "Hal. 1", order: 0, label: "Kirana", dateKey: "2026-08-20", dateText: "", startMin: 660, endMin: 780, startText: "11:00", endText: "13:00", duration: 2, host: "Uci", platform: "Tiktok", studio: "", account: "" },
             cx,
         );
         const [r] = checkParsed([s], {}, cx, { todayKey: "2026-08-01", studioName });
@@ -237,7 +237,7 @@ describe("duplicates and clashes", () => {
 
     it("flags a session already in Schedule, a repeated row and a host double-booking", () => {
         const rows = checkParsed(
-            [sess(0, 600, 720, "Aini"), sess(1, 840, 960, "Kia"), sess(2, 840, 960, "Kia"), sess(3, 900, 1020, "Kia", "Arunakids")],
+            [sess(0, 600, 720, "Uci"), sess(1, 840, 960, "Kia"), sess(2, 840, 960, "Kia"), sess(3, 900, 1020, "Kia", "Arunakids")],
             {},
             cx,
             { todayKey: "2026-08-01", studioName },
