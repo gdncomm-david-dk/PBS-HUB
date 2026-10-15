@@ -59,7 +59,8 @@ export function ParseUpload(props: { env: Env; loaded: { from: string; to: strin
     const [picks, setPicks] = React.useState<Record<string, Overrides>>({});
     const [sel, setSel] = React.useState<Record<string, boolean>>({});
     const [group, setGroup] = React.useState("");
-    const [hidePast, setHidePast] = React.useState(true);
+    const [hidePast, setHidePast] = React.useState(false);
+    const [hideExisting, setHideExisting] = React.useState(true);
     const [show, setShow] = React.useState<Show>("all");
     const [phase, setPhase] = React.useState<"pick" | "saving" | "done">("pick");
     const [progress, setProgress] = React.useState({ done: 0, total: 0 });
@@ -99,11 +100,14 @@ export function ParseUpload(props: { env: Env; loaded: { from: string; to: strin
     const scope = hidePast ? inGroup.filter((r) => !r.raw.dateKey || r.raw.dateKey >= env.todayKey) : inGroup;
     // Checked only for what is on screen: a year of sessions against every schedule would be slow.
     const scopeKey = scope.map((r) => r.id).join(",");
-    const checked: ParsedRow[] = React.useMemo(
+    const allChecked: ParsedRow[] = React.useMemo(
         () => checkParsed(scope, picks, rcx, { todayKey: env.todayKey, studioName: env.studioName }),
         // scope is rebuilt every render; its ids say when it really changed.
         [scopeKey, picks, rcx, env.todayKey, env.studioName],
     );
+    // Sessions already in Schedule are hidden by default: re-uploading the same file should only show what is new.
+    const existCount = allChecked.filter((r) => r.flags.exists).length;
+    const checked = hideExisting ? allChecked.filter((r) => !r.flags.exists) : allChecked;
     // Past sessions start unticked: they usually come along with a monthly sheet, not to be created again.
     // Past, clashing, duplicated and already-existing sessions start unticked; "Pilih semua" still ticks them.
     const selectable = (r: ParsedRow): boolean => r.verdict !== "rejected";
@@ -116,7 +120,7 @@ export function ParseUpload(props: { env: Env; loaded: { from: string; to: strin
     const visibleSel = visible.filter(selectable);
     const allOn = visibleSel.length > 0 && visibleSel.every(isOn);
     const someOn = visibleSel.some(isOn);
-    const pg = usePaged(visible, `${group}|${hidePast}|${show}|${files.length}`, 25);
+    const pg = usePaged(visible, `${group}|${hidePast}|${hideExisting}|${show}|${files.length}`, 25);
     const reading = files.some((f) => f.state === "reading");
     // The schedules dataset only holds the period the board loaded; outside it nothing can clash yet.
     const loadedFrom = props.loaded?.from ?? "";
@@ -193,12 +197,7 @@ export function ParseUpload(props: { env: Env; loaded: { from: string; to: strin
         );
 
     return (
-        <Modal title="Parse jadwal dari PDF / Excel" width={1180} onClose={phase === "saving" ? () => undefined : props.onClose} footer={footer}>
-            <p className="sc-muted">
-                PDF atau Excel jadwal (kolom Day · Date, lalu per brand Start Hour · End Hour · Duration · Host · Platform) dibaca langsung di sini — tanpa AI dan tanpa flow. Brand, akun, studio, dan host dicocokkan
-                ke master list. Centang sesi yang mau dibuat, lalu <b>Buat jadwal</b>.
-            </p>
-
+        <Modal title="Parse jadwal dari PDF / Excel" width={1280} tall onClose={phase === "saving" ? () => undefined : props.onClose} footer={footer}>
             {phase === "pick" && files.length > 0 && (
                 <div className="sc-parsebar">
                     <Button variant="secondary" size="sm" icon={Icon.plus(14)} onClick={() => inputRef.current?.click()}>
@@ -325,6 +324,10 @@ export function ParseUpload(props: { env: Env; loaded: { from: string; to: strin
                             <input type="checkbox" checked={hidePast} onChange={(e) => setHidePast(e.target.checked)} />
                             Sembunyikan tanggal yang sudah lewat{pastCount ? ` (${pastCount})` : ""}
                         </label>
+                        <label className="sc-check">
+                            <input type="checkbox" checked={hideExisting} onChange={(e) => setHideExisting(e.target.checked)} />
+                            Sembunyikan yang sudah ada di Schedule{existCount ? ` (${existCount})` : ""}
+                        </label>
                         <span className="sc-parsebar__right">
                             <button type="button" className="sc-link sc-link--sm" onClick={() => setAll(true)}>
                                 Pilih semua{show !== "all" ? ` (${SHOW_LABEL[show]})` : ""}
@@ -344,7 +347,15 @@ export function ParseUpload(props: { env: Env; loaded: { from: string; to: strin
                             tanggal tersebut di papan, lalu parse ulang.
                         </Banner>
                     )}
-                    {checked.length === 0 && <Banner tone="info">{pastCount ? `Semua ${pastCount} sesi tanggalnya sudah lewat. Hapus centang “Sembunyikan tanggal yang sudah lewat” untuk melihatnya.` : "Tidak ada sesi."}</Banner>}
+                    {checked.length === 0 && (
+                        <Banner tone="info">
+                            {hideExisting && existCount
+                                ? `Semua ${existCount} sesi sudah ada di Schedule. Hapus centang “Sembunyikan yang sudah ada di Schedule” untuk melihatnya.`
+                                : hidePast && pastCount
+                                  ? `Semua ${pastCount} sesi tanggalnya sudah lewat. Hapus centang “Sembunyikan tanggal yang sudah lewat” untuk melihatnya.`
+                                  : "Tidak ada sesi."}
+                        </Banner>
+                    )}
                     {checked.length > 0 && (
                         <div className="sc-tablewrap sc-tablewrap--scroll sc-tablewrap--tall">
                             <table className="sc-table sc-table--parse">
