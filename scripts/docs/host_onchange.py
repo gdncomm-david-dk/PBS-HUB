@@ -400,5 +400,6 @@ Set(varCsLoading, false)'''
 cs = shell('\n'.join([
  '"PERIOD_CHANGED", Set(varCsPeriod, Text(p.period)),',
  '"FILTER_CHANGED", Set(varCsFilter, Text(p.filter)),',
+ '"OPEN_EVIDENCE", Launch(Text(p.url)),',
  '"LOAD_MORE",\n    Set(varCsTop, varCsTop + 200);\n'+ind(cs_reload,4)+',',
 ]))

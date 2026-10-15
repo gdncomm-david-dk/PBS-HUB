@@ -1,7 +1,7 @@
 import * as React from "react";
 import { fmtNumber } from "./format";
 import { ScoreBand } from "./host";
-import { TONE_DOT } from "./ui";
+import { Icon, TONE_DOT } from "./ui";
 
 /** The score bands as one bar with a marker at the score (HostDetail summary, host app Skor saya). */
 export function BandChart(props: { bands: ScoreBand[]; score: number | null; min: number | null; max: number | null }): React.ReactElement | null {
@@ -31,4 +31,35 @@ export function BandChart(props: { bands: ScoreBand[]; score: number | null; min
       </div>
     </div>
   );
+}
+
+/** The evidence files of a score transaction as small links ("Bukti", "Bukti 2", …); canvas opens them (OPEN_EVIDENCE → Launch). */
+export function EvidenceLinks(props: { urls: string[]; onOpen: (url: string) => void }): React.ReactElement | null {
+  if (props.urls.length === 0) return null;
+  return (
+    <span className="pbs-ev">
+      {props.urls.map((u, i) => (
+        <button
+          key={u}
+          type="button"
+          className="pbs-link"
+          title={decodeName(u)}
+          onClick={(e) => {
+            e.stopPropagation();
+            props.onOpen(u);
+          }}
+        >
+          <Icon name="file" size={12} /> {props.urls.length > 1 ? `Bukti ${i + 1}` : "Lihat bukti"}
+        </button>
+      ))}
+    </span>
+  );
+}
+
+function decodeName(url: string): string {
+  try {
+    return decodeURIComponent(new URL(url).pathname.split("/").filter(Boolean).pop() ?? url);
+  } catch {
+    return url;
+  }
 }

@@ -222,6 +222,16 @@ export interface ScoreTx {
   /** The ledger row written when another row is voided (opposite points, not counted). */
   reversal: boolean;
   statusText: string;
+  /** Evidence files (SharePoint links) attached when the transaction was written. */
+  evidence: string[];
+}
+
+/** Every https link in a text column: one per line, or separated by ; , or spaces; a JSON array works too. */
+export function urlList(v: unknown): string[] {
+  const raw = Array.isArray(v) ? v.map((x) => (x && typeof x === "object" ? String((x as Row).Url ?? (x as Row).url ?? (x as Row).Value ?? "") : String(x ?? ""))).join("\n") : String(v ?? "");
+  const out: string[] = [];
+  for (const m of raw.matchAll(/https?:\/\/[^\s"'<>;,]+/gi)) if (!out.includes(m[0])) out.push(m[0]);
+  return out;
 }
 
 function txType(row: Row, point: number | null): TxType {
@@ -258,6 +268,7 @@ export function buildLedger(rows: Row[]): ScoreTx[] {
         // Voiding marks the original Void and appends a Reversal row; neither counts, so the sum stays right.
         reversal: /revers|koreksi|correction/i.test(statusText),
         statusText,
+        evidence: urlList(r.Evidence ?? r.Bukti ?? r.EvidenceUrl ?? r.Attachment),
       };
     })
     .sort((a, b) => (b.when?.getTime() ?? 0) - (a.when?.getTime() ?? 0));

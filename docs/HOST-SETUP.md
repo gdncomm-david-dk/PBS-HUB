@@ -1938,7 +1938,7 @@ JSON(ForAll(Table(varMe), {Title: Title, HostCode: HostCode, NamaHost: NamaHost,
 ```powerfx
 JSON(ForAll(colCsTx, {ID: ID, TransactionID: TransactionID, RuleID: RuleID, TransactionType: TransactionType.Value, Point: Point,
     ScoreBefore: ScoreBefore, ScoreAfter: ScoreAfter, Reason: Reason, Notes: Notes, Status: Status.Value,
-    CreatedDate: CreatedDate, CreatedBy: CreatedBy.DisplayName}), JSONFormat.Compact)
+    CreatedDate: CreatedDate, CreatedBy: CreatedBy.DisplayName, Evidence: Evidence}), JSONFormat.Compact)
 ```
 
 4. **`ThresholdsJson`**
@@ -2001,6 +2001,7 @@ If(!IsBlank(Self.ActionPayload),
                 Switch(act,
                     "PERIOD_CHANGED", Set(varCsPeriod, Text(p.period)),
                     "FILTER_CHANGED", Set(varCsFilter, Text(p.filter)),
+                    "OPEN_EVIDENCE", Launch(Text(p.url)),
                     "LOAD_MORE",
                         Set(varCsTop, varCsTop + 200);
                         Set(varCsLoading, true);

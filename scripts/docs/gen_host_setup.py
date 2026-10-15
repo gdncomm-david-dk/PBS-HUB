@@ -51,7 +51,7 @@ PLAYBOOKS = "JSON(Choices([@'Report - PBS Hub'].Playbook), JSONFormat.Compact)"
 
 TX = """{ID: ID, TransactionID: TransactionID, RuleID: RuleID, TransactionType: TransactionType.Value, Point: Point,
     ScoreBefore: ScoreBefore, ScoreAfter: ScoreAfter, Reason: Reason, Notes: Notes, Status: Status.Value,
-    CreatedDate: CreatedDate, CreatedBy: CreatedBy.DisplayName}"""
+    CreatedDate: CreatedDate, CreatedBy: CreatedBy.DisplayName, Evidence: Evidence}"""
 
 BANDS = """{ThresholdID: ThresholdID, Label: Label, Description: Description, MinimumScore: MinimumScore,
     MaximumScore: MaximumScore, Tone: Tone.Value, Active: Active, SortOrder: SortOrder}"""

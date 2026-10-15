@@ -209,3 +209,48 @@ export function averageScore(hosts: HostModel[]): number | null {
   const s = hosts.map((h) => h.score).filter((v): v is number => v !== null);
   return s.length ? Math.round(s.reduce((a, b) => a + b, 0) / s.length) : null;
 }
+
+// ---- evidence (bukti) ---------------------------------------------------------------------------
+
+const BULAN = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"];
+
+/** A SharePoint-safe file or folder name: no " * : < > ? / \ | # % & { } ~, no leading/trailing dots or spaces. */
+export function safeName(text: string, max = 80): string {
+  const t = text
+    // eslint-disable-next-line no-control-regex
+    .replace(/[\u0000-\u001f"*:<>?/\\|#%&{}~]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .replace(/^[.\s]+|[.\s]+$/g, "");
+  return t.slice(0, max).trim() || "Tanpa nama";
+}
+
+/** "2026-10 Oktober": sorts by month in the library and still reads as the month of the violation. */
+export const evidenceMonth = (d: Date): string => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")} ${BULAN[d.getMonth()]}`;
+
+export interface EvidenceFile {
+  /** Graph path below the drive root, every segment URL-encoded: Credit%20Score/<host>/<month>/<file>. */
+  path: string;
+  /** Readable path, for the confirmation and the docs. */
+  display: string;
+  fileName: string;
+  mimeType: string;
+  bytes: number;
+}
+
+/**
+ * Credit Score/<Nama host>/<yyyy-mm Bulan>/<Nama pelanggaran> - <TX-ID>.<ext>; a second file gets " (2)".
+ * `root` comes from Context.config.scoreEvidenceFolder (default "Credit Score").
+ */
+export function evidencePath(root: string, hostName: string, when: Date, ruleName: string, txId: string, index: number, ext: string): Omit<EvidenceFile, "mimeType" | "bytes"> {
+  const fileName = `${safeName(ruleName, 60)} - ${txId}${index > 0 ? ` (${index + 1})` : ""}.${ext.replace(/^\./, "").toLowerCase() || "jpg"}`;
+  const segs = [...root.split("/").map((x) => safeName(x)).filter(Boolean), safeName(hostName), evidenceMonth(when), fileName];
+  return { path: segs.map(encodeURIComponent).join("/"), display: segs.join("/"), fileName };
+}
+
+export type EvidenceRule = "none" | "penalty" | "all";
+export const evidenceRuleOf = (v: unknown): EvidenceRule => {
+  const t = String(v ?? "").trim().toLowerCase();
+  return /^(all|semua|always|true|yes)$/.test(t) ? "all" : /penal|pelanggaran|kurang|deduct/.test(t) ? "penalty" : "none";
+};
+export const evidenceRequired = (rule: EvidenceRule, type: TxType): boolean => rule === "all" || (rule === "penalty" && type === "PENALTY");

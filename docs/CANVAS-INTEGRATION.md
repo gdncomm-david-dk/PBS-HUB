@@ -913,7 +913,7 @@ ClockInJson     = JSON(ForAll(colHdClockIn, {ID: ID, Title: Title, HostID: HostI
 // Tier: pakai Tier.Value kalau kolomnya Choice, Tier kalau Text. AdjustedBy/At/Reason opsional (lihat Kehadiran di bawah).
 PayrollDataJson = JSON(ForAll(colHdLine, {Title: Title, payroll_id: payroll_id, HostID: varSelectedHostId, Periode: Periode, JumlahHari: JumlahHari, TotalGaji: TotalGaji, PPh21: PPh21, NetTHP: NetTHP, Bank: Bank, NorekLast4: Right(Norek, 4), HasRekening: !IsBlank(Norek) && !IsBlank(Bank)}), JSONFormat.Compact)
 PayrollJson     = JSON(ForAll(colHdRun, {ID: ID, Title: Title, PayrollName: PayrollName, Periode: Periode, Status: Status.Value, PBSApproval: PBSApproval, HCApproval: HCApproval, FASApproval: FASApproval, Created: Created, Modified: Modified}), JSONFormat.Compact)
-ScoreTxJson     = JSON(ForAll(colHdTx, {ID: ID, TransactionID: TransactionID, RuleID: RuleID, TransactionType: TransactionType.Value, Point: Point, ScoreBefore: ScoreBefore, ScoreAfter: ScoreAfter, Reason: Reason, Notes: Notes, Status: Status.Value, CreatedDate: CreatedDate, CreatedBy: CreatedBy.DisplayName}), JSONFormat.Compact)
+ScoreTxJson     = JSON(ForAll(colHdTx, {ID: ID, TransactionID: TransactionID, RuleID: RuleID, TransactionType: TransactionType.Value, Point: Point, ScoreBefore: ScoreBefore, ScoreAfter: ScoreAfter, Reason: Reason, Notes: Notes, Status: Status.Value, CreatedDate: CreatedDate, CreatedBy: CreatedBy.DisplayName, Evidence: Evidence}), JSONFormat.Compact)
 ThresholdsJson  = JSON(ForAll(colScoreBand, {ThresholdID: ThresholdID, Label: Label, Description: Description, MinimumScore: MinimumScore, MaximumScore: MaximumScore, Tone: Tone.Value, Active: Active, SortOrder: SortOrder}), JSONFormat.Compact)
 BrandsJson      = JSON(ShowColumns('Brand - PBS Hub', Title, NamaBrand), JSONFormat.Compact)
 StudiosJson     = JSON(ShowColumns('Studio - PBS Hub', Title, NamaStudio), JSONFormat.Compact)
@@ -954,6 +954,7 @@ If(!IsBlank(Self.ActionPayload),
                     "OPEN_REPORT", Set(varSelectedReportId, Value(p.reportId)); Navigate(scrReportDetail),
                     "OPEN_RUN", Set(varSelectedPayrollId, Value(p.runId)); Navigate(scrPayrollRunDetail),
                     "HIDE_PII", Set(varHdReveal, ""),
+                    "OPEN_EVIDENCE", Launch(Text(p.url)),
                     "ADD_CLOCK_IN",
                         With({d: DateValue(Text(p.clockInDate)), hid: Text(p.hostId)},
                             If(!IsBlank(LookUp(clockInFiltered, HostID = hid && ClockInDate = d)),
@@ -1105,6 +1106,17 @@ dengan `CurrentScore`. Yang perlu disiapkan di SharePoint:
 - Opsional di Context `config`: `bigPenaltyPoints` (default 10 — pengurangan lebih dari ini, atau yang membuat host
   turun band, wajib dicentang *Saya sudah memberi tahu host dan atasannya*) dan `scheduleMinScore` (kalau diisi,
   form memperingatkan bahwa host di bawah skor itu tidak bisa dijadwalkan).
+- **Bukti (evidence)** — langkah setup lengkap: [SETUP-CREDIT-SCORE-EVIDENCE.md](SETUP-CREDIT-SCORE-EVIDENCE.md). Tambahkan kolom **`Evidence`** (Multiple lines of text, plain) di
+  `HostScoreTransactions`: berisi link file SharePoint, satu per baris. Form *Tambah/Kurangi poin* bisa melampirkan
+  sampai 5 file (foto dikompres jadi JPEG ±900 KB, PDF maks. 4 MB); file diunggah lewat Graph ke library
+  *PBS Power Apps*:
+  `Credit Score/<Nama host>/<yyyy-mm Bulan>/<Nama pelanggaran> - <TX-ID>.jpg` (file ke-2 dst. `… (2).jpg`).
+  Butuh data source **Office 365 Groups** dan `varSiteID` / `varDriveID` di App.OnStart — nilai yang sama dengan
+  upload screenshot di aplikasi host (site *StudioTeamBlibli*, library *PBS Power Apps*).
+  Opsional di Context `config`: `scoreEvidenceRequired` (`"penalty"` = wajib untuk pengurangan poin, `"all"` = wajib
+  untuk semua, kosong = opsional) dan `scoreEvidenceFolder` (default `"Credit Score"`).
+  **Izin:** host hanya bisa membuka bukti kalau punya akses baca ke folder `Credit Score` (atau minimal ke subfolder
+  namanya) — atur di SharePoint, mis. beri grup host izin *Read* di folder itu.
 
 Aturan form (dijaga control, canvas tetap memeriksa ulang skor): rule wajib; poin terisi dari rule dan boleh
 diubah, tapi **alasan override wajib**; severity *berat* wajib catatan; konfirmasi untuk pengurangan besar;
@@ -1141,7 +1153,7 @@ IsLoading      = varScLoading
 ActionResult   = varScResult
 HostsJson      = JSON(ForAll(colScHost, {ID: ID, Title: Title, HostCode: HostCode, NamaHost: NamaHost, Status: Status.Value, Package: Package.Value, InitialScore: InitialScore, CurrentScore: CurrentScore, MinimumScore: MinimumScore, MaximumScore: MaximumScore}), JSONFormat.Compact)
 ScoreTxJson    = JSON(ForAll(colScRecent, {ID: ID, TransactionID: TransactionID, HostID: HostID, RuleID: RuleID, TransactionType: TransactionType.Value, Point: Point, Reason: Reason, Status: Status.Value, CreatedDate: CreatedDate}), JSONFormat.Compact)
-LedgerJson     = JSON(ForAll(colScLedger, {ID: ID, TransactionID: TransactionID, HostID: HostID, RuleID: RuleID, TransactionType: TransactionType.Value, Point: Point, ScoreBefore: ScoreBefore, ScoreAfter: ScoreAfter, Reason: Reason, Notes: Notes, Status: Status.Value, CreatedDate: CreatedDate, CreatedBy: CreatedBy.DisplayName}), JSONFormat.Compact)
+LedgerJson     = JSON(ForAll(colScLedger, {ID: ID, TransactionID: TransactionID, HostID: HostID, RuleID: RuleID, TransactionType: TransactionType.Value, Point: Point, ScoreBefore: ScoreBefore, ScoreAfter: ScoreAfter, Reason: Reason, Notes: Notes, Status: Status.Value, CreatedDate: CreatedDate, CreatedBy: CreatedBy.DisplayName, Evidence: Evidence}), JSONFormat.Compact)
 RulesJson      = JSON(ForAll(colScRule, {RuleID: RuleID, RuleName: RuleName, RuleType: RuleType.Value, Point: Point, Category: Category, Severity: Severity.Value, Description: Description, Active: Active}), JSONFormat.Compact)
 ThresholdsJson = JSON(ForAll(colScoreBand, {ThresholdID: ThresholdID, Label: Label, Description: Description, MinimumScore: MinimumScore, MaximumScore: MaximumScore, Tone: Tone.Value, Active: Active, SortOrder: SortOrder}), JSONFormat.Compact)
 // RuleID: kolom ID rule di list (RuleID; pakai Title kalau ID disimpan di Title). RuleType boleh Reward/Penalty
@@ -1167,8 +1179,9 @@ If(!IsBlank(Self.ActionPayload),
                         Set(varScLoading, false),
                     "BACK", Set(varScHostId, ""); Clear(colScLedger),
                     "NAV", If(Text(p.target) = "RULES", Launch("https://<tenant>.sharepoint.com/sites/<site>/Lists/HostScoreRule")),
+                    "OPEN_EVIDENCE", Launch(Text(p.url)),
                     "ADD_SCORE",
-                        With({h: LookUp('Host - PBS Hub', Title = Text(p.hostId))},
+                        With({h: LookUp('Host - PBS Hub', Title = Text(p.hostId)), up: Self.UploadData},
                         With({cur: Coalesce(h.CurrentScore, h.InitialScore, varScCfg.InitialScore),
                               lo: Coalesce(h.MinimumScore, varScCfg.MinimumScore, 0),
                               hi: Coalesce(h.MaximumScore, varScCfg.MaximumScore, 100)},
@@ -1178,6 +1191,20 @@ If(!IsBlank(Self.ActionPayload),
                             If(IsBlank(h) || cur <> Value(p.expectedScore),
                                 Set(varScResult, JSON({requestId: rid, status: "conflict", message: "Skor host sudah berubah jadi " & cur & " sejak halaman dibuka. Tutup, muat ulang, lalu coba lagi."}, JSONFormat.Compact)),
                             With({after: Min(Max(cur + Value(p.point), lo), hi)},
+                                // Bukti dulu: unggah semua file ke SharePoint (Graph), kumpulkan webUrl satu per baris.
+                                Set(varScUploadErr, ""); Set(varScUrls, "");
+                                If(!IsBlank(up) && up <> "",
+                                    IfError(
+                                        Set(varScUrls, Concat(
+                                            ForAll(Table(ParseJSON(up)) As f,
+                                                {u: Text(Office365Groups.HttpRequest(
+                                                    "https://graph.microsoft.com/v1.0/sites/" & varSiteID & "/drives/" & varDriveID & "/root:/" & Text(f.Value.path) & ":/content",
+                                                    "PUT",
+                                                    "data:" & Text(f.Value.mimeType) & ";base64," & Text(f.Value.base64)).webUrl)}),
+                                            u, Char(10))),
+                                        Set(varScUploadErr, FirstError.Message)));
+                                If(varScUploadErr <> "",
+                                    Set(varScResult, JSON({requestId: rid, status: "error", message: "Bukti gagal diunggah (" & varScUploadErr & "). Transaksi belum disimpan, coba lagi."}, JSONFormat.Compact)),
                                 IfError(
                                     Set(varScNew, Patch('[FAS STUDIO] HostScoreTransactions', Defaults('[FAS STUDIO] HostScoreTransactions'), {
                                         Title: Text(p.transactionId),
@@ -1190,6 +1217,7 @@ If(!IsBlank(Self.ActionPayload),
                                         ScoreAfter: after,
                                         Reason: Text(p.ruleName),
                                         Notes: Text(p.notesText),                            // catatan + alasan override + konfirmasi
+                                        Evidence: varScUrls,                                 // link bukti, satu per baris (kosong kalau tanpa bukti)
                                         Status: {Value: "Active"},
                                         CreatedDate: Now(),
                                         // Hapus kalau CreatedBy bukan kolom Person sendiri (pakai 'Created By' bawaan).
@@ -1205,7 +1233,7 @@ If(!IsBlank(Self.ActionPayload),
                                         Set(varScResult, JSON({requestId: rid, status: "error", message: "Transaksi " & Text(p.transactionId) & " tersimpan, tapi CurrentScore gagal diperbarui (" & FirstError.Message & "). Isi CurrentScore " & after & " secara manual."}, JSONFormat.Compact))
                                     ),
                                     Set(varScResult, JSON({requestId: rid, status: "error", message: "Gagal menyimpan transaksi: " & FirstError.Message}, JSONFormat.Compact))
-                                );
+                                ));
                                 Set(varScNew, Blank())
                             )))
                         )),
@@ -1266,7 +1294,8 @@ tampil di dalam dialog; `ok` menutup dialog dan menampilkan pesannya sebagai ban
 
 | Aksi | Payload |
 |---|---|
-| `ADD_SCORE` | `{hostId, hostItemId, hostCode, hostName, transactionId ("TX-yyyymmdd-HHmmss-XXXX"), ruleId, ruleName, category, severity, transactionType ("Reward"\|"Penalty"), point (bertanda), defaultPoint, overridden, overrideReason, notes, notesText, acknowledged, expectedScore, scoreBefore, scoreAfter, bandBefore, bandAfter}` |
+| `ADD_SCORE` | `{hostId, hostItemId, hostCode, hostName, transactionId ("TX-yyyymmdd-HHmmss-XXXX"), ruleId, ruleName, category, severity, transactionType ("Reward"\|"Penalty"), point (bertanda), defaultPoint, overridden, overrideReason, notes, notesText, acknowledged, expectedScore, scoreBefore, scoreAfter, bandBefore, bandAfter, evidence: [{path, display, fileName, mimeType, bytes}], evidenceCount}` — isi file ada di `UploadData`: `[{path, fileName, mimeType, base64}]` (urutan sama) |
+| `OPEN_EVIDENCE` | `{url, transactionId, hostId}` — tombol *Lihat bukti* di ledger (juga di HostDetail) |
 | `VOID_SCORE` | `{hostId, hostItemId, txItemId (ID baris asli), transactionId, reversalId, ruleId: "VOID", ruleName, transactionType, point (kebalikan), originalPoint, reason, notesText, expectedScore, scoreBefore, scoreAfter}` |
 | `OPEN_LEDGER` | `{hostId, id}` |
 | `BACK` | `{}` |
@@ -1275,7 +1304,8 @@ tampil di dalam dialog; `ok` menutup dialog dan menampilkan pesannya sebagai ban
 
 `notesText` sudah disusun control (catatan · *Poin diubah dari default +4: alasan* · *Host dan atasan sudah diberi
 tahu*), jadi canvas cukup menulisnya ke `Notes`. Canvas menghitung ulang `after` dari skor segar di server, bukan
-memakai `scoreAfter` payload. Baris `Reversal` tampil dengan badge *Koreksi* di Ops HostDetail dan di aplikasi host.
+memakai `scoreAfter` payload. `UploadData` hanya terisi untuk `ADD_SCORE` yang punya bukti; upload gagal = transaksi
+tidak ditulis (dialog tetap terbuka dengan pesan error). Baris `Reversal` tampil dengan badge *Koreksi* di Ops HostDetail dan di aplikasi host.
 
 ## 9. Alasan (kolom *Alasan* di antrean)
 

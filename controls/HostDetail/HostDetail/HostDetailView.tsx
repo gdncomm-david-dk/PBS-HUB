@@ -45,7 +45,7 @@ import {
 } from "../../../shared/host";
 import { buildRuns, fmtPeriod } from "../../../shared/payroll";
 import { reviewBadge } from "../../../shared/reconcile";
-import { BandChart } from "../../../shared/scoreUi";
+import { BandChart, EvidenceLinks } from "../../../shared/scoreUi";
 import {
   Badge,
   Button,
@@ -886,7 +886,11 @@ function SummaryTab(props: {
                     <td className="r pbs-num">{fmtNumber(t.before)}</td>
                     <td className="r pbs-num">{fmtNumber(t.after)}</td>
                     <td style={{ whiteSpace: "normal", minWidth: 180 }}>
-                      {t.notes || <span className="pbs-muted">—</span>}
+                      {t.notes || (t.evidence.length ? null : <span className="pbs-muted">—</span>)}
+                      <EvidenceLinks
+                        urls={t.evidence}
+                        onOpen={(url) => action.fire("OPEN_EVIDENCE", { url, transactionId: t.txId, hostId: h.hostId })}
+                      />
                     </td>
                     <td>{t.by || "—"}</td>
                   </tr>

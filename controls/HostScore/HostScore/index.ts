@@ -18,14 +18,27 @@ interface ShellProps {
   loading: boolean;
   referenceDate: string | null;
   actionResult: string | null;
-  emit: (json: string) => void;
+  emitWithUpload: (json: string, data: string) => void;
 }
 
 function Shell(p: ShellProps): React.ReactElement {
   const ctx = React.useMemo(() => parseContext(p.contextJson), [p.contextJson]);
-  const action = useAction(p.emit, p.actionResult, "sc");
+  // Evidence files ride on UploadData with exactly the one emit that needs them (ADD_SCORE), then clear.
+  const upload = React.useRef("");
+  const { emitWithUpload } = p;
+  const emit = React.useCallback(
+    (json: string) => {
+      emitWithUpload(json, upload.current);
+      upload.current = "";
+    },
+    [emitWithUpload],
+  );
+  const setUpload = React.useCallback((data: string) => {
+    upload.current = data;
+  }, []);
+  const action = useAction(emit, p.actionResult, "sc");
   const now = React.useMemo(() => referenceNow(p.referenceDate), [p.referenceDate, p.hosts, p.ledger]);
-  return React.createElement(HostScoreView, { ...p, ctx, now, action });
+  return React.createElement(HostScoreView, { ...p, ctx, now, action, setUpload });
 }
 
 export class HostScore implements ComponentFramework.StandardControl<IInputs, IOutputs> {
@@ -51,7 +64,7 @@ export class HostScore implements ComponentFramework.StandardControl<IInputs, IO
         loading: flag(p.IsLoading),
         referenceDate: p.ReferenceDate?.raw ?? null,
         actionResult: p.ActionResult?.raw ?? null,
-        emit: this.host.emit,
+        emitWithUpload: this.host.emitWithUpload,
       }),
       context.mode.allocatedWidth,
       context.mode.allocatedHeight,
@@ -59,7 +72,7 @@ export class HostScore implements ComponentFramework.StandardControl<IInputs, IO
   }
 
   public getOutputs(): IOutputs {
-    return { ActionPayload: this.host.output };
+    return { ActionPayload: this.host.output, UploadData: this.host.uploadData };
   }
 
   public destroy(): void {
