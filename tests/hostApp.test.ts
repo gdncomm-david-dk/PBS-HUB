@@ -11,8 +11,6 @@ import {
   reviewerNote,
   sanityWarnings,
   absenPayload,
-  canMarkLiveBreak,
-  liveBreakPayload,
   hostOptions,
   parsePlaybooks,
   reportCoverage,
@@ -363,8 +361,6 @@ describe("split live: reports in parts until Durasi covers the session", () => {
       partial: true,
     });
     expect(reportBlocker(s)).toBeNull();
-    // A live that already has a part is reported in parts, not marked Live Break.
-    expect(canMarkLiveBreak(s)).toBe(false);
     expect(statusAfterReport(s, 120, DEFAULT_HOST_OPTIONS)).toEqual({
       status: "Waiting Report",
       complete: false,
@@ -408,6 +404,14 @@ describe("split live: reports in parts until Durasi covers the session", () => {
       remainingMin: 0,
       partial: false,
     });
+    // A Live Break report that carries minutes counts them like any other part.
+    expect(
+      reportCoverage([part("R1", 120), part("R2", 120, "LiveBreak")], 240),
+    ).toMatchObject({ remainingMin: 0, partial: false });
+    expect(reportCoverage([part("R1", 120, "LiveBreak")], 240)).toMatchObject({
+      remainingMin: 120,
+      partial: true,
+    });
     expect(reportCoverage([part("R1", null)], 240)).toMatchObject({
       remainingMin: 0,
       partial: false,
@@ -446,16 +450,6 @@ describe("absen payload", () => {
     });
     expect(p).not.toHaveProperty("liveBreak");
     expect(p).not.toHaveProperty("report");
-  });
-  it("live break (asked at report time): Finished plus a Report row of zeros with ApprovalStatus LiveBreak", () => {
-    const p = liveBreakPayload(s, undefined);
-    expect(p).toMatchObject({
-      scheduleStatus: "Finished",
-      report: { approvalStatus: "LiveBreak" },
-    });
-    const metrics = (p.report as { metrics: Record<string, number> }).metrics;
-    expect(Object.values(metrics).every((v) => v === 0)).toBe(true);
-    expect(metrics["Durasi(Min)"]).toBe(0);
   });
   it("Co-Host: Finished, never a report", () => {
     const co = buildHostSessions(

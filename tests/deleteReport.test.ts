@@ -9,7 +9,7 @@ describe("delete report", () => {
     expect(hostCanDelete(rep({ ApprovalStatus: "" }))).toBe(true);
     expect(hostCanDelete(rep({ ApprovalStatus: "Waiting Approval", Match: "Match" }))).toBe(false);
     expect(hostCanDelete(rep({ ApprovalStatus: "Done" }))).toBe(false);
-    expect(hostCanDelete(rep({ ApprovalStatus: "LiveBreak" }))).toBe(false);
+    expect(hostCanDelete(rep({ ApprovalStatus: "LiveBreak" }))).toBe(true);
     expect(hostCanDelete(undefined)).toBe(false);
   });
 

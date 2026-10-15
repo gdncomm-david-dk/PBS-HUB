@@ -184,7 +184,7 @@ def submit(R, after):
                             Coalesce(LookUp(Choices([@'Report - PBS Hub'].Account), Lower(Trim(Value)) = Lower(nm) || Lower(Trim(Value)) = Lower(cd) || (Len(nm) > 0 && Lower(nm) in Lower(Value)) || (Len(cd) > 0 && Lower(cd) in Lower(Value))), {{Value: nm}})),   // Choice: cocokkan nama akun, cadangan teks nama
                         LiveDate: s.Date, AbsID: Text(p.absId),
 {ind(METRICS, 24)}
-                        ApprovalStatus: {{Value: "Waiting Approval"}}
+                        ApprovalStatus: {{Value: If(Boolean(p.liveBreak), "LiveBreak", "Waiting Approval")}}
                     }})}}, Collect(reportFiltered, _new); _new)}},
                     With({{title: "REP-" & row.ID}},
                         With({{_upd: Patch('Report - PBS Hub', row, {{Title: title}})}}, RemoveIf(reportFiltered, ID = _upd.ID); Collect(reportFiltered, _upd); _upd);
@@ -196,51 +196,14 @@ def submit(R, after):
                             )
                         );
                         // Total Durasi(Min) semua report sesi ini ≥ durasi jadwal → "Finished", kalau belum tetap "Waiting Report".
-                        With({{_upd: Patch('Schedule - PBS Hub', s, {{Status: {{Value: Text(p.scheduleStatus)}}}})}}, RemoveIf(scheduleFiltered, ID = _upd.ID); Collect(scheduleFiltered, _upd); _upd);
+                        // Seluruh sesi Live Break (semua report-nya Live Break dan durasinya terpenuhi) → LiveBreak = Yes.
+                        With({{_upd: Patch('Schedule - PBS Hub', s, {{Status: {{Value: Text(p.scheduleStatus)}}, LiveBreak: If(Boolean(p.markScheduleLiveBreak), {{Value: "Yes"}}, s.LiveBreak)}})}}, RemoveIf(scheduleFiltered, ID = _upd.ID); Collect(scheduleFiltered, _upd); _upd);
 {ind(tier("s.Date"), 24)}
 {ind(after, 24)}
                         {res(R, "ok", 'If(Boolean(p.complete), "Report " & title & " terkirim. Durasi sesi terpenuhi.", "Report " & title & " terkirim. Kurang " & Text(p.remainingMin) & " menit, kirim report berikutnya.")')}
                     )
                 ),
                 {res(R, "error", '"Gagal mengirim report: " & FirstError.Message')}
-            )
-        )
-    ),'''
-
-def live_break(R, after):
-    """LIVE_BREAK: asked when the host is about to report. No report is owed: Schedule.LiveBreak = Yes, status Finished,
-    and a Report row of zeros with ApprovalStatus LiveBreak so the list stays complete."""
-    return f'''"LIVE_BREAK",
-    With({{s: LookUp(scheduleFiltered, Title = Text(p.scheduleId) && HostID = varMe.Title),
-          ex: LookUp(absenceFiltered, ScheduleID = Text(p.scheduleId) && HostID = varMe.Title)}},
-        If(IsBlank(s),
-            {res(R, "error", '"Jadwal " & Text(p.scheduleId) & " tidak ditemukan untuk akunmu. Muat ulang dulu."')},
-        // Sama dengan report: harus sudah absen dan jadwal Waiting Report.
-        IsBlank(ex),
-            {res(R, "error", '"Absen sesi ini belum tercatat."')},
-        s.Status.Value <> "Waiting Report",
-            {res(R, "conflict", '"Status jadwal " & s.Status.Value & ", Live Break tidak bisa ditandai. Muat ulang dulu."')},
-        // Sudah ada report untuk sesi ini (live terputus sebagian): bukan Live Break lagi.
-        !IsBlank(LookUp(reportFiltered, ScheduleID = s.Title && HostID = varMe.Title)),
-            {res(R, "conflict", '"Sesi ini sudah punya report, jadi tidak bisa ditandai Live Break."')},
-            IfError(
-                With({{rep: With({{_new: Patch('Report - PBS Hub', Defaults('Report - PBS Hub'), {{
-                        ScheduleID: s.Title, HostID: varMe.Title, BrandID: s.BrandID, Platform: {{Value: s.Platform.Value}},
-                        AccountID: s.Account, HostName: Coalesce(LookUp('Host - PBS Hub', Title = varMe.Title).NamaHost, Text(p.hostName)),   // nama host dari list Host
-                        Account: With({{nm: Trim(Coalesce(LookUp(colAccounts, Title = s.Account).AccountName, Text(p.accountName), s.Account)), cd: Trim(s.Account)}},
-                            Coalesce(LookUp(Choices([@'Report - PBS Hub'].Account), Lower(Trim(Value)) = Lower(nm) || Lower(Trim(Value)) = Lower(cd) || (Len(nm) > 0 && Lower(nm) in Lower(Value)) || (Len(cd) > 0 && Lower(cd) in Lower(Value))), {{Value: nm}})),   // Choice: cocokkan nama akun, cadangan teks nama
-                        LiveDate: s.Date, AbsID: ex.Title,
-{ind(ZERO, 24)},
-                        ApprovalStatus: {{Value: "LiveBreak"}}
-                    }})}}, Collect(reportFiltered, _new); _new)}},
-                    With({{_upd: Patch('Report - PBS Hub', rep, {{Title: "REP-" & rep.ID}})}}, RemoveIf(reportFiltered, ID = _upd.ID); Collect(reportFiltered, _upd); _upd);
-                    // LiveBreak = Yes (Choice Yes/No) dan Status jadwal Finished.
-                    With({{_upd: Patch('Schedule - PBS Hub', s, {{LiveBreak: {{Value: "Yes"}}, Status: {{Value: Text(p.scheduleStatus)}}}})}}, RemoveIf(scheduleFiltered, ID = _upd.ID); Collect(scheduleFiltered, _upd); _upd);
-{ind(tier("s.Date"), 20)}
-{ind(after, 20)}
-                    {res(R, "ok", '"Sesi " & s.Title & " ditandai Live Break. Report 0 dibuat (REP-" & rep.ID & ")."')}
-                ),
-                {res(R, "error", '"Gagal menandai Live Break: " & FirstError.Message')}
             )
         )
     ),'''
@@ -258,7 +221,7 @@ def resubmit(R, after):
                     JumlahPembeli: Value(m.JumlahPembeli), CTR: Value(m.CTR), CTOR: Value(m.CTOR), PeakViewer: Value(m.PeakViewer),
                     'Durasi(Min)': Value(m.'Durasi(Min)'), AddToCart: Value(m.AddToCart), TotalViewer: Value(m.TotalViewer),
                     Comment: Value(m.Comment),
-                    LiveID: Text(p.liveId), Playbook: {{Value: Text(p.playbook)}},
+                    LiveID: Text(p.liveId), Playbook: If(IsBlank(Text(p.playbook)), Blank(), {{Value: Text(p.playbook)}}),   // Live Break: Playbook boleh kosong
                     ApprovalStatus: {{Value: Text(p.approvalStatus)}},   // "Waiting Approval Revision"
                     ApprovalComment: cur.ApprovalComment & Char(10) & "[Revisi host] " &
                         If(IsBlank(Text(p.note)), "angka diperbaiki: " & Concat(Table(p.changed), Text(ThisRecord.Value), ", "), Text(p.note))
@@ -305,8 +268,8 @@ def delete(R, after):
     With({{cur: LookUp(reportFiltered, ID = Value(p.reportId) && HostID = varMe.Title)}},
         If(IsBlank(cur),
             {res(R, "conflict", '"Report ini sudah tidak ada. Muat ulang dulu."')},
-        // Sudah Match / Done / Live Break: host tidak boleh menghapus (sama dengan aturan di control).
-        Coalesce(cur.Match.Value, "") = "Match" || cur.ApprovalStatus.Value in ["Done", "LiveBreak"],
+        // Sudah Match / Done: host tidak boleh menghapus (sama dengan aturan di control).
+        Coalesce(cur.Match.Value, "") = "Match" || cur.ApprovalStatus.Value = "Done",
             {res(R, "conflict", '"Report ini sudah Match atau disetujui, jadi tidak bisa dihapus. Hubungi tim PBS."')},
             IfError(
                 // AI Report (Report Automation) dengan Title yang sama ikut dihapus.
@@ -315,8 +278,9 @@ def delete(R, after):
                 RemoveIf(reportFiltered, ID = cur.ID);
                 // Status jadwal dihitung control: kembali Waiting Report kalau report sisanya belum menutup durasi sesi.
                 With({{s: LookUp(scheduleFiltered, Title = cur.ScheduleID && HostID = varMe.Title)}},
-                    If(!IsBlank(s) && !IsBlank(Text(p.scheduleStatus)) && s.Status.Value <> Text(p.scheduleStatus),
-                        With({{_upd: Patch('Schedule - PBS Hub', s, {{Status: {{Value: Text(p.scheduleStatus)}}}})}}, RemoveIf(scheduleFiltered, ID = _upd.ID); Collect(scheduleFiltered, _upd); _upd)));
+                    If(!IsBlank(s) && !IsBlank(Text(p.scheduleStatus)) && (s.Status.Value <> Text(p.scheduleStatus) || cur.ApprovalStatus.Value = "LiveBreak"),
+                        // Report Live Break dihapus → LiveBreak kembali No, supaya sesi bisa dilaporkan lagi.
+                        With({{_upd: Patch('Schedule - PBS Hub', s, {{Status: {{Value: Text(p.scheduleStatus)}}, LiveBreak: If(cur.ApprovalStatus.Value = "LiveBreak", {{Value: "No"}}, s.LiveBreak)}})}}, RemoveIf(scheduleFiltered, ID = _upd.ID); Collect(scheduleFiltered, _upd); _upd)));
 {ind(after, 16)}
                 {res(R, "ok", '"Report " & Text(p.title) & " dihapus."')};
                 Back(),
@@ -379,7 +343,6 @@ mrd_after = "Set(varMrdRep, LookUp(reportFiltered, ID = cur.ID));\n" + mrd_sch
 mrd = shell('\n'.join([
  absen('varMrdResult','colMrdAbs', mrd_sch),
  submit('varMrdResult', mrd_after_submit),
- live_break('varMrdResult', mrd_sch),
  resubmit('varMrdResult', mrd_after),
  dispute('varMrdResult', mrd_after),
  delete('varMrdResult', "Set(varRptId, Blank()); Set(varMrdRep, LookUp(reportFiltered, ID = -1));\n" + mrd_sch),
@@ -421,7 +384,6 @@ sd_after = sd_after_submit
 sd = shell('\n'.join([
  absen('varSdResult','colSdAbs', sd_after_submit),
  submit('varSdResult', sd_after_submit),
- live_break('varSdResult', sd_after_submit),
  resubmit('varSdResult', sd_after),
  dispute('varSdResult', sd_after),
  '"CLOCK_IN", Navigate(scrClockIn),',

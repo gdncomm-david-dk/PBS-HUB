@@ -530,7 +530,7 @@ export const reportMinutes = (r: Row): number | null =>
 /**
  * How far the reports cover the scheduled minutes. A live that dropped halfway is reported in
  * parts: 120 scheduled, 60 reported → 60 still owed and the schedule stays Waiting Report. A live
- * break report closes the session whatever its minutes; without a scheduled duration one report does.
+ * break report counts its minutes like any other; without a scheduled duration one report closes it.
  */
 export function reportCoverage(
   reports: Row[],
@@ -542,10 +542,12 @@ export function reportCoverage(
   partial: boolean;
 } {
   const reportedMin = reports.reduce((a, r) => a + (reportMinutes(r) ?? 0), 0);
-  // Live break closes the session; so does an older report sent before Durasi was required.
-  const closed = reports.some(
-    (r) => reviewState(r) === "LIVE_BREAK" || reportMinutes(r) === null,
-  );
+  // Closed without minutes: an older report sent before Durasi was required, or an old auto Live Break
+  // row (Durasi 0). A Live Break report that carries its minutes just counts them, like any other part.
+  const closed = reports.some((r) => {
+    const m = reportMinutes(r);
+    return m === null || (m === 0 && reviewState(r) === "LIVE_BREAK");
+  });
   const remainingMin = !reports.length
     ? (requiredMin ?? 0)
     : closed || requiredMin === null
@@ -588,14 +590,13 @@ export function statusAfterReport(
 }
 
 /**
- * The host may delete their own report while it is not matched: not Match, not decided (Done) and not
- * the automatic Live Break report.
+ * The host may delete their own report while it is not matched: not Match and not decided (Done).
  */
 export function hostCanDelete(report: Row | undefined): boolean {
   if (!report) return false;
   if (str(report, "Match").toLowerCase() === "match") return false;
   const st = reviewState(report);
-  return st !== "DONE_AUTO" && st !== "DONE_MANUAL" && st !== "LIVE_BREAK";
+  return st !== "DONE_AUTO" && st !== "DONE_MANUAL";
 }
 
 /** Schedule.Status once `report` is gone: done only if the other reports still cover the session. */
@@ -682,54 +683,6 @@ export function absenPayload(
     accountName: s.account,
     position: str(s.row, "Position"),
     scheduleStatus: coHost ? opts.doneStatus : opts.waitingStatus,
-  };
-}
-
-/**
- * The host may mark a session as Live Break from the report form, before anything was reported for it
- * (a live that dropped halfway is reported in parts instead). Same preconditions as a report.
- */
-export function canMarkLiveBreak(
-  s: HostSession,
-  opts: HostOptions = DEFAULT_HOST_OPTIONS,
-): boolean {
-  return !s.reports.length && reportBlocker(s, opts) === null;
-}
-
-/**
- * LIVE_BREAK payload: no report is owed, but canvas still creates a Report row with every metric 0 and
- * ApprovalStatus LiveBreak so the list stays complete, sets Schedule.LiveBreak = Yes and the schedule to
- * Done.
- */
-export function liveBreakPayload(
-  s: HostSession,
-  host: Row | undefined,
-  opts: HostOptions = DEFAULT_HOST_OPTIONS,
-): Record<string, unknown> {
-  const zeros = metricColumns(
-    Object.fromEntries(ALL_METRICS.map((d) => [d.key, 0])),
-  );
-  return {
-    scheduleId: s.title,
-    scheduleItemId: s.id,
-    hostId: str(host, "Title") || str(s.row, "HostID"),
-    hostName: str(host, "NamaHost", "HostName"),
-    liveDate: s.dayKey,
-    brandId: s.brandId,
-    studioId: s.studioId,
-    platform: s.platform,
-    account: s.accountId,
-    accountName: s.account,
-    absId: str(s.absence, "Title"),
-    scheduleStatus: opts.doneStatus,
-    report: {
-      approvalStatus: "LiveBreak",
-      metrics: zeros,
-      liveId: "",
-      playbook: "",
-      durationMin: 0,
-      fileName: "",
-    },
   };
 }
 

@@ -20,12 +20,6 @@ const assert = (c, m) => { if (!c) { console.log("FAIL", m); process.exitCode = 
   };
   const payloads = () => p.evaluate(() => window.__payloads);
   const shot = (n) => p.$("#stage").then((e) => e.screenshot({ path: path.join(out, n + ".png") }));
-  // First report of a session asks about Live Break first; these flows report normally.
-  const skipLb = async () => {
-    await p.waitForTimeout(150);
-    const b = p.getByRole("button", { name: "Tidak, kirim report" });
-    if (await b.isVisible().catch(() => false)) await b.click();
-  };
   const fillReport = async (v) => {
     for (const [k, x] of Object.entries(v)) {
       if (k === "Playbook") await p.selectOption("#hc-m-Playbook", x);
@@ -652,7 +646,6 @@ const assert = (c, m) => { if (!c) { console.log("FAIL", m); process.exitCode = 
   // ---- Host app: submit report with screenshot --------------------------------------------------
   const png = await p.screenshot({ clip: { x: 0, y: 0, width: 600, height: 900 } });
   await go("c=MyReportDetail&sch=SCD-3302");
-  await skipLb();
   const submit = p.getByRole("button", { name: "Send Report", exact: true });
   assert(await submit.isDisabled(), "submit disabled on an empty form");
   assert((await p.locator("#hc-m-AddToCart").count()) === 0 && (await p.locator("#hc-m-Share").count()) === 0, "TikTok: no AddToCart, no Share");
@@ -679,19 +672,15 @@ const assert = (c, m) => { if (!c) { console.log("FAIL", m); process.exitCode = 
 
   // Draft survives a reload (device only).
   await go("c=MyReportDetail&sch=SCD-3303");
-  await skipLb();
   await p.fill("#hc-m-Penjualan", "999.000");
   await p.getByRole("button", { name: "Save Draft" }).click();
   await go("c=MyReportDetail&sch=SCD-3303");
-  await skipLb();
   assert(await p.getByText(/draft/i).first().isVisible(), "draft restore offered after reload");
 
   // Blockers.
   await go("c=MyReportDetail&sch=SCD-3304");
-  await skipLb();
   assert(await p.getByText("Sesi ini tidak punya catatan clock in").isVisible(), "no clock-in blocks the report");
   await go("c=MyReportDetail&sch=SCD-3201");
-  await skipLb();
   await p.getByRole("button", { name: "Mark Attendance Now" }).click();
   await p.waitForTimeout(700);
   assert(await p.getByText("Absen tercatat untuk SCD-3201.").isVisible(), "absen from the report screen");
@@ -781,7 +770,6 @@ const assert = (c, m) => { if (!c) { console.log("FAIL", m); process.exitCode = 
   assert(await p.getByText("Absen tercatat untuk SCD-3201.").isVisible() && (await p.getByText("Kirim report sesi ini").isVisible()), "after absen the next step is the report");
   assert((await p.locator("#hc-report").count()) === 0, "the form stays closed until Kirim report");
   await p.locator(".hc-ph-a").getByRole("button", { name: "Send Report" }).click();
-  await skipLb();
   await p.waitForTimeout(200);
   assert((await p.locator("#hc-report").count()) === 1 && (await p.locator("#hc-m-LiveID").isVisible()), "Kirim report opens the form");
   const sdSubmit = p.locator("#hc-report").getByRole("button", { name: "Send Report", exact: true });
@@ -863,20 +851,26 @@ const assert = (c, m) => { if (!c) { console.log("FAIL", m); process.exitCode = 
   await p.waitForTimeout(300);
   assert((await p.getByRole("button", { name: "Mark Attendance", exact: true }).count()) === 0, "absen ok but no row back from canvas: Absen button still hidden (no double absen)");
 
-  // Live break is asked when the host is about to report: "Ya" = no report, a Report row of zeros with ApprovalStatus LiveBreak.
+  // Live break is a checkbox on the report form: metrics lock to 0, Live ID + duration stay required, no screenshot.
   await go("c=ScheduleDetail&sch=SCD-3201");
   await p.getByRole("button", { name: "Mark Attendance", exact: true }).first().click();
   await p.waitForTimeout(700);
   await p.locator(".hc-ph-a").getByRole("button", { name: /Send Report/ }).click();
   await p.waitForTimeout(300);
-  assert(await p.getByText("Apakah sesi ini Live Break?").isVisible() && (await p.locator("#hc-m-LiveID").count()) === 0, "before the form the host is asked whether the session is a live break");
-  await p.getByRole("button", { name: /Ya, Live Break/ }).click();
+  assert((await p.getByText("Apakah sesi ini Live Break?").count()) === 0 && (await p.locator("#hc-m-LiveID").isVisible()) && !(await p.locator("#hc-livebreak").isChecked()), "after absen the report form opens directly, Live Break unchecked");
+  await p.check("#hc-livebreak");
+  assert((await p.locator("#hc-m-Penjualan").isDisabled()) && (await p.locator("#hc-m-LiveID").isEnabled()) && (await p.locator("#hc-m-Durasi").isEnabled()), "Live Break locks the metrics, Live ID and Durasi stay editable");
+  assert(await p.getByRole("button", { name: "Send Report", exact: true }).isDisabled(), "Live Break still needs Live ID and Durasi");
+  await p.fill("#hc-m-LiveID", "9990001");
+  await p.fill("#hc-m-Durasi", "60");
+  await p.waitForTimeout(100);
+  assert(await p.getByRole("button", { name: "Send Report", exact: true }).isEnabled(), "Live Break with Live ID + Durasi can be sent without metrics, playbook or screenshot");
+  await p.getByRole("button", { name: "Send Report", exact: true }).click();
   await p.waitForTimeout(1200);
   pl = await payloads();
-  const lbAbs = pl.filter((x) => x.action === "LIVE_BREAK").pop();
-  assert(lbAbs && lbAbs.payload.scheduleId === "SCD-3201" && lbAbs.payload.scheduleStatus === "Finished" && lbAbs.payload.report.approvalStatus === "LiveBreak" && Object.values(lbAbs.payload.report.metrics).every((v) => v === 0), "LIVE_BREAK payload: Finished + report of zeros");
-  assert((await p.locator(".hc-ph-a").getByRole("button", { name: /Send Report/ }).count()) === 0 && (await p.getByText("Live break · tanpa report").isVisible()), "live break: no Kirim report");
-  assert(await p.locator(".hc-part").getByText("Live break").isVisible(), "the LiveBreak report row is listed");
+  const lbAbs = pl.filter((x) => x.action === "SUBMIT_REPORT").pop();
+  assert(lbAbs && lbAbs.payload.liveBreak === true && lbAbs.payload.approvalStatus === "LiveBreak" && lbAbs.payload.file === null && lbAbs.payload.durationMin === 60 && lbAbs.payload.liveId === "9990001" && Object.entries(lbAbs.payload.metrics).every(([k, v]) => k === "Durasi(Min)" || v === 0 || v === null), "Live Break payload: flag, LiveBreak status, zero metrics, no file, duration kept");
+  assert(lbAbs.payload.markScheduleLiveBreak === false && lbAbs.payload.complete === false, "partial Live Break does not flag the whole schedule (more report owed)");
 
   // MySchedule calendar view: toggle, day cells, day list opens the session.
   await go("c=MySchedule&view=List");

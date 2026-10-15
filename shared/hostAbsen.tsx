@@ -4,7 +4,7 @@ import { Row } from "./data";
 import { HostOptions, HostSession, absenPayload } from "./hostApp";
 
 /**
- * Absen: one tap, no questions. Live Break is decided when the host reports (LIVE_BREAK), not here.
+ * Absen: one tap, no questions. Live Break is a checkbox on the report form, not asked here.
  */
 export function useAbsen(
   action: UseActionResult,

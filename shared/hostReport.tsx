@@ -36,8 +36,6 @@ import {
   statusAllowsReport,
   hostCanDelete,
   statusAfterDelete,
-  canMarkLiveBreak,
-  liveBreakPayload,
 } from "./hostApp";
 import { DeleteReportCard } from "./deleteReport";
 import { useAbsen, useAbsenceMemory } from "./hostAbsen";
@@ -431,6 +429,7 @@ export function Coverage(props: {
 
 const LIVE_ID = "LiveID";
 const PLAYBOOK = "Playbook";
+const LIVE_BREAK = "LiveBreak";
 
 /** `embedded`: inside ScheduleDetail, which already shows the session, its next step (clock in / absen) and a back link. */
 export function SubmitReport(
@@ -474,13 +473,21 @@ export function SubmitReport(
     [platform],
   );
   const playbooks = props.playbooks?.length ? props.playbooks : opts.playbooks;
-  const values = valuesFrom(texts);
+  const liveBreak = texts[LIVE_BREAK] === "1";
+  const rawValues = valuesFrom(texts);
+  // Live Break: every metric is 0 and locked; only Live ID and Durasi are filled in.
+  const values: MetricValues = liveBreak
+    ? {
+        ...Object.fromEntries(ALL_METRICS.map((d) => [d.key, 0])),
+        Durasi: rawValues.Durasi ?? null,
+      }
+    : rawValues;
   const history = React.useMemo(
     () => props.history.map((r) => metricsFrom(r)),
     [props.history],
   );
-  const warnings = sanityWarnings(values, history);
-  const missing = missingMetrics(values, required);
+  const warnings = liveBreak ? [] : sanityWarnings(values, history);
+  const missing = liveBreak ? [] : missingMetrics(values, required);
   const liveId = (texts[LIVE_ID] ?? "").trim();
   const playbook = (texts[PLAYBOOK] ?? "").trim();
   const blocker = session ? reportBlocker(session, opts) : null;
@@ -488,15 +495,6 @@ export function SubmitReport(
   const absen = useAbsen(action, host, opts, props.onAbsenSent);
   const res = action.lastResult;
   const sent = res?.action === "SUBMIT_REPORT" && res.status === "ok";
-  const lbSent = res?.action === "LIVE_BREAK" && res.status === "ok";
-  const lbPending = action.pending?.action === "LIVE_BREAK";
-  // First report of a session: ask whether it was a live break before showing the form. A draft means
-  // the host already chose to report.
-  const [lbAnswer, setLbAnswer] = React.useState<"no" | null>(
-    draft && Object.values(draft.texts).some(Boolean) ? "no" : null,
-  );
-  const askLb =
-    !!session && lbAnswer === null && canMarkLiveBreak(session, opts);
   const minutes = values.Durasi ?? null;
   const after = session ? statusAfterReport(session, minutes ?? 0, opts) : null;
   const dupLive =
@@ -538,17 +536,17 @@ export function SubmitReport(
     );
   if (!liveId) reasons.push("Isi Live ID");
   if (dupLive) reasons.push("Live ID sudah dipakai report sebelumnya");
-  if (!playbook) reasons.push("Pilih Playbook");
+  if (!playbook && !liveBreak) reasons.push("Pilih Playbook");
   if (missing.length)
     reasons.push(`Isi ${missing.map((m) => m.label).join(", ")}`);
   if (minutes !== null && minutes <= 0)
     reasons.push("Durasi harus lebih dari 0 menit");
-  if (!image) reasons.push("Tambahkan screenshot dashboard");
+  if (!image && !liveBreak) reasons.push("Tambahkan screenshot dashboard");
   const canSubmit = reasons.length === 0 && !pending && !sent;
 
   const submit = () => {
-    if (!canSubmit || !session || !image || !after) return;
-    props.setUpload(image.base64);
+    if (!canSubmit || !session || !after || (!image && !liveBreak)) return;
+    props.setUpload(liveBreak || !image ? "" : image.base64);
     setSentInfo({
       part,
       key,
@@ -573,7 +571,13 @@ export function SubmitReport(
       absId: str(session.absence, "Title"),
       liveId,
       playbook,
-      approvalStatus: "Waiting Approval",
+      approvalStatus: liveBreak ? "LiveBreak" : "Waiting Approval",
+      liveBreak,
+      // Whole session is live break (every report so far, this one included) and its duration is covered.
+      markScheduleLiveBreak:
+        liveBreak &&
+        after.complete &&
+        session.reports.every((r) => reviewState(r) === "LIVE_BREAK"),
       metrics,
       // Split live: this is part `part`; canvas writes scheduleStatus to Schedule.Status.
       part,
@@ -583,14 +587,22 @@ export function SubmitReport(
       remainingMin: after.remainingMin,
       complete: after.complete,
       scheduleStatus: after.status,
-      file: {
-        name: evidenceFileName("", session.platform, session.accountId, "jpg"),
-        ext: "jpg",
-        contentType: "image/jpeg",
-        bytes: image.bytes,
-        width: image.width,
-        height: image.height,
-      },
+      file:
+        liveBreak || !image
+          ? null
+          : {
+              name: evidenceFileName(
+                "",
+                session.platform,
+                session.accountId,
+                "jpg",
+              ),
+              ext: "jpg",
+              contentType: "image/jpeg",
+              bytes: image.bytes,
+              width: image.width,
+              height: image.height,
+            },
       warnings: warnings.map((w) => w.text),
     });
   };
@@ -605,33 +617,6 @@ export function SubmitReport(
   ) : opts.requireAbsen ? (
     <Badge tone="warning">Absen belum ada</Badge>
   ) : null;
-
-  if (lbSent) {
-    return (
-      <div
-        className="hc-card"
-        style={{ textAlign: "center", padding: "32px 20px" }}
-      >
-        <span
-          className="hc-ic ok"
-          style={{ width: 48, height: 48, borderRadius: 24 }}
-        >
-          <Icon name="check" size={24} />
-        </span>
-        <h2 style={{ margin: "14px 0 6px", fontSize: 18 }}>
-          Sesi ditandai Live Break
-        </h2>
-        <p className="pbs-muted" style={{ margin: "0 0 16px" }}>
-          Tidak perlu kirim report. Status jadwal menjadi {opts.doneStatus}.
-        </p>
-        {props.embedded ? null : (
-          <Button onClick={() => action.fire("BACK", {})}>
-            Back to My Reports
-          </Button>
-        )}
-      </div>
-    );
-  }
 
   if (sent) {
     const left = sentInfo
@@ -717,62 +702,22 @@ export function SubmitReport(
         ]
       : []),
     {
-      label: "Live ID dan Playbook terisi",
-      ok: !!liveId && !!playbook && !dupLive,
+      label: liveBreak ? "Live ID dan durasi terisi" : "Live ID dan Playbook terisi",
+      ok: !!liveId && (liveBreak ? !!minutes : !!playbook) && !dupLive,
     },
-    { label: "Semua metrik terisi", ok: missing.length === 0 },
-    { label: "Screenshot dashboard", ok: !!image },
+    ...(liveBreak
+      ? []
+      : [
+          { label: "Semua metrik terisi", ok: missing.length === 0 },
+          { label: "Screenshot dashboard", ok: !!image },
+        ]),
   ];
   const emptyNote =
     missing.length && missing.length <= 4
       ? `${missing.map((m) => m.label).join(", ")} masih kosong. Isi 0 kalau memang nol.`
       : undefined;
 
-  const lbCard =
-    session && askLb ? (
-      <div className="hc-card">
-        <h3 style={{ margin: "0 0 4px", fontSize: 16 }}>
-          Apakah sesi ini Live Break?
-        </h3>
-        <p className="pbs-muted" style={{ margin: "0 0 14px", fontSize: 13 }}>
-          {session.title} · {session.startText || "—"}–{session.endText || "—"}{" "}
-          · {session.platform || "—"}
-        </p>
-        {res?.action === "LIVE_BREAK" && res.status !== "ok" ? (
-          <InfoBanner tone="err">{res.message || "Gagal menyimpan."}</InfoBanner>
-        ) : null}
-        <div className="hc-stack" style={{ gap: 8 }}>
-          <Button
-            variant="secondary"
-            disabled={lbPending}
-            onClick={() => setLbAnswer("no")}
-          >
-            Tidak, kirim report
-          </Button>
-          <Button
-            disabled={!!action.pending}
-            onClick={() =>
-              action.dispatch("LIVE_BREAK", liveBreakPayload(session, host, opts))
-            }
-          >
-            {lbPending ? (
-              <>
-                <Spinner small /> Saving…
-              </>
-            ) : (
-              "Ya, Live Break (tanpa report)"
-            )}
-          </Button>
-        </div>
-        <p className="pbs-muted" style={{ margin: "12px 0 0", fontSize: 12 }}>
-          Live Break tidak perlu report. Report tetap dibuat otomatis dengan
-          semua angka 0 dan status LiveBreak. Kalau live-nya sempat jalan lalu
-          terputus, pilih Tidak dan kirim report-nya.
-        </p>
-      </div>
-    ) : null;
-
-  const form = lbCard ?? (
+  const form = (
     <>
       {draft && Object.values(draft.texts).some(Boolean) ? (
         <InfoBanner
@@ -874,32 +819,62 @@ export function SubmitReport(
         session={session}
         dupLive={dupLive}
         requiredMissing={new Set(missing.map((m) => m.key))}
+        liveBreak={liveBreak}
       />
+      <div className="hc-card" style={{ marginBottom: 16 }}>
+        <label
+          style={{ display: "flex", gap: 10, alignItems: "flex-start", cursor: "pointer" }}
+        >
+          <input
+            id="hc-livebreak"
+            type="checkbox"
+            checked={liveBreak}
+            disabled={pending}
+            onChange={(e) =>
+              setTexts({ ...texts, [LIVE_BREAK]: e.target.checked ? "1" : "" })
+            }
+            style={{ marginTop: 3 }}
+          />
+          <span>
+            <b>Live Break</b>
+            <span
+              className="pbs-muted"
+              style={{ display: "block", fontSize: 12.5, marginTop: 2 }}
+            >
+              Centang kalau bagian live ini tidak berjalan (misalnya dilanjut
+              host lain). Semua metrik jadi 0 dan tidak perlu screenshot. Live ID
+              dan durasi tetap diisi, supaya durasi sesi tetap terhitung.
+            </span>
+          </span>
+        </label>
+      </div>
       <MetricForm
         defs={defs}
-        texts={texts}
+        texts={liveBreak ? textsFrom(values) : texts}
         setTexts={setTexts}
-        disabled={pending}
+        disabled={pending || liveBreak}
         warnings={warnings}
         flagged={new Set()}
         evidence={null}
         requiredMissing={new Set(missing.map((m) => m.key))}
       />
 
-      <Screenshot
-        image={image}
-        setImage={setImage}
-        disabled={pending}
-        fileName={evidenceFileName(
-          "",
-          session?.platform ?? "",
-          session?.accountId ?? "",
-          "jpg",
-        ).replace("REP-{ID}", "REP-(baru)")}
-        maxPx={configNumber(ctx, "imageMaxPx", 2000)}
-        maxKb={configNumber(ctx, "imageMaxKb", 1200)}
-        required
-      />
+      {liveBreak ? null : (
+        <Screenshot
+          image={image}
+          setImage={setImage}
+          disabled={pending}
+          fileName={evidenceFileName(
+            "",
+            session?.platform ?? "",
+            session?.accountId ?? "",
+            "jpg",
+          ).replace("REP-{ID}", "REP-(baru)")}
+          maxPx={configNumber(ctx, "imageMaxPx", 2000)}
+          maxKb={configNumber(ctx, "imageMaxKb", 1200)}
+          required
+        />
+      )}
 
       {props.embedded ? (
         <div style={{ marginBottom: 16 }}>
@@ -1036,6 +1011,7 @@ function LiveFields(props: {
   dupLive?: boolean;
   requiredMissing: Set<string>;
   original?: Texts;
+  liveBreak?: boolean;
 }): React.ReactElement {
   const set = (k: string, v: string) =>
     props.setTexts({ ...props.texts, [k]: v });
@@ -1108,7 +1084,9 @@ function LiveFields(props: {
           </div>
         ) : null}
         <div className="hc-field">
-          <label htmlFor="hc-m-Playbook">Playbook</label>
+          <label htmlFor="hc-m-Playbook">
+            Playbook{props.liveBreak ? " (opsional)" : ""}
+          </label>
           <select
             id="hc-m-Playbook"
             value={pb}
