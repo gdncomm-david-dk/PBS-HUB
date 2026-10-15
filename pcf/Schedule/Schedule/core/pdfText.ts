@@ -6,7 +6,22 @@ import * as pdfjs from "pdfjs-dist/legacy/build/pdf.mjs";
 import * as pdfWorker from "pdfjs-dist/legacy/build/pdf.worker.mjs";
 import { PdfPage } from "./layout";
 
-(globalThis as unknown as { pdfjsWorker?: unknown }).pdfjsWorker = pdfWorker;
+const register = (): void => {
+    (globalThis as unknown as { pdfjsWorker?: unknown }).pdfjsWorker = pdfWorker;
+};
+register();
+
+/** Rejects with `label` when `p` does not settle within `ms`: a stuck step must end in a message, not a spinner. */
+function within<T>(p: Promise<T>, ms: number, label: string): Promise<T> {
+    let t: ReturnType<typeof setTimeout> | undefined;
+    const late = new Promise<never>((_resolve, reject) => {
+        t = setTimeout(() => reject(new Error(label)), ms);
+    });
+    return Promise.race([p, late]).finally(() => clearTimeout(t));
+}
+const STEP_MS = 20000;
+/** Lets the browser paint between pages (pdf.js runs on the main thread here). */
+const breathe = (): Promise<void> => new Promise((resolve) => setTimeout(resolve, 0));
 
 type Seg = { t: "r"; x: number; y: number; w: number; h: number; stroke: boolean } | { t: "l"; x1: number; y1: number; x2: number; y2: number };
 
@@ -21,23 +36,49 @@ const mul = (a: number[], b: number[]): number[] => [
 ];
 const apply = (m: number[], x: number, y: number): [number, number] => [m[0] * x + m[2] * y + m[4], m[1] * x + m[3] * y + m[5]];
 
-/** Throws with a Bahasa Indonesia message when the file is not a readable PDF. */
-export async function readPdf(bytes: Uint8Array): Promise<PdfPage[]> {
+/**
+ * Throws with a Bahasa Indonesia message when the file is not a readable PDF. Every pdf.js step has a time limit;
+ * when only the table borders cannot be read, the page is read from its text alone (layout falls back to text gaps).
+ */
+export async function readPdf(bytes: Uint8Array, onPage?: (page: number, total: number) => void): Promise<PdfPage[]> {
+    // Set again per file: another script on the page may have replaced the global with its own pdf.js.
+    register();
     let doc: pdfjs.PDFDocumentProxy;
+    const task = pdfjs.getDocument({
+        data: bytes,
+        isEvalSupported: false,
+        useSystemFonts: false,
+        disableFontFace: true,
+        isOffscreenCanvasSupported: false,
+        isImageDecoderSupported: false,
+        disableAutoFetch: true,
+        disableStream: true,
+        disableRange: true,
+        verbosity: 0,
+    });
     try {
-        doc = await pdfjs.getDocument({ data: bytes, isEvalSupported: false, useSystemFonts: false, disableFontFace: true, verbosity: 0 }).promise;
+        doc = await within(task.promise, STEP_MS, "timeout");
     } catch (e) {
+        void task.destroy();
         const msg = e instanceof Error ? e.message : "";
-        throw new Error(/password/i.test(msg) ? "PDF dikunci password." : "File bukan PDF yang valid (tidak bisa dibuka).");
+        throw new Error(
+            /password/i.test(msg)
+                ? "PDF dikunci password."
+                : msg === "timeout"
+                  ? "PDF tidak selesai dibuka dalam 20 detik di browser ini. Coba upload versi Excel-nya, atau simpan ulang PDF-nya (Print → Save as PDF) lalu upload lagi."
+                  : `File bukan PDF yang valid (tidak bisa dibuka)${msg ? `: ${msg}` : ""}.`,
+        );
     }
     const OPS = pdfjs.OPS;
     const pages: PdfPage[] = [];
     try {
         for (let p = 1; p <= doc.numPages; p++) {
-            const page = await doc.getPage(p);
+            onPage?.(p, doc.numPages);
+            await breathe();
+            const page = await within(doc.getPage(p), STEP_MS, `Halaman ${p} tidak bisa dibuka (melebihi 20 detik).`);
             const vp = page.getViewport({ scale: 1 });
             const H = vp.height;
-            const tc = await page.getTextContent();
+            const tc = await within(page.getTextContent(), STEP_MS, `Teks halaman ${p} tidak terbaca (melebihi 20 detik).`);
             const items: PdfPage["items"] = [];
             for (const it of tc.items) {
                 if (!("str" in it) || !it.str.trim()) continue;
@@ -48,7 +89,8 @@ export async function readPdf(bytes: Uint8Array): Promise<PdfPage[]> {
             }
 
             // Table borders: Excel/Sheets exports draw them as thin filled rectangles or stroked lines.
-            const ol = await page.getOperatorList();
+            // Borders only help; a page whose drawing cannot be read in time is read from its text alone.
+            const ol = await within(page.getOperatorList(), STEP_MS, "ops").catch(() => ({ fnArray: [] as number[], argsArray: [] as unknown[] }));
             const segs: Seg[] = [];
             let pending: Seg[] = [];
             let ctm = [1, 0, 0, 1, 0, 0];

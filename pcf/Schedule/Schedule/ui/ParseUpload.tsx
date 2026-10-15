@@ -13,6 +13,8 @@ interface FileItem {
     name: string;
     size: number;
     state: "reading" | "ready";
+    /** Page being read, for a multi-page PDF. */
+    step?: string;
     error?: string;
     result?: LayoutResult;
     year?: number;
@@ -38,11 +40,11 @@ function kinds(r: ParsedRow): Show[] {
 const KIND_TONE: Record<Show, "success" | "warning" | "danger" | "neutral" | "info"> = { all: "neutral", valid: "success", clash: "danger", dup: "warning", exists: "neutral", past: "neutral", check: "warning", rejected: "danger" };
 const CHUNK = 150;
 
-async function parseFile(f: File, now: Date): Promise<{ result: LayoutResult; year: number }> {
+async function parseFile(f: File, now: Date, onPage?: (page: number, total: number) => void): Promise<{ result: LayoutResult; year: number }> {
     const bytes = new Uint8Array(await f.arrayBuffer());
     const year = yearHint(f.name, now);
     if (/\.pdf$/i.test(f.name)) {
-        return { result: pdfSessions(f.name, await readPdf(bytes), year), year };
+        return { result: pdfSessions(f.name, await readPdf(bytes, onPage), year), year };
     }
     return { result: sheetSessions(f.name, readSheets(bytes), year), year };
 }
@@ -83,7 +85,13 @@ export function ParseUpload(props: { env: Env; loaded: { from: string; to: strin
             const f = picked[i];
             if (!ACCEPT.test(f.name)) return patch(it.id, { state: "ready", error: "Bukan file .pdf atau .xlsx" });
             if (f.size > maxBytes) return patch(it.id, { state: "ready", error: `Lebih dari ${env.config.maxUploadMb} MB` });
-            void parseFile(f, env.now)
+            // Last safety net: a file never stays on "Membaca…" for more than two minutes.
+            let timer = 0;
+            const cap = new Promise<never>((_resolve, reject) => {
+                timer = window.setTimeout(() => reject(new Error("File tidak selesai dibaca dalam 2 menit. Coba upload versi Excel-nya, atau simpan ulang PDF-nya lalu upload lagi.")), 120000);
+            });
+            void Promise.race([parseFile(f, env.now, (page, total) => patch(it.id, { step: total > 1 ? `hal. ${page}/${total}` : "" })), cap])
+                .finally(() => window.clearTimeout(timer))
                 .then(({ result, year }) => patch(it.id, { state: "ready", result, year }))
                 .catch((e: unknown) => patch(it.id, { state: "ready", error: e instanceof Error ? e.message : "File tidak bisa dibaca" }));
         });
@@ -275,7 +283,7 @@ export function ParseUpload(props: { env: Env; loaded: { from: string; to: strin
                                 )}
                             </div>
                             <div className="sc-file__state">
-                                {f.state === "reading" ? <span className="sc-muted">Membaca…</span> : f.error || f.result?.problem ? <Badge tone="danger">Gagal</Badge> : <Badge tone="info">Terbaca</Badge>}
+                                {f.state === "reading" ? <span className="sc-muted">Membaca{f.step ? ` ${f.step}` : ""}…</span> : f.error || f.result?.problem ? <Badge tone="danger">Gagal</Badge> : <Badge tone="info">Terbaca</Badge>}
                                 {phase === "pick" && (
                                     <button type="button" className="sc-iconbtn" aria-label={`Hapus ${f.name}`} onClick={() => setFiles((xs) => xs.filter((x) => x.id !== f.id))}>
                                         {Icon.close(14)}
