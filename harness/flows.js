@@ -860,12 +860,12 @@ const assert = (c, m) => { if (!c) { console.log("FAIL", m); process.exitCode = 
   assert((await p.getByText("Apakah sesi ini Live Break?").count()) === 0 && (await p.locator("#hc-m-LiveID").isVisible()) && !(await p.locator("#hc-livebreak").isChecked()), "after absen the report form opens directly, Live Break unchecked");
   await p.check("#hc-livebreak");
   assert((await p.locator("#hc-m-Penjualan").isDisabled()) && (await p.locator("#hc-m-LiveID").isEnabled()) && (await p.locator("#hc-m-Durasi").isEnabled()), "Live Break locks the metrics, Live ID and Durasi stay editable");
-  assert(await p.getByRole("button", { name: "Send Report", exact: true }).isDisabled(), "Live Break still needs Live ID and Durasi");
+  assert(await p.locator(".hc-foot").getByRole("button", { name: "Send Report", exact: true }).isDisabled(), "Live Break still needs Live ID and Durasi");
   await p.fill("#hc-m-LiveID", "9990001");
   await p.fill("#hc-m-Durasi", "60");
   await p.waitForTimeout(100);
-  assert(await p.getByRole("button", { name: "Send Report", exact: true }).isEnabled(), "Live Break with Live ID + Durasi can be sent without metrics, playbook or screenshot");
-  await p.getByRole("button", { name: "Send Report", exact: true }).click();
+  assert(await p.locator(".hc-foot").getByRole("button", { name: "Send Report", exact: true }).isEnabled(), "Live Break with Live ID + Durasi can be sent without metrics, playbook or screenshot");
+  await p.locator(".hc-foot").getByRole("button", { name: "Send Report", exact: true }).click();
   await p.waitForTimeout(1200);
   pl = await payloads();
   const lbAbs = pl.filter((x) => x.action === "SUBMIT_REPORT").pop();

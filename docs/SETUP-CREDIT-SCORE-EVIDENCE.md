@@ -9,7 +9,7 @@ SharePoint → import solution → App Ops → App Host. Semua rumus bisa ditemp
 |---|---|---|---|
 | 1 | SharePoint `[FAS STUDIO] HostScoreTransactions` | Kolom baru `Evidence` | Baru |
 | 2 | SharePoint library *PBS Power Apps* | Folder `Credit Score` + izin baca untuk host | Baru |
-| 3 | Power Apps | Import `PBSHubOpsPCF_1_6_16_0_managed.zip` dan `PBSHubHostApp_1_0_18_0_managed.zip` | Upgrade |
+| 3 | Power Apps | Import `PBSHubOpsPCF_1_6_17_0_managed.zip` dan `PBSHubHostApp_1_0_19_0_managed.zip` | Upgrade |
 | 4 | App Ops · App.OnStart | `varSiteID`, `varDriveID` (+ opsional config) | Baru |
 | 5 | App Ops · `scrCreditScore` · control HostScore | `LedgerJson` | Diubah |
 | 6 | App Ops · `scrCreditScore` · control HostScore | `OnChange` (upload bukti + `OPEN_EVIDENCE`) | Diubah |
