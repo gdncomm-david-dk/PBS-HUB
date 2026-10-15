@@ -41,6 +41,10 @@ export interface Overrides {
     hostId?: string;
     studioId?: string;
     accountId?: string;
+    /** Corrections typed in the preview when the file is wrong: yyyy-mm-dd, minutes from midnight (end 0 = 24:00). */
+    dateKey?: string;
+    startMin?: number | null;
+    endMin?: number | null;
 }
 
 export interface Flags {
@@ -259,7 +263,21 @@ export function checkParsed(rows: Resolved[], picks: Record<string, Overrides>, 
         if (o.hostId !== undefined) delete notes.host;
         if (o.studioId !== undefined) delete notes.studio;
         if (o.accountId !== undefined) delete notes.account;
-        return { ...r, hostId: o.hostId ?? r.hostId, studioId: o.studioId ?? r.studioId, accountId, platform: acc?.platform || r.platform, notes };
+        // A corrected date or time replaces what the file said; hours then follow the corrected times.
+        const timed = o.startMin !== undefined || o.endMin !== undefined;
+        let raw = r.raw;
+        let { jamLive, shift } = r;
+        if (o.dateKey !== undefined || timed) {
+            const startMin = o.startMin !== undefined ? o.startMin : r.raw.startMin;
+            const endMin = o.endMin !== undefined ? o.endMin : r.raw.endMin;
+            raw = { ...r.raw, dateKey: o.dateKey ?? r.raw.dateKey, startMin, endMin, startText: hhmm(startMin), endText: hhmm(endMin) };
+            if (timed) {
+                delete notes.time;
+                jamLive = startMin !== null && endMin !== null ? Math.round(((((endMin - startMin + 1440) % 1440) || 1440) / 60) * 100) / 100 : 0;
+                shift = shiftOf(startMin);
+            }
+        }
+        return { ...r, raw, jamLive, shift, hostId: o.hostId ?? r.hostId, studioId: o.studioId ?? r.studioId, accountId, platform: acc?.platform || r.platform, notes };
     });
     const sig = (dateKey: string, start: number | null, end: number | null, brandId: string, hostId: string): string =>
         [dateKey, start, end === null ? null : end % 1440, brandId.toLowerCase(), hostId.toLowerCase()].join("|");

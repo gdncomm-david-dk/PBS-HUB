@@ -39,6 +39,11 @@ function kinds(r: ParsedRow): Show[] {
 }
 const KIND_TONE: Record<Show, "success" | "warning" | "danger" | "neutral" | "info"> = { all: "neutral", valid: "success", clash: "danger", dup: "warning", exists: "neutral", past: "neutral", check: "warning", rejected: "danger" };
 const CHUNK = 150;
+/** "HH:MM" from a time input → minutes from midnight; empty → null. */
+const toMin = (v: string): number | null => {
+    const m = /^(\d{1,2}):(\d{2})/.exec(v);
+    return m ? Number(m[1]) * 60 + Number(m[2]) : null;
+};
 
 async function parseFile(f: File, now: Date, onPage?: (page: number, total: number) => void): Promise<{ result: LayoutResult; year: number }> {
     const bytes = new Uint8Array(await f.arrayBuffer());
@@ -98,14 +103,17 @@ export function ParseUpload(props: { env: Env; loaded: { from: string; to: strin
     };
 
     const resolved: Resolved[] = React.useMemo(() => files.flatMap((f) => (f.result ? f.result.sessions.map((s) => resolveSession(s, rcx)) : [])), [files, rcx]);
+    const origOf = React.useMemo(() => new Map(resolved.map((r) => [r.id, r])), [resolved]);
     const groups = React.useMemo(() => {
         const m = new Map<string, number>();
         for (const r of resolved) m.set(r.raw.group, (m.get(r.raw.group) ?? 0) + 1);
         return Array.from(m.entries());
     }, [resolved]);
     const inGroup = resolved.filter((r) => !group || r.raw.group === group);
-    const pastCount = inGroup.filter((r) => r.raw.dateKey && r.raw.dateKey < env.todayKey).length;
-    const scope = hidePast ? inGroup.filter((r) => !r.raw.dateKey || r.raw.dateKey >= env.todayKey) : inGroup;
+    // A corrected date counts, not the one in the file.
+    const dateOf = (r: Resolved): string => picks[r.id]?.dateKey ?? r.raw.dateKey;
+    const pastCount = inGroup.filter((r) => dateOf(r) && dateOf(r) < env.todayKey).length;
+    const scope = hidePast ? inGroup.filter((r) => !dateOf(r) || dateOf(r) >= env.todayKey) : inGroup;
     // Checked only for what is on screen: a year of sessions against every schedule would be slow.
     const scopeKey = scope.map((r) => r.id).join(",");
     const allChecked: ParsedRow[] = React.useMemo(
@@ -153,6 +161,12 @@ export function ParseUpload(props: { env: Env; loaded: { from: string; to: strin
             return next;
         });
     };
+    /** Puts the file's date and times back on a row. */
+    const unedit = (id: string): void =>
+        setPicks((x) => {
+            const { dateKey: _d, startMin: _s, endMin: _e, ...rest } = x[id] ?? {};
+            return { ...x, [id]: rest };
+        });
     /** Tick or untick every row of the current filter (all pages). */
     const setAll = (on: boolean, rows: ParsedRow[] = visible): void => setSel((x) => ({ ...x, ...Object.fromEntries(rows.filter(selectable).map((r) => [r.id, on])) }));
     const headerBox = React.useRef<HTMLInputElement>(null);
@@ -390,18 +404,57 @@ export function ParseUpload(props: { env: Env; loaded: { from: string; to: strin
                                         const hostSel = picks[r.id]?.hostId ?? r.hostId;
                                         const studioSel = picks[r.id]?.studioId ?? r.studioId;
                                         const accSel = picks[r.id]?.accountId ?? r.accountId;
+                                        const orig = origOf.get(r.id);
+                                        const dateEdited = !!orig && orig.raw.dateKey !== r.raw.dateKey;
+                                        const timeEdited = !!orig && (orig.raw.startMin !== r.raw.startMin || orig.raw.endMin !== r.raw.endMin);
                                         return (
                                             <tr key={r.id} className={cx((r.verdict === "rejected" || r.flags.clash.length > 0) && "is-rejected")}>
                                                 <td>
                                                     <input type="checkbox" aria-label="Pilih sesi" disabled={r.verdict === "rejected"} checked={isOn(r)} onChange={(e) => setSel((x) => ({ ...x, [r.id]: e.target.checked }))} />
                                                 </td>
                                                 <td className="sc-nowrap">
-                                                    {r.raw.dateKey ? formatDateShort(r.raw.dateKey) : "—"}
-                                                    <div className="sc-muted sc-tiny">{r.raw.where}</div>
+                                                    <input
+                                                        type="date"
+                                                        aria-label="Tanggal"
+                                                        className={cx("sc-cellinput", !r.raw.dateKey && "is-empty", dateEdited && "is-edited")}
+                                                        value={r.raw.dateKey}
+                                                        onChange={(e) => setPick(r.id, { dateKey: e.target.value })}
+                                                    />
+                                                    <div className="sc-muted sc-tiny">
+                                                        {r.raw.where}
+                                                        {dateEdited && ` · di file: ${orig?.raw.dateKey ? formatDateShort(orig.raw.dateKey) : "—"}`}
+                                                    </div>
                                                 </td>
-                                                <td className="sc-mono sc-nowrap">
-                                                    {r.raw.startText || "?"}–{r.raw.endText || "?"}
-                                                    <div className="sc-muted sc-tiny">{r.shift}</div>
+                                                <td className="sc-nowrap">
+                                                    <span className="sc-timepair">
+                                                        <input
+                                                            type="time"
+                                                            aria-label="Jam mulai"
+                                                            className={cx("sc-cellinput sc-cellinput--time", r.raw.startMin === null && "is-empty", timeEdited && "is-edited")}
+                                                            value={r.raw.startText}
+                                                            onChange={(e) => setPick(r.id, { startMin: toMin(e.target.value) })}
+                                                        />
+                                                        –
+                                                        <input
+                                                            type="time"
+                                                            aria-label="Jam selesai"
+                                                            className={cx("sc-cellinput sc-cellinput--time", r.raw.endMin === null && "is-empty", timeEdited && "is-edited")}
+                                                            value={r.raw.endText}
+                                                            onChange={(e) => setPick(r.id, { endMin: toMin(e.target.value) })}
+                                                        />
+                                                    </span>
+                                                    <div className="sc-muted sc-tiny">
+                                                        {r.shift}
+                                                        {timeEdited && ` · di file: ${orig?.raw.startText || "?"}–${orig?.raw.endText || "?"}`}
+                                                        {(dateEdited || timeEdited) && (
+                                                            <>
+                                                                {" · "}
+                                                                <button type="button" className="sc-link sc-link--sm" onClick={() => unedit(r.id)}>
+                                                                    kembalikan
+                                                                </button>
+                                                            </>
+                                                        )}
+                                                    </div>
                                                 </td>
                                                 <td>
                                                     {r.brandId ? r.brandName : <span className="sc-dangertext">{r.raw.label || "—"}</span>}

@@ -249,4 +249,12 @@ describe("duplicates and clashes", () => {
         expect(rows[3].flags.clash.join(" ")).toMatch(/sudah dijadwalkan/);
         expect(rows.map((r) => r.flags.past)).toEqual([false, false, false, false]);
     });
+
+    it("uses a corrected date and time instead of the file's", () => {
+        // Row 0 is a copy of SCD-1 until its time is moved; the hours follow the new times.
+        const [r] = checkParsed([sess(0, 600, 720, "Uci")], { "f.pdf|0": { startMin: 1260, endMin: 0, dateKey: "2026-08-21" } }, cx, { todayKey: "2026-08-01", studioName });
+        expect(r.flags.exists).toBe("");
+        expect([r.raw.dateKey, r.raw.startText, r.raw.endText, r.jamLive, r.shift]).toEqual(["2026-08-21", "21:00", "00:00", 3, "Malam"]);
+        expect(createItem(r)).toMatchObject({ date: "2026-08-21", startTime: "21:00", endTime: "00:00", jamLive: 3, shift: "Malam" });
+    });
 });
