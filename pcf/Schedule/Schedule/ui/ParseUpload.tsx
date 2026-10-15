@@ -22,8 +22,8 @@ interface FileItem {
 
 const ACCEPT = /\.(pdf|xlsx)$/i;
 
-type Show = "all" | "valid" | "clash" | "dup" | "exists" | "past" | "check" | "rejected";
-const SHOW_LABEL: Record<Show, string> = { all: "Semua", valid: "Valid", clash: "Bentrok", dup: "Duplikat", exists: "Sudah ada", past: "Tanggal lewat", check: "Perlu dicek", rejected: "Belum lengkap" };
+type Show = "all" | "valid" | "clash" | "dup" | "exists" | "check" | "rejected";
+const SHOW_LABEL: Record<Show, string> = { all: "Semua", valid: "Valid", clash: "Bentrok", dup: "Duplikat", exists: "Sudah ada", check: "Perlu dicek", rejected: "Belum lengkap" };
 
 /** What a row is, for the chips and the "Hasil cek" badges. A row can be several things at once. */
 function kinds(r: ParsedRow): Show[] {
@@ -32,12 +32,11 @@ function kinds(r: ParsedRow): Show[] {
     if (r.flags.exists) out.push("exists");
     if (r.flags.dup) out.push("dup");
     if (r.flags.clash.length) out.push("clash");
-    if (r.flags.past) out.push("past");
     if (r.verdict === "warning" && !out.length) out.push("check");
     if (r.verdict === "valid") out.push("valid");
     return out;
 }
-const KIND_TONE: Record<Show, "success" | "warning" | "danger" | "neutral" | "info"> = { all: "neutral", valid: "success", clash: "danger", dup: "warning", exists: "neutral", past: "neutral", check: "warning", rejected: "danger" };
+const KIND_TONE: Record<Show, "success" | "warning" | "danger" | "neutral" | "info"> = { all: "neutral", valid: "success", clash: "danger", dup: "warning", exists: "neutral", check: "warning", rejected: "danger" };
 const CHUNK = 150;
 /** "HH:MM" from a time input → minutes from midnight; empty → null. */
 const toMin = (v: string): number | null => {
@@ -66,7 +65,6 @@ export function ParseUpload(props: { env: Env; loaded: { from: string; to: strin
     const [picks, setPicks] = React.useState<Record<string, Overrides>>({});
     const [sel, setSel] = React.useState<Record<string, boolean>>({});
     const [group, setGroup] = React.useState("");
-    const [hidePast, setHidePast] = React.useState(false);
     const [hideExisting, setHideExisting] = React.useState(true);
     const [show, setShow] = React.useState<Show>("all");
     const [phase, setPhase] = React.useState<"pick" | "saving" | "done">("pick");
@@ -110,10 +108,8 @@ export function ParseUpload(props: { env: Env; loaded: { from: string; to: strin
         return Array.from(m.entries());
     }, [resolved]);
     const inGroup = resolved.filter((r) => !group || r.raw.group === group);
-    // A corrected date counts, not the one in the file.
-    const dateOf = (r: Resolved): string => picks[r.id]?.dateKey ?? r.raw.dateKey;
-    const pastCount = inGroup.filter((r) => dateOf(r) && dateOf(r) < env.todayKey).length;
-    const scope = hidePast ? inGroup.filter((r) => !dateOf(r) || dateOf(r) >= env.todayKey) : inGroup;
+    // Past dates are normal here (a month sheet, a late upload): they are neither flagged nor hidden.
+    const scope = inGroup;
     // Checked only for what is on screen: a year of sessions against every schedule would be slow.
     const scopeKey = scope.map((r) => r.id).join(",");
     const allChecked: ParsedRow[] = React.useMemo(
@@ -124,10 +120,9 @@ export function ParseUpload(props: { env: Env; loaded: { from: string; to: strin
     // Sessions already in Schedule are hidden by default: re-uploading the same file should only show what is new.
     const existCount = allChecked.filter((r) => r.flags.exists).length;
     const checked = hideExisting ? allChecked.filter((r) => !r.flags.exists) : allChecked;
-    // Past sessions start unticked: they usually come along with a monthly sheet, not to be created again.
-    // Past, clashing, duplicated and already-existing sessions start unticked; "Pilih semua" still ticks them.
+    // Clashing, duplicated and already-existing sessions start unticked; "Pilih semua" still ticks them.
     const selectable = (r: ParsedRow): boolean => r.verdict !== "rejected";
-    const byDefault = (r: ParsedRow): boolean => !r.flags.past && !r.flags.exists && !r.flags.dup && !r.flags.clash.length;
+    const byDefault = (r: ParsedRow): boolean => !r.flags.exists && !r.flags.dup && !r.flags.clash.length;
     const isOn = (r: ParsedRow): boolean => selectable(r) && (sel[r.id] ?? byDefault(r));
     const chosen = checked.filter(isOn);
     const kindOf = new Map(checked.map((r) => [r.id, kinds(r)]));
@@ -136,7 +131,7 @@ export function ParseUpload(props: { env: Env; loaded: { from: string; to: strin
     const visibleSel = visible.filter(selectable);
     const allOn = visibleSel.length > 0 && visibleSel.every(isOn);
     const someOn = visibleSel.some(isOn);
-    const pg = usePaged(visible, `${group}|${hidePast}|${hideExisting}|${show}|${files.length}`, 25);
+    const pg = usePaged(visible, `${group}|${hideExisting}|${show}|${files.length}`, 25);
     const reading = files.some((f) => f.state === "reading");
     // The schedules dataset only holds the period the board loaded; outside it nothing can clash yet.
     const loadedFrom = props.loaded?.from ?? "";
@@ -343,10 +338,6 @@ export function ParseUpload(props: { env: Env; loaded: { from: string; to: strin
                             </label>
                         )}
                         <label className="sc-check">
-                            <input type="checkbox" checked={hidePast} onChange={(e) => setHidePast(e.target.checked)} />
-                            Sembunyikan tanggal yang sudah lewat{pastCount ? ` (${pastCount})` : ""}
-                        </label>
-                        <label className="sc-check">
                             <input type="checkbox" checked={hideExisting} onChange={(e) => setHideExisting(e.target.checked)} />
                             Sembunyikan yang sudah ada di Schedule{existCount ? ` (${existCount})` : ""}
                         </label>
@@ -373,9 +364,7 @@ export function ParseUpload(props: { env: Env; loaded: { from: string; to: strin
                         <Banner tone="info">
                             {hideExisting && existCount
                                 ? `Semua ${existCount} sesi sudah ada di Schedule. Hapus centang “Sembunyikan yang sudah ada di Schedule” untuk melihatnya.`
-                                : hidePast && pastCount
-                                  ? `Semua ${pastCount} sesi tanggalnya sudah lewat. Hapus centang “Sembunyikan tanggal yang sudah lewat” untuk melihatnya.`
-                                  : "Tidak ada sesi."}
+                                : "Tidak ada sesi."}
                         </Banner>
                     )}
                     {checked.length > 0 && (

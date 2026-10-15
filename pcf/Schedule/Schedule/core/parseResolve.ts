@@ -315,8 +315,9 @@ export function checkParsed(rows: Resolved[], picks: Record<string, Overrides>, 
         const { exists, dup } = marks[i];
         const c = (isNew(i) ? fcNew.rows[ni++] : fcCopy.rows[ci++]) ?? null;
         // A session ending at 00:00 is the normal end of the day here, not a warning. checkFile's own duplicate
-        // note counts table rows, which mean nothing here; ours names the page or sheet row.
-        let reasons = (c?.reasons ?? []).filter((x) => !(x === "Sesi melewati tengah malam" && r.raw.endMin === 0) && !/^Duplikat baris/.test(x));
+        // note counts table rows, which mean nothing here; ours names the page or sheet row. A past date is fine
+        // for a parsed schedule (late uploads, month sheets), so it is no warning either.
+        let reasons = (c?.reasons ?? []).filter((x) => !(x === "Sesi melewati tengah malam" && r.raw.endMin === 0) && !/^Duplikat baris/.test(x) && x !== "Tanggal sudah lewat");
         if (!isNew(i)) reasons = reasons.filter((x) => !CLASH.test(x));
         const clash = reasons.filter((x) => CLASH.test(x));
         const own = Object.values(r.notes).filter((x): x is string => !!x);
