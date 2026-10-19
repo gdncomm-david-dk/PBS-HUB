@@ -1877,6 +1877,7 @@ If(!IsBlank(Self.ActionPayload),
                                             CheckOutLatitude: Value(p.latitude), CheckOutLongitude: Value(p.longitude),
                                             CheckOutAccuracy: Value(p.accuracy), CheckOutDistance: Value(p.distance),
                                             CheckOutOffice: Text(p.office),
+                                            IsInsideGeofenceOut: Boolean(p.inside),   // kolom Yes/No baru: clock out di dalam radius? (IsInsideGeofence tetap untuk clock in)
                                             CheckOutDevice: Text(p.deviceType), CheckOutDeviceInfo: Text(p.deviceInfo),   // kolom Text baru
                                             WorkingDuration: DateDiff(Coalesce(cur.CheckInTime, Now()), Now(), TimeUnit.Minutes),  // menit; pakai /60 kalau kolomnya jam
                                             ScheduleCount: Value(p.scheduleCount), TotalReports: Value(p.totalReports),

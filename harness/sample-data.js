@@ -157,6 +157,8 @@
         IsInsideGeofence: !(i === 5 && day === 12), HKTugas: 180000, Tier: day % 3 === 0 ? `Tier ${tier}` : "", Insentif: day % 3 === 0 ? TIER_RATE[tier] : 0, Streak: new Date(2026, 7, day).getDay() === 6 && i < 6 ? 75000 : 0,
         // phone on odd days, laptop otherwise; day 3 clocked in on the phone and out on the laptop
         CheckInDevice: day % 2 ? "Mobile" : "Desktop", CheckInDeviceInfo: day % 2 ? "Android 14 · Chrome 126 · 412x915" : "Windows · Edge 126 · 1920x1080",
+        // day 3 clocked out far from the studio; host 5 day 12 clocked in outside the radius
+        CheckInOffice: "Studio Kemang", CheckInDistance: i === 5 && day === 12 ? 640 : 18 + day, CheckOutOffice: day === 3 ? "Studio Kemang" : "Studio Kemang", CheckOutDistance: day === 3 ? 1450 : 25, IsInsideGeofenceOut: day !== 3,
         CheckOutDevice: day === 3 ? "Desktop" : day % 2 ? "Mobile" : "Desktop", CheckOutDeviceInfo: day === 3 ? "Windows · Edge 126 · 1920x1080" : "",
       });
     });

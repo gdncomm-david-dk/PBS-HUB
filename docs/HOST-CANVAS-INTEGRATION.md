@@ -615,6 +615,7 @@ If(!IsBlank(Self.ActionPayload),
                                             CheckOutLatitude: Value(p.latitude), CheckOutLongitude: Value(p.longitude),
                                             CheckOutAccuracy: Value(p.accuracy), CheckOutDistance: Value(p.distance),
                                             CheckOutOffice: Text(p.office),
+                                            IsInsideGeofenceOut: Boolean(p.inside),   // kolom Yes/No baru: clock out di dalam radius? (IsInsideGeofence tetap untuk clock in)
                                             CheckOutDevice: Text(p.deviceType), CheckOutDeviceInfo: Text(p.deviceInfo),   // kolom Text baru
                                             WorkingDuration: DateDiff(Coalesce(cur.CheckInTime, Now()), Now(), TimeUnit.Minutes),  // menit; pakai /60 kalau kolomnya jam
                                             ScheduleCount: Value(p.scheduleCount), TotalReports: Value(p.totalReports),
@@ -654,6 +655,7 @@ Catatan:
   bisa clock in lagi tanggal 29 untuk jadwal berikutnya. Selama shift masih terbuka (jam 02:00 tanggal 29), layar
   Clock In menampilkan shift tanggal 28 dengan tombol *Clock Out* — karena itu `colCkClk` memuat `Today() - 1`.
   Sesi yang mulai sesudah tengah malam di dalam shift itu (29 Sep 00:30) dihitung sudah clock in.
+- **Lokasi.** Ops HostDetail › Kehadiran menampilkan studio terdekat dan jarak untuk clock in (`CheckInOffice`, `CheckInDistance`, `IsInsideGeofence`) dan clock out (`CheckOutOffice`, `CheckOutDistance`, `IsInsideGeofenceOut`), plus badge *In/Out di luar radius*. `IsInsideGeofenceOut` adalah kolom Yes/No baru di `Clock In - PBS Hub`; baris lama tanpa kolom itu tampil tanpa status clock out.
 - **Perangkat.** Control membaca browser yang dipakai (aplikasi Power Apps di HP, browser HP, browser laptop) dan mengirim `deviceType` = `Mobile` / `Tablet` / `Desktop` plus `deviceInfo` (OS · browser · ukuran layar). Buat 4 kolom **Text** di `Clock In - PBS Hub`: `CheckInDevice`, `CheckInDeviceInfo`, `CheckOutDevice`, `CheckOutDeviceInfo` (`Note` untuk yang `…Info`). Kolom belum dibuat? Hapus barisnya dari formula. Di PBS Console tab *Kehadiran* muncul kolom *Perangkat* (HP / Tablet / Laptop; *HP → Laptop* kalau clock out dari perangkat lain) kalau `ClockInJson` HostDetail ikut mengirim keempat kolom itu.
 - Izin lokasi: Power Apps mobile meminta izin lokasi saat pertama kali; di browser, situs `apps.powerapps.com` harus
   diizinkan. Kalau ditolak, control memakai `DeviceLocationJson` (sinyal `Location` canvas) bila terisi.

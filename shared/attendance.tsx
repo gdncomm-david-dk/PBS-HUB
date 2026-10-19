@@ -1,10 +1,12 @@
 import { deviceLabel } from "./device";
+import { fmtDistance } from "./clockInApp";
 import * as React from "react";
 import { ModuleContext, UseActionResult, configNumber } from "./contract";
 import {
   MAX_SHIFT_HOURS,
   Row,
   addDaysKey,
+  bool,
   date,
   localDayKey,
   num,
@@ -108,12 +110,51 @@ export interface AttendanceDay {
   streak: number;
   total: number;
   outsideGeofence: boolean;
+  /** Where the clock in / out was made: studio, distance (m) and whether inside the radius (null = unknown). */
+  place: {
+    officeIn: string;
+    officeOut: string;
+    distIn: number | null;
+    distOut: number | null;
+    insideIn: boolean | null;
+    insideOut: boolean | null;
+  };
   manual: boolean;
   /** Device the clock in / out was made on (Mobile | Tablet | Desktop), "" for rows without it. */
   deviceIn: string;
   deviceOut: string;
   deviceInfo: string;
   adjusted: { by: string; at: Date | null; reason: string } | null;
+}
+
+/** One end of the shift: studio + distance and whether it was inside the radius. */
+function PlaceLine(props: {
+  label: string;
+  office: string;
+  dist: number | null;
+  inside: boolean | null;
+}): React.ReactElement {
+  const known = props.office || props.dist !== null || props.inside !== null;
+  return (
+    <div style={{ whiteSpace: "nowrap" }}>
+      <span className="pbs-muted">{props.label} </span>
+      {known ? (
+        <>
+          {props.office || "—"}
+          {props.dist !== null ? (
+            <span className="pbs-muted"> · {fmtDistance(props.dist)}</span>
+          ) : null}{" "}
+          {props.inside === false ? (
+            <span className="pbs-t-warn">Luar radius</span>
+          ) : props.inside === true ? (
+            <span className="pbs-t-ok">Dalam radius</span>
+          ) : null}
+        </>
+      ) : (
+        <span className="pbs-muted">—</span>
+      )}
+    </div>
+  );
 }
 
 export function buildAttendance(
@@ -159,9 +200,15 @@ export function buildAttendance(
       insentif,
       streak,
       total: hk + insentif + streak,
-      outsideGeofence:
-        c.IsInsideGeofence === false ||
-        str(c, "IsInsideGeofence").toLowerCase() === "false",
+      outsideGeofence: bool(c, "IsInsideGeofence") === false || bool(c, "IsInsideGeofenceOut") === false,
+      place: {
+        officeIn: str(c, "CheckInOffice"),
+        officeOut: str(c, "CheckOutOffice"),
+        distIn: num(c, "CheckInDistance"),
+        distOut: num(c, "CheckOutDistance"),
+        insideIn: bool(c, "IsInsideGeofence"),
+        insideOut: bool(c, "IsInsideGeofenceOut"),
+      },
       // Manual rows (ADD_CLOCK_IN) carry text times and no GPS check-in.
       deviceIn: str(c, "CheckInDevice"),
       deviceOut: str(c, "CheckOutDevice"),
@@ -329,6 +376,7 @@ export function AttendanceTab(props: {
                 <th>Clock in</th>
                 <th>Clock out</th>
                 <th>Durasi</th>
+                <th>Lokasi</th>
                 <th>Perangkat</th>
                 <th>Status</th>
                 <th>Tier</th>
@@ -341,7 +389,7 @@ export function AttendanceTab(props: {
             </thead>
             <tbody>
               {firstLoad ? (
-                <SkeletonRows rows={6} cols={props.canEdit ? 12 : 11} />
+                <SkeletonRows rows={6} cols={props.canEdit ? 13 : 12} />
               ) : (
                 paged.rows.map((d) => {
                   const open = !!d.inAt && !d.outAt;
@@ -377,6 +425,12 @@ export function AttendanceTab(props: {
                         style={{ whiteSpace: "nowrap" }}
                       >
                         {dur(d.minutes)}
+                      </td>
+                      <td style={{ fontSize: 12.5, lineHeight: 1.45 }}>
+                        <PlaceLine label="In" office={d.place.officeIn} dist={d.place.distIn} inside={d.place.insideIn} />
+                        {d.outAt || d.place.officeOut || d.place.insideOut !== null ? (
+                          <PlaceLine label="Out" office={d.place.officeOut} dist={d.place.distOut} inside={d.place.insideOut} />
+                        ) : null}
                       </td>
                       <td style={{ whiteSpace: "nowrap" }} title={d.deviceInfo}>
                         {d.deviceIn ? (
@@ -445,9 +499,14 @@ export function AttendanceTab(props: {
                             Insentif ≠ tier
                           </Badge>
                         ) : null}{" "}
-                        {d.outsideGeofence ? (
+                        {d.place.insideIn === false ? (
                           <Badge tone="warning" small>
-                            Luar geofence
+                            In di luar radius
+                          </Badge>
+                        ) : null}{" "}
+                        {d.place.insideOut === false ? (
+                          <Badge tone="warning" small>
+                            Out di luar radius
                           </Badge>
                         ) : null}
                       </td>

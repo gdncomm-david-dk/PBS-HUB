@@ -421,6 +421,8 @@ const assert = (c, m) => { if (!c) { console.log("FAIL", m); process.exitCode = 
   assert(await p.getByText(/sudah memakai kehadiran Agustus 2026/).isVisible(), "payroll run using August is named before editing");
   const augRow = await pageTo(p.locator("tr", { hasText: "Senin, 3 Agustus" }));
   assert((await augRow.getByText("HP", { exact: false }).isVisible()) && (await augRow.getByText("→ Laptop").isVisible()), "Perangkat column: clocked in on HP, out on Laptop");
+  assert((await augRow.getByText("Studio Kemang").first().isVisible()) && (await augRow.getByText("Dalam radius").first().isVisible()), "Lokasi column: studio, distance and inside the radius for clock in");
+  assert((await augRow.getByText("Out di luar radius").isVisible()) && (await augRow.getByText("Luar radius").first().isVisible()), "Lokasi column: clock out far from the studio is flagged Out di luar radius");
   await augRow.getByRole("button", { name: "Edit", exact: true }).click();
   const adj = p.getByRole("dialog");
   const saveAdj = adj.getByRole("button", { name: "Save Changes" });

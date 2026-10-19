@@ -14,6 +14,15 @@ describe("buildAttendance", () => {
     expect(days.map((d) => d.id)).toEqual(["3", "2", "1"]);
     expect(days[2]).toMatchObject({ tier: 1, insentif: 75000, streak: 0, total: 255000, minutes: 550, status: "Hadir - Tugas" });
   });
+  it("reads where the shift started and ended and whether each end was inside the radius", () => {
+    const [d] = buildAttendance(
+      [{ ID: 9, HostID: "H1", ClockInDate: "2026-08-06", CheckInTime: "2026-08-06T08:00:00", CheckOutTime: "2026-08-06T16:00:00", CheckInOffice: "Studio A", CheckInDistance: 20, IsInsideGeofence: true, CheckOutOffice: "Studio B", CheckOutDistance: 480, IsInsideGeofenceOut: false }],
+      "H1",
+      {},
+    );
+    expect(d?.place).toEqual({ officeIn: "Studio A", officeOut: "Studio B", distIn: 20, distOut: 480, insideIn: true, insideOut: false });
+    expect(d?.outsideGeofence).toBe(true);
+  });
   it("reads open shifts, manual text times past midnight, geofence and audit", () => {
     expect(days[1]).toMatchObject({ outAt: null, minutes: null, outsideGeofence: true, total: 320000 });
     expect(days[0]).toMatchObject({ manual: true, minutes: 360, status: "Hadir - Retainer" });
