@@ -985,5 +985,72 @@ const assert = (c, m) => { if (!c) { console.log("FAIL", m); process.exitCode = 
   assert(await p.getByText("Clock out tersimpan. Terima kasih!").isVisible() && (await p.getByText(/Shift selesai/).count()) > 0, "after clock out the shift reads finished");
   await shot("f-clockout-done");
 
+  // ---- Brand & Account: brands on the left, accounts on the right, Add Brand / Add Account / Edit ----
+  await go("c=BrandAccount");
+  assert((await p.getByText("8 brand · 17 account (16 aktif)").isVisible()) && (await p.locator(".pbs-ba-b").count()) === 10, "brands listed with account counts, plus Semua brand and Tanpa brand for the orphan");
+  assert((await p.getByRole("button", { name: "Add Account" }).isEnabled()) && (await p.getByRole("button", { name: "Add Brand" }).isEnabled()), "Add Brand and Add Account for BRAND_EDIT");
+  await p.locator(".pbs-ba-b", { hasText: "Y.O.U Beauty" }).click();
+  await p.waitForTimeout(150);
+  assert((await p.locator(".pbs-table tbody tr").count()) === 2 && (await p.getByText("Total 2 account").isVisible()), "picking a brand lists only its accounts");
+  pl = await payloads();
+  assert(pl.some((x) => x.action === "BRAND_SELECTED" && x.payload.brandId === "BRD-005"), "BRAND_SELECTED fired");
+  await shot("ba-list");
+
+  // Add Account: the brand is preselected, the code continues the pattern, a duplicate name is blocked.
+  await p.getByRole("button", { name: "Add Account" }).click();
+  await p.waitForTimeout(150);
+  assert((await p.locator("#pbs-ba-brand").inputValue()) === "BRD-005" && (await p.locator("#pbs-ba-code").inputValue()) === "ACC-100", "Add Account: brand preselected and next code ACC-100");
+  await p.fill("#pbs-ba-name", "YouBeautyOfficial");
+  await p.selectOption("#pbs-ba-platform", "Shopee");
+  await p.getByRole("dialog").getByRole("button", { name: "Save Account" }).click();
+  assert(await p.getByRole("dialog").getByText(/Nama akun sudah dipakai oleh/).isVisible() && !(await p.evaluate(() => window.__payloads.some((x) => x.action === "ADD_ACCOUNT"))), "a name already in use is blocked before anything is sent");
+  await p.fill("#pbs-ba-name", "youbeauty.live");
+  await shot("ba-add-account");
+  await p.getByRole("dialog").getByRole("button", { name: "Save Account" }).click();
+  await p.waitForTimeout(900);
+  pl = await payloads();
+  const addAcc = pl.filter((x) => x.action === "ADD_ACCOUNT").pop();
+  assert(addAcc && addAcc.payload.code === "ACC-100" && addAcc.payload.name === "youbeauty.live" && addAcc.payload.brandId === "BRD-005" && addAcc.payload.platform === "Shopee" && addAcc.payload.status === "Active", "ADD_ACCOUNT payload: code, name, brand, platform, status");
+  assert((await p.getByRole("dialog").count()) === 0 && (await p.getByText(/Tambahkan "youbeauty.live" ke pilihan kolom Account/).isVisible()) && (await p.locator(".pbs-table tbody tr").count()) === 3, "saved: dialog closed, reminder about the Report choice column, row added");
+
+  // Edit: the code is locked, deactivating sends Inactive with expectedModified.
+  await p.locator("tr", { hasText: "ACC-100" }).getByRole("button", { name: "Edit" }).click();
+  await p.waitForTimeout(150);
+  assert(await p.locator("#pbs-ba-code").isDisabled(), "Edit: the account code cannot change");
+  await p.uncheck("#pbs-ba-active");
+  await p.getByRole("dialog").getByRole("button", { name: "Save Changes" }).click();
+  await p.waitForTimeout(900);
+  pl = await payloads();
+  const upd = pl.filter((x) => x.action === "UPDATE_ACCOUNT").pop();
+  assert(upd && upd.payload.code === "ACC-100" && upd.payload.status === "Inactive" && upd.payload.expectedModified === "2026-09-14T11:42:00" && upd.payload.renamed === false, "UPDATE_ACCOUNT payload: Inactive, expectedModified, not renamed");
+  assert(await p.locator("tr", { hasText: "ACC-100" }).getByText("Nonaktif").isVisible(), "the account now reads Nonaktif");
+
+  // Add Brand continues the brand code pattern.
+  await p.getByRole("button", { name: "Add Brand" }).click();
+  await p.waitForTimeout(150);
+  assert((await p.locator("#pbs-ba-bc").inputValue()) === "BRD-009", "Add Brand: next code BRD-009");
+  await p.fill("#pbs-ba-bn", "Glow Lab");
+  await p.getByRole("dialog").getByRole("button", { name: "Save Brand" }).click();
+  await p.waitForTimeout(900);
+  pl = await payloads();
+  assert(pl.some((x) => x.action === "ADD_BRAND" && x.payload.code === "BRD-009" && x.payload.name === "Glow Lab") && (await p.locator(".pbs-ba-b", { hasText: "Glow Lab" }).isVisible()), "ADD_BRAND sent and the brand shows in the list");
+
+  // A failed save stays in its dialog; a viewer has no write buttons; the orphan is reachable.
+  await go("c=BrandAccount&b=BRD-005&reply=error");
+  await p.getByRole("button", { name: "Add Account" }).click();
+  await p.fill("#pbs-ba-name", "failcase");
+  await p.selectOption("#pbs-ba-platform", "TikTok");
+  await p.getByRole("dialog").getByRole("button", { name: "Save Account" }).click();
+  await p.waitForTimeout(900);
+  assert(await p.getByRole("dialog").getByText("Gagal menyimpan: akses ditolak.").isVisible(), "a failed save stays inside the dialog");
+  await go("c=BrandAccount&role=Viewer");
+  assert((await p.getByRole("button", { name: "Add Account" }).count()) === 0 && (await p.getByText(/butuh izin BRAND_EDIT/).isVisible()), "no write buttons without BRAND_EDIT");
+  await p.locator(".pbs-ba-b", { hasText: "Tanpa brand" }).click();
+  await p.waitForTimeout(150);
+  assert((await p.locator(".pbs-table tbody tr").count()) === 1 && (await p.getByText("BRD-404").isVisible()), "Tanpa brand lists the account whose BrandID matches no brand");
+  await go("c=BrandAccount&w=390");
+  assert((await p.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1)), "Brand & Account fits a 390 px phone without horizontal scroll");
+  await shot("ba-mobile");
+
   await b.close();
 })();

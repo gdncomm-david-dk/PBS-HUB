@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<manifest>
+  <control namespace="Ops" constructor="BrandAccount" version="1.0.0" display-name-key="PBS Ops Brand and Account" description-key="PBS Hub Ops Console: the brands and the accounts of every brand. Add a brand, add an account (code, name, brand, platform, active) and edit an account." control-type="standard">
+    <external-service-usage enabled="false"></external-service-usage>
+
+    <property name="Context" display-name-key="Context" description-key="JSON {userEmail,userName,roles,permissions,config}. config.platforms: optional list of platforms offered when adding an account (default Shopee, TikTok). Writing needs BRAND_EDIT (without a permission list: PBS_Team and FAS_Team)." of-type="Multiple" usage="input" required="false" />
+    <property name="BrandsJson" display-name-key="BrandsJson" description-key="JSON rows of [Brand - PBS Hub]: ID, Title (brand code), NamaBrand." of-type="Multiple" usage="input" required="false" />
+    <property name="AccountsJson" display-name-key="AccountsJson" description-key="JSON rows of [Account - PBS Hub]: ID, Title (account code), AccountName, BrandID (= Brand.Title), Platform (Choice, send .Value), Status (Choice Active / Inactive, send .Value), Modified." of-type="Multiple" usage="input" required="false" />
+    <property name="BrandId" display-name-key="BrandId" description-key="Optional Brand.Title to select when the screen opens. Empty: all brands." of-type="SingleLine.Text" usage="input" required="false" />
+    <property name="IsLoading" display-name-key="IsLoading" description-key="true while canvas is loading: renders skeleton rows." of-type="TwoOptions" usage="input" required="false" />
+    <property name="ActionResult" display-name-key="ActionResult" description-key="Canvas reply {requestId,status,message}. ADD_BRAND, ADD_ACCOUNT and UPDATE_ACCOUNT lock until it comes back." of-type="SingleLine.Text" usage="input" required="false" />
+    <property name="ActionPayload" display-name-key="ActionPayload" description-key="JSON {action,requestId,payload}: ADD_BRAND, ADD_ACCOUNT, UPDATE_ACCOUNT, BRAND_SELECTED, FILTER_CHANGED." of-type="SingleLine.Text" usage="output" required="false" />
+
+    <resources>
+      <code path="index.ts" order="1" />
+    </resources>
+  </control>
+</manifest>

@@ -16,6 +16,7 @@ Power Apps code components (PCF) untuk canvas app PBS Hub, dibuat dari design ha
 | `pbs_Ops.HostList` | Host — direktori, skor + band, peringatan tanpa data bank (HD-1) | `controls/HostList` |
 | `pbs_Ops.HostDetail` | Detail host — ringkasan skor/ledger, jadwal, kehadiran (edit jam, tier, weekly), report, payroll, data pribadi tersamar (HD-2) | `controls/HostDetail` |
 | `pbs_Ops.HostScore` | Skor host — host per band, ledger per host, tambah / kurangi poin dari rule, batalkan transaksi dengan baris koreksi (SL-1, SL-2) | `controls/HostScore` |
+| `pbs_Ops.BrandAccount` | Brand & Account — daftar brand dan account per brand, Add Brand, Add Account, Edit account (kode, nama, brand, platform, aktif) | `controls/BrandAccount` |
 
 **Host app** (solusi terpisah `PBSHubHostApp`, dari desain *PBS Host App*; ketujuh control host dalam satu solusi):
 

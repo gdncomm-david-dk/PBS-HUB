@@ -255,6 +255,15 @@ font-family:"Blibli","Helvetica Neue",Arial,sans-serif;font-size:13px;line-heigh
 .pbs-sc-box .pbs-label{color:inherit;margin:0}
 .pbs-sc-input{height:40px;border:1px solid var(--bd);border-radius:8px;padding:0 12px;width:100%;background:#fff;font-size:13px;outline:none;color:var(--tx)}
 .pbs-sc-input:focus{border-color:var(--p);box-shadow:0 0 0 3px var(--p-tint)}
+.pbs-ba-grid{display:grid;grid-template-columns:minmax(210px,280px) minmax(0,1fr);gap:16px;align-items:start}
+.pbs-ba-brands{display:grid;gap:4px;background:#fff;border:1px solid var(--bd);border-radius:12px;padding:8px}
+.pbs-ba-b{display:flex;align-items:center;justify-content:space-between;gap:10px;text-align:left;border:0;background:transparent;border-radius:8px;padding:9px 10px;font-size:13px;color:var(--tx);cursor:pointer}
+.pbs-ba-b small{display:block;font-size:11.5px}
+.pbs-ba-b:hover{background:var(--bg2,#F4F6FA)}
+.pbs-ba-b.on{background:var(--p-tint);color:var(--p);font-weight:600}
+.pbs-ba-main{min-width:0}
+.pbs-ba-off td{color:var(--tx2)}
+@container (max-width:760px){.pbs-ba-grid{grid-template-columns:1fr}.pbs-ba-brands{grid-auto-flow:column;grid-auto-columns:max-content;overflow-x:auto}}
 .pbs-sc-ack{display:flex;align-items:center;gap:10px;cursor:pointer}
 .pbs-sc-miss{margin-right:auto;font-size:12px}
 .pbs-sc-void{display:flex;align-items:center;gap:16px;padding:12px 14px;border:1px solid var(--bd);border-radius:8px;background:var(--sf2);flex-wrap:wrap}

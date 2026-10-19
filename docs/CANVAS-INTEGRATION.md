@@ -1307,6 +1307,128 @@ tahu*), jadi canvas cukup menulisnya ke `Notes`. Canvas menghitung ulang `after`
 memakai `scoreAfter` payload. `UploadData` hanya terisi untuk `ADD_SCORE` yang punya bukti; upload gagal = transaksi
 tidak ditulis (dialog tetap terbuka dengan pesan error). Baris `Reversal` tampil dengan badge *Koreksi* di Ops HostDetail dan di aplikasi host.
 
+### BrandAccount (Brand & Account: tambah brand, tambah dan edit account)
+
+Control `pbs_Ops.BrandAccount` di layar `scrBrandAccount`. Kiri: daftar brand (jumlah account per brand, *Semua brand*,
+dan *Tanpa brand* kalau ada account yang `BrandID`-nya tidak cocok dengan brand mana pun). Kanan: tabel account
+(kode, nama, brand, platform, status) dengan pencarian dan filter platform / status. Tombol **Add Brand**, **Add Account**
+dan **Edit** hanya untuk izin `BRAND_EDIT` (tanpa daftar izin: PBS_Team dan FAS_Team).
+
+**Kolom di `Account - PBS Hub`** (selain `Title` = kode akun dan `AccountName`, yang sudah ada):
+
+| Kolom | Tipe | Isi |
+|---|---|---|
+| `BrandID` | Teks | `Brand.Title`, mis. `BRD-005` |
+| `Platform` | Choice | Shopee, TikTok (tambah pilihan sesuai kebutuhan; daftar di form bisa diatur lewat `config.platforms`) |
+| `Status` | Choice | `Active`, `Inactive` |
+
+Aturan di control (diperiksa lagi di OnChange): kode akun unik dan **tidak bisa diubah** setelah dibuat (dipakai
+`Schedule.Account`), nama akun unik (nama inilah yang disimpan di `Report.Account` dan `Host Absence.Account`), brand dan
+platform wajib. Kode berikutnya diusulkan mengikuti pola yang sudah ada (`ACC-015` → `ACC-016`, `BRD-008` → `BRD-009`).
+
+> **Setelah menambah account atau mengganti namanya**, tambahkan nama barunya ke pilihan kolom `Account` di list
+> `Report - PBS Hub` dan `Host Absence - PBS Hub` (kolom Choice). SharePoint tidak menambah pilihan sendiri, dan tanpa
+> itu kolom `Account` di report baru kosong. Pesan sukses dari OnChange di bawah mengingatkan hal ini.
+
+`OnVisible` layar:
+
+```powerfx
+Set(varBaLoading, true);
+ClearCollect(colBaBrand, 'Brand - PBS Hub');
+ClearCollect(colBaAcc, 'Account - PBS Hub');
+Set(varBaResult, Blank());
+Set(varBaLoading, false)
+```
+
+| Properti | Nilai |
+|---|---|
+| `Context` | `varPbsCtx` |
+| `BrandsJson` | `JSON(ForAll(colBaBrand, {ID: ID, Title: Title, NamaBrand: NamaBrand}), JSONFormat.Compact)` |
+| `AccountsJson` | `JSON(ForAll(colBaAcc, {ID: ID, Title: Title, AccountName: AccountName, BrandID: BrandID, Platform: Platform.Value, Status: Status.Value, Modified: Modified}), JSONFormat.Compact)` |
+| `BrandId` | kosong (atau `Brand.Title` untuk membuka dengan satu brand terpilih) |
+| `IsLoading` | `varBaLoading` |
+| `ActionResult` | `varBaResult` |
+
+Aksi:
+
+| Aksi | Payload | Canvas |
+|---|---|---|
+| `ADD_BRAND` 🔒 | `{code, name}` | cek kode dan nama belum ada, Patch `Brand - PBS Hub` (`Title`, `NamaBrand`) |
+| `ADD_ACCOUNT` 🔒 | `{code, name, brandId, brandName, platform, status}` | cek kode dan nama belum ada, Patch `Account - PBS Hub` |
+| `UPDATE_ACCOUNT` 🔒 | `{code, name, brandId, brandName, platform, status, accountItemId, expectedModified, previousName, renamed}` | tolak (`conflict`) kalau `Modified` sudah berubah, Patch nama, brand, platform, status (kode tetap) |
+| `BRAND_SELECTED`, `FILTER_CHANGED` | informasi | tidak perlu dibalas |
+
+OnChange layar (`ADD_BRAND`, `ADD_ACCOUNT`, `UPDATE_ACCOUNT`):
+
+```powerfx
+If(!IsBlank(Self.ActionPayload),
+    With({req: ParseJSON(Self.ActionPayload)},
+        With({act: Text(req.action), rid: Text(req.requestId), p: req.payload},
+            If(!(rid in colPbsProcessed.Id),
+                Collect(colPbsProcessed, {Id: rid});
+                Switch(act,
+                    "ADD_BRAND",
+                        If(!IsBlank(LookUp(colBaBrand, Lower(Title) = Lower(Text(p.code)))),
+                            Set(varBaResult, JSON({requestId: rid, status: "conflict", message: "Kode brand " & Text(p.code) & " sudah dipakai."}, JSONFormat.Compact)),
+                        !IsBlank(LookUp(colBaBrand, Lower(NamaBrand) = Lower(Text(p.name)))),
+                            Set(varBaResult, JSON({requestId: rid, status: "conflict", message: "Nama brand " & Text(p.name) & " sudah dipakai."}, JSONFormat.Compact)),
+                            IfError(
+                                Patch('Brand - PBS Hub', Defaults('Brand - PBS Hub'), {Title: Text(p.code), NamaBrand: Text(p.name)});
+                                ClearCollect(colBaBrand, 'Brand - PBS Hub');
+                                ClearCollect(colBrands, ShowColumns('Brand - PBS Hub', Title, NamaBrand));   // koleksi App.OnStart yang dipakai host app
+                                Set(varBaResult, JSON({requestId: rid, status: "ok", message: "Brand " & Text(p.code) & " ditambahkan."}, JSONFormat.Compact)),
+                                Set(varBaResult, JSON({requestId: rid, status: "error", message: "Gagal menambah brand: " & FirstError.Message}, JSONFormat.Compact))
+                            )
+                        ),
+                    "ADD_ACCOUNT",
+                        If(!IsBlank(LookUp(colBaAcc, Lower(Title) = Lower(Text(p.code)))),
+                            Set(varBaResult, JSON({requestId: rid, status: "conflict", message: "Kode akun " & Text(p.code) & " sudah dipakai."}, JSONFormat.Compact)),
+                        !IsBlank(LookUp(colBaAcc, Lower(AccountName) = Lower(Text(p.name)))),
+                            Set(varBaResult, JSON({requestId: rid, status: "conflict", message: "Nama akun " & Text(p.name) & " sudah dipakai."}, JSONFormat.Compact)),
+                            IfError(
+                                Patch('Account - PBS Hub', Defaults('Account - PBS Hub'), {
+                                    Title: Text(p.code), AccountName: Text(p.name), BrandID: Text(p.brandId),
+                                    Platform: {Value: Text(p.platform)}, Status: {Value: Text(p.status)}
+                                });
+                                ClearCollect(colBaAcc, 'Account - PBS Hub');
+                                ClearCollect(colAccounts, ShowColumns('Account - PBS Hub', Title, AccountName));   // dipakai host app dan OnChange report
+                                Set(varBaResult, JSON({requestId: rid, status: "ok", message: "Account " & Text(p.code) & " ditambahkan. Tambahkan """ & Text(p.name) & """ ke pilihan kolom Account di list Report dan Host Absence."}, JSONFormat.Compact)),
+                                Set(varBaResult, JSON({requestId: rid, status: "error", message: "Gagal menambah account: " & FirstError.Message}, JSONFormat.Compact))
+                            )
+                        ),
+                    "UPDATE_ACCOUNT",
+                        With({cur: LookUp(colBaAcc, ID = Value(p.accountItemId))},
+                            If(IsBlank(cur),
+                                Set(varBaResult, JSON({requestId: rid, status: "conflict", message: "Account ini sudah tidak ada. Muat ulang dulu."}, JSONFormat.Compact)),
+                            // Modified dari JSON berformat UTC ("…Z"); DateTimeValue mengubahnya ke jam lokal sebelum dibandingkan.
+                            Abs(DateDiff(cur.Modified, DateTimeValue(Text(p.expectedModified)), TimeUnit.Seconds)) > 1,
+                                Set(varBaResult, JSON({requestId: rid, status: "conflict", message: "Account ini sudah diubah orang lain. Muat ulang dulu."}, JSONFormat.Compact)),
+                            !IsBlank(LookUp(colBaAcc, Lower(AccountName) = Lower(Text(p.name)) && ID <> cur.ID)),
+                                Set(varBaResult, JSON({requestId: rid, status: "conflict", message: "Nama akun " & Text(p.name) & " sudah dipakai account lain."}, JSONFormat.Compact)),
+                                IfError(
+                                    Patch('Account - PBS Hub', cur, {
+                                        AccountName: Text(p.name), BrandID: Text(p.brandId),
+                                        Platform: {Value: Text(p.platform)}, Status: {Value: Text(p.status)}
+                                    });
+                                    ClearCollect(colBaAcc, 'Account - PBS Hub');
+                                    ClearCollect(colAccounts, ShowColumns('Account - PBS Hub', Title, AccountName));
+                                    Set(varBaResult, JSON({requestId: rid, status: "ok", message: "Account " & Text(cur.Title) & " disimpan." & If(Boolean(p.renamed), " Nama baru: tambahkan """ & Text(p.name) & """ ke pilihan kolom Account di list Report dan Host Absence.", "")}, JSONFormat.Compact)),
+                                    Set(varBaResult, JSON({requestId: rid, status: "error", message: "Gagal menyimpan account: " & FirstError.Message}, JSONFormat.Compact))
+                                )
+                            )
+                        ),
+                    // BRAND_SELECTED, FILTER_CHANGED: tidak ada yang perlu dilakukan
+                    false
+                )
+            )
+        )
+    )
+)
+```
+
+Menonaktifkan account hanya mengubah `Status`; jadwal dan report lama tetap menunjuk ke kodenya. Daftar account di
+jadwal (dropdown di app lain) sebaiknya memfilter `Status.Value = "Active"`.
+
 ## 9. Alasan (kolom *Alasan* di antrean)
 
 Dihitung di control dari Report + Report Automation, urutan prioritas:

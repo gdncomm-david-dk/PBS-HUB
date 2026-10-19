@@ -23,6 +23,7 @@
 <script src="../controls/HostList/out/controls/HostList/bundle.js"></script>
 <script src="../controls/HostDetail/out/controls/HostDetail/bundle.js"></script>
 <script src="../controls/HostScore/out/controls/HostScore/bundle.js"></script>
+<script src="../controls/BrandAccount/out/controls/BrandAccount/bundle.js"></script>
 <script src="../controls/HostDashboard/out/controls/HostDashboard/bundle.js"></script>
 <script src="../controls/MyReports/out/controls/MyReports/bundle.js"></script>
 <script src="../controls/MySchedule/out/controls/MySchedule/bundle.js"></script>
@@ -53,6 +54,7 @@
   <a href="?c=ScheduleDetail&sch=SCD-3201">ScheduleDetail live</a> <a href="?c=ScheduleDetail&sch=SCD-3301">revisi</a> <a href="?c=ScheduleDetail&sch=SCD-3302">belum report</a> <a href="?c=ScheduleDetail&sch=SCD-3304">tanpa clock in</a> <a href="?c=ScheduleDetail&sch=SCD-3305">finished</a> <a href="?c=ScheduleDetail&sch=SCD-3309">planned</a> <a href="?c=ScheduleDetail&sch=SCD-3307">batal</a> <a href="?c=ScheduleDetail&sch=SCD-9999">tidak ada</a> <a href="?c=ScheduleDetail&sch=SCD-3201&w=390">mobile</a> |
   <a href="?c=MyReports">MyReports</a> <a href="?c=MyReports&f=Revision">revisi</a> <a href="?c=MyReports&period=2026-07">bulan kosong</a> <a href="?c=MyReports&s=loading">loading</a> <a href="?c=MyReports&w=390">mobile</a> |
   <a href="?c=MyReportDetail&sch=SCD-3302">submit</a> <a href="?c=MyReportDetail&sch=SCD-3201">belum absen</a> <a href="?c=MyReportDetail&sch=SCD-3304">tanpa clock in</a> <a href="?c=MyReportDetail&sch=SCD-3203">belum mulai</a> <a href="?c=MyReportDetail&r=REP-20901">revisi</a> <a href="?c=MyReportDetail&r=REP-20863">menunggu</a> <a href="?c=MyReportDetail&r=REP-20902">selesai</a> <a href="?c=MyReportDetail&r=REP-20903">otomatis</a> <a href="?c=MyReportDetail&r=REP-20901&w=390">revisi mobile</a>
+  | <a href="?c=BrandAccount">BrandAccount</a> <a href="?c=BrandAccount&b=BRD-005">brand dipilih</a> <a href="?c=BrandAccount&role=Viewer">tanpa izin</a> <a href="?c=BrandAccount&s=loading">loading</a> <a href="?c=BrandAccount&w=390">mobile</a>
   | <a href="?c=HostScore">HostScore</a> <a href="?c=HostScore&h=HST-001">ledger</a> <a href="?c=HostScore&h=HST-003">ledger drift</a> <a href="?c=HostScore&s=loading">loading</a>
   | <a href="?c=CreditScore">CreditScore</a> <a href="?c=CreditScore&period=2026-08">Agustus</a> <a href="?c=CreditScore&period=All&f=Penalty">penalty</a> <a href="?c=CreditScore&rules=1">dengan RulesJson</a> <a href="?c=CreditScore&s=empty">tanpa transaksi</a> <a href="?c=CreditScore&s=loading">loading</a> <a href="?c=CreditScore&w=390">mobile</a>
   | <a href="?c=ClockIn">ClockIn (clock out)</a> <a href="?c=ClockIn&shift=none">clock in</a> <a href="?c=ClockIn&shift=none&geo=-6.2300,106.8031,35">luar radius</a> <a href="?c=ClockIn&shift=none&geo=deny">izin ditolak</a> <a href="?c=ClockIn&shift=out">selesai</a> <a href="?c=ClockIn&shift=none&w=390">mobile</a>
@@ -102,6 +104,14 @@
   if (c === "HostList") Object.assign(params, { HostsJson: J(empty ? [] : S.hosts), ThresholdsJson: J(S.thresholds), SchedulesJson: J(S.schedules.concat(S.hostExtraSchedules)), ClockInJson: J(S.clockIns.concat(S.clockInsAug, S.hostExtraClockIns)) });
   const hostId = q.get("h") || "HST-001";
   // Skor host: ?h=… opens the ledger (?h= alone: the list) · ?reply=error|conflict · ?norules=1 · ?cfg=min (scheduleMinScore 60)
+  // Brand & Account: ?b=BRD-005 selects a brand · ?reply=error|conflict · ?s=loading · ?role=Viewer (no BRAND_EDIT)
+  if (c === "BrandAccount") {
+    const platforms = ["Shopee", "TikTok"];
+    const accs = [];
+    S.brands.forEach((b, i) => platforms.forEach((pl, k) => accs.push({ ID: 300 + accs.length, Title: `ACC-${String(accs.length + 1).padStart(3, "0")}`, AccountName: `${b.NamaBrand.toLowerCase().replace(/[^a-z0-9]/g, "")}${k ? ".tiktok" : "official"}`, BrandID: b.Title, Platform: { Value: pl }, Status: { Value: i === 2 && k ? "Inactive" : "Active" }, Modified: "2026-09-01T10:00:00Z" })));
+    accs.push({ ID: 399, Title: "ACC-099", AccountName: "orphanshop", BrandID: "BRD-404", Platform: { Value: "Shopee" }, Status: { Value: "Active" }, Modified: "2026-09-01T10:00:00Z" });
+    Object.assign(params, { BrandsJson: J(S.brands.map((b, i) => Object.assign({ ID: 200 + i }, b))), AccountsJson: J(s === "loading" ? [] : accs), BrandId: q.get("b") || "" });
+  }
   if (c === "HostScore") {
     const hostRows = S.hosts.map((x, i) => Object.assign({ ID: 101 + i }, x));
     // HST-001: the voided TX of 2 Sep has its reversal row (the host app sample keeps v1 rows only).
@@ -240,6 +250,30 @@
         const i = S.hosts.findIndex((x) => x.Title === p.payload.hostId);
         params.RevealedJson = J({ hostId: p.payload.hostId, field: p.payload.field, value: S.piiValues(S.hosts[i], i)[p.payload.field] });
         params.ActionResult = J({ requestId: p.requestId, status: q.get("reply") || "ok", message: q.get("reply") === "error" ? "Akses ditolak: izin HOST_PII_VIEW tidak ada." : "" });
+        ctl.updateView(context());
+      }, Number(q.get("delay") || 400));
+      return;
+    }
+    if (c === "BrandAccount" && ["ADD_BRAND", "ADD_ACCOUNT", "UPDATE_ACCOUNT"].includes(p.action) && document.getElementById("auto").checked) {
+      // Canvas stand-in: duplicate checks, then append / change the row and send the lists back.
+      setTimeout(() => {
+        const brandsNow = JSON.parse(params.BrandsJson), accsNow = JSON.parse(params.AccountsJson);
+        const reply = q.get("reply"), pl = p.payload;
+        const dupCode = p.action !== "UPDATE_ACCOUNT" && (p.action === "ADD_BRAND" ? brandsNow : accsNow).some((x) => x.Title.toLowerCase() === pl.code.toLowerCase());
+        const dupName = p.action !== "ADD_BRAND" && accsNow.some((x) => x.AccountName.toLowerCase() === pl.name.toLowerCase() && String(x.ID) !== String(pl.accountItemId));
+        const stale = p.action === "UPDATE_ACCOUNT" && (accsNow.find((x) => String(x.ID) === String(pl.accountItemId)) || {}).Modified !== pl.expectedModified;
+        let message = "";
+        if (reply === "error") message = "Gagal menyimpan: akses ditolak.";
+        else if (reply === "conflict" || dupCode || dupName || stale) message = "Kode atau nama sudah dipakai, atau datanya sudah berubah. Muat ulang lalu coba lagi.";
+        const bad = !!message;
+        if (!bad) {
+          if (p.action === "ADD_BRAND") brandsNow.push({ ID: 250 + brandsNow.length, Title: pl.code, NamaBrand: pl.name, Status: { Value: "Active" } });
+          else if (p.action === "ADD_ACCOUNT") accsNow.push({ ID: 500 + accsNow.length, Title: pl.code, AccountName: pl.name, BrandID: pl.brandId, Platform: { Value: pl.platform }, Status: { Value: pl.status }, Modified: S.REF });
+          else { const r = accsNow.find((x) => String(x.ID) === String(pl.accountItemId)); Object.assign(r, { AccountName: pl.name, BrandID: pl.brandId, Platform: { Value: pl.platform }, Status: { Value: pl.status }, Modified: S.REF }); }
+          params.BrandsJson = J(brandsNow); params.AccountsJson = J(accsNow);
+          message = p.action === "ADD_BRAND" ? `Brand ${pl.code} ditambahkan.` : `Account ${pl.code} ${p.action === "ADD_ACCOUNT" ? "ditambahkan" : "disimpan"}. Tambahkan "${pl.name}" ke pilihan kolom Account di list Report dan Host Absence.`;
+        }
+        params.ActionResult = J({ requestId: p.requestId, status: bad ? (reply === "error" ? "error" : "conflict") : "ok", message });
         ctl.updateView(context());
       }, Number(q.get("delay") || 400));
       return;
