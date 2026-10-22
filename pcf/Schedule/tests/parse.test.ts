@@ -189,6 +189,15 @@ describe("PDF layout", () => {
         ]);
     });
 
+    it("finds a brand title far above the table or off to the side, and falls back to the file name", () => {
+        const moved = { ...page1, items: page1.items.map((it) => (it.str === "Arunakids" ? T(60, 12, "Arunakids") : it)) };
+        expect(pdfSessions("x.pdf", [moved], 2026).sessions[0].label).toBe("Arunakids");
+        const none = { ...page1, items: page1.items.filter((it) => it.str !== "Arunakids") };
+        const [s] = pdfSessions("Jadwal_Kirana_Okt.pdf", [none], 2026).sessions;
+        expect(s.label).toBe("");
+        expect(resolveSession(s, cx).brandId).toBe("BRND-0004");
+    });
+
     it("says why a scanned PDF gives nothing", () => {
         expect(pdfSessions("scan.pdf", [{ ...page2, items: [], h: [], v: [] }], 2026).problem).toMatch(/hasil scan/);
     });

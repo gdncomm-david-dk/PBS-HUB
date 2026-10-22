@@ -28,6 +28,8 @@ export interface RawSession {
     where: string; // "Hal. 2" / "September baris 12", for the preview
     order: number;
     label: string; // brand block title ("Milkita", "Sidomuncul")
+    /** Other text above the table (and the file name is tried too) when the title alone names no brand. */
+    hints?: string[];
     dateKey: string;
     dateText: string;
     startMin: number | null;
@@ -254,7 +256,7 @@ interface Col {
 }
 interface PdfLayout {
     cols: Col[];
-    blocks: { cols: Col[]; label: string }[];
+    blocks: { cols: Col[]; label: string; hints: string[] }[];
     date: Col | null;
 }
 
@@ -271,6 +273,17 @@ const linesAt = (pg: PdfPage, x: number, yMin = -Infinity, yMax = Infinity): num
         pg.h.filter((l) => l.x0 - 0.5 <= x && l.x1 + 0.5 >= x && l.y > yMin && l.y < yMax).map((l) => l.y),
         1.5,
     );
+
+/** Items grouped into text lines (left to right), nearest to the table (lowest on the page) first. */
+function textLines(items: PdfItem[]): string[] {
+    const rows: { y: number; its: PdfItem[] }[] = [];
+    for (const it of [...items].sort((a, b) => b.y - a.y)) {
+        const row = rows.find((r) => Math.abs(r.y - it.y) < 3);
+        if (row) row.its.push(it);
+        else rows.push({ y: it.y, its: [it] });
+    }
+    return rows.map((r) => r.its.sort((a, b) => a.x0 - b.x0).map((it) => it.str).join(" ").trim()).filter(Boolean);
+}
 
 function findHeader(pg: PdfPage): { layout: PdfLayout; top: number; bottom: number } | null {
     const starts = pg.items.filter((it) => headerField(it.str) === "start");
@@ -309,12 +322,18 @@ function findHeader(pg: PdfPage): { layout: PdfLayout; top: number; bottom: numb
             const until = i + 1 < startCols.length ? startCols[i + 1].x0 : Infinity;
             const bc = cols.filter((c) => c.x0 >= s.x0 && c.x0 < until && c.f !== "date" && c.f !== "day");
             const x1 = bc[bc.length - 1].x1;
-            const label = pg.items
+            let label = pg.items
                 .filter((it) => it.y < top - 0.5 && it.y > top - 70 && cx(it) >= s.x0 && cx(it) <= x1 && !headerField(it.str))
                 .sort((a, b) => a.y - b.y || a.x0 - b.x0)
                 .map((it) => it.str)
                 .join(" ");
-            return { cols: bc, label };
+            // Text lines above the table, nearest first: over the block, else (one block only) anywhere above.
+            const over = textLines(pg.items.filter((it) => it.y < top - 0.5 && it.x1 >= s.x0 && it.x0 <= x1 && !headerField(it.str)));
+            const anywhere = startCols.length === 1 ? textLines(pg.items.filter((it) => it.y < top - 0.5 && !headerField(it.str))) : [];
+            const lines = [...over, ...anywhere.filter((l) => !over.includes(l))];
+            // A title further up, or centred over a merged cell wider than the block, still counts.
+            if (!label) label = lines[0] ?? "";
+            return { cols: bc, label, hints: lines.filter((l) => l !== label) };
         });
         return { layout: { cols, blocks, date: cols.find((c) => c.f === "date") ?? null }, top, bottom };
     }
@@ -416,6 +435,7 @@ export function pdfSessions(file: string, pages: PdfPage[], year: number): Layou
                         where: `Hal. ${pg.no}`,
                         order: 0,
                         label: b.label,
+                        hints: b.hints,
                         dateKey: "",
                         dateText: "",
                         startMin,

@@ -120,6 +120,15 @@ export function matchBrand(label: string, cx: ResolveContext): { brand?: BrandRo
     return { brand, account, platformHint: hintOk ? platformHint : "" };
 }
 
+/** matchBrand without its prefix guesses: for text that is not a brand title (page titles, file name words). */
+function exactBrand(text: string, cx: ResolveContext): { brand?: BrandRow; account?: AccountRow; platformHint: string } {
+    const L = alnum(text.replace(/\([^)]*\)/g, ""));
+    if (L.length < 3) return { platformHint: "" };
+    const byName = cx.brands.some((b) => alnum(b.brandId) === L || alnum(b.namaBrand) === L || (b.aliases ?? []).some((a) => alnum(a) === L));
+    const byHandle = cx.accounts.some((a) => handle(a) === L);
+    return byName || byHandle ? matchBrand(text, cx) : { platformHint: "" };
+}
+
 /** Host name or nickname → HostID. Full name, then Alias, then a unique prefix / first name / single name. */
 export function matchHost(text: string, hosts: HostRow[]): { id: string; options: string[]; note: string } {
     const t = text.trim();
@@ -172,7 +181,19 @@ function studioFromHistory(brandId: string, schedules: ScheduleRow[]): string {
 
 export function resolveSession(s: RawSession, cx: ResolveContext): Resolved {
     const notes: Resolved["notes"] = {};
-    const mb = matchBrand(s.label, cx);
+    let mb = matchBrand(s.label, cx);
+    if (!mb.brand) {
+        // The title names no brand (or none was found): other text above the table, then the file name, if one
+        // of them is exactly a brand name, alias, BrandID or account handle.
+        const words = s.file.replace(/\.[a-z0-9]+$/i, "").split(/[^A-Za-z0-9]+/).filter((w) => w.length >= 3 && !/^\d+$/.test(w));
+        for (const h of [...(s.hints ?? []), ...words]) {
+            const m = exactBrand(h, cx);
+            if (m.brand) {
+                mb = { ...m, platformHint: m.platformHint || mb.platformHint };
+                break;
+            }
+        }
+    }
     const brand = mb.brand;
     if (!brand) notes.brand = s.label ? `Brand "${s.label}" tidak dikenali — tambahkan Alias di list Brand` : "Judul brand tidak ditemukan di atas tabel";
 
