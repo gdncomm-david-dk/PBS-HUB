@@ -79,8 +79,8 @@ export function buildTimeline(s: ScheduleRow, ev: Evidence, now: Date): Step[] {
     steps.push(clockStep(s, clock, phase, start, now));
     steps.push(absenStep(abs, phase));
     if (exempt) {
-        const why = exempt === "livebreak" ? "Live Break — sesi ini tidak perlu report." : "Co-Host — report dibuat oleh Main Host sesi ini.";
-        const tag = exempt === "livebreak" ? "Live Break" : "Co-Host";
+        const why = exempt === "livebreak" ? "Live Break — sesi ini tidak perlu report." : exempt === "offair" ? `${s.offAir} — bukan sesi live, tidak perlu report.` : "Co-Host — report dibuat oleh Main Host sesi ini.";
+        const tag = exempt === "livebreak" ? "Live Break" : exempt === "offair" ? s.offAir : "Co-Host";
         steps.push({ id: "report", label: "Report host", state: "skipped", when: tag, detail: why, record: [] });
         steps.push({ id: "evidence", label: "Bukti AI", state: "skipped", when: "", detail: why, record: [] });
         steps.push({ id: "verdict", label: "Hasil review", state: "skipped", when: "", detail: why, record: [] });

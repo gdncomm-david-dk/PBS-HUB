@@ -15,11 +15,13 @@ export const REPORT_BADGE: Record<ReportState, { label: string; tone: Tone }> = 
     notDue: { label: "—", tone: "neutral" },
     liveBreak: { label: "Live Break", tone: "neutral" },
     coHost: { label: "Co-Host", tone: "neutral" },
+    offAir: { label: "Bukan live", tone: "neutral" },
 };
 
-export function ReportCell(props: { state: ReportState }): React.ReactElement {
+/** `offAir` names the position (Training, Onboard Briefing) in place of the generic label. */
+export function ReportCell(props: { state: ReportState; offAir?: string }): React.ReactElement {
     const b = REPORT_BADGE[props.state];
-    return props.state === "notDue" ? <span className="sd-muted">—</span> : <Badge tone={b.tone}>{b.label}</Badge>;
+    return props.state === "notDue" ? <span className="sd-muted">—</span> : <Badge tone={b.tone}>{props.state === "offAir" && props.offAir ? props.offAir : b.label}</Badge>;
 }
 
 export function GmvCell(props: { gmv: number; hasReport: boolean }): React.ReactElement {
@@ -54,7 +56,7 @@ export function GmvCard(props: { env: Env; studio: StudioRow }): React.ReactElem
                             <div className="sd-gmv__total">{formatIdr(g.total)}</div>
                             <div className="sd-kpi__foot">
                                 {g.reportedSessions} dari {g.sessions - g.liveBreaks} sesi sudah ada report
-                                {g.liveBreaks > 0 && ` · ${g.liveBreaks} tanpa report (live break / co-host)`}
+                                {g.liveBreaks > 0 && ` · ${g.liveBreaks} tanpa report (live break / co-host / training / briefing)`}
                                 {delta !== null && (
                                     <span className={cx("sd-kpi__delta", delta >= 0 ? "is-up" : "is-down")}>
                                         {" "}· {delta >= 0 ? "▲" : "▼"} {Math.abs(delta)}% dari {monthName(prevKey)}
@@ -313,6 +315,7 @@ export function MonthSchedule(props: { env: Env; studio: StudioRow; selectedDay:
                                         <td>
                                             {s.hostName || "—"}
                                             {s.coHost && <span className="sd-muted"> · Co-Host</span>}
+                                            {s.offAir && <span className="sd-muted"> · {s.offAir}</span>}
                                         </td>
                                         <td className="sd-mono sd-muted sd-nowrap">{s.scheduleId || "—"}</td>
                                         <td>
@@ -326,7 +329,7 @@ export function MonthSchedule(props: { env: Env; studio: StudioRow; selectedDay:
                                             <GmvCell gmv={g.gmv} hasReport={g.reports.length > 0 && g.state !== "liveBreak"} />
                                         </td>
                                         <td>
-                                            <ReportCell state={g.state} />
+                                            <ReportCell state={g.state} offAir={s.offAir} />
                                         </td>
                                     </tr>
                                 );

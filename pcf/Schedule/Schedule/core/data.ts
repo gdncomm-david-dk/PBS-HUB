@@ -7,6 +7,9 @@ import { AbsenceRow, AccountRow, BrandRow, ClockRow, EvidenceRow, HostRow, Modul
 import { parseDateKey, parseTimeToMinutes } from "./time";
 import { metricsFrom } from "./metrics";
 
+/** "Training" or "Onboard Briefing" for a Position that is not a live session, else "". */
+export const offAirOf = (position: string): string => (/training/i.test(position) ? "Training" : /onboard|briefing/i.test(position) ? "Onboard Briefing" : "");
+
 type DataSet = ComponentFramework.PropertyTypes.DataSet;
 
 export interface RawRecord {
@@ -397,6 +400,7 @@ export function mapSchedules(recs: RawRecord[], lk: Lookups): ScheduleRow[] {
             liveBreak: toText(r.get(C.liveBreak)),
             isLiveBreak: toBool(r.get(C.liveBreak), false) || isLiveBreakText(toText(r.get(C.liveBreak))),
             isCoHost: /co.?host/i.test(toText(r.get(C.position))),
+            offAir: offAirOf(toText(r.get(C.position))),
             campaignName: toText(r.get(C.campaign)),
             totalAccount: toNum(r.get(C.totalAccount)),
             status: toText(r.get(C.status)),

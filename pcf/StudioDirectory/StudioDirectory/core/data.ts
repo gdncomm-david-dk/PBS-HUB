@@ -363,6 +363,7 @@ export function mapSchedules(
             account: accountNames.get(toText(r.get(C.account)).toLowerCase()) || toText(r.get(["AccountName", "Account Name"])) || toText(r.get(C.account)),
             position: toText(r.get(["Position"])),
             coHost: /co.?host/i.test(toText(r.get(["Position"]))),
+            offAir: /training/i.test(toText(r.get(["Position"]))) ? "Training" : /onboard|briefing/i.test(toText(r.get(["Position"]))) ? "Onboard Briefing" : "",
             shift: toText(r.get(C.shift)),
             campaignName: toText(r.get(C.campaign)),
             status: toText(r.get(C.status)),

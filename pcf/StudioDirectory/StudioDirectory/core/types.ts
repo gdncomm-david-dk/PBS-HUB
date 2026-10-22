@@ -40,6 +40,7 @@ export interface ScheduleRow {
     account: string;           // Account name from Account - PBS Hub, else the AccountID
     position: string;          // Position: Main Host / Co-Host
     coHost: boolean;           // Co-Host: the main host files the report, so none is expected here
+    offAir: string;            // "Training" / "Onboard Briefing": not a live, so no report is expected ("" otherwise)
     shift: string;             // Shift
     campaignName: string;      // CampaignName
     status: string;            // Status (Choice)

@@ -103,7 +103,11 @@ export function ScheduleDetail(props: { env: Env; schedule: ScheduleRow; backLab
 
             {env.ev.noReportReason(s) && (
                 <Banner tone="info">
-                    {Icon.info(14)} {env.ev.noReportReason(s) === "livebreak" ? "Live Break — sesi ini tidak perlu report." : "Co-Host — report sesi ini dibuat oleh Main Host, jadi tidak ada report dari host ini."}
+                    {Icon.info(14)} {env.ev.noReportReason(s) === "livebreak"
+                        ? "Live Break — sesi ini tidak perlu report."
+                        : env.ev.noReportReason(s) === "offair"
+                          ? `${s.offAir} — bukan sesi live, jadi tidak perlu report.`
+                          : "Co-Host — report sesi ini dibuat oleh Main Host, jadi tidak ada report dari host ini."}
                 </Banner>
             )}
             {locked && (

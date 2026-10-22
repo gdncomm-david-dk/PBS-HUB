@@ -420,7 +420,7 @@ function Jadwal(props: { env: Env; studio: StudioRow; dayKey: string; setDayKey:
                                                 <GmvCell gmv={g.gmv} hasReport={g.reports.length > 0 && g.state !== "liveBreak"} />
                                             </td>
                                             <td>
-                                                <ReportCell state={g.state} />
+                                                <ReportCell state={g.state} offAir={s.offAir} />
                                             </td>
                                         </tr>
                                     );

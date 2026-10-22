@@ -156,6 +156,21 @@ describe("Co-Host", () => {
         expect(sessionGmv(none, rows[0], "2026-09-20", 600).state).toBe("coHost");
         expect(sessionGmv(none, rows[1], "2026-09-20", 600).state).toBe("missing");
     });
+    it("needs no report for Training and Onboard Briefing", () => {
+        const rows = mapSchedules(
+            rec([
+                { Title: "SCD-52", Date: "2026-09-10", StudioID: "CWG-05", StartTime: "12:00", EndTime: "13:00", Status: "Finished", Position: { Value: "Training" } },
+                { Title: "SCD-53", Date: "2026-09-10", StudioID: "CWG-05", StartTime: "12:00", EndTime: "13:00", Status: "Finished", Position: { Value: "Onboard Briefing" } },
+            ]),
+            new Map(),
+            new Map(),
+        );
+        const none = new ReportIndex([]);
+        expect(rows.map((r) => [r.offAir, sessionGmv(none, r, "2026-09-20", 600).state])).toEqual([
+            ["Training", "offAir"],
+            ["Onboard Briefing", "offAir"],
+        ]);
+    });
 });
 
 describe("approval statuses", () => {

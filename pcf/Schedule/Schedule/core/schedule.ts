@@ -3,6 +3,7 @@
 
 import { AbsenceRow, ClockRow, EvidenceRow, ReportRow, ScheduleRow, StudioRow } from "./types";
 import { approvalKind, occupies } from "./data";
+export { offAirOf } from "./data";
 import { dateKeyToDate, formatMinutes, shiftDay, toDateKey } from "./time";
 
 const low = (s: string): string => s.trim().toLowerCase();
@@ -29,7 +30,10 @@ export interface Slot {
     status: string;
     /** Position = Co-Host: shares the Main Host's account and time, so it is never an account clash. */
     isCoHost?: boolean;
+    /** Position = Training / Onboard Briefing: not a live, so no account is used and no report is expected. */
+    offAir?: string;
 }
+
 
 /** Absolute minutes from an arbitrary epoch day, so overnight sessions overlap the next day correctly. */
 function span(s: Slot): [number, number] | null {
@@ -67,8 +71,10 @@ export function conflictsFor(
         out.push({ kind: "host", others: hostClash, message: `Host ${names.host(o)} sudah dijadwalkan ${timeRange(o)} di ${names.studio(o.studioId)}` });
     }
 
-    // One live has a Main Host and Co-Hosts on the same account; only two non-Co-Host sessions clash.
-    const accClash = cand.accountId && !cand.isCoHost ? near.filter((o) => !o.isCoHost && low(o.accountId) === low(cand.accountId)) : [];
+    // One live has a Main Host and Co-Hosts on the same account; only two non-Co-Host sessions clash. Training and
+    // briefings use no account.
+    const live = (o: Slot): boolean => !o.isCoHost && !o.offAir;
+    const accClash = cand.accountId && live(cand) ? near.filter((o) => live(o) && low(o.accountId) === low(cand.accountId)) : [];
     if (accClash.length) {
         const o = accClash[0];
         out.push({ kind: "account", others: accClash, message: `Account ${o.accountName || o.accountId} sudah live ${timeRange(o)} di ${names.studio(o.studioId)}` });
@@ -190,11 +196,13 @@ export class Evidence {
         return this.reportsFor(s).filter((r) => approvalKind(r.approvalStatus) !== "livebreak");
     }
 
-    /** Why the session needs no report, or null when it does: a live break, or a Co-Host whose main host reports. */
-    noReportReason(s: ScheduleRow): "livebreak" | "cohost" | null {
+    /** Why the session needs no report, or null when it does: a live break, a Co-Host whose main host reports, or
+     * a training / onboard briefing (no live at all). */
+    noReportReason(s: ScheduleRow): "livebreak" | "cohost" | "offair" | null {
         if (this.realReportsFor(s).length > 0) return null;
         if (this.isLiveBreak(s)) return "livebreak";
         if (s.isCoHost) return "cohost";
+        if (s.offAir) return "offair";
         return null;
     }
 

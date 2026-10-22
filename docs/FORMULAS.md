@@ -1,6 +1,6 @@
 # PBS Hub — canvas formulas (copy sheet)
 
-All `Items`, inputs and `OnChange` for the three screens, for **Studio Hub 1.8.0** and **Schedule Hub 1.8.6**.
+All `Items`, inputs and `OnChange` for the three screens, for **Studio Hub 1.8.1** and **Schedule Hub 1.8.7**.
 Explanations and troubleshooting are in [`SETUP.md`](SETUP.md); this file only collects what you paste.
 
 For every dataset, also open **Fields → Edit** and add the columns the property description lists.
@@ -204,7 +204,7 @@ If(rid <> varLastSchedRid,
                         Account: Text(p.accountId), Platform: { Value: Text(p.platform) },
                         StartTime: Text(p.startTime), EndTime: Text(p.endTime),
                         JamLive: Value(p.jamLive), TotalLiveTime: Value(p.jamLive),
-                        Position: { Value: Text(p.position) },   // "Main Host" or "Co-Host"
+                        Position: { Value: Text(p.position) },   // "Main Host", "Co-Host", "Training" or "Onboard Briefing"
                         TotalAccount: Value(p.totalAccount),
                         Status: { Value: "Planned" } }) },
                     // Second step, as v1: Title is only known after the insert (race R5).
@@ -388,7 +388,7 @@ If(rid <> varLastSchedRid,
                         Account: Text(p.accountId), Platform: { Value: Text(p.platform) },
                         StartTime: Text(p.startTime), EndTime: Text(p.endTime),
                         JamLive: Value(p.jamLive), TotalLiveTime: Value(p.jamLive),
-                        Position: { Value: Text(p.position) },   // "Main Host" or "Co-Host"
+                        Position: { Value: Text(p.position) },   // "Main Host", "Co-Host", "Training" or "Onboard Briefing"
                         TotalAccount: Value(p.totalAccount),
                         Status: { Value: "Planned" } }) },
                     // Second step, as v1: Title is only known after the insert (race R5).

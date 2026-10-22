@@ -270,6 +270,18 @@ describe("live break, Co-Host and review", () => {
         expect(buildTimeline(lb, ev, now).find((x) => x.id === "report")?.state).toBe("skipped");
         expect(buildTimeline(co, ev, now).find((x) => x.id === "report")?.when).toBe("Co-Host");
     });
+    it("needs no report and no account for Training and Onboard Briefing", () => {
+        const [tr, br, main] = sched([
+            { ...base, Title: "SCD-23", Account: "AC-1", Position: { Value: "Training" } },
+            { ...base, Title: "SCD-24", Account: "AC-1", Position: { Value: "Onboard Briefing" }, HostID: "HST-2" },
+            { ...base, Title: "SCD-25", Account: "AC-1", Position: { Value: "Main Host" }, HostID: "HST-3" },
+        ]);
+        const ev = new Evidence([], [], [], []);
+        expect([tr, br, main].map((x) => ev.noReportReason(x))).toEqual(["offair", "offair", null]);
+        expect(buildTimeline(br, ev, now).find((x) => x.id === "report")?.when).toBe("Onboard Briefing");
+        const kinds = conflictsFor(main, [tr, br, main], new Map(), { host: (o) => o.hostId, studio: (id) => id }).map((c) => c.kind);
+        expect(kinds).not.toContain("account");
+    });
     it("treats a LiveBreak report row as no report, and a real report on a Co-Host session normally", () => {
         const [a, b] = sched([
             { ...base, Title: "SCD-30" },

@@ -1,6 +1,6 @@
 import * as React from "react";
 import { ScheduleRow } from "../core/types";
-import { conflictsFor, Slot } from "../core/schedule";
+import { conflictsFor, offAirOf, Slot } from "../core/schedule";
 import { formatMinutes, parseTimeToMinutes } from "../core/time";
 import { Banner, Button, cx, Field, Icon, Modal } from "./components";
 import { Env, scheduleStatus } from "./shared";
@@ -19,7 +19,8 @@ interface Values {
 }
 
 /** Schedule.Position choice values. */
-export const POSITIONS = ["Main Host", "Co-Host"];
+/** Training and Onboard Briefing are not lives: no account is needed and no report is expected. */
+export const POSITIONS = ["Main Host", "Co-Host", "Training", "Onboard Briefing"];
 const byName = (a: string, b: string): number => a.localeCompare(b, "id", { sensitivity: "base" });
 
 const hhmm = (m: number | null): string => (m === null ? "" : formatMinutes(m));
@@ -75,7 +76,8 @@ export function ScheduleForm(props: {
     if (startMin === null) errors.start = "Isi jam mulai.";
     if (endMin === null) errors.end = "Isi jam selesai.";
     else if (startMin !== null && endMin === startMin) errors.end = "Jam selesai harus berbeda dari jam mulai.";
-    if (accounts.length > 0 && !v.accountId) errors.accountId = "Pilih account brand ini.";
+    const offAir = offAirOf(v.position);
+    if (accounts.length > 0 && !v.accountId && !offAir) errors.accountId = "Pilih account brand ini.";
     if (!v.position) errors.position = "Pilih posisi.";
     const valid = Object.keys(errors).length === 0;
 
@@ -83,7 +85,7 @@ export function ScheduleForm(props: {
     const warnings = React.useMemo(() => {
         const out: { id: string; text: string; link?: ScheduleRow }[] = [];
         if (!valid) return out;
-        const slot: Slot = { key: props.schedule?.key, dateKey: v.date, studioId: v.studioId, hostId: v.hostId, accountId: v.accountId, startMin, endMin, status: v.status, isCoHost: /co.?host/i.test(v.position) };
+        const slot: Slot = { key: props.schedule?.key, dateKey: v.date, studioId: v.studioId, hostId: v.hostId, accountId: v.accountId, startMin, endMin, status: v.status, isCoHost: /co.?host/i.test(v.position), offAir };
         const pool = env.schedules.filter((s) => s.key !== props.schedule?.key);
         for (const c of conflictsFor(slot, pool, env.lk.studios, { host: (o) => o.hostName || o.hostId, studio: env.studioName })) {
             out.push({ id: `${c.kind}:${c.others.map((o) => o.key).join(",")}`, text: c.message, link: c.kind === "studio" ? undefined : c.others[0] });
@@ -192,11 +194,11 @@ export function ScheduleForm(props: {
                 <Field
                     label="Account"
                     htmlFor="f-account"
-                    hint={err("accountId") ?? (!v.brandId ? "Pilih brand dulu" : accounts.length === 0 ? "Brand ini belum punya account di master Account" : undefined)}
+                    hint={err("accountId") ?? (!v.brandId ? "Pilih brand dulu" : accounts.length === 0 ? "Brand ini belum punya account di master Account" : offAir ? `Opsional untuk ${offAir}` : undefined)}
                     hintTone={err("accountId") ? "danger" : undefined}
                 >
                     <select id="f-account" className={cx("sc-input", err("accountId") && "is-danger")} value={v.accountId} disabled={!v.brandId || accounts.length === 0} onChange={(e) => pickAccount(e.target.value)}>
-                        <option value="">{!v.brandId ? "—" : "Pilih account"}</option>
+                        <option value="">{!v.brandId ? "—" : offAir ? "Tanpa account" : "Pilih account"}</option>
                         {accounts.map((a) => (
                             <option key={a.key} value={a.accountId}>
                                 {a.accountName}

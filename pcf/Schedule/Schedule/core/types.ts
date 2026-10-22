@@ -65,6 +65,7 @@ export interface ScheduleRow {
     liveBreak: string;         // LiveBreak (Choice)
     isLiveBreak: boolean;      // LiveBreak = Yes: no report is expected
     isCoHost: boolean;         // Position = Co-Host: the main host files the report
+    offAir: string;            // Position = Training / Onboard Briefing: no live, no account, no report ("" otherwise)
     campaignName: string;      // CampaignName
     totalAccount: number | null;
     status: string;            // Status: Planned, Waiting Report, Finished (final), Cancelled, Leave. Legacy "Done" is read as Finished

@@ -4,7 +4,7 @@
 import { ScheduleRow, StudioRow } from "./types";
 import { Lookups, toText } from "./data";
 import { Cell, SheetTable, serialToDateKey, serialToMinutes } from "./xlsx";
-import { conflictsFor, Slot } from "./schedule";
+import { conflictsFor, offAirOf, Slot } from "./schedule";
 import { formatMinutes, parseDateKey, parseTimeToMinutes } from "./time";
 
 export type Field = "date" | "brandId" | "studioId" | "hostId" | "start" | "end" | "account" | "accountName" | "platform" | "shift" | "jamLive" | "campaign" | "sesi" | "position" | "totalAccount";
@@ -84,6 +84,7 @@ export interface ImportRow {
     accountId: string;
     platform: string;
     isCoHost: boolean;         // Position column says Co-Host
+    offAir: string;            // Position column says Training / Onboard Briefing
     startMin: number | null;
     endMin: number | null;
     verdict: Verdict;
@@ -211,6 +212,7 @@ export function checkFile(file: string, t: SheetTable, cx: CheckContext): FileCh
             accountId: account?.accountId ?? accountId,
             platform: cellText(get(cells, "platform")) || account?.platform || "",
             isCoHost: /co.?host/i.test(cellText(get(cells, "position"))),
+            offAir: offAirOf(cellText(get(cells, "position"))),
             startMin,
             endMin,
             verdict: rejected ? "rejected" : "valid",
@@ -240,6 +242,7 @@ export function checkFile(file: string, t: SheetTable, cx: CheckContext): FileCh
         liveBreak: "",
         isLiveBreak: false,
         isCoHost: r.isCoHost,
+        offAir: r.offAir,
         campaignName: "",
         totalAccount: null,
         status: "Planned",
@@ -255,11 +258,11 @@ export function checkFile(file: string, t: SheetTable, cx: CheckContext): FileCh
     const seen = new Map<string, number>();
     for (const r of rows) {
         if (r.verdict === "rejected") continue;
-        const sig = [r.dateKey, r.studioId, r.hostId, r.startMin, r.endMin, r.isCoHost ? "co" : "main"].join("|").toLowerCase();
+        const sig = [r.dateKey, r.studioId, r.hostId, r.startMin, r.endMin, r.offAir || (r.isCoHost ? "co" : "main")].join("|").toLowerCase();
         const dup = seen.get(sig);
         if (dup !== undefined) r.reasons.push(`Duplikat baris ${dup}`);
         else seen.set(sig, r.excelRow);
-        const slot: Slot = { key: `import:${r.file}:${r.no}`, dateKey: r.dateKey, studioId: r.studioId, hostId: r.hostId, accountId: r.accountId, startMin: r.startMin, endMin: r.endMin, status: "Planned", isCoHost: r.isCoHost };
+        const slot: Slot = { key: `import:${r.file}:${r.no}`, dateKey: r.dateKey, studioId: r.studioId, hostId: r.hostId, accountId: r.accountId, startMin: r.startMin, endMin: r.endMin, status: "Planned", isCoHost: r.isCoHost, offAir: r.offAir };
         const cs = conflictsFor(slot, pool, studios, { host: (o) => o.hostName || o.hostId, studio: cx.studioName });
         for (const c of cs) if (dup === undefined || c.kind !== "host") r.reasons.push(c.message);
         if (r.reasons.length) r.verdict = "warning";

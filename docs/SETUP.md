@@ -7,8 +7,8 @@ for the Studio screens and part C for the Schedule screen.
 
 | Control | Display name | Solution (managed) | Version | Screens |
 |---|---|---|---|---|
-| `pbs_Ops.StudioHub` | PBS Studio Hub | `releases/PBSStudioHub_managed_1.8.0.zip` (`PBSStudioHub`) | 1.8.0 | Studio list, Studio detail |
-| `pbs_Ops.ScheduleHub` | PBS Schedule Hub | `releases/PBSScheduleHub_managed_1.8.6.zip` (`PBSScheduleHub`) | 1.8.6 | Schedule board, session detail, create/edit, bulk & AI upload, Parse PDF/Excel |
+| `pbs_Ops.StudioHub` | PBS Studio Hub | `releases/PBSStudioHub_managed_1.8.1.zip` (`PBSStudioHub`) | 1.8.1 | Studio list, Studio detail |
+| `pbs_Ops.ScheduleHub` | PBS Schedule Hub | `releases/PBSScheduleHub_managed_1.8.7.zip` (`PBSScheduleHub`) | 1.8.7 | Schedule board, session detail, create/edit, bulk & AI upload, Parse PDF/Excel |
 
 Neither control writes to SharePoint. Each one emits an `ActionPayload` `{ action, requestId, payload }`; the
 canvas app does the `Patch` and replies through `ActionResult` with the same `requestId`. Until that reply
@@ -29,7 +29,7 @@ arrives the control stays locked. It gives up after 30 seconds for a save, or 3 
 **Check the version.** From 1.5.0 the Studio control is a new component, **PBS Studio Hub**
 (`pbs_Ops.StudioHub`, solution `PBSStudioHub`), so the app cannot keep running a cached older build. Delete the old
 *PBS Studio Master* / *PBS Studio Directory* control from the screen, insert *PBS Studio Hub* and set the same
-properties and `OnChange` on it. The header then shows `pbs_Ops.StudioHub 1.8.0`.
+properties and `OnChange` on it. The header then shows `pbs_Ops.StudioHub 1.8.1`.
 
 The old solutions `PBSStudioMaster`, `PBSHubStudio` and `PBSStudioDirectory` can be deleted once the app runs
 `pbs_Ops.StudioHub`.
@@ -41,9 +41,9 @@ The old solutions `PBSStudioMaster`, `PBSHubStudio` and `PBSStudioDirectory` can
 | `Studio - PBS Hub` | `LocationID` | **Single line of text** holding the location's `LocationID` (e.g. `LOC-CWG`). A lookup column also works; see B4 |
 | `Studio Location - PBS` | `LocationID` | Text, unique (e.g. `LOC-CWG`). One location can serve many studios |
 | `Schedule - PBS Hub` | `Status` | Choice that includes **`Finished`**. The full set is `Planned`, `Waiting Report`, `Finished`, `Cancelled`, `Leave` |
-| `Schedule - PBS Hub` | `Position` | Choice with exactly **`Main Host`** and **`Co-Host`** |
+| `Schedule - PBS Hub` | `Position` | Choice with exactly **`Main Host`**, **`Co-Host`**, **`Training`** and **`Onboard Briefing`** (add the last two to the existing column) |
 | `Schedule - PBS Hub` | `LiveBreak` | Choice `Yes` / `No`. `Yes` marks a live break: the Studio page shows *Live Break* instead of *Belum ada report* |
-| `Schedule - PBS Hub` | `Position` (for reports) | `Co-Host` needs no report either (the main host files it): the Studio page shows *Co-Host* instead of *Belum ada report* |
+| `Schedule - PBS Hub` | `Position` (for reports) | `Co-Host` needs no report either (the main host files it): the Studio page shows *Co-Host* instead of *Belum ada report*. `Training` and `Onboard Briefing` are not lives: no report, no account needed, never an account clash, and the Studio page shows the position name |
 | `Report - PBS Hub` | `ApprovalStatus` | A live break's report row has `LiveBreak`. It counts as no report and adds no GMV |
 | `Brand - PBS Hub` / `Host - PBS Hub` | `NamaBrand` / `NamaHost` | Used to show names instead of IDs |
 | `Host - PBS Hub` | `Alias` (optional) | **Single line of text**: nicknames used in schedule files, comma separated (`Rina`, `Uci, Ucii`). Parse PDF matches full name first, then Alias |
@@ -74,7 +74,7 @@ in the tables below.
 
 ---
 
-# B. PBS Studio Hub (`pbs_Ops.StudioHub` 1.8.0)
+# B. PBS Studio Hub (`pbs_Ops.StudioHub` 1.8.1)
 
 ## B1. Period variables
 
@@ -247,13 +247,13 @@ These are display metrics. Nothing that money depends on is computed in the cont
 
 ---
 
-# C. PBS Schedule Hub (`pbs_Ops.ScheduleHub` 1.8.6)
+# C. PBS Schedule Hub (`pbs_Ops.ScheduleHub` 1.8.7)
 
 > **Moving from the old `pbs_Ops.Schedule` (1.4.x).** Since 1.5.0 the control has a new identity (`pbs_Ops.ScheduleHub`, solution `PBSScheduleHub`), so Power Apps cannot keep loading a cached old build.
-> 1. Import `releases/PBSScheduleHub_managed_1.8.6.zip`.
+> 1. Import `releases/PBSScheduleHub_managed_1.8.7.zip`.
 > 2. In the app, copy the old control's **Items / Context / Mode / ActionResult / SelectedScheduleId / OnChange** formulas somewhere safe, then delete that control.
 > 3. **Insert → Get more components → Code → PBS Schedule Hub**, then paste the formulas back (same names as in C2–C4).
-> 4. Check that the header reads `pbs_Ops.ScheduleHub 1.8.6`. Once no app uses the old control, the `PBSSchedule` solution can be deleted.
+> 4. Check that the header reads `pbs_Ops.ScheduleHub 1.8.7`. Once no app uses the old control, the `PBSSchedule` solution can be deleted.
 
 The control renders the **Schedule board (S-1)** as a calendar (week × brand lanes, or studio lanes) or a list, grouped by brand and sorted by start time,, and the
 **session detail (S-2)** with the seven-step evidence chain. It also provides three ways to create schedules:
@@ -346,8 +346,8 @@ Finished, Cancelled and Leave, plus any other value already in the list; an old 
 
 **Live Break and Co-Host.** As on the Studio page, a session needs no report when `Schedule.LiveBreak` is `Yes`,
 when its only report row has `ApprovalStatus = LiveBreak`, or when `Schedule.Position` is `Co-Host` (the main host
-reports). Such a session is not counted under *Belum ada report*, and its Report, Bukti AI and Verdict steps read
-*Live Break* or *Co-Host*.
+reports), `Training` or `Onboard Briefing` (no live). Such a session is not counted under *Belum ada report*, and its
+Report, Bukti AI and Verdict steps read *Live Break*, *Co-Host*, *Training* or *Onboard Briefing*.
 
 **Report host vs AI.** The session detail puts every host report next to its Report Automation row
 (`Report Automation.Title` = `Report.Title`, e.g. `REP-120`): Penjualan, Pesanan, Total viewer, Durasi, Jam live and
@@ -372,7 +372,8 @@ new comparison. `ApprovalStatus` values: `Waiting Approval`, `Waiting Approval R
 
 The single-schedule form no longer asks for Shift, Sesi, Live break or Campaign name; the handlers below do
 not write those columns, so existing values stay as they are on edit. **Position** is a choice of
-`Main Host` / `Co-Host` — the `Schedule.Position` choice column must carry exactly these two values.
+`Main Host` / `Co-Host` / `Training` / `Onboard Briefing` — the `Schedule.Position` choice column must carry exactly
+these four values. For Training and Onboard Briefing the account is optional (they are not lives).
 
 If `Context.permissions` is non-empty, editing and uploading need `SCHEDULE_EDIT`. If it is empty, `Mode` decides.
 
@@ -422,7 +423,7 @@ If(rid <> varLastSchedRid,
                         Account: Text(p.accountId), Platform: { Value: Text(p.platform) },
                         StartTime: Text(p.startTime), EndTime: Text(p.endTime),
                         JamLive: Value(p.jamLive), TotalLiveTime: Value(p.jamLive),
-                        Position: { Value: Text(p.position) },   // "Main Host" or "Co-Host"
+                        Position: { Value: Text(p.position) },   // "Main Host", "Co-Host", "Training" or "Onboard Briefing"
                         TotalAccount: Value(p.totalAccount),
                         Status: { Value: "Planned" } }) },
                     // Second step, as v1: Title is only known after the insert (race R5).
@@ -691,7 +692,7 @@ file was uploaded.
 | Schedule Detail screen says *Jadwal “3828” tidak ditemukan* | Before 1.7.1 only the ScheduleID (`SCD-3828`) was accepted; or the `schedules` filter does not reach that date because `varDetailDate` is blank | Import 1.7.1 (accepts the item ID too) and use the `OnVisible` in FORMULAS.md § 3, which finds the date from either form |
 | Schedule Detail screen shows the board, or Kembali does nothing | `View` is not `"Detail"`, or `OnChange` lacks `"NAV_BACK", Back(),` | See C4d |
 | On a phone the Schedule screen is cut off or tiny | The control is not sized to the screen, or the app uses *Scale to fit* | Set Width/Height to `Parent.Width`/`Parent.Height` and turn off *Scale to fit* and *Lock orientation* (C4d *Phone and tablet*) |
-| Studio header does not show `pbs_Ops.StudioHub 1.8.0` | The screen still holds the old control, or the code component was not updated | Delete the control, insert **PBS Studio Hub**, then save and publish. After an import, accept **Update code components** |
+| Studio header does not show `pbs_Ops.StudioHub 1.8.1` | The screen still holds the old control, or the code component was not updated | Delete the control, insert **PBS Studio Hub**, then save and publish. After an import, accept **Update code components** |
 | *Mapping lokasi* banner: studios not linked | `LocationID` is missing from **Fields** on `studios` or `locations` | Open **Lihat kolom** in the banner to see which columns actually arrive. Add `LocationID` under **Fields → Edit** on both datasets, or use `StudiosJson` as in B2 |
 | *LocationID tidak ditemukan* on a studio | The studio's `LocationID` is not carried by any item in the `locations` dataset (typo, extra space, or the item is filtered out) | Bind the whole `Studio Location - PBS` list, or pick another location in the Geofence tab |
 | Brand or host shows an ID, with a yellow banner | `brands` / `hosts` are not bound, or lack `ID`, `Title`, `BrandID`/`HostID` or the name column | See C2 *Names, not IDs* |
@@ -706,11 +707,11 @@ file was uploaded.
 | Upload dialog: *Aplikasi tidak membalas dalam 180 detik* / *belum dikonfirmasi*, but the file and the flow are fine | The reply (`varSchedResult`) is never set (the final `If(action in [...])` block commented out or missing), or set after `PBS0001A….Run()` | Use the C4 handler: upload branch sets the message only, `.Run()` at the bottom after the reply. Check that `"UPLOAD_SCHEDULE_FILE"` is in the `If(action in [...])` list and that `ActionResult` = `varSchedResult` |
 | Upload works, but the reply never comes (or only REVIEW_REPORT replies) | The `)` that closes `Switch(` sits inside a `/* … */` comment, so the reply block became part of the last Switch branch | Keep `);` after the last branch outside any comment (C4) |
 | Schedule opens a session detail straight away instead of the list | Before Schedule 1.4.0 the bound `SelectedScheduleId` reopened the last session on return | Import 1.4.0: the control always starts on the list |
-| Lampiran shows only *Memuat lampiran dari SharePoint…* | The app still runs Schedule 1.4.1/1.4.2 | Import the current zip, accept **Update code components**, then check the header reads `pbs_Ops.ScheduleHub 1.8.6` |
+| Lampiran shows only *Memuat lampiran dari SharePoint…* | The app still runs Schedule 1.4.1/1.4.2 | Import the current zip, accept **Update code components**, then check the header reads `pbs_Ops.ScheduleHub 1.8.7` |
 | Lampiran report says *belum punya lampiran* although the report has links | `Attachment` is not in the `reports` dataset (or `reportFiltered`), or the text holds no full `https://` URL | Add `Attachment` under **Fields → Edit** (C4c) |
 | Bulk Duplikat / Hapus shows *tidak membalas* | `BULK_CREATE_SCHEDULE` / `BULK_DELETE_SCHEDULE` are missing from the Switch or from the reply list | Add both branches and both names as in C4 |
 | Deleted schedule comes back after reopening the screen | `schedules` is bound to a collection, or `DELETE_SCHEDULE` has no `Refresh` | Bind to the list / `Filter(...)` and keep the `Refresh('Schedule - PBS Hub')` in C4 |
-| Every week change shows a loading grid | The app still runs 1.5.0 or older | Import the current zip; the header should read `pbs_Ops.ScheduleHub 1.8.6` |
+| Every week change shows a loading grid | The app still runs 1.5.0 or older | Import the current zip; the header should read `pbs_Ops.ScheduleHub 1.8.7` |
 | Board opens on an old week | Build 1.5.2–1.5.6 kept the week in browser storage | Update to 1.5.7: the week is kept only while the app page is open; a browser refresh or new session starts on this week |
 | *Bukti AI* says no OCR result, but the report is Done/Match | The Report Automation row is not in `evidence` (LiveDate blank or outside the period, or `Filter` not delegable) | Add the `LOAD_EVIDENCE` branch in C4, and make sure `automationFiltered` is not filtered on `LiveDate`. The detail then looks the row up by Title and shows its LiveDate |
 | New schedules from a flow do not appear | Canvas apps are not pushed SharePoint changes | Press **Muat ulang**, or add the Timer in C4 *Auto update* |
