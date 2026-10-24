@@ -23,7 +23,8 @@ arrives the control stays locked. It gives up after 30 seconds for a save, or 3 
 1. Power Apps → **Solutions → Import**. Import both zips from `releases/` as managed solutions.
 2. Canvas app → **Settings → Updates** → turn on **Power Apps component framework for canvas apps**.
 3. **Insert → Get more components → Code** → add **PBS Studio Hub** and **PBS Schedule Hub**.
-4. Give each control the full screen next to `BlibliUniversalSidebar`. The minimum width is 1040 px.
+4. Give each control the full screen next to `BlibliUniversalSidebar` (desktop layout from 1040 px). On a phone the
+   controls switch to their portrait layout by themselves once the app stops scaling: see A4.
 5. When you later import a newer version, accept **Update code components** in the editor, then save and publish.
 
 **Check the version.** From 1.5.0 the Studio control is a new component, **PBS Studio Hub**
@@ -73,6 +74,53 @@ older version the board shows `0`, `4`, `5` in the Status column and live breaks
 in the tables below.
 
 ---
+
+## A4. Phone: portrait, switching by itself
+
+Both controls pick their layout from the width they are given: desktop from 1040 px, single column at 640–1039 px
+(tablet, phone held sideways), cards and full-width sheets under 640 px (phone upright). A phone still shows the
+landscape desktop when the app is **scaled**: the canvas keeps its 1366 px design width and shrinks it, so the
+controls never see a phone width. Nothing changes in the controls; the app settings and the screen layout do.
+
+**1. Settings → Display**
+
+| Setting | Value | Why |
+|---|---|---|
+| Scale to fit | **Off** | The screens take the device size, so the controls see the real width |
+| Lock aspect ratio | Off (greys out with the one above) | |
+| Lock orientation | **Off** | The app turns with the phone: upright = portrait layout, sideways = tablet layout |
+| Orientation | Leave *Landscape* | Only the design size in Studio; the running app follows the device |
+
+**2. App object** (Tree view → App): `MinScreenWidth` = `320`, `MinScreenHeight` = `480`. A larger minimum (for
+example 640) keeps a phone at that width with a scroll bar, which looks exactly like "still landscape".
+
+**3. Each screen** (names as in your app; `conHeader` is the blue bar, `BlibliUniversalSidebar` the menu):
+
+```powerfx
+// App.OnStart (or the first screen's OnVisible)
+Set(varMenuOpen, false)
+
+// conHeader
+X: 0    Y: 0    Width: Parent.Width    Height: If(Parent.Width < 640, 56, 64)
+// "Welcome, …" label inside the header
+Visible: Parent.Width >= 640
+// New hamburger icon in the header, left
+Visible: App.Width < 640    OnSelect: Set(varMenuOpen, !varMenuOpen)
+
+// BlibliUniversalSidebar: always on a desktop, as an overlay on a phone
+X: 0    Y: conHeader.Height    Height: Parent.Height - conHeader.Height
+Visible: App.Width >= 640 || varMenuOpen
+
+// PBS Studio Hub / PBS Schedule Hub control
+X: If(App.Width < 640, 0, BlibliUniversalSidebar.Width)
+Y: conHeader.Height
+Width: Parent.Width - Self.X
+Height: Parent.Height - Self.Y
+```
+
+Put the sidebar above the control in the tree so the phone overlay covers it, and close it when a menu item is
+chosen (`Set(varMenuOpen, false)` in its navigation). Check on a phone: upright shows the cards, turning it sideways
+shows the single-column layout, both without reopening the app.
 
 # B. PBS Studio Hub (`pbs_Ops.StudioHub` 1.8.1)
 
@@ -654,7 +702,7 @@ The control follows the width the canvas gives it (`Width` of the control): from
 640–1039 px (tablet, phone in landscape) a single-column detail and a calendar that scrolls sideways with the
 brand/studio column fixed, under 640 px (phone in portrait) the list as cards, filters stacked and dialogs as a
 full-width sheet. For a phone app, set the control to `X: 0, Y: 0, Width: Parent.Width, Height: Parent.Height`,
-and in **Settings → Display** turn off *Lock orientation* so the app can rotate (*Scale to fit* off).
+and set the app up as in A4 (*Scale to fit* and *Lock orientation* off, `MinScreenWidth` 320).
 
 ## C5. What the control checks (v1 checked none of this)
 
@@ -691,7 +739,8 @@ file was uploaded.
 | Parse PDF: *Buat jadwal* says *tidak membalas* | `BULK_CREATE_SCHEDULE` is missing from the Switch or the reply list | Add it as in C4 (same branch as Duplikat) |
 | Schedule Detail screen says *Jadwal “3828” tidak ditemukan* | Before 1.7.1 only the ScheduleID (`SCD-3828`) was accepted; or the `schedules` filter does not reach that date because `varDetailDate` is blank | Import 1.7.1 (accepts the item ID too) and use the `OnVisible` in FORMULAS.md § 3, which finds the date from either form |
 | Schedule Detail screen shows the board, or Kembali does nothing | `View` is not `"Detail"`, or `OnChange` lacks `"NAV_BACK", Back(),` | See C4d |
-| On a phone the Schedule screen is cut off or tiny | The control is not sized to the screen, or the app uses *Scale to fit* | Set Width/Height to `Parent.Width`/`Parent.Height` and turn off *Scale to fit* and *Lock orientation* (C4d *Phone and tablet*) |
+| On a phone the Schedule screen is cut off or tiny | The control is not sized to the screen, or the app uses *Scale to fit* | Set Width/Height to `Parent.Width`/`Parent.Height` and turn off *Scale to fit* and *Lock orientation* (A4) |
+| A phone still shows the landscape (desktop) layout | *Scale to fit* is on, or `App.MinScreenWidth` is above the phone width | A4: *Scale to fit* off, *Lock orientation* off, `MinScreenWidth` 320, control `Width: Parent.Width - Self.X` |
 | Studio header does not show `pbs_Ops.StudioHub 1.8.1` | The screen still holds the old control, or the code component was not updated | Delete the control, insert **PBS Studio Hub**, then save and publish. After an import, accept **Update code components** |
 | *Mapping lokasi* banner: studios not linked | `LocationID` is missing from **Fields** on `studios` or `locations` | Open **Lihat kolom** in the banner to see which columns actually arrive. Add `LocationID` under **Fields → Edit** on both datasets, or use `StudiosJson` as in B2 |
 | *LocationID tidak ditemukan* on a studio | The studio's `LocationID` is not carried by any item in the `locations` dataset (typo, extra space, or the item is filtered out) | Bind the whole `Studio Location - PBS` list, or pick another location in the Geofence tab |
