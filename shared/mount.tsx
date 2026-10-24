@@ -1,5 +1,6 @@
 import * as React from "react";
 import { createRoot, Root } from "react-dom/client";
+import { landscapeLocked } from "./device";
 import { CSS, injectFonts } from "./styles";
 
 /**
@@ -16,6 +17,11 @@ export class ReactHost {
   private payload = "";
   private upload = "";
   private notify: (() => void) | null = null;
+  private last: [React.ReactElement, number, number] | null = null;
+  private hintClosed = false;
+  private readonly onViewport = (): void => {
+    if (this.last) this.render(...this.last);
+  };
 
   /** `rootClass` "hc" switches on the host-app layout (container queries on the control width). */
   constructor(private readonly rootClass = "") {}
@@ -41,6 +47,12 @@ export class ReactHost {
       shadow.append(style, mount);
     }
     this.root = createRoot(mount);
+    // Rotating a phone does not always resize a canvas app (orientation locked), so the
+    // landscape hint follows the browser viewport too.
+    if (this.rootClass === "hc" && typeof window !== "undefined") {
+      window.addEventListener("resize", this.onViewport);
+      window.addEventListener("orientationchange", this.onViewport);
+    }
   }
 
   readonly emit = (json: string): void => {
@@ -59,15 +71,35 @@ export class ReactHost {
 
   render(element: React.ReactElement, width: number, height: number): void {
     if (!this.root) return;
+    this.last = [element, width, height];
     const style: React.CSSProperties = {};
     if (width > 0) style.width = width;
     if (height > 0) style.height = height;
     this.root.render(
       <div className={this.rootClass ? `pbs-root ${this.rootClass}` : "pbs-root"} style={style}>
+        {this.showHint(width, height) && <LandscapeHint onClose={this.closeHint} />}
         <ErrorBoundary>{element}</ErrorBoundary>
       </div>,
     );
   }
+
+  private showHint(width: number, height: number): boolean {
+    if (this.rootClass !== "hc" || this.hintClosed || typeof window === "undefined") return false;
+    const touch = typeof navigator === "undefined" ? 0 : navigator.maxTouchPoints ?? 0;
+    // The physical screen, not innerWidth: a page without a viewport meta reports a wide layout viewport.
+    const sw = window.screen?.width ?? window.innerWidth;
+    const sh = window.screen?.height ?? window.innerHeight;
+    const type = window.screen?.orientation?.type ?? "";
+    const upright = type ? type.startsWith("portrait") : sh > sw;
+    const short = Math.min(sw, sh);
+    const view = upright ? { width: short, height: Math.max(sw, sh) } : { width: Math.max(sw, sh), height: short };
+    return landscapeLocked({ width, height }, view, touch);
+  }
+
+  private readonly closeHint = (): void => {
+    this.hintClosed = true;
+    this.onViewport();
+  };
 
   get output(): string {
     return this.payload;
@@ -78,10 +110,30 @@ export class ReactHost {
   }
 
   destroy(): void {
+    if (typeof window !== "undefined") {
+      window.removeEventListener("resize", this.onViewport);
+      window.removeEventListener("orientationchange", this.onViewport);
+    }
     this.root?.unmount();
     this.root = null;
     this.container = null;
   }
+}
+
+/** Shown on a phone held upright while the canvas app is still landscape (see `landscapeLocked`). */
+function LandscapeHint({ onClose }: { onClose: () => void }) {
+  return (
+    <div className="pbs-banner warn hc-orient" role="status">
+      <div className="grow">
+        <b>Tampilan masih landscape.</b> Supaya otomatis portrait di HP, admin app perlu ubah di Power Apps Studio:
+        Settings → Display → <b>Scale to fit</b> Off, <b>Lock aspect ratio</b> Off, <b>Lock orientation</b> Off, lalu
+        Save &amp; Publish.
+      </div>
+      <button type="button" className="pbs-btn ghost sm" onClick={onClose}>
+        Tutup
+      </button>
+    </div>
+  );
 }
 
 /** A rendering bug must show a readable message in Studio, not a blank rectangle. */

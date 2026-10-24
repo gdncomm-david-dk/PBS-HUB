@@ -1,4 +1,4 @@
-import { deviceLabel, detectDevice } from "../shared/device";
+import { deviceLabel, detectDevice, landscapeLocked } from "../shared/device";
 
 const ua = {
   android:
@@ -30,5 +30,15 @@ describe("detectDevice", () => {
     expect(deviceLabel("Mobile")).toBe("HP");
     expect(deviceLabel("Desktop")).toBe("Laptop");
     expect(deviceLabel("Tablet")).toBe("Tablet");
+  });
+});
+
+describe("landscapeLocked", () => {
+  it("only a touch phone held upright with a landscape control box", () => {
+    expect(landscapeLocked({ width: 1366, height: 768 }, { width: 412, height: 915 }, 5)).toBe(true);
+    expect(landscapeLocked({ width: 412, height: 860 }, { width: 412, height: 915 }, 5)).toBe(false);
+    expect(landscapeLocked({ width: 1366, height: 768 }, { width: 915, height: 412 }, 5)).toBe(false);
+    expect(landscapeLocked({ width: 1366, height: 768 }, { width: 800, height: 1200 }, 0)).toBe(false);
+    expect(landscapeLocked({ width: 0, height: 0 }, { width: 412, height: 915 }, 5)).toBe(false);
   });
 });

@@ -221,6 +221,23 @@ Nama layar dipakai di formula `Navigate(...)`. Pakai nama persis ini (atau ganti
 Navigasi utama (tab bar atau tombol di header, di luar control): `Navigate(scrHome)`, `Navigate(scrMySchedule)`,
 `Navigate(scrMyReports)`, `Navigate(scrCreditScore)`. Sisanya dibuka oleh control lewat OnChange.
 
+### Tampilan HP otomatis portrait
+
+Control sudah menyesuaikan diri dengan ukuran yang diberikan app (portrait di HP, landscape di laptop).
+Yang menentukan app di HP tetap landscape atau ikut diputar adalah **setting canvas app**, bukan control:
+
+1. **Settings → Display**: **Scale to fit** = Off, **Lock aspect ratio** = Off, **Lock orientation** = Off,
+   **Orientation** = Portrait. Kalau *Scale to fit* menyala, app selalu digambar 1366×768 lalu diperkecil,
+   jadi di HP tetap terlihat landscape.
+2. Setiap layar: control (dan header / tab bar kalau ada) pakai ukuran relatif, jangan angka tetap:
+   X = 0, Y = 0, **Width = `Parent.Width`**, **Height = `Parent.Height`** (kalau ada tab bar setinggi 56:
+   `Parent.Height - 56`, dan tab bar Y = `Parent.Height - 56`, Width = `Parent.Width`).
+3. **Save** lalu **Publish**, tutup app di HP dan buka lagi (Power Apps mobile menyimpan versi lama sampai dibuka ulang).
+
+Setelah itu app otomatis portrait saat HP tegak dan landscape saat HP dimiringkan. Kalau app dibuat dengan
+layout **Tablet** dan masih landscape, cek lagi langkah 1 — tidak perlu membuat ulang app. Selama setting itu
+belum benar, control host menampilkan pesan kuning *Tampilan masih landscape* di HP yang dipegang tegak.
+
 ## Langkah 5 — Layar Hari ini (`scrHome`)
 
 Sapaan, kartu shift (clock in / out), to-do, jadwal minggu ini, skor.
@@ -2046,7 +2063,8 @@ Pakai satu jadwal milik akunmu (`HostID = varMe.Title`), hari ini, **sudah mulai
 |---|---|---|
 | *Name isn't valid. 'varXxx' isn't recognized* | variabel belum pernah di-Set | pastikan blok 4 di Langkah 3 ada, lalu **Run OnStart** |
 | *No type found for variable 'varMrdRep'* | variabel record hanya di-Set ke `Blank()` | pakai `LookUp(reportFiltered, ID = -1)` seperti Langkah 3 |
-| *Name isn't valid* / *type does not match* pada `Account` | `Account` di Report / Host Absence harus kolom teks | formula OnChange mengisi teks: `Coalesce(LookUp(colAccounts, Title = s.Account).AccountName, Text(p.accountName), s.Account)` |
+| *Name isn't valid* / *type does not match* pada `Account` | `Account` di Report kolom Choice, di Host Absence kolom teks | pakai formula OnChange Langkah 6 / 8 apa adanya (Report: `{Value: ...}`, Absence: teks); nama akun baru harus ada di pilihan Choice `Account` |
+| Di HP app tetap landscape | *Scale to fit* / *Lock orientation* / *Lock aspect ratio* menyala, atau control pakai ukuran tetap | ikuti *Tampilan HP otomatis portrait* di Langkah 4, lalu Publish dan buka ulang app di HP |
 | Nama akun kosong | `colAccounts` belum dimuat / `Schedule.Account` ≠ `Title` di list Account | Run OnStart; cek isi kedua kolom |
 | Klik tombol, spinner berputar terus | OnChange belum ditempel, atau `ActionResult` bukan variabel layar itu | tempel OnChange langkah layar itu; cek `ActionResult` |
 | Tombol Absen masih bisa diklik setelah absen | `AbsenceJson` tidak dari koleksi yang di-`Collect` OnChange (mis. dari koleksi lain yang tidak dimuat ulang) | `AbsenceJson` harus dari `colSdAbs` / `colMsAbs` / `colMyAbs` / `colMrdAbs` sesuai layar. Control 1.0.2 juga menyembunyikan tombol begitu canvas membalas ok / sudah tercatat |

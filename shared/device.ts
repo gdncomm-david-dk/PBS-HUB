@@ -71,3 +71,14 @@ export function detectDevice(
 /** Short label for tables: HP, Tablet or Laptop. */
 export const deviceLabel = (type: string): string =>
   /^mobile$/i.test(type) ? "HP" : /^tablet$/i.test(type) ? "Tablet" : /^desktop$/i.test(type) ? "Laptop" : type;
+
+/**
+ * A phone held upright while the canvas app still gives the control a landscape box: the app was made
+ * with the Tablet layout, or Scale to fit / Lock orientation is on. The control cannot rotate the app,
+ * so the host layout shows a hint naming the canvas settings that fix it.
+ */
+export function landscapeLocked(box: { width: number; height: number }, view: { width: number; height: number }, touch: number): boolean {
+  if (touch < 1 || box.width <= 0 || box.height <= 0) return false;
+  const portraitPhone = view.height > view.width && view.width > 0 && view.width < 900;
+  return portraitPhone && box.width > box.height * 1.05;
+}

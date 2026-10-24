@@ -77,6 +77,7 @@ font-family:"Blibli","Helvetica Neue",Arial,sans-serif;font-size:13px;line-heigh
 .pbs-banner.ok{background:var(--ok-bg);border-left:4px solid var(--ok);color:var(--ok-tx)}
 .pbs-banner.err{background:var(--bad-bg2);border:1px solid var(--bad-bd);border-left:4px solid var(--bad);color:var(--bad-tx)}
 .pbs-banner.warn{background:var(--warn-bg2);border:1px solid var(--warn-bd);border-left:4px solid var(--warn);color:var(--warn-tx)}
+.pbs-banner.hc-orient{margin:8px 8px 0}
 .pbs-banner .grow{flex:1;min-width:0}
 .pbs-x{border:0;background:none;cursor:pointer;color:inherit;padding:4px;display:inline-flex;border-radius:6px}
 .pbs-filters{display:flex;gap:9px;flex-wrap:wrap;align-items:center;margin:0 0 16px}
