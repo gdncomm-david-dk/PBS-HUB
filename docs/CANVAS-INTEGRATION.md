@@ -810,7 +810,7 @@ If(!IsBlank(Self.ActionPayload),
                 Collect(colPbsProcessed, {Id: rid});
                 Switch(act,
                     "OPEN_HOST", Set(varSelectedHostId, Text(p.hostId)); Navigate(scrHostDetail),
-                    "ADD_HOST", Navigate(scrHostForm),                       // form v1 (HOST0001A)
+                    "ADD_HOST", Set(varHostNew, true); Navigate(scrHostForm),     // control HostForm
                     "LOAD_MORE", Notify("Gunakan filter untuk mempersempit daftar host.", NotificationType.Information),
                     "ADD_CLOCK_IN",
                         With({d: DateValue(Text(p.clockInDate)), hid: Text(p.hostId)},
@@ -947,7 +947,7 @@ If(!IsBlank(Self.ActionPayload),
                     "BACK", Set(varHdReveal, ""); Back(),
                     "RELOAD", Refresh('Host - PBS Hub'); Set(varHdHost, LookUp('Host - PBS Hub', Title = varSelectedHostId)),
                     "NAV", Switch(Text(p.target),
-                        "EDIT_HOST", Navigate(scrHostForm),
+                        "EDIT_HOST", Set(varHostNew, false); Navigate(scrHostForm),
                         "SCORE_LEDGER", Set(varScHostId, varSelectedHostId); Navigate(scrCreditScore),
                         "SCHEDULE", Navigate(scrSchedule)),
                     "OPEN_SCHEDULE", Set(varSelectedScheduleId, Value(p.scheduleId)); Navigate(scrScheduleDetail),
@@ -1306,6 +1306,120 @@ tampil di dalam dialog; `ok` menutup dialog dan menampilkan pesannya sebagai ban
 tahu*), jadi canvas cukup menulisnya ke `Notes`. Canvas menghitung ulang `after` dari skor segar di server, bukan
 memakai `scoreAfter` payload. `UploadData` hanya terisi untuk `ADD_SCORE` yang punya bukti; upload gagal = transaksi
 tidak ditulis (dialog tetap terbuka dengan pesan error). Baris `Reversal` tampil dengan badge *Koreksi* di Ops HostDetail dan di aplikasi host.
+
+### HostForm (Tambah / Edit Host)
+
+Control `pbs_Ops.HostForm` di layar `scrHostForm`, dibuka dari **Tambah host** (HostList, aksi `ADD_HOST`) dan
+**Edit Host** (HostDetail, `NAV` → `EDIT_HOST`). Isinya: Host ID (otomatis `HST-012` → `HST-013`, terkunci saat edit),
+host code, nama, email kerja, package, tanggal join, skor awal (hanya saat tambah), skor minimum / maksimum, bank,
+dan data pribadi. Simpan butuh `HOST_EDIT`; bagian data pribadi hanya untuk `HOST_PII_VIEW`.
+
+**Data pribadi tidak pernah dimuat ke form.** Saat edit, control menerima tanda yang sama dengan HostDetail
+(`KtpLast4`, `NorekLast4`, `HasAlamat`, …) dan menampilkan `••••1234` dengan tombol **Ganti**. Hanya field yang diganti
+yang dikirim (`pii`, `piiFields`); yang tidak diganti tetap seperti di list. Control memeriksa format (KTP 16 angka,
+rekening 6–20 angka, telepon 9–15 angka, email), duplikat Host ID / host code / email kerja, dan batas skor.
+
+`App.OnStart` (sekali, supaya variabelnya dikenali):
+
+```powerfx
+Set(varHostNew, false)
+```
+
+`scrHostForm.OnVisible`:
+
+```powerfx
+Set(varHfResult, Blank());
+ClearCollect(colHfHosts, ShowColumns('Host - PBS Hub', ID, Title, HostCode, NamaHost, Email))
+```
+
+| Properti | Nilai |
+|---|---|
+| `Context` | `varPbsCtx` |
+| `HostJson` | `If(varHostNew, "", JSON(ForAll(Table(varHdHost), {ID: ID, Title: Title, HostCode: HostCode, NamaHost: NamaHost, Email: Email.Email, Package: Package.Value, JoinDate: JoinDate, InitialScore: InitialScore, MinimumScore: MinimumScore, MaximumScore: MaximumScore, Bank: Bank, Modified: Modified, NorekLast4: Right(NoRekening, 4), KtpLast4: Right(KTP, 4), PhoneLast4: Right(PhoneNumber, 4), HasAlamat: !IsBlank(Alamat), HasNamaRekening: !IsBlank(NamaRekening), HasPersonalEmail: !IsBlank(PersonalEmail)}), JSONFormat.Compact))` |
+| `HostsJson` | `JSON(ForAll(colHfHosts, {ID: ID, Title: Title, HostCode: HostCode, NamaHost: NamaHost, Email: Email.Email}), JSONFormat.Compact)` |
+| `PackagesJson` | `JSON(Choices('Host - PBS Hub'.Package), JSONFormat.Compact)` |
+| `IsLoading` | `false` |
+| `ActionResult` | `varHfResult` |
+
+Aksi:
+
+| Aksi | Payload | Canvas |
+|---|---|---|
+| `SAVE_HOST` 🔒 | `{mode: "add"\|"edit", id, hostId, expectedModified, hostCode, name, email, package, joinDate, initialScore, minScore, maxScore, bank, pii: {KTP?, NoRekening?, NamaRekening?, Alamat?, PhoneNumber?, PersonalEmail?}, piiFields}` | cek duplikat / bentrok edit, Patch `Host - PBS Hub`, buka HostDetail |
+| `CANCEL` | `{hostId}` | `Back()` |
+
+OnChange control:
+
+```powerfx
+If(!IsBlank(Self.ActionPayload),
+    With({req: ParseJSON(Self.ActionPayload)},
+        With({act: Text(req.action), rid: Text(req.requestId), p: req.payload},
+            If(!(rid in colPbsProcessed.Id),
+                Collect(colPbsProcessed, {Id: rid});
+                Switch(act,
+                    "CANCEL", Back(),
+                    "SAVE_HOST",
+                        With({
+                            add: Text(p.mode) = "add",
+                            hid: Text(p.hostId),
+                            em: Lower(Trim(Text(p.email))),
+                            canPii: userRole.Value = "PBS_Team"
+                        },
+                        With({base: If(add, Defaults('Host - PBS Hub'), LookUp('Host - PBS Hub', ID = Value(p.id)))},
+                            If(!add && IsBlank(base.Title),
+                                Set(varHfResult, JSON({requestId: rid, status: "conflict", message: "Host ini sudah tidak ada. Kembali dan muat ulang."}, JSONFormat.Compact)),
+                            !add && Abs(DateDiff(base.Modified, DateTimeValue(Text(p.expectedModified)), TimeUnit.Seconds)) > 1,
+                                Set(varHfResult, JSON({requestId: rid, status: "conflict", message: "Data host sudah diubah orang lain. Kembali, buka lagi, lalu ulangi."}, JSONFormat.Compact)),
+                            add && !IsBlank(LookUp('Host - PBS Hub', Title = hid)),
+                                Set(varHfResult, JSON({requestId: rid, status: "conflict", message: "Host ID " & hid & " sudah dipakai."}, JSONFormat.Compact)),
+                            !IsBlank(LookUp(colHfHosts, Lower(Email.Email) = em && Title <> hid)),
+                                Set(varHfResult, JSON({requestId: rid, status: "conflict", message: "Email " & em & " sudah dipakai host lain."}, JSONFormat.Compact)),
+                                IfError(
+                                    Patch('Host - PBS Hub', base, {
+                                        Title: hid,
+                                        HostCode: Text(p.hostCode),
+                                        NamaHost: Text(p.name),
+                                        Email: If(Lower(base.Email.Email) = em, base.Email,
+                                            {Claims: "i:0#.f|membership|" & em, Department: "", DisplayName: Text(p.name), Email: em, JobTitle: "", Picture: ""}),
+                                        Package: If(IsBlank(Text(p.package)), Blank(), {Value: Text(p.package)}),
+                                        JoinDate: If(IsBlank(Text(p.joinDate)), Blank(), DateValue(Text(p.joinDate))),
+                                        Status: If(add, {Value: "Active"}, base.Status),
+                                        RegistrationDate: If(add, Today(), base.RegistrationDate),
+                                        RegisteredBy: If(add, User().Email, base.RegisteredBy),
+                                        // Skor berjalan hanya diisi saat tambah; setelah itu berubah lewat ledger.
+                                        InitialScore: If(add && !IsBlank(p.initialScore), Value(p.initialScore), base.InitialScore),
+                                        CurrentScore: If(add && !IsBlank(p.initialScore), Value(p.initialScore), base.CurrentScore),
+                                        MinimumScore: If(IsBlank(p.minScore), Blank(), Value(p.minScore)),
+                                        MaximumScore: If(IsBlank(p.maxScore), Blank(), Value(p.maxScore)),
+                                        Bank: Text(p.bank),
+                                        // Data pribadi: hanya yang diganti, dan hanya PBS_Team.
+                                        KTP: If(canPii && !IsBlank(Text(p.pii.KTP)), Text(p.pii.KTP), base.KTP),
+                                        NoRekening: If(canPii && !IsBlank(Text(p.pii.NoRekening)), Text(p.pii.NoRekening), base.NoRekening),
+                                        NamaRekening: If(canPii && !IsBlank(Text(p.pii.NamaRekening)), Text(p.pii.NamaRekening), base.NamaRekening),
+                                        Alamat: If(canPii && !IsBlank(Text(p.pii.Alamat)), Text(p.pii.Alamat), base.Alamat),
+                                        PhoneNumber: If(canPii && !IsBlank(Text(p.pii.PhoneNumber)), Text(p.pii.PhoneNumber), base.PhoneNumber),
+                                        PersonalEmail: If(canPii && !IsBlank(Text(p.pii.PersonalEmail)), Text(p.pii.PersonalEmail), base.PersonalEmail)
+                                    });
+                                    Set(varSelectedHostId, hid);
+                                    Set(varHdHost, LookUp('Host - PBS Hub', Title = hid));
+                                    Set(varHfResult, JSON({requestId: rid, status: "ok", message: "Host " & hid & If(add, " ditambahkan.", " disimpan.")}, JSONFormat.Compact));
+                                    Set(varHostNew, false);
+                                    Navigate(scrHostDetail),
+                                    Set(varHfResult, JSON({requestId: rid, status: "error", message: "Gagal menyimpan host: " & FirstError.Message}, JSONFormat.Compact))
+                                )
+                            )
+                        ))
+                )
+            )
+        )
+    )
+)
+```
+
+Catatan kolom: `Email` = Person (kalau di list kamu kolom teks, ganti baris `Email:` jadi `Email: em`), `Package` dan
+`Status` = Choice, `RegisteredBy` = teks (kalau Person, pakai pola record yang sama seperti `Email`). Kolom yang tidak ada
+di list kamu hapus saja barisnya dari `Patch`. HostList memuat ulang daftarnya di `OnVisible`, jadi host baru langsung
+muncul saat kembali ke daftar.
 
 ### BrandAccount (Brand & Account: tambah brand, tambah dan edit account)
 

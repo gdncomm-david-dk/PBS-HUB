@@ -24,6 +24,7 @@
 <script src="../controls/HostDetail/out/controls/HostDetail/bundle.js"></script>
 <script src="../controls/HostScore/out/controls/HostScore/bundle.js"></script>
 <script src="../controls/BrandAccount/out/controls/BrandAccount/bundle.js"></script>
+<script src="../controls/HostForm/out/controls/HostForm/bundle.js"></script>
 <script src="../controls/HostDashboard/out/controls/HostDashboard/bundle.js"></script>
 <script src="../controls/MyReports/out/controls/MyReports/bundle.js"></script>
 <script src="../controls/MySchedule/out/controls/MySchedule/bundle.js"></script>
@@ -55,6 +56,7 @@
   <a href="?c=MyReports">MyReports</a> <a href="?c=MyReports&f=Revision">revisi</a> <a href="?c=MyReports&period=2026-07">bulan kosong</a> <a href="?c=MyReports&s=loading">loading</a> <a href="?c=MyReports&w=390">mobile</a> |
   <a href="?c=MyReportDetail&sch=SCD-3302">submit</a> <a href="?c=MyReportDetail&sch=SCD-3201">belum absen</a> <a href="?c=MyReportDetail&sch=SCD-3304">tanpa clock in</a> <a href="?c=MyReportDetail&sch=SCD-3203">belum mulai</a> <a href="?c=MyReportDetail&r=REP-20901">revisi</a> <a href="?c=MyReportDetail&r=REP-20863">menunggu</a> <a href="?c=MyReportDetail&r=REP-20902">selesai</a> <a href="?c=MyReportDetail&r=REP-20903">otomatis</a> <a href="?c=MyReportDetail&r=REP-20901&w=390">revisi mobile</a>
   | <a href="?c=BrandAccount">BrandAccount</a> <a href="?c=BrandAccount&b=BRD-005">brand dipilih</a> <a href="?c=BrandAccount&role=Viewer">tanpa izin</a> <a href="?c=BrandAccount&s=loading">loading</a> <a href="?c=BrandAccount&w=390">mobile</a>
+  | <a href="?c=HostForm">HostForm (tambah)</a> <a href="?c=HostForm&h=HST-001">edit</a> <a href="?c=HostForm&h=HST-001&role=FAS_Team">edit tanpa PII</a> <a href="?c=HostForm&h=HST-001&w=390">mobile</a>
   | <a href="?c=HostScore">HostScore</a> <a href="?c=HostScore&h=HST-001">ledger</a> <a href="?c=HostScore&h=HST-003">ledger drift</a> <a href="?c=HostScore&s=loading">loading</a>
   | <a href="?c=CreditScore">CreditScore</a> <a href="?c=CreditScore&period=2026-08">Agustus</a> <a href="?c=CreditScore&period=All&f=Penalty">penalty</a> <a href="?c=CreditScore&rules=1">dengan RulesJson</a> <a href="?c=CreditScore&s=empty">tanpa transaksi</a> <a href="?c=CreditScore&s=loading">loading</a> <a href="?c=CreditScore&w=390">mobile</a>
   | <a href="?c=ClockIn">ClockIn (clock out)</a> <a href="?c=ClockIn&shift=none">clock in</a> <a href="?c=ClockIn&shift=none&geo=-6.2300,106.8031,35">luar radius</a> <a href="?c=ClockIn&shift=none&geo=deny">izin ditolak</a> <a href="?c=ClockIn&shift=out">selesai</a> <a href="?c=ClockIn&shift=none&w=390">mobile</a>
@@ -111,6 +113,15 @@
     S.brands.forEach((b, i) => platforms.forEach((pl, k) => accs.push({ ID: 300 + accs.length, Title: `ACC-${String(accs.length + 1).padStart(3, "0")}`, AccountName: `${b.NamaBrand.toLowerCase().replace(/[^a-z0-9]/g, "")}${k ? ".tiktok" : "official"}`, BrandID: b.Title, Platform: { Value: pl }, Status: { Value: i === 2 && k ? "Inactive" : "Active" }, Modified: "2026-09-01T10:00:00Z" })));
     accs.push({ ID: 399, Title: "ACC-099", AccountName: "orphanshop", BrandID: "BRD-404", Platform: { Value: "Shopee" }, Status: { Value: "Active" }, Modified: "2026-09-01T10:00:00Z" });
     Object.assign(params, { BrandsJson: J(S.brands.map((b, i) => Object.assign({ ID: 200 + i }, b))), AccountsJson: J(s === "loading" ? [] : accs), BrandId: q.get("b") || "" });
+  }
+  // Host form: ?h=HST-001 edits that host (masked like HostDetail) · without ?h= adds one · ?reply=error|conflict
+  if (c === "HostForm") {
+    const i = Math.max(0, S.hosts.findIndex((x) => x.Title === q.get("h")));
+    const x = S.hosts[i];
+    const masked = q.get("h") ? [{ ID: 101 + i, Title: x.Title, HostCode: x.HostCode, NamaHost: x.NamaHost, Email: "dinda.host@pbs.id", Package: "Gold", JoinDate: "2025-03-01T00:00:00Z",
+      InitialScore: 100, MinimumScore: 0, MaximumScore: null, Bank: "BCA", Modified: "2026-10-01T03:00:00Z", NorekLast4: "4321", KtpLast4: "0001", PhoneLast4: "6789", HasAlamat: true, HasNamaRekening: true, HasPersonalEmail: false }] : [];
+    Object.assign(params, { HostJson: J(masked), HostsJson: J(S.hosts.map((h, k) => ({ ID: 101 + k, Title: h.Title, HostCode: h.HostCode, NamaHost: h.NamaHost, Email: `${String(h.NamaHost).toLowerCase().split(" ")[0]}@pbs.id` }))),
+      PackagesJson: J([{ Value: "Gold" }, { Value: "Silver" }, { Value: "Bronze" }]) });
   }
   if (c === "HostScore") {
     const hostRows = S.hosts.map((x, i) => Object.assign({ ID: 101 + i }, x));
@@ -250,6 +261,14 @@
         const i = S.hosts.findIndex((x) => x.Title === p.payload.hostId);
         params.RevealedJson = J({ hostId: p.payload.hostId, field: p.payload.field, value: S.piiValues(S.hosts[i], i)[p.payload.field] });
         params.ActionResult = J({ requestId: p.requestId, status: q.get("reply") || "ok", message: q.get("reply") === "error" ? "Akses ditolak: izin HOST_PII_VIEW tidak ada." : "" });
+        ctl.updateView(context());
+      }, Number(q.get("delay") || 400));
+      return;
+    }
+    if (c === "HostForm" && p.action === "SAVE_HOST" && document.getElementById("auto").checked) {
+      setTimeout(() => {
+        const reply = q.get("reply");
+        params.ActionResult = J({ requestId: p.requestId, status: reply || "ok", message: reply === "error" ? "Gagal menyimpan: akses ditolak." : reply === "conflict" ? "Data host sudah diubah orang lain." : `Host ${p.payload.hostId} disimpan.` });
         ctl.updateView(context());
       }, Number(q.get("delay") || 400));
       return;

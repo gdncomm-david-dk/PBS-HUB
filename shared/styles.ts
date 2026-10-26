@@ -264,6 +264,19 @@ font-family:"Blibli","Helvetica Neue",Arial,sans-serif;font-size:13px;line-heigh
 .pbs-ba-b.on{background:var(--p-tint);color:var(--p);font-weight:600}
 .pbs-ba-main{min-width:0}
 .pbs-ba-off td{color:var(--tx2)}
+.pbs-hf,.pbs-ba{container-type:inline-size}
+.pbs-hf-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;align-items:start;margin-bottom:16px}
+.pbs-hf-sec{display:grid;gap:14px;align-content:start}
+.pbs-hf-pii{grid-column:1/-1}
+.pbs-hf-h{font-size:15px;font-weight:600;margin:0}
+.pbs-hf-row{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.pbs-hf-mask{display:flex;align-items:center;gap:10px;min-height:40px}
+.pbs-hf-mask .pbs-sc-input{flex:1;min-width:0}
+.pbs-hf-area{height:auto;padding:10px 12px;resize:vertical;font-family:inherit}
+.pbs-hf-note{margin:0;font-size:12.5px}
+.pbs-hf-foot{display:flex;justify-content:flex-end;gap:10px;padding:4px 0 16px}
+@container (max-width:760px){.pbs-hf-grid{grid-template-columns:minmax(0,1fr)}}
+@container (max-width:480px){.pbs-hf-row{grid-template-columns:minmax(0,1fr)}.pbs-hf-foot .pbs-btn{flex:1}}
 @container (max-width:760px){.pbs-ba-grid{grid-template-columns:1fr}.pbs-ba-brands{grid-auto-flow:column;grid-auto-columns:max-content;overflow-x:auto}}
 .pbs-sc-ack{display:flex;align-items:center;gap:10px;cursor:pointer}
 .pbs-sc-miss{margin-right:auto;font-size:12px}

@@ -1052,5 +1052,60 @@ const assert = (c, m) => { if (!c) { console.log("FAIL", m); process.exitCode = 
   assert((await p.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1)), "Brand & Account fits a 390 px phone without horizontal scroll");
   await shot("ba-mobile");
 
+  // ---- Host form: add a host, edit one (personal data masked, replaced only), no PII without HOST_PII_VIEW ----
+  await go("c=HostForm");
+  assert((await p.locator("#hf-id").inputValue()) === "HST-013" && (await p.locator("#hf-id").isEnabled()), "Tambah Host: next Host ID HST-013, editable");
+  await p.getByRole("button", { name: "Tambah host" }).click();
+  await p.waitForTimeout(150);
+  assert((await p.getByText(/Isi nama host/).isVisible()) && !(await p.evaluate(() => window.__payloads.some((x) => x.action === "SAVE_HOST"))), "empty form is blocked before anything is sent");
+  await p.fill("#hf-name", "Ayu Lestari");
+  await p.fill("#hf-email", "dinda@pbs.id");
+  await p.selectOption("#hf-pkg", "Silver");
+  await p.fill("#hf-ini", "100");
+  await p.fill("#hf-pii-KTP", "3201 0101 0101 0001");
+  await p.fill("#hf-pii-NoRekening", "1234567890");
+  await p.waitForTimeout(100);
+  assert(await p.getByText(/Email dinda@pbs.id sudah dipakai/).isVisible(), "a work email already in use is blocked");
+  assert(await p.getByText(/Isi nama bank/).isVisible(), "a rekening needs its bank");
+  await p.fill("#hf-email", "ayu@pbs.id");
+  await p.fill("#hf-bank", "BCA");
+  await shot("hf-add");
+  await p.getByRole("button", { name: "Tambah host" }).click();
+  await p.waitForTimeout(800);
+  pl = await payloads();
+  const addHost = pl.filter((x) => x.action === "SAVE_HOST").pop();
+  assert(addHost && addHost.payload.mode === "add" && addHost.payload.hostId === "HST-013" && addHost.payload.email === "ayu@pbs.id" && addHost.payload.package === "Silver" && addHost.payload.initialScore === 100 && addHost.payload.pii.KTP === "3201010101010001" && addHost.payload.pii.NoRekening === "1234567890" && addHost.payload.bank === "BCA", "SAVE_HOST add payload");
+  assert(await p.getByText("Host HST-013 disimpan.").isVisible(), "canvas reply shown");
+
+  await go("c=HostForm&h=HST-001");
+  assert((await p.locator("#hf-id").isDisabled()) && (await p.locator("#hf-name").inputValue()) === "Dinda Maharani" && (await p.locator("#hf-join").inputValue()) === "2025-03-01" && (await p.locator("#hf-ini").isDisabled()), "Edit: fields filled, Host ID and initial score locked");
+  assert((await p.getByText("BCA ••••4321").isVisible()) && (await p.locator("#hf-pii-KTP").count()) === 0, "Edit: personal data shown masked, no input until Ganti");
+  await p.getByRole("button", { name: "Simpan perubahan" }).click();
+  await p.waitForTimeout(150);
+  assert((await p.getByText("Belum ada yang diubah.").isVisible()) && !(await p.evaluate(() => window.__payloads.some((x) => x.action === "SAVE_HOST"))), "nothing changed: nothing sent");
+  await p.locator(".pbs-field", { hasText: "Telepon" }).getByRole("button", { name: "Ganti" }).click();
+  await p.fill("#hf-pii-PhoneNumber", "+62 812-1111-2222");
+  await p.selectOption("#hf-pkg", "Bronze");
+  await shot("hf-edit");
+  await p.getByRole("button", { name: "Simpan perubahan" }).click();
+  await p.waitForTimeout(800);
+  pl = await payloads();
+  const ed = pl.filter((x) => x.action === "SAVE_HOST").pop();
+  assert(ed && ed.payload.mode === "edit" && ed.payload.id === "101" && ed.payload.expectedModified === "2026-10-01T03:00:00Z" && ed.payload.package === "Bronze" && JSON.stringify(ed.payload.piiFields) === '["PhoneNumber"]' && ed.payload.pii.PhoneNumber === "+6281211112222", "SAVE_HOST edit: only the replaced personal field goes");
+
+  await go("c=HostForm&h=HST-001&reply=conflict");
+  await p.fill("#hf-name", "Dinda M");
+  await p.getByRole("button", { name: "Simpan perubahan" }).click();
+  await p.waitForTimeout(800);
+  assert(await p.getByText("Data host sudah diubah orang lain.").isVisible(), "a conflict reply stays on the form");
+  await go("c=HostForm&h=HST-001&role=FAS_Team");
+  assert((await p.getByText(/Data pribadi hanya untuk izin HOST_PII_VIEW/).isVisible()) && (await p.getByText("BCA ••••4321").count()) === 0 && (await p.getByRole("button", { name: "Simpan perubahan" }).isVisible()), "FAS_Team edits the host but sees no personal data");
+  await p.getByRole("button", { name: "Back" }).click();
+  pl = await payloads();
+  assert(pl.some((x) => x.action === "CANCEL" && x.payload.hostId === "HST-001"), "Back fires CANCEL");
+  await go("c=HostForm&h=HST-001&w=390");
+  assert((await p.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1)), "Host form fits a 390 px phone without horizontal scroll");
+  await shot("hf-mobile");
+
   await b.close();
 })();

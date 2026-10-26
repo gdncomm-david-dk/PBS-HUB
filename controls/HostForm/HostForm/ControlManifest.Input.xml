@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<manifest>
+  <control namespace="Ops" constructor="HostForm" version="1.0.0" display-name-key="PBS Ops Host Form" description-key="PBS Hub Ops Console: add a host or edit one (identity, package, join date, score limits, bank and personal data). Personal data is never loaded: the form shows masked values and sends only fields typed in." control-type="standard">
+    <external-service-usage enabled="false"></external-service-usage>
+
+    <property name="Context" display-name-key="Context" description-key="JSON {userEmail,userName,roles,permissions,config}. Saving needs HOST_EDIT; personal data (KTP, rekening, alamat, telepon, email pribadi) needs HOST_PII_VIEW. config.packages: optional package list when PackagesJson is empty." of-type="Multiple" usage="input" required="false" />
+    <property name="HostJson" display-name-key="HostJson" description-key="JSON row of the host to edit, same masked shape as HostDetail (ID, Title, HostCode, NamaHost, Email, Package, JoinDate, InitialScore, MinimumScore, MaximumScore, Bank, Modified, KtpLast4, NorekLast4, PhoneLast4, HasAlamat, HasNamaRekening, HasPersonalEmail). Empty: add a new host." of-type="Multiple" usage="input" required="false" />
+    <property name="HostsJson" display-name-key="HostsJson" description-key="JSON rows of all hosts (ID, Title, HostCode, NamaHost, Email) for duplicate checks and the next Host ID." of-type="Multiple" usage="input" required="false" />
+    <property name="PackagesJson" display-name-key="PackagesJson" description-key="JSON of the Package choices of [Host - PBS Hub]: rows with Value." of-type="Multiple" usage="input" required="false" />
+    <property name="IsLoading" display-name-key="IsLoading" description-key="true while canvas is loading: renders skeleton rows." of-type="TwoOptions" usage="input" required="false" />
+    <property name="ActionResult" display-name-key="ActionResult" description-key="Canvas reply {requestId,status,message}. SAVE_HOST locks until it comes back." of-type="SingleLine.Text" usage="input" required="false" />
+    <property name="ActionPayload" display-name-key="ActionPayload" description-key="JSON {action,requestId,payload}: SAVE_HOST, CANCEL." of-type="SingleLine.Text" usage="output" required="false" />
+
+    <resources>
+      <code path="index.ts" order="1" />
+    </resources>
+  </control>
+</manifest>
