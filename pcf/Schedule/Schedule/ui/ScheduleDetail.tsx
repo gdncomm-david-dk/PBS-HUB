@@ -103,7 +103,7 @@ export function ScheduleDetail(props: { env: Env; schedule: ScheduleRow; backLab
 
             {env.ev.noReportReason(s) && (
                 <Banner tone="info">
-                    {Icon.info(14)} {env.ev.noReportReason(s) === "livebreak"
+                    {env.ev.noReportReason(s) === "livebreak"
                         ? "Live Break — sesi ini tidak perlu report."
                         : env.ev.noReportReason(s) === "offair"
                           ? `${s.offAir} — bukan sesi live, jadi tidak perlu report.`
@@ -137,7 +137,7 @@ export function ScheduleDetail(props: { env: Env; schedule: ScheduleRow; backLab
             )}
 
             <div className="sc-detail">
-                <Card className="sc-timeline" title="Rantai bukti sesi">
+                <Card className="sc-timeline" title="Alur sesi">
                     <ol className="sc-steps">
                         {steps.map((x, i) => (
                             <li key={x.id} className={cx("sc-step", `is-${x.state}`, x.id === sel && "is-selected", i < steps.length - 1 && `sc-step--line-${nextLine(x, steps[i + 1])}`)}>
