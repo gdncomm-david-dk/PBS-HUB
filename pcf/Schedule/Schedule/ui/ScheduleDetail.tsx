@@ -137,7 +137,7 @@ export function ScheduleDetail(props: { env: Env; schedule: ScheduleRow; backLab
             )}
 
             <div className="sc-detail">
-                <Card className="sc-timeline" title="Alur sesi">
+                <Card className="sc-timeline" title="Session Flow">
                     <ol className="sc-steps">
                         {steps.map((x, i) => (
                             <li key={x.id} className={cx("sc-step", `is-${x.state}`, x.id === sel && "is-selected", i < steps.length - 1 && `sc-step--line-${nextLine(x, steps[i + 1])}`)}>
