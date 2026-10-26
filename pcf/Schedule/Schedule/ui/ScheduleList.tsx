@@ -477,7 +477,22 @@ function ListRow(props: { env: Env; s: ScheduleRow; picked: boolean; onPick: (on
 
 function RowMenu(props: { env: Env; onOpen: () => void; onEdit: () => void; onDelete: () => void }): React.ReactElement {
     const [open, setOpen] = React.useState(false);
+    const [up, setUp] = React.useState(false);
     const ref = React.useRef<HTMLDivElement>(null);
+    // The table scrolls inside its own box, which clips the panel: near the bottom of that box (the last rows),
+    // open it upwards. Whichever side has more room wins when neither fits.
+    const toggle = (): void => {
+        if (!open && ref.current) {
+            const btn = ref.current.getBoundingClientRect();
+            let box: HTMLElement | null = ref.current.parentElement;
+            while (box && box !== document.body && !/(auto|scroll|hidden)/.test(getComputedStyle(box).overflowY)) box = box.parentElement;
+            const area = box && box !== document.body ? box.getBoundingClientRect() : { top: 0, bottom: window.innerHeight };
+            const below = area.bottom - btn.bottom;
+            const above = btn.top - area.top;
+            setUp(below < 150 && above > below);
+        }
+        setOpen((o) => !o);
+    };
     React.useEffect(() => {
         if (!open) return;
         const close = (e: MouseEvent): void => {
@@ -488,11 +503,11 @@ function RowMenu(props: { env: Env; onOpen: () => void; onEdit: () => void; onDe
     }, [open]);
     return (
         <div className="sc-menu" ref={ref}>
-            <button type="button" className="sc-iconbtn" aria-label="Menu baris" aria-expanded={open} onClick={() => setOpen((o) => !o)}>
+            <button type="button" className="sc-iconbtn" aria-label="Menu baris" aria-expanded={open} onClick={toggle}>
                 {Icon.more()}
             </button>
             {open && (
-                <div className="sc-menu__panel" role="menu">
+                <div className={cx("sc-menu__panel", up && "sc-menu__panel--up")} role="menu">
                     <button type="button" role="menuitem" onClick={props.onOpen}>
                         {Icon.eye(14)} Lihat detail
                     </button>

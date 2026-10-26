@@ -295,6 +295,7 @@
 /* ---------- row menu */
 .sc-menu { position: relative; display: inline-block; }
 .sc-menu__panel { position: absolute; right: 0; top: 30px; z-index: 20; min-width: 160px; padding: 6px; background: #fff; border: 1px solid var(--border); border-radius: 8px; display: flex; flex-direction: column; }
+.sc-menu__panel--up { top: auto; bottom: 30px; }
 .sc-menu__panel button { display: flex; align-items: center; gap: 8px; padding: 8px 10px; border: 0; background: transparent; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: 600; text-align: left; }
 .sc-menu__panel button:hover:not(:disabled) { background: var(--surface); }
 .sc-menu__panel button.is-danger { color: var(--danger-text); }
