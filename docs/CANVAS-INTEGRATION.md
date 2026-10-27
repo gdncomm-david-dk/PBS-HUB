@@ -1328,7 +1328,7 @@ Set(varHostNew, false)
 `scrHostForm.OnVisible`:
 
 ```powerfx
-Set(varHfResult, Blank());
+Set(varHfResult, "");
 ClearCollect(colHfHosts, ShowColumns('Host - PBS Hub', ID, Title, HostCode, NamaHost, Email))
 ```
 
@@ -1450,7 +1450,7 @@ platform wajib. Kode berikutnya diusulkan mengikuti pola yang sudah ada (`ACC-01
 Set(varBaLoading, true);
 ClearCollect(colBaBrand, 'Brand - PBS Hub');
 ClearCollect(colBaAcc, 'Account - PBS Hub');
-Set(varBaResult, Blank());
+Set(varBaResult, "");
 Set(varBaLoading, false)
 ```
 
