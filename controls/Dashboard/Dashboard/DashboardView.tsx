@@ -154,7 +154,7 @@ function Loaded(props: {
       <div
         className="pbs-grid"
         style={{
-          gridTemplateColumns: "repeat(auto-fit, minmax(210px, 1fr))",
+          gridTemplateColumns: "repeat(auto-fit, minmax(min(210px, 100%), 1fr))",
           marginBottom: 16,
         }}
       >
@@ -208,7 +208,7 @@ function Loaded(props: {
       <div
         className="pbs-grid"
         style={{
-          gridTemplateColumns: "repeat(auto-fit, minmax(420px, 1fr))",
+          gridTemplateColumns: "repeat(auto-fit, minmax(min(420px, 100%), 1fr))",
           alignItems: "start",
           gap: 16,
         }}
@@ -436,10 +436,10 @@ function SessionRow(props: {
   return (
     <button
       type="button"
+      className="pbs-dash-sess"
       onClick={props.onClick}
       style={{
         display: "grid",
-        gridTemplateColumns: "14px 96px 1fr auto",
         alignItems: "center",
         gap: 10,
         padding: "11px 14px",
@@ -491,7 +491,7 @@ function Automation(props: { model: DashboardModel }): React.ReactElement {
       />
       <div
         className="pbs-grid"
-        style={{ gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))" }}
+        style={{ gridTemplateColumns: "repeat(auto-fit, minmax(min(150px, 100%), 1fr))" }}
       >
         <AutoCard
           tone={a.evidenceToday > 0 ? "success" : "neutral"}
@@ -725,7 +725,7 @@ function LoadingDashboard(): React.ReactElement {
       <div
         className="pbs-grid"
         style={{
-          gridTemplateColumns: "repeat(auto-fit, minmax(210px, 1fr))",
+          gridTemplateColumns: "repeat(auto-fit, minmax(min(210px, 100%), 1fr))",
           marginBottom: 16,
         }}
       >
@@ -745,7 +745,7 @@ function LoadingDashboard(): React.ReactElement {
       <div
         className="pbs-grid"
         style={{
-          gridTemplateColumns: "repeat(auto-fit, minmax(420px, 1fr))",
+          gridTemplateColumns: "repeat(auto-fit, minmax(min(420px, 100%), 1fr))",
           gap: 16,
         }}
       >

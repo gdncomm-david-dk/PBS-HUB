@@ -20,10 +20,15 @@ export function labelTables(root: ParentNode): void {
     const rows = [...Array.from(table.tBodies).flatMap((b) => Array.from(b.rows)), ...(table.tFoot ? Array.from(table.tFoot.rows) : [])];
     for (const tr of rows) {
       let col = 0;
+      let titled = false;
       for (const td of Array.from(tr.cells)) {
         const span = td.colSpan || 1;
         const label = span > 1 ? "" : (labels[col] ?? "");
         if (td.getAttribute("data-label") !== label) td.setAttribute("data-label", label);
+        // The first labelled cell with text heads the card (Rep ID, metric, host name), shown without its label.
+        const title = !titled && span === 1 && label !== "" && (td.textContent ?? "").trim() !== "";
+        if (title) titled = true;
+        if (td.hasAttribute("data-title") !== title) td.toggleAttribute("data-title", title);
         col += span;
       }
     }

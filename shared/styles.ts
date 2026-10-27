@@ -635,7 +635,11 @@ font-family:"Blibli","Helvetica Neue",Arial,sans-serif;font-size:13px;line-heigh
   .hc-todo{flex-wrap:wrap;row-gap:10px}
   .hc-todo-b{flex-basis:calc(100% - 54px)}
   .hc-todo>button{margin-left:54px}
+  .hc-drop{flex-wrap:wrap}
+  .hc-drop>:last-child:not(:nth-child(2)){flex:1 1 100%;display:flex;gap:8px}
+  .hc-drop>div:last-child:not(:nth-child(2)) .pbs-btn{flex:1}
 }
+.pbs-dash-sess{grid-template-columns:14px 96px minmax(0,1fr) auto}
 /* Every control (Ops too) answers to its own width, not the browser's: the canvas box is what matters. */
 .pbs-root{container-type:inline-size}
 /* Phone width, all controls. Wide tables turn into one card per row; the labels come from the header
@@ -649,11 +653,15 @@ font-family:"Blibli","Helvetica Neue",Arial,sans-serif;font-size:13px;line-heigh
   .pbs-tabs{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch}
   .pbs-tabs::-webkit-scrollbar{display:none}
   .pbs-tab{flex:none;white-space:nowrap;padding:10px 12px}
+  .pbs-dash-sess{grid-template-columns:14px auto minmax(0,1fr);row-gap:6px}
+  .pbs-dash-sess>.pbs-badge{grid-column:2/-1;justify-self:start}
+  .pbs-sec{flex-wrap:wrap;row-gap:4px}
   .pbs-rec{flex-direction:column;align-items:flex-start;gap:14px;padding:16px}
   .pbs-rec-g{width:100%}
   .pbs-rec-code{white-space:normal}
   .pbs-rec-g{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px 16px;align-items:start}
-  .pbs-rec-m{border-left:0;padding-left:0;min-height:0;overflow-wrap:anywhere}
+  .pbs-rec-m{border-left:0;padding-left:0;min-height:0;min-width:0;overflow-wrap:anywhere}
+  .pbs-rec-m *,.pbs-rec-m .v{white-space:normal}
   .pbs-kvr{flex-wrap:wrap;gap:4px 12px;padding:12px 14px}
   .pbs-kvr .k{min-width:0;flex-basis:100%;font-size:12.5px}
   .pbs-kvr .v.masked{letter-spacing:.04em;white-space:nowrap}
@@ -673,6 +681,8 @@ font-family:"Blibli","Helvetica Neue",Arial,sans-serif;font-size:13px;line-heigh
   .pbs-table.pbs-cards td[data-label=""]{padding-left:0;text-align:left}
   .pbs-table.pbs-cards td[data-label=""]::before{content:none}
   .pbs-table.pbs-cards td[colspan]{display:block;text-align:left}
+  .pbs-table.pbs-cards td[data-title]{padding:2px 0 6px;text-align:left;font-size:14px;font-weight:600}
+  .pbs-table.pbs-cards td[data-title]::before{content:none}
   .pbs-table.pbs-cards td:empty{display:none}
   .pbs-table.pbs-cards td.pbs-sc-score{font-size:20px}
   .pbs-table.pbs-cards tfoot tr{background:var(--sf2)}
