@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8" ?>
 <manifest>
-  <control namespace="Ops" constructor="HostForm" version="1.0.0" display-name-key="PBS Ops Host Form" description-key="PBS Hub Ops Console: add a host or edit one (identity, package, join date, score limits, bank and personal data). Personal data is never loaded: the form shows masked values and sends only fields typed in." control-type="standard">
+  <control namespace="Ops" constructor="HostForm" version="1.0.1" display-name-key="PBS Ops Host Form" description-key="PBS Hub Ops Console: add a host or edit one (identity, package, join date, score limits, bank and personal data). Personal data is never loaded: the form shows masked values and sends only fields typed in." control-type="standard">
     <external-service-usage enabled="false"></external-service-usage>
 
     <property name="Context" display-name-key="Context" description-key="JSON {userEmail,userName,roles,permissions,config}. Saving needs HOST_EDIT; personal data (KTP, rekening, alamat, telepon, email pribadi) needs HOST_PII_VIEW. config.packages: optional package list when PackagesJson is empty." of-type="Multiple" usage="input" required="false" />

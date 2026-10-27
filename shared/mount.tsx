@@ -2,6 +2,7 @@ import * as React from "react";
 import { createRoot, Root } from "react-dom/client";
 import { landscapeLocked } from "./device";
 import { CSS, injectFonts } from "./styles";
+import { labelTables } from "./tableCards";
 
 /**
  * Shared plumbing for the three standard (non-virtual) React controls. React is bundled into each
@@ -19,6 +20,8 @@ export class ReactHost {
   private notify: (() => void) | null = null;
   private last: [React.ReactElement, number, number] | null = null;
   private hintClosed = false;
+  private observer: MutationObserver | null = null;
+  private labelFrame = 0;
   private readonly onViewport = (): void => {
     if (this.last) this.render(...this.last);
   };
@@ -47,6 +50,19 @@ export class ReactHost {
       shadow.append(style, mount);
     }
     this.root = createRoot(mount);
+    // Table cells learn their column name after every render. Only the tree and class changes are
+    // watched (React may reset a table's class); data-label is not, so this never feeds itself.
+    if (typeof MutationObserver !== "undefined") {
+      const target = mount;
+      this.observer = new MutationObserver(() => {
+        if (this.labelFrame) return;
+        this.labelFrame = requestAnimationFrame(() => {
+          this.labelFrame = 0;
+          labelTables(target);
+        });
+      });
+      this.observer.observe(target, { childList: true, subtree: true, characterData: true, attributes: true, attributeFilter: ["class"] });
+    }
     // Rotating a phone does not always resize a canvas app (orientation locked), so the
     // landscape hint follows the browser viewport too.
     if (this.rootClass === "hc" && typeof window !== "undefined") {
@@ -114,6 +130,9 @@ export class ReactHost {
       window.removeEventListener("resize", this.onViewport);
       window.removeEventListener("orientationchange", this.onViewport);
     }
+    this.observer?.disconnect();
+    this.observer = null;
+    if (this.labelFrame) cancelAnimationFrame(this.labelFrame);
     this.root?.unmount();
     this.root = null;
     this.container = null;

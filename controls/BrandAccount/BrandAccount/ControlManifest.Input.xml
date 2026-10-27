@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8" ?>
 <manifest>
-  <control namespace="Ops" constructor="BrandAccount" version="1.0.1" display-name-key="PBS Ops Brand and Account" description-key="PBS Hub Ops Console: the brands and the accounts of every brand. Add a brand, add an account (code, name, brand, platform, active) and edit an account." control-type="standard">
+  <control namespace="Ops" constructor="BrandAccount" version="1.0.2" display-name-key="PBS Ops Brand and Account" description-key="PBS Hub Ops Console: the brands and the accounts of every brand. Add a brand, add an account (code, name, brand, platform, active) and edit an account." control-type="standard">
     <external-service-usage enabled="false"></external-service-usage>
 
     <property name="Context" display-name-key="Context" description-key="JSON {userEmail,userName,roles,permissions,config}. config.platforms: optional list of platforms offered when adding an account (default Shopee, TikTok). Writing needs BRAND_EDIT (without a permission list: PBS_Team and FAS_Team)." of-type="Multiple" usage="input" required="false" />

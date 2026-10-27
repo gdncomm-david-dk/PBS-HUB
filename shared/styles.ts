@@ -591,7 +591,7 @@ font-family:"Blibli","Helvetica Neue",Arial,sans-serif;font-size:13px;line-heigh
   .hc-ph h1{font-size:22px}
   .hc-ph-a{width:100%}
   .hc-ph-a>.pbs-btn{flex:1}
-  .hc-rec{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px 12px;padding:12px 14px}
+  .hc-rec{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px 12px;padding:12px 14px}
   .hc-rec-i{padding:0;border-left:0}
   .hc-rec-i .v{white-space:normal;overflow-wrap:anywhere}
   .hc-rec-r{grid-column:1/-1;margin-left:0;padding-left:0}
@@ -635,6 +635,48 @@ font-family:"Blibli","Helvetica Neue",Arial,sans-serif;font-size:13px;line-heigh
   .hc-todo{flex-wrap:wrap;row-gap:10px}
   .hc-todo-b{flex-basis:calc(100% - 54px)}
   .hc-todo>button{margin-left:54px}
+}
+/* Every control (Ops too) answers to its own width, not the browser's: the canvas box is what matters. */
+.pbs-root{container-type:inline-size}
+/* Phone width, all controls. Wide tables turn into one card per row; the labels come from the header
+   (data-label, set in mount.tsx), so no table needs its own mobile markup. */
+@container (max-width:600px){
+  .pbs-page{padding:16px 16px 28px}
+  .pbs-h1{font-size:22px}
+  .pbs-mh{gap:12px;margin-bottom:16px}
+  .pbs-mh>.pbs-actions{width:100%}
+  .pbs-mh>.pbs-actions>.pbs-btn{flex:1 1 auto}
+  .pbs-tabs{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch}
+  .pbs-tabs::-webkit-scrollbar{display:none}
+  .pbs-tab{flex:none;white-space:nowrap;padding:10px 12px}
+  .pbs-rec{flex-direction:column;align-items:flex-start;gap:14px;padding:16px}
+  .pbs-rec-g{width:100%}
+  .pbs-rec-code{white-space:normal}
+  .pbs-rec-g{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px 16px;align-items:start}
+  .pbs-rec-m{border-left:0;padding-left:0;min-height:0;overflow-wrap:anywhere}
+  .pbs-kvr{flex-wrap:wrap;gap:4px 12px;padding:12px 14px}
+  .pbs-kvr .k{min-width:0;flex-basis:100%;font-size:12.5px}
+  .pbs-kvr .v.masked{letter-spacing:.04em;white-space:nowrap}
+  .pbs-table-scroll{overflow-x:visible}
+  .pbs-table.pbs-cards,.pbs-table.pbs-cards tbody,.pbs-table.pbs-cards tfoot{display:block;width:100%}
+  .pbs-table.pbs-cards thead{display:none}
+  .pbs-table.pbs-cards tr{display:block;padding:10px 14px;border-top:1px solid var(--row)}
+  .pbs-table.pbs-cards tbody tr:first-child{border-top:0}
+  .pbs-table.pbs-cards tbody tr:hover{background:var(--sf)}
+  .pbs-table.pbs-cards tbody tr.sel{background:var(--p-tint2)}
+  .pbs-table.pbs-cards tbody tr.bad,.pbs-table.pbs-cards tbody tr.pbs-sc-drift{background:var(--bad-bg2)}
+  .pbs-table.pbs-cards tbody tr.open,.pbs-table.pbs-cards tbody tr.pbs-sc-rev{background:var(--p-tint2)}
+  .pbs-table.pbs-cards tbody tr.sub{background:var(--sf2);padding-top:0}
+  .pbs-table.pbs-cards td,.pbs-table.pbs-cards.dense td{display:block;position:relative;min-height:22px;padding:3px 0 3px 40%;border:0;text-align:right;white-space:normal;overflow-wrap:anywhere}
+  .pbs-table.pbs-cards td::before{content:attr(data-label);position:absolute;left:0;top:4px;width:38%;color:var(--tx2);font-size:12px;font-weight:400;line-height:1.35;text-align:left;text-decoration:none;white-space:normal}
+  .pbs-table.pbs-cards td>*{max-width:100%}
+  .pbs-table.pbs-cards td[data-label=""]{padding-left:0;text-align:left}
+  .pbs-table.pbs-cards td[data-label=""]::before{content:none}
+  .pbs-table.pbs-cards td[colspan]{display:block;text-align:left}
+  .pbs-table.pbs-cards td:empty{display:none}
+  .pbs-table.pbs-cards td.pbs-sc-score{font-size:20px}
+  .pbs-table.pbs-cards tfoot tr{background:var(--sf2)}
+  .pbs-table.pbs-cards tfoot td{padding:3px 0;background:transparent;border:0}
 }
 /* Phone in landscape: little height, plenty of width. Tighter padding, side-by-side columns again, room for the notch. */
 @media (orientation:landscape) and (max-height:520px){
