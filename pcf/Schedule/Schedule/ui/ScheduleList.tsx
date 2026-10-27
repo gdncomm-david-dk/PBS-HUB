@@ -3,7 +3,7 @@ import { ScheduleRow } from "../core/types";
 import { applyFilters, distinct, fetchWindow, Filters, hasActiveFilter, hoursOf, phaseOf, rangeKeys, sortSessions, timeRange, weekStart } from "../core/schedule";
 import { BULAN_PENDEK, dateKeyToDate, formatDateShort, HARI, shiftDay, toDateKey } from "../core/time";
 import { Banner, Button, Card, cx, Icon, Pager, SkeletonRows, usePaged } from "./components";
-import { Env, scheduleStatus, StatusBadge } from "./shared";
+import { Env, scheduleStatus, StatusBadge, useSmall } from "./shared";
 import { CONTROL_VERSION } from "./shared";
 import { BulkDeleteDialog, BulkDuplicateDialog, DeleteDialog } from "./Dialogs";
 
@@ -71,6 +71,9 @@ export function ScheduleList(props: {
     const [confirmDelete, setConfirmDelete] = React.useState<ScheduleRow | null>(null);
     const [picked, setPicked] = React.useState<Set<string>>(new Set());
     const [bulk, setBulk] = React.useState<"" | "duplicate" | "delete">("");
+    // Phone portrait: the filters fold behind one button so the schedule starts near the top.
+    const small = useSmall();
+    const [showFilters, setShowFilters] = React.useState(false);
 
     // Canvas re-queries Schedule for the period (delegable Filter on Date). The period sent is wider than the
     // range on screen, so moving one week back or forward is served from rows that are already loaded.
@@ -142,6 +145,13 @@ export function ScheduleList(props: {
         });
 
     const filtered = hasActiveFilter(f);
+    const pickedCount = [f.brandId, f.hostId, f.studioId, f.platform, f.status].filter(Boolean).length;
+    const search = (
+        <div className="sc-search">
+            {Icon.search()}
+            <input value={f.q} placeholder="Cari SCD, brand, host, account…" onChange={(e) => set({ q: e.target.value })} aria-label="Cari jadwal" />
+        </div>
+    );
     const [mFrom, mTo] = monthRange(env.todayKey);
 
     return (
@@ -156,112 +166,162 @@ export function ScheduleList(props: {
                         {env.loading && env.schedules.length === 0 ? "Memuat jadwal…" : `${inRange.length} sesi · ${rangeLabel(f.from, f.to)}${env.loading ? " · memperbarui…" : ""}`}
                     </div>
                 </div>
-                <div className="sc-pagehead__actions">
-                    <Button variant="secondary" icon={Icon.refresh()} title="Ambil ulang data dari SharePoint" onClick={() => env.emit("REFRESH", {})}>
-                        Muat ulang
-                    </Button>
-                    {env.canEdit && (
-                        <>
-                            <Button variant="secondary" icon={Icon.sparkle()} onClick={props.onAi}>
-                                AI Schedule
-                            </Button>
-                            <Button variant="secondary" icon={Icon.file()} title="Baca jadwal dari PDF / Excel tanpa AI, cek, lalu buat" onClick={props.onParse}>
-                                Parse PDF
-                            </Button>
-                            <Button variant="secondary" icon={Icon.upload()} onClick={props.onBulk}>
-                                Upload massal
-                            </Button>
+                {small ? (
+                    <div className="sc-pagehead__actions">
+                        {env.canEdit && (
                             <Button variant="primary" icon={Icon.plus()} onClick={() => props.onCreate()}>
                                 Buat jadwal
                             </Button>
-                        </>
-                    )}
-                </div>
+                        )}
+                        <ActionMenu
+                            items={[
+                                { icon: Icon.refresh(14), label: "Muat ulang", onClick: () => env.emit("REFRESH", {}) },
+                                ...(env.canEdit
+                                    ? [
+                                          { icon: Icon.sparkle(14), label: "AI Schedule", onClick: props.onAi },
+                                          { icon: Icon.file(14), label: "Parse PDF / Excel", onClick: props.onParse },
+                                          { icon: Icon.upload(14), label: "Upload massal", onClick: props.onBulk },
+                                      ]
+                                    : []),
+                            ]}
+                        />
+                    </div>
+                ) : (
+                    <div className="sc-pagehead__actions">
+                        <Button variant="secondary" icon={Icon.refresh()} title="Ambil ulang data dari SharePoint" onClick={() => env.emit("REFRESH", {})}>
+                            Muat ulang
+                        </Button>
+                        {env.canEdit && (
+                            <>
+                                <Button variant="secondary" icon={Icon.sparkle()} onClick={props.onAi}>
+                                    AI Schedule
+                                </Button>
+                                <Button variant="secondary" icon={Icon.file()} title="Baca jadwal dari PDF / Excel tanpa AI, cek, lalu buat" onClick={props.onParse}>
+                                    Parse PDF
+                                </Button>
+                                <Button variant="secondary" icon={Icon.upload()} onClick={props.onBulk}>
+                                    Upload massal
+                                </Button>
+                                <Button variant="primary" icon={Icon.plus()} onClick={() => props.onCreate()}>
+                                    Buat jadwal
+                                </Button>
+                            </>
+                        )}
+                    </div>
+                )}
             </div>
 
-            <div className="sc-kpis">
-                <Card className="sc-kpi">
-                    <span className="sc-kpi__label">Sesi di rentang ini</span>
-                    <span className="sc-kpi__value">
-                        {active.length}
-                        <span className="sc-kpi__unit">{totalHours.toLocaleString("id-ID", { maximumFractionDigits: 1 })} jam live</span>
-                    </span>
-                    <span className="sc-kpi__foot">{inRange.length - active.length} dibatalkan / cuti</span>
-                </Card>
-                <Card className="sc-kpi">
-                    <span className="sc-kpi__label">Sedang live sekarang</span>
-                    <span className="sc-kpi__value">
-                        {liveNow.length}
-                        <span className="sc-kpi__unit">sesi</span>
-                    </span>
-                    <span className="sc-kpi__foot">{distinct(liveNow.map((s) => s.studioId)).length} studio terpakai</span>
-                </Card>
-                <Card className={cx("sc-kpi", clash.length > 0 && "is-alert")}>
-                    <span className="sc-kpi__label">Bentrok jadwal</span>
-                    <span className={cx("sc-kpi__value", clash.length > 0 && "sc-dangertext")}>
-                        {clash.length}
-                        <span className="sc-kpi__unit">sesi</span>
-                    </span>
-                    {clash.length > 0 ? (
-                        <button type="button" className="sc-link sc-link--sm" onClick={() => set({ only: f.only === "conflict" ? "" : "conflict" })}>
-                            {f.only === "conflict" ? "Tampilkan semua" : "Lihat yang bentrok"}
-                        </button>
-                    ) : (
-                        <span className="sc-kpi__foot">Host, account dan kapasitas studio aman</span>
-                    )}
-                </Card>
-                <Card className="sc-kpi">
-                    <span className="sc-kpi__label">Belum ada report</span>
-                    <span className={cx("sc-kpi__value", noReport.length > 0 && "sc-warntext")}>
-                        {noReport.length}
-                        <span className="sc-kpi__unit">sesi selesai</span>
-                    </span>
-                    {noReport.length > 0 ? (
-                        <button type="button" className="sc-link sc-link--sm" onClick={() => set({ only: f.only === "noreport" ? "" : "noreport" })}>
-                            {f.only === "noreport" ? "Tampilkan semua" : "Lihat sesinya"}
-                        </button>
-                    ) : (
-                        <span className="sc-kpi__foot">Semua sesi selesai sudah dilaporkan</span>
-                    )}
-                </Card>
-            </div>
+            {small ? (
+                <div className="sc-kpistrip">
+                    <div className="sc-kpimini">
+                        <b>{active.length}</b>
+                        <span>sesi · {formatHours(totalHours)} jam</span>
+                    </div>
+                    <div className="sc-kpimini">
+                        <b>{liveNow.length}</b>
+                        <span>live sekarang</span>
+                    </div>
+                    <button type="button" className={cx("sc-kpimini", clash.length > 0 && "is-alert", f.only === "conflict" && "is-on")} disabled={clash.length === 0} aria-pressed={f.only === "conflict"} onClick={() => set({ only: f.only === "conflict" ? "" : "conflict" })}>
+                        <b className={cx(clash.length > 0 && "sc-dangertext")}>{clash.length}</b>
+                        <span>bentrok</span>
+                    </button>
+                    <button type="button" className={cx("sc-kpimini", noReport.length > 0 && "is-warn", f.only === "noreport" && "is-on")} disabled={noReport.length === 0} aria-pressed={f.only === "noreport"} onClick={() => set({ only: f.only === "noreport" ? "" : "noreport" })}>
+                        <b className={cx(noReport.length > 0 && "sc-warntext")}>{noReport.length}</b>
+                        <span>belum report</span>
+                    </button>
+                </div>
+            ) : (
+                <div className="sc-kpis">
+                    <Card className="sc-kpi">
+                        <span className="sc-kpi__label">Sesi di rentang ini</span>
+                        <span className="sc-kpi__value">
+                            {active.length}
+                            <span className="sc-kpi__unit">{totalHours.toLocaleString("id-ID", { maximumFractionDigits: 1 })} jam live</span>
+                        </span>
+                        <span className="sc-kpi__foot">{inRange.length - active.length} dibatalkan / cuti</span>
+                    </Card>
+                    <Card className="sc-kpi">
+                        <span className="sc-kpi__label">Sedang live sekarang</span>
+                        <span className="sc-kpi__value">
+                            {liveNow.length}
+                            <span className="sc-kpi__unit">sesi</span>
+                        </span>
+                        <span className="sc-kpi__foot">{distinct(liveNow.map((s) => s.studioId)).length} studio terpakai</span>
+                    </Card>
+                    <Card className={cx("sc-kpi", clash.length > 0 && "is-alert")}>
+                        <span className="sc-kpi__label">Bentrok jadwal</span>
+                        <span className={cx("sc-kpi__value", clash.length > 0 && "sc-dangertext")}>
+                            {clash.length}
+                            <span className="sc-kpi__unit">sesi</span>
+                        </span>
+                        {clash.length > 0 ? (
+                            <button type="button" className="sc-link sc-link--sm" onClick={() => set({ only: f.only === "conflict" ? "" : "conflict" })}>
+                                {f.only === "conflict" ? "Tampilkan semua" : "Lihat yang bentrok"}
+                            </button>
+                        ) : (
+                            <span className="sc-kpi__foot">Host, account dan kapasitas studio aman</span>
+                        )}
+                    </Card>
+                    <Card className="sc-kpi">
+                        <span className="sc-kpi__label">Belum ada report</span>
+                        <span className={cx("sc-kpi__value", noReport.length > 0 && "sc-warntext")}>
+                            {noReport.length}
+                            <span className="sc-kpi__unit">sesi selesai</span>
+                        </span>
+                        {noReport.length > 0 ? (
+                            <button type="button" className="sc-link sc-link--sm" onClick={() => set({ only: f.only === "noreport" ? "" : "noreport" })}>
+                                {f.only === "noreport" ? "Tampilkan semua" : "Lihat sesinya"}
+                            </button>
+                        ) : (
+                            <span className="sc-kpi__foot">Semua sesi selesai sudah dilaporkan</span>
+                        )}
+                    </Card>
+                </div>
+            )}
 
-            <Card className="sc-filters">
-                <div className="sc-filters__row">
-                    <div className="sc-range">
-                        <input className="sc-input sc-input--date" type="date" value={f.from} aria-label="Dari tanggal" onChange={(e) => e.target.value && setRange(e.target.value, view === "calendar" ? shiftDay(weekStart(e.target.value), 6) : f.to)} />
-                        <span className="sc-muted">–</span>
-                        <input className="sc-input sc-input--date" type="date" value={f.to} aria-label="Sampai tanggal" disabled={view === "calendar"} onChange={(e) => e.target.value && setRange(f.from, e.target.value)} />
-                    </div>
-                    <div className="sc-chips">
-                        <button type="button" className={cx("sc-chip", f.from === env.todayKey && f.to === env.todayKey && "is-on")} onClick={() => { setView("list"); setRange(env.todayKey, env.todayKey); }}>
-                            Hari ini
-                        </button>
-                        <button type="button" className={cx("sc-chip", f.from === wk && f.to === shiftDay(wk, 6) && "is-on")} onClick={() => setWeek(env.todayKey)}>
-                            Minggu ini
-                        </button>
-                        <button type="button" className={cx("sc-chip", f.from === mFrom && f.to === mTo && "is-on")} onClick={() => { setView("list"); setRange(mFrom, mTo); }}>
-                            Bulan ini
-                        </button>
-                    </div>
-                    <div className="sc-search">
-                        {Icon.search()}
-                        <input value={f.q} placeholder="Cari SCD, brand, host, account…" onChange={(e) => set({ q: e.target.value })} aria-label="Cari jadwal" />
-                    </div>
+            {small && (
+                <div className="sc-mfilter">
+                    {search}
+                    <Button variant={showFilters || pickedCount > 0 ? "primary" : "secondary"} aria-expanded={showFilters} onClick={() => setShowFilters((v) => !v)}>
+                        Filter{pickedCount > 0 ? ` (${pickedCount})` : ""}
+                    </Button>
                 </div>
-                <div className="sc-filters__row">
-                    <Select label="Brand" value={f.brandId} options={brandOpts} onChange={(v) => set({ brandId: v })} />
-                    <Select label="Host" value={f.hostId} options={hostOpts} onChange={(v) => set({ hostId: v })} />
-                    <Select label="Studio" value={f.studioId} options={studioOpts} onChange={(v) => set({ studioId: v })} />
-                    <Select label="Platform" value={f.platform} options={platformOpts} onChange={(v) => set({ platform: v })} />
-                    <Select label="Status" value={f.status} options={statusOpts} onChange={(v) => set({ status: v })} />
-                    {filtered && (
-                        <button type="button" className="sc-link" onClick={() => set({ brandId: "", hostId: "", studioId: "", platform: "", status: "", q: "", only: "" })}>
-                            Hapus filter
-                        </button>
-                    )}
-                </div>
-            </Card>
+            )}
+            {(!small || showFilters) && (
+                <Card className="sc-filters">
+                    <div className="sc-filters__row">
+                        <div className="sc-range">
+                            <input className="sc-input sc-input--date" type="date" value={f.from} aria-label="Dari tanggal" onChange={(e) => e.target.value && setRange(e.target.value, view === "calendar" ? shiftDay(weekStart(e.target.value), 6) : f.to)} />
+                            <span className="sc-muted">–</span>
+                            <input className="sc-input sc-input--date" type="date" value={f.to} aria-label="Sampai tanggal" disabled={view === "calendar"} onChange={(e) => e.target.value && setRange(f.from, e.target.value)} />
+                        </div>
+                        <div className="sc-chips">
+                            <button type="button" className={cx("sc-chip", f.from === env.todayKey && f.to === env.todayKey && "is-on")} onClick={() => { setView("list"); setRange(env.todayKey, env.todayKey); }}>
+                                Hari ini
+                            </button>
+                            <button type="button" className={cx("sc-chip", f.from === wk && f.to === shiftDay(wk, 6) && "is-on")} onClick={() => setWeek(env.todayKey)}>
+                                Minggu ini
+                            </button>
+                            <button type="button" className={cx("sc-chip", f.from === mFrom && f.to === mTo && "is-on")} onClick={() => { setView("list"); setRange(mFrom, mTo); }}>
+                                Bulan ini
+                            </button>
+                        </div>
+                        {!small && search}
+                    </div>
+                    <div className="sc-filters__row">
+                        <Select label="Brand" value={f.brandId} options={brandOpts} onChange={(v) => set({ brandId: v })} />
+                        <Select label="Host" value={f.hostId} options={hostOpts} onChange={(v) => set({ hostId: v })} />
+                        <Select label="Studio" value={f.studioId} options={studioOpts} onChange={(v) => set({ studioId: v })} />
+                        <Select label="Platform" value={f.platform} options={platformOpts} onChange={(v) => set({ platform: v })} />
+                        <Select label="Status" value={f.status} options={statusOpts} onChange={(v) => set({ status: v })} />
+                        {filtered && (
+                            <button type="button" className="sc-link" onClick={() => set({ brandId: "", hostId: "", studioId: "", platform: "", status: "", q: "", only: "" })}>
+                                Hapus filter
+                            </button>
+                        )}
+                    </div>
+                </Card>
+            )}
 
             <div className="sc-toolbar">
                 <div className="sc-viewtoggle" role="tablist" aria-label="Tampilan">
@@ -527,13 +587,46 @@ function RowMenu(props: { env: Env; onOpen: () => void; onEdit: () => void; onDe
     );
 }
 
+/** Phone header: the secondary page actions behind one ⋯ button. */
+function ActionMenu(props: { items: { icon: React.ReactNode; label: string; onClick: () => void }[] }): React.ReactElement {
+    const [open, setOpen] = React.useState(false);
+    const ref = React.useRef<HTMLDivElement>(null);
+    React.useEffect(() => {
+        if (!open) return;
+        const close = (e: MouseEvent): void => {
+            if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+        };
+        document.addEventListener("mousedown", close);
+        return () => document.removeEventListener("mousedown", close);
+    }, [open]);
+    return (
+        <div className="sc-menu sc-actionmenu" ref={ref}>
+            <button type="button" className="sc-btn sc-btn--secondary sc-btn--md" aria-label="Aksi lain" aria-expanded={open} onClick={() => setOpen((o) => !o)}>
+                {Icon.more()}
+            </button>
+            {open && (
+                <div className="sc-menu__panel" role="menu">
+                    {props.items.map((it) => (
+                        <button key={it.label} type="button" role="menuitem" onClick={() => { setOpen(false); it.onClick(); }}>
+                            {it.icon} {it.label}
+                        </button>
+                    ))}
+                </div>
+            )}
+        </div>
+    );
+}
+
 // ---------------------------------------------------------------------------------------------
-// Calendar: week columns × studio lanes
+// Calendar: week columns × studio lanes (one day at a time on a phone)
 
 function Calendar(props: { env: Env; from: string; rows: ScheduleRow[]; filtered: boolean; lanes: Lanes; onCreate: (preset?: Partial<ScheduleRow>) => void }): React.ReactElement {
     const { env } = props;
+    const small = useSmall();
+    const [pick, setPick] = React.useState("");
     const byBrand = props.lanes === "brand";
     const days = rangeKeys(props.from, shiftDay(props.from, 6));
+    const day = days.includes(pick) ? pick : days.includes(env.todayKey) ? env.todayKey : days[0];
     const laneOf = (s: ScheduleRow): string => (byBrand ? s.brandName : s.studioId) || "—";
     const laneIds = byBrand
         ? distinct(props.rows.map(laneOf)).sort(byName)
@@ -567,6 +660,76 @@ function Calendar(props: { env: Env; from: string; rows: ScheduleRow[]; filtered
                     <div className="sc-state__title">{props.filtered ? "Tidak ada jadwal yang cocok minggu ini" : "Belum ada studio atau jadwal"}</div>
                     <div className="sc-state__text">{props.filtered ? "Ubah filter atau pindah minggu." : "Tambahkan studio di Studio Directory, lalu buat jadwal."}</div>
                 </div>
+            </div>
+        );
+    }
+
+    const addBtn = (id: string, d: string, st: ReturnType<typeof env.lk.studios.get>, first: ScheduleRow | undefined): React.ReactNode =>
+        env.canEdit &&
+        d >= env.todayKey &&
+        (st || (byBrand && first)) && (
+            <button
+                type="button"
+                className="sc-cal__add"
+                aria-label={`Buat jadwal ${id} ${d}`}
+                onClick={() => props.onCreate(st ? { studioId: st.studioId, dateKey: d } : { brandId: first?.brandId ?? "", dateKey: d })}
+            >
+                {Icon.plus(12)}
+            </button>
+        );
+
+    if (small) {
+        const perDay = (d: string): number => props.rows.filter((s) => s.dateKey === d).length;
+        // Brand lanes only when the brand has a session that day; studio lanes always (an empty studio is news too).
+        const lanesToday = laneIds.filter((id) => !byBrand || cell.has(`${id.toLowerCase()}|${day}`));
+        return (
+            <div className="sc-calm">
+                <div className="sc-daytabs" role="tablist" aria-label="Hari">
+                    {days.map((d) => {
+                        const dt = dateKeyToDate(d);
+                        const n = perDay(d);
+                        return (
+                            <button key={d} type="button" role="tab" aria-selected={d === day} className={cx("sc-daytab", d === day && "is-on", d === env.todayKey && "is-today")} onClick={() => setPick(d)}>
+                                <span>{HARI[dt.getDay()].slice(0, 3)}</span>
+                                <b>{dt.getDate()}</b>
+                                <i>{n || "–"}</i>
+                            </button>
+                        );
+                    })}
+                </div>
+                {lanesToday.length === 0 ? (
+                    <div className="sc-state sc-state--sm">
+                        <div className="sc-state__title">Tidak ada jadwal di {formatDateShort(day)}</div>
+                        <div className="sc-state__text">{props.filtered ? "Ubah filter atau pilih hari lain." : "Pilih hari lain, atau buat jadwal baru."}</div>
+                    </div>
+                ) : (
+                    lanesToday.map((id) => {
+                        const st = byBrand ? undefined : env.lk.studios.get(id.toLowerCase());
+                        const items = (cell.get(`${id.toLowerCase()}|${day}`) ?? []).sort(sortSessions);
+                        return (
+                            <div key={id} className={cx("sc-calm__lane", day < env.todayKey && "is-past")}>
+                                <div className="sc-calm__head">
+                                    <div>
+                                        <b className={cx(!byBrand && "sc-mono")}>{id}</b>
+                                        <span className="sc-muted">
+                                            {byBrand ? `${items.length} sesi` : st ? `${st.namaStudio || ""} · ${Math.max(1, st.kapasitasHost || 1)} host` : "Tidak ada di master Studio"}
+                                        </span>
+                                    </div>
+                                    {addBtn(id, day, st, brandOfLane.get(id.toLowerCase()))}
+                                </div>
+                                {items.length === 0 ? (
+                                    <span className="sc-muted sc-small">Kosong</span>
+                                ) : (
+                                    <div className="sc-calm__chips">
+                                        {items.map((s) => (
+                                            <CalChip key={s.key} env={env} s={s} lane={props.lanes} />
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+                        );
+                    })
+                )}
             </div>
         );
     }
@@ -611,16 +774,7 @@ function Calendar(props: { env: Env; from: string; rows: ScheduleRow[]; filtered
                                     {items.map((s) => (
                                         <CalChip key={s.key} env={env} s={s} lane={props.lanes} />
                                     ))}
-                                    {env.canEdit && d >= env.todayKey && (st || (byBrand && first)) && (
-                                        <button
-                                            type="button"
-                                            className="sc-cal__add"
-                                            aria-label={`Buat jadwal ${id} ${d}`}
-                                            onClick={() => props.onCreate(st ? { studioId: st.studioId, dateKey: d } : { brandId: first?.brandId ?? "", dateKey: d })}
-                                        >
-                                            {Icon.plus(12)}
-                                        </button>
-                                    )}
+                                    {addBtn(id, d, st, first)}
                                 </div>
                             );
                         })}

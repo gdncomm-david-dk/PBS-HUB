@@ -21,6 +21,11 @@ export function StatusBadge(props: { status: string }): React.ReactElement {
     return <Badge tone={s.tone}>{s.label}</Badge>;
 }
 
+/** Layout size the App picked from the control width: s = phone portrait, m = tablet / narrow, l = desktop. */
+export type Size = "s" | "m" | "l";
+export const SizeContext = React.createContext<Size>("l");
+export const useSmall = (): boolean => React.useContext(SizeContext) === "s";
+
 export interface Config {
     platforms: string[];
     statuses: string[];
@@ -76,4 +81,4 @@ export const hostLabel = (lk: Lookups, id: string): string => lk.hosts.get(id.to
 export const UNCONFIRMED = "File sudah dikirim, tetapi aplikasi belum membalas. Cek folder SharePoint / list Schedule sebelum mengunggah ulang.";
 
 /** Shown in the header so the running build can be checked after an import. Keep in step with the manifest. */
-export const CONTROL_VERSION = "pbs_Ops.ScheduleHub 1.8.9";
+export const CONTROL_VERSION = "pbs_Ops.ScheduleHub 1.9.0";

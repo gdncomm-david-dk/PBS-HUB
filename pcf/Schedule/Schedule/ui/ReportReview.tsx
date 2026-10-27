@@ -113,9 +113,9 @@ function OneReport(props: { env: Env; schedule: ScheduleRow; report: ReportRow }
                             {lines.map((l) => (
                                 <tr key={l.label} className={cx(l.same === false && "is-diff")}>
                                     <th scope="row">{l.label}</th>
-                                    <td className="sc-num">{l.host}</td>
-                                    <td className="sc-num">{l.ai}</td>
-                                    <td>
+                                    <td className="sc-num sc-vs__host" data-label="Report host">{l.host}</td>
+                                    <td className="sc-num sc-vs__ai" data-label="AI">{l.ai}</td>
+                                    <td className="sc-vs__res">
                                         {l.same === null ? (
                                             <span className="sc-muted">—</span>
                                         ) : l.same ? (
@@ -128,9 +128,9 @@ function OneReport(props: { env: Env; schedule: ScheduleRow; report: ReportRow }
                             ))}
                             <tr>
                                 <th scope="row">Status AI</th>
-                                <td className="sc-muted">—</td>
-                                <td>{e.status || "—"}</td>
-                                <td>{e.status ? <Badge tone={aiUnmatch ? "danger" : "success"}>{aiUnmatch ? "Unmatch" : "Match"}</Badge> : <span className="sc-muted">—</span>}</td>
+                                <td className="sc-muted sc-vs__host" data-label="Report host">—</td>
+                                <td className="sc-vs__ai" data-label="AI">{e.status || "—"}</td>
+                                <td className="sc-vs__res">{e.status ? <Badge tone={aiUnmatch ? "danger" : "success"}>{aiUnmatch ? "Unmatch" : "Match"}</Badge> : <span className="sc-muted">—</span>}</td>
                             </tr>
                         </tbody>
                     </table>

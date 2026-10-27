@@ -4,7 +4,7 @@ import { buildLookups, jsonRecords, mapEvidence } from "../core/data";
 import { conflictIndex, distinct, Evidence, findSchedule } from "../core/schedule";
 import { toDateKey } from "../core/time";
 import { Banner, Card } from "./components";
-import { Config, Env, Pending } from "./shared";
+import { Config, Env, Pending, Size, SizeContext } from "./shared";
 import { ScheduleList } from "./ScheduleList";
 import { ScheduleDetail } from "./ScheduleDetail";
 import { ScheduleForm } from "./ScheduleForm";
@@ -299,10 +299,11 @@ export function App(props: AppProps): React.ReactElement {
         return () => window.removeEventListener("resize", on);
     }, []);
     const w = props.width > 0 ? props.width : winW;
-    const size = w < 640 ? "s" : w < 1040 ? "m" : "l";
+    const size: Size = w < 640 ? "s" : w < 1040 ? "m" : "l";
 
     if (detailMode) {
         return (
+            <SizeContext.Provider value={size}>
             <div className="pbs-sc" data-size={size} style={props.height > 0 ? { height: props.height } : undefined}>
                 <div className="sc-page">
                     {banner && (
@@ -329,10 +330,12 @@ export function App(props: AppProps): React.ReactElement {
                 </div>
                 {dialogs}
             </div>
+            </SizeContext.Provider>
         );
     }
 
     return (
+        <SizeContext.Provider value={size}>
         <div className="pbs-sc" data-size={size} style={props.height > 0 ? { height: props.height } : undefined}>
             <div className="sc-page">
                 {banner && (
@@ -370,5 +373,6 @@ export function App(props: AppProps): React.ReactElement {
             </div>
             {dialogs}
         </div>
+        </SizeContext.Provider>
     );
 }

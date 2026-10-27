@@ -616,3 +616,72 @@
 .pbs-sc[data-size="s"] .sc-parsebar__right { margin-left: 0; }
 .pbs-sc[data-size="s"] .sc-cellselect { min-width: 120px; }
 .sc-badges { display: flex; flex-wrap: wrap; gap: 4px; }
+
+/* ---------- phone portrait (data-size s): compact head, one-day calendar, stacked tables, full-screen forms */
+.pbs-sc[data-size="s"] .sc-pagehead__actions { flex-wrap: nowrap; }
+.pbs-sc[data-size="s"] .sc-pagehead__actions .sc-btn--primary { flex: 1 1 auto; }
+.pbs-sc[data-size="s"] .sc-actionmenu .sc-btn { flex: 0 0 auto; width: 40px; padding: 0; justify-content: center; }
+.sc-actionmenu .sc-menu__panel { top: 44px; min-width: 200px; box-shadow: 0 6px 20px rgba(0, 0, 0, .12); }
+.sc-actionmenu .sc-menu__panel button { padding: 11px 12px; font-size: 13px; }
+.sc-kpistrip { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
+.sc-kpimini { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; min-width: 0; padding: 8px 10px; border: 1px solid var(--border); border-radius: 8px; background: #fff; font: inherit; text-align: left; color: inherit; }
+.sc-kpimini b { font-size: 18px; line-height: 22px; font-weight: 700; }
+.sc-kpimini span { font-size: 10.5px; line-height: 1.25; color: var(--text-secondary); }
+button.sc-kpimini { cursor: pointer; }
+button.sc-kpimini:disabled { cursor: default; }
+.sc-kpimini.is-alert { border-color: #FFC7C7; }
+.sc-kpimini.is-warn { border-color: #FFE08A; }
+.sc-kpimini.is-on { background: var(--primary-light); border-color: var(--primary); }
+.sc-mfilter { display: flex; gap: 8px; align-items: center; }
+.sc-mfilter .sc-search { flex: 1 1 auto; min-width: 0; }
+.sc-mfilter .sc-btn { flex: 0 0 auto; }
+.pbs-sc[data-size="s"] .sc-legend--inline { display: none; }
+.pbs-sc[data-size="s"] .sc-toolbar .sc-viewtoggle { flex: 1 1 auto; }
+.pbs-sc[data-size="s"] .sc-toolbar .sc-viewtoggle button { flex: 1 1 0; justify-content: center; }
+
+.sc-calm { display: flex; flex-direction: column; gap: 8px; }
+.sc-daytabs { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 4px; position: sticky; top: 0; z-index: 2; padding: 4px 0; background: var(--background, #fff); }
+.sc-daytab { display: flex; flex-direction: column; align-items: center; gap: 1px; padding: 6px 0; border: 1px solid var(--border); border-radius: 8px; background: #fff; cursor: pointer; font: inherit; color: var(--text-secondary); }
+.sc-daytab span { font-size: 10.5px; }
+.sc-daytab b { font-size: 15px; color: var(--text-primary); }
+.sc-daytab i { font-style: normal; font-size: 10px; color: var(--text-muted); }
+.sc-daytab.is-today b { color: var(--primary-dark); }
+.sc-daytab.is-on { background: var(--primary); border-color: var(--primary); }
+.sc-daytab.is-on span, .sc-daytab.is-on b, .sc-daytab.is-on i { color: #fff; }
+.sc-calm__lane { display: flex; flex-direction: column; gap: 8px; padding: 10px 12px; border: 1px solid var(--border); border-radius: 8px; background: #fff; }
+.sc-calm__lane.is-past { background: #FAFAFA; }
+.sc-calm__head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.sc-calm__head > div { display: flex; align-items: baseline; gap: 8px; min-width: 0; flex-wrap: wrap; }
+.sc-calm__head .sc-cal__add { position: static; display: inline-flex; width: 28px; height: 28px; border-radius: 14px; flex: 0 0 auto; }
+.sc-calm__chips { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
+.sc-calm__chips .sc-calchip { font-size: 12px; padding: 8px 10px; }
+
+/* Report host vs AI: one block per field (label + verdict, then the two values side by side) */
+.pbs-sc[data-size="s"] .sc-vs thead { display: none; }
+.pbs-sc[data-size="s"] .sc-vs, .pbs-sc[data-size="s"] .sc-vs tbody { display: block; width: 100%; }
+.pbs-sc[data-size="s"] .sc-vs tr { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 4px 12px; padding: 10px 12px; border-bottom: 1px solid var(--border); }
+.pbs-sc[data-size="s"] .sc-vs tr:last-child { border-bottom: 0; }
+.pbs-sc[data-size="s"] .sc-vs th, .pbs-sc[data-size="s"] .sc-vs td { display: block; padding: 0; border: 0; background: transparent; min-width: 0; text-align: left; white-space: normal; overflow-wrap: anywhere; }
+.pbs-sc[data-size="s"] .sc-vs th { order: 0; font-weight: 700; color: var(--text-primary); }
+.pbs-sc[data-size="s"] .sc-vs .sc-vs__res { order: 1; justify-self: end; }
+.pbs-sc[data-size="s"] .sc-vs .sc-vs__host { order: 2; }
+.pbs-sc[data-size="s"] .sc-vs .sc-vs__ai { order: 3; }
+.pbs-sc[data-size="s"] .sc-vs .sc-vs__host::before, .pbs-sc[data-size="s"] .sc-vs .sc-vs__ai::before { content: attr(data-label); display: block; font-size: 10.5px; font-weight: 400; color: var(--text-muted); }
+.pbs-sc[data-size="s"] .sc-vs tr.is-diff { background: var(--danger-bg); }
+.pbs-sc[data-size="s"] .sc-tablewrap:has(> .sc-vs) { overflow: hidden; }
+
+/* Other sessions that day: one card per session */
+.pbs-sc[data-size="s"] .sc-table--stack, .pbs-sc[data-size="s"] .sc-table--stack tbody { display: block; width: 100%; }
+.pbs-sc[data-size="s"] .sc-table--stack tr { display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "time status" "brand brand" "host studio"; gap: 2px 8px; padding: 10px 0; border-bottom: 1px solid var(--border); }
+.pbs-sc[data-size="s"] .sc-table--stack td { display: block; padding: 0; border: 0; min-width: 0; }
+.pbs-sc[data-size="s"] .sc-table--stack .sc-st-time { grid-area: time; font-weight: 700; }
+.pbs-sc[data-size="s"] .sc-table--stack .sc-st-status { grid-area: status; justify-self: end; }
+.pbs-sc[data-size="s"] .sc-table--stack .sc-st-brand { grid-area: brand; }
+.pbs-sc[data-size="s"] .sc-table--stack .sc-st-brand .sc-muted { display: inline; margin-left: 6px; }
+.pbs-sc[data-size="s"] .sc-table--stack .sc-st-host { grid-area: host; color: var(--text-secondary); }
+.pbs-sc[data-size="s"] .sc-table--stack .sc-st-studio { grid-area: studio; color: var(--text-secondary); justify-self: end; }
+
+/* Forms and big dialogs take the whole screen; small confirmations stay a bottom sheet */
+.pbs-sc[data-size="s"] .sc-modal__panel--wide { height: 100%; max-height: 100%; border-radius: 0; border: 0; }
+.pbs-sc[data-size="s"] .sc-modal__panel--wide .sc-modal__body { flex: 1 1 auto; }
+.pbs-sc[data-size="s"] .sc-modal__panel--wide .sc-modal__head { position: sticky; top: 0; }

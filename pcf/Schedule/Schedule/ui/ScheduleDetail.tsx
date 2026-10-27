@@ -202,18 +202,18 @@ export function ScheduleDetail(props: { env: Env; schedule: ScheduleRow; backLab
                             <p className="sc-emptyline">Tidak ada sesi lain untuk host atau studio ini di hari yang sama.</p>
                         ) : (
                             <>
-                            <table className="sc-table sc-table--flat">
+                            <table className="sc-table sc-table--flat sc-table--stack">
                                 <tbody>
                                     {samePg.rows.map((o) => (
                                         <tr key={o.key} className="sc-row" onClick={() => env.open(o)}>
-                                            <td className="sc-mono sc-nowrap">{timeRange(o)}</td>
-                                            <td>
+                                            <td className="sc-mono sc-nowrap sc-st-time">{timeRange(o)}</td>
+                                            <td className="sc-st-brand">
                                                 <b>{o.brandName}</b>
                                                 <div className="sc-muted sc-mono">{o.scheduleId}</div>
                                             </td>
-                                            <td>{o.hostName}</td>
-                                            <td>{o.studioId}</td>
-                                            <td>
+                                            <td className="sc-st-host">{o.hostName}</td>
+                                            <td className="sc-st-studio">{o.studioId}</td>
+                                            <td className="sc-st-status">
                                                 <StatusBadge status={o.status} />
                                                 {env.conflicts.has(o.key) && <i className="sc-conflictdot" />}
                                             </td>

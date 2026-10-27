@@ -521,7 +521,9 @@ button.sd-geo--danger:hover { text-decoration: underline; }
 
 /* Dialogs on phone portrait: full-width sheet from the bottom */
 .pbs-sd[data-size="s"] .sd-modal { align-items: flex-end; }
-.pbs-sd[data-size="s"] .sd-modal__panel { width: 100% !important; max-width: 100%; max-height: 94%; border-radius: 12px 12px 0 0; }
+/* Phone portrait: the studio form takes the whole screen */
+.pbs-sd[data-size="s"] .sd-modal__panel { width: 100% !important; max-width: 100%; height: 100%; max-height: 100%; border-radius: 0; border: 0; }
+.pbs-sd[data-size="s"] .sd-modal__body { flex: 1 1 auto; }
 .pbs-sd[data-size="s"] .sd-modal__body { padding: 14px; }
 .pbs-sd[data-size="s"] .sd-modal__foot { flex-wrap: wrap; padding: 10px 14px; }
 .pbs-sd[data-size="s"] .sd-modal__foot .sd-btn { flex: 1 1 auto; }

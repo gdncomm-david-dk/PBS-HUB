@@ -309,7 +309,7 @@ export function Modal(props: { title: string; width?: number; tall?: boolean; on
     return (
         <div className="sc-modal" role="dialog" aria-modal="true" aria-label={props.title}>
             <div className="sc-modal__scrim" onClick={props.onClose} />
-            <div className={cx("sc-modal__panel", props.tall && "sc-modal__panel--tall")} style={{ width: props.width ?? 560 }}>
+            <div className={cx("sc-modal__panel", props.tall && "sc-modal__panel--tall", (props.width ?? 560) >= 560 && "sc-modal__panel--wide")} style={{ width: props.width ?? 560 }}>
                 <header className="sc-modal__head">
                     <h2>{props.title}</h2>
                     <button type="button" className="sc-iconbtn" onClick={props.onClose} aria-label="Tutup">
