@@ -36,6 +36,12 @@ export class ReactHost {
     trackResize(true);
     container.style.width = "100%";
     container.style.height = "100%";
+    container.style.setProperty("user-select", "text");
+    container.style.setProperty("-webkit-user-select", "text");
+    // The player cancels text selection and copy from document-level handlers; they never see these events.
+    for (const type of ["selectstart", "copy", "contextmenu"]) container.addEventListener(type, stopHere);
+    container.addEventListener("mousedown", stopTextDrag);
+    container.addEventListener("keydown", stopCopyKeys);
     // Shadow DOM isolates the control from the player's global CSS (it overrode table width,
     // button borders, checkboxes and dl grids in canvas apps).
     let mount: HTMLElement = container;
@@ -135,8 +141,29 @@ export class ReactHost {
     if (this.labelFrame) cancelAnimationFrame(this.labelFrame);
     this.root?.unmount();
     this.root = null;
+    const c = this.container;
+    if (c) {
+      for (const type of ["selectstart", "copy", "contextmenu"]) c.removeEventListener(type, stopHere);
+      c.removeEventListener("mousedown", stopTextDrag);
+      c.removeEventListener("keydown", stopCopyKeys);
+    }
     this.container = null;
   }
+}
+
+const stopHere = (e: Event): void => e.stopPropagation();
+
+/** A drag that starts on text selects it; buttons, inputs and links keep the player's normal handling. */
+function stopTextDrag(e: Event): void {
+  const t = (e.composedPath?.()[0] ?? e.target) as Element | null;
+  if (t && typeof t.closest === "function" && t.closest("button,input,select,textarea,a,label,[role=button],[role=tab]")) return;
+  e.stopPropagation();
+}
+
+/** Ctrl/Cmd + C / A inside a control copies the selection instead of a canvas shortcut. */
+function stopCopyKeys(e: Event): void {
+  const k = e as KeyboardEvent;
+  if ((k.ctrlKey || k.metaKey) && (k.key === "c" || k.key === "C" || k.key === "a" || k.key === "A")) k.stopPropagation();
 }
 
 /** Shown on a phone held upright while the canvas app is still landscape (see `landscapeLocked`). */

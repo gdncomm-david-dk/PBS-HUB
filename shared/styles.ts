@@ -643,6 +643,9 @@ font-family:"Blibli","Helvetica Neue",Arial,sans-serif;font-size:13px;line-heigh
 .pbs-dash-sess{grid-template-columns:14px 96px minmax(0,1fr) auto}
 /* Every control (Ops too) answers to its own width, not the browser's: the canvas box is what matters. */
 .pbs-root{container-type:inline-size}
+/* The canvas player turns text selection off for the whole app; text in the controls stays copyable. */
+.pbs-root{-webkit-user-select:text;user-select:text;-webkit-touch-callout:default}
+.pbs-root button,.pbs-root [role=tab]{-webkit-user-select:none;user-select:none}
 /* Phone width, all controls. Wide tables turn into one card per row; the labels come from the header
    (data-label, set in mount.tsx), so no table needs its own mobile markup. */
 @container (max-width:600px){

@@ -1160,5 +1160,24 @@ const assert = (c, m) => { if (!c) { console.log("FAIL", m); process.exitCode = 
   assert((await p.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1)), "Host form fits a 390 px phone without horizontal scroll");
   await shot("hf-mobile");
 
+
+  // Text stays selectable and copyable inside the player.
+  await go("c=HostDetail&h=HST-001&noselect=1");
+  await p.waitForTimeout(300);
+  {
+    const h = p.getByText("Performa sesuai standar studio.");
+    const box = await h.boundingBox();
+    await p.mouse.move(box.x + 2, box.y + box.height / 2);
+    await p.mouse.down();
+    await p.mouse.move(box.x + box.width - 2, box.y + box.height / 2, { steps: 8 });
+    await p.mouse.up();
+    const sel = await p.evaluate(() => String(document.getSelection()));
+    assert(sel.trim().length > 3, `drag selects text under the player's no-select rules (got "${sel}")`);
+    // Buttons still work with the player's handlers in place.
+    await p.getByRole("tab", { name: /Kehadiran/ }).click();
+    await p.waitForTimeout(200);
+    assert((await p.getByRole("tab", { name: /Kehadiran/ }).getAttribute("aria-selected")) === "true", "tabs still click under the no-select player");
+  }
+
   await b.close();
 })();

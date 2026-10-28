@@ -36,6 +36,11 @@
 <script>
   // ?hostile=1 mimics the player's global CSS that broke the controls before they moved into Shadow DOM.
   if (new URLSearchParams(location.search).get("hostile")) document.write('<style>table{width:auto!important;border-collapse:collapse!important}button{border:0!important;background:none!important;border-radius:0!important}input[type=checkbox]{opacity:0!important}dl,dt,dd{display:inline!important;margin:0 8px!important}div{box-sizing:content-box}</style>');
+  // ?noselect=1 mimics the player: no text selection anywhere, selection and copy cancelled at document level.
+  if (new URLSearchParams(location.search).get("noselect")) {
+    document.write("<style>html,body,body *{-webkit-user-select:none;user-select:none}</style>");
+    for (const t of ["selectstart", "mousedown", "copy"]) document.addEventListener(t, (e) => e.preventDefault());
+  }
 </script>
 </head>
 <body>

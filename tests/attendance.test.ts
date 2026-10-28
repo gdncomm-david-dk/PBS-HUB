@@ -1,4 +1,4 @@
-import { buildAttendance, insentifFor, payrollLock, tierRates } from "../shared/attendance";
+import { buildAttendance, insentifFor, payrollLock, photoUrl, tierRates } from "../shared/attendance";
 import { RunModel } from "../shared/payroll";
 
 const rows = [
@@ -47,5 +47,16 @@ describe("payrollLock", () => {
     expect(payrollLock([run("117", "DONE", "2026-09-01")], { year: 2026, month: 7 })?.level).toBe("err");
     expect(payrollLock([run("115", "REJECTED", "2026-09-01")], { year: 2026, month: 7 })).toBeNull();
     expect(payrollLock([run("118", "WAITING", "2026-09-01")], { year: 2026, month: 8 })).toBeNull();
+  });
+});
+
+describe("photoUrl", () => {
+  it("reads text, hyperlink and image values", () => {
+    expect(photoUrl({ SelfiePhotoUrl: "https://x.sharepoint.com/a.jpg" }, "SelfiePhotoUrl")).toBe("https://x.sharepoint.com/a.jpg");
+    expect(photoUrl({ SelfiePhotoUrl: { Url: "https://x/a.jpg", Description: "a" } }, "SelfiePhotoUrl")).toBe("https://x/a.jpg");
+    expect(photoUrl({ SelfiePhotoUrl: { Full: "https://x/full.jpg" } }, "SelfiePhotoUrl")).toBe("https://x/full.jpg");
+    expect(photoUrl({ SelfiePhotoUrl: "https://x/a.jpg, Selfie" }, "SelfiePhotoUrl")).toBe("https://x/a.jpg");
+    expect(photoUrl({ SelfiePhotoUrl: "" , SelfieUrl: "https://x/b.jpg" }, "SelfiePhotoUrl", "SelfieUrl")).toBe("https://x/b.jpg");
+    expect(photoUrl({ SelfiePhotoUrl: "appres://blob/1" }, "SelfiePhotoUrl")).toBe("");
   });
 });

@@ -1,5 +1,24 @@
 import { deviceLabel } from "./device";
 import { fmtDistance } from "./clockInApp";
+
+/**
+ * Selfie link from a Text, Hyperlink or Image column: canvas may send a plain string, a hyperlink record
+ * ({Url, Description}) or an image record ({Full, Large, …}). Only http(s) links count.
+ */
+export function photoUrl(row: Record<string, unknown>, ...keys: string[]): string {
+  for (const k of keys) {
+    let v = row[k];
+    if (v && typeof v === "object") {
+      const o = v as Record<string, unknown>;
+      v = ["Url", "url", "Full", "Large", "Medium", "serverUrl", "Value"].map((x) => o[x]).find((x) => typeof x === "string" && x.trim());
+    }
+    if (typeof v === "string") {
+      const t = v.trim().split(/,\s+/)[0] ?? ""; // SharePoint hyperlink text "url, description"
+      if (/^https?:\/\//i.test(t)) return t;
+    }
+  }
+  return "";
+}
 import * as React from "react";
 import { ModuleContext, UseActionResult, configNumber } from "./contract";
 import {
@@ -234,8 +253,8 @@ export function buildAttendance(
         accIn: num(c, "CheckInAccuracy"),
         accOut: num(c, "CheckOutAccuracy"),
       },
-      photoIn: str(c, "SelfiePhotoUrl", "SelfieUrl"),
-      photoOut: str(c, "SelfieOutPhotoUrl", "SelfieOutUrl"),
+      photoIn: photoUrl(c, "SelfiePhotoUrl", "SelfieUrl"),
+      photoOut: photoUrl(c, "SelfieOutPhotoUrl", "SelfieOutUrl"),
       // Manual rows (ADD_CLOCK_IN) carry text times and no GPS check-in.
       deviceIn: str(c, "CheckInDevice"),
       deviceOut: str(c, "CheckOutDevice"),
