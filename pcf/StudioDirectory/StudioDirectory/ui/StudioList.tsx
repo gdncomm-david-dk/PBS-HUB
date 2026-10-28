@@ -13,7 +13,7 @@ import {
     studioDay,
     studioMonth,
 } from "../core/utilization";
-import { Badge, Banner, Bar, Button, Card, cx, DailyChart, Icon, Pager, SkeletonRows, usePaged, utilTone } from "./components";
+import { Badge, Banner, Bar, Button, Card, cx, DailyChart, Icon, Pager, SkeletonRows, textSelected, usePaged, utilTone } from "./components";
 import { CONTROL_VERSION, Env } from "./App";
 import { GeoCell, geoIssueText, geoState, MIN_SAFE_RADIUS, needsAction, StudioStatusBadge } from "./shared";
 import { hasLocationColumn, locationKey } from "../core/data";
@@ -432,7 +432,7 @@ export function StudioList(props: { env: Env; onCreate: () => void }): React.Rea
                                 const m = studioMonth(idx, s, monthKey, op);
                                 const live = liveInfo(idx, s, todayKey, nowMin);
                                 return (
-                                    <tr key={s.key} className={cx("sd-row", !s.isActive && "is-inactive")} onClick={() => env.openStudio(s.studioId)}>
+                                    <tr key={s.key} className={cx("sd-row", !s.isActive && "is-inactive")} onClick={() => !textSelected() && env.openStudio(s.studioId)}>
                                         <td className="sd-mono sd-c-id">{s.studioId}</td>
                                         <td className="sd-strong sd-c-name">{s.namaStudio || "—"}</td>
                                         <td className="sd-c-cap">{s.kapasitasHost > 0 ? `${s.kapasitasHost} host` : <span className="sd-warntext" title="KapasitasHost kosong — utilisasi dihitung dengan kapasitas 1">— host</span>}</td>

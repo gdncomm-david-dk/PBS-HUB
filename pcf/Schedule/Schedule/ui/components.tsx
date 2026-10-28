@@ -4,6 +4,9 @@ export type Tone = "success" | "warning" | "danger" | "info" | "neutral" | "prim
 
 export const cx = (...xs: (string | false | null | undefined)[]): string => xs.filter(Boolean).join(" ");
 
+/** True while the user has text selected: a drag to copy text in a clickable row must not open the row. */
+export const textSelected = (): boolean => (window.getSelection?.()?.toString() ?? "").trim().length > 0;
+
 // ---------------------------------------------------------------------------------------------
 // Icons — inline SVG, 16px, stroke currentColor.
 

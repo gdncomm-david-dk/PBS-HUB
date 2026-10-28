@@ -3,7 +3,7 @@ import { ScheduleRow } from "../core/types";
 import { phaseOf, sortSessions, timeRange } from "../core/schedule";
 import { buildTimeline, Step, StepId } from "../core/timeline";
 import { formatDateLong } from "../core/time";
-import { Banner, Button, Card, cx, Icon, Pager, usePaged } from "./components";
+import { Banner, Button, Card, cx, Icon, Pager, textSelected, usePaged } from "./components";
 import { Env, scheduleStatus, StatusBadge } from "./shared";
 import { DeleteDialog } from "./Dialogs";
 import { ReportReview } from "./ReportReview";
@@ -205,7 +205,7 @@ export function ScheduleDetail(props: { env: Env; schedule: ScheduleRow; backLab
                             <table className="sc-table sc-table--flat sc-table--stack">
                                 <tbody>
                                     {samePg.rows.map((o) => (
-                                        <tr key={o.key} className="sc-row" onClick={() => env.open(o)}>
+                                        <tr key={o.key} className="sc-row" onClick={() => !textSelected() && env.open(o)}>
                                             <td className="sc-mono sc-nowrap sc-st-time">{timeRange(o)}</td>
                                             <td className="sc-st-brand">
                                                 <b>{o.brandName}</b>

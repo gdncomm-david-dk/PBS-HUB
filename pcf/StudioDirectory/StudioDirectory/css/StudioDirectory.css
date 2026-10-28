@@ -1,5 +1,8 @@
 /* PBS Hub — Studio Directory. Blu Basic, internal-app context. Light mode enforced. */
 
+/* Canvas turns text selection off for the whole app; text in the control can be selected and copied again. */
+.pbs-sd { -webkit-user-select: text; user-select: text; }
+.pbs-sd button, .pbs-sd .sd-btn, .pbs-sd .sd-chip { -webkit-user-select: none; user-select: none; }
 .pbs-sd {
     --primary: #0072FF;
     --primary-dark: #0050BD;

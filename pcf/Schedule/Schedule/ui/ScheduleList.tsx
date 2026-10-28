@@ -2,7 +2,7 @@ import * as React from "react";
 import { ScheduleRow } from "../core/types";
 import { applyFilters, distinct, fetchWindow, Filters, hasActiveFilter, hoursOf, phaseOf, rangeKeys, sortSessions, timeRange, weekStart } from "../core/schedule";
 import { BULAN_PENDEK, dateKeyToDate, formatDateShort, HARI, shiftDay, toDateKey } from "../core/time";
-import { Banner, Button, Card, cx, Icon, Pager, SkeletonRows, usePaged } from "./components";
+import { Banner, Button, Card, cx, Icon, Pager, SkeletonRows, textSelected, usePaged } from "./components";
 import { Env, scheduleStatus, StatusBadge, useSmall } from "./shared";
 import { CONTROL_VERSION } from "./shared";
 import { BulkDeleteDialog, BulkDuplicateDialog, DeleteDialog } from "./Dialogs";
@@ -498,7 +498,7 @@ function ListRow(props: { env: Env; s: ScheduleRow; picked: boolean; onPick: (on
     const clash = env.conflicts.get(s.key);
     const live = phaseOf(s, env.now) === "live" && scheduleStatus(s.status).chip !== "off";
     return (
-        <tr className={cx("sc-row", s.dateKey === env.todayKey && "is-today", live && "is-live", scheduleStatus(s.status).chip === "off" && "is-inactive", props.picked && "is-selected")} onClick={() => env.open(s)}>
+        <tr className={cx("sc-row", s.dateKey === env.todayKey && "is-today", live && "is-live", scheduleStatus(s.status).chip === "off" && "is-inactive", props.picked && "is-selected")} onClick={() => !textSelected() && env.open(s)}>
             {env.canEdit && (
                 <td className="sc-selcell" onClick={(e) => e.stopPropagation()}>
                     <input type="checkbox" aria-label={`Pilih ${s.scheduleId || "jadwal"}`} checked={props.picked} onChange={(e) => props.onPick(e.target.checked)} />
