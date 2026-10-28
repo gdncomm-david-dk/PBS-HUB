@@ -114,6 +114,10 @@ Set(varHolidays, [                                                  // tanggal m
     Date(2026,6,27), Date(2026,7,7), Date(2026,8,17), Date(2026,12,25)
 ]);
 
+// Clock in wajib di dalam radius studio? true = di luar radius tombol clock in terkunci (tanpa opsi alasan).
+Set(varRequireInsideRadius, false);
+Set(varRequireInsideRadiusOut, false);                              // aturan yang sama untuk clock out
+
 // 1. Context: dikirim ke properti Context semua control host.
 Set(varHostCtx, JSON({
     userEmail: User().Email,
@@ -133,6 +137,9 @@ Set(varHostCtx, JSON({
         clockInStatus: "Hadir - Tugas",          // Choice Status di Clock In
         defaultRadiusM: 100, weakAccuracyM: 100, minReasonChars: 10,
         selfieMaxPx: 960, selfieMaxKb: 350,
+        requireInsideRadius: varRequireInsideRadius,       // clock in hanya dari dalam radius
+        requireInsideRadiusOut: varRequireInsideRadiusOut, // clock out hanya dari dalam radius
+        selfieMode: "browser",                   // "canvas" = selalu kamera Power Apps (HP yang force close saat kamera dibuka)
         weekMaxHours: 40,                        // Jadwal saya · Minggu: "Jam live … dari maks 40 jam" (0 = tanpa batas)
         picName: "Bayu Prasetyo",                // Jadwal saya · Bulan: nama PIC jadwal di kartu "Ada yang tidak sesuai?"
         holidays: Concat(varHolidays, Text(Value, "yyyy-mm-dd"), ","),   // hari libur nasional (blok 0)
@@ -1755,7 +1762,7 @@ Clock in dan clock out: GPS terhadap radius `Studio Location - PBS`, selfie, ala
 **10.2 `scrClockIn.OnVisible`** — pilih layar (bukan control), properti **OnVisible**:
 
 ```powerfx
-Set(varCkLoading, true);
+Set(varCkLoading, true); Set(varCkCam, false); Set(varCkSelfie, "");
 Concurrent(
     ClearCollect(colCkLoc, Filter('Studio Location - PBS', IsActive = true)),
     ClearCollect(colCkClk, Filter(clockInFiltered, HostID = varMe.Title, ClockInDate >= Today() - 1)),
@@ -1828,6 +1835,12 @@ varCkLoading
 varCkResult
 ```
 
+11. **`CanvasSelfie`** — foto dari kamera Power Apps (overlay kamera di 10.5)
+
+```powerfx
+varCkSelfie
+```
+
 **10.4 `OnChange` control** — properti **OnChange** control yang sama, tempel utuh:
 
 ```powerfx
@@ -1837,8 +1850,11 @@ If(!IsBlank(Self.ActionPayload),
             If(!(rid in colPbsProcessed.Id),
                 Collect(colPbsProcessed, {Id: rid});
                 Switch(act,
+                    "OPEN_CAMERA", Set(varCkCam, true),   // kamera Power Apps (lihat di atas)
                     "CLOCK_IN",
-                        If(!IsBlank(LookUp(clockInFiltered, HostID = varMe.Title && ClockInDate = Today())),
+                        If(varRequireInsideRadius && !Boolean(p.inside),
+                            Set(varCkResult, JSON({requestId: rid, status: "error", message: "Di luar radius studio: clock in hanya bisa dari dalam radius."}, JSONFormat.Compact)),
+                        !IsBlank(LookUp(clockInFiltered, HostID = varMe.Title && ClockInDate = Today())),
                             Set(varCkResult, JSON({requestId: rid, status: "conflict", message: "Kamu sudah clock in hari ini. Satu hari hanya satu clock in."}, JSONFormat.Compact)),
                         // Shift semalam yang masih berjalan (< 16 jam) harus di-clock out dulu. 16 = maxShiftHours.
                         !IsBlank(LookUp(clockInFiltered, HostID = varMe.Title && IsBlank(CheckOutTime) && !IsBlank(CheckInTime) && DateDiff(CheckInTime, Now(), TimeUnit.Minutes) < 16 * 60)),
@@ -1875,7 +1891,9 @@ If(!IsBlank(Self.ActionPayload),
                         ),
                     "CLOCK_OUT",
                         With({cur: LookUp(clockInFiltered, ID = Value(p.clockInId) && HostID = varMe.Title)},
-                            If(IsBlank(cur) || !IsBlank(cur.CheckOutTime),
+                            If(varRequireInsideRadiusOut && !Boolean(p.inside),
+                                Set(varCkResult, JSON({requestId: rid, status: "error", message: "Di luar radius studio: clock out hanya bisa dari dalam radius."}, JSONFormat.Compact)),
+                            IsBlank(cur) || !IsBlank(cur.CheckOutTime),
                                 Set(varCkResult, JSON({requestId: rid, status: "conflict", message: "Shift ini sudah di-clock out. Muat ulang."}, JSONFormat.Compact)),
                             // Shift maksimal 16 jam (= maxShiftHours): lewat dari itu jam clock out diisi Ops.
                             DateDiff(cur.CheckInTime, Now(), TimeUnit.Minutes) > 16 * 60,
@@ -1918,6 +1936,10 @@ If(!IsBlank(Self.ActionPayload),
 ```
 
 **10.5 Cek cepat.** Clock in → baris `CLK-…` baru dengan `SelfiePhotoUrl`; kembali ke Hari ini kartu shift berubah jadi *Sedang shift*.
+
+**Overlay kamera Power Apps** (cadangan kalau app force close saat kamera dibuka): container `conCkCam` di atas control, ukuran layar, `Visible = varCkCam`; di dalamnya **Camera** `camCkSelfie` (`Camera = 1` = depan) dan tombol *Ambil foto* `OnSelect = Set(varCkSelfie, JSON(camCkSelfie.Photo, JSONFormat.IncludeBinaryData)); Set(varCkCam, false)` plus tombol *Batal* `OnSelect = Set(varCkCam, false)`. Izinkan juga Kamera untuk Power Apps di Pengaturan HP.
+
+**Wajib di dalam radius:** `Set(varRequireInsideRadius, true)` di App.OnStart (Langkah 3) → di luar radius tombol Clock in terkunci dan OnChange menolak. Clock out: `varRequireInsideRadiusOut`.
 
 ## Langkah 11 — Layar Skor saya (`scrCreditScore`)
 

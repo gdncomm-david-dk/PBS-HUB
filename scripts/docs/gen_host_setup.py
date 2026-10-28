@@ -215,6 +215,10 @@ Set(varHolidays, [                                                  // tanggal m
     Date(2026,6,27), Date(2026,7,7), Date(2026,8,17), Date(2026,12,25)
 ]);
 
+// Clock in wajib di dalam radius studio? true = di luar radius tombol clock in terkunci (tanpa opsi alasan).
+Set(varRequireInsideRadius, false);
+Set(varRequireInsideRadiusOut, false);                              // aturan yang sama untuk clock out
+
 // 1. Context: dikirim ke properti Context semua control host.
 Set(varHostCtx, JSON({
     userEmail: User().Email,
@@ -234,6 +238,9 @@ Set(varHostCtx, JSON({
         clockInStatus: "Hadir - Tugas",          // Choice Status di Clock In
         defaultRadiusM: 100, weakAccuracyM: 100, minReasonChars: 10,
         selfieMaxPx: 960, selfieMaxKb: 350,
+        requireInsideRadius: varRequireInsideRadius,       // clock in hanya dari dalam radius
+        requireInsideRadiusOut: varRequireInsideRadiusOut, // clock out hanya dari dalam radius
+        selfieMode: "browser",                   // "canvas" = selalu kamera Power Apps (HP yang force close saat kamera dibuka)
         weekMaxHours: 40,                        // Jadwal saya · Minggu: "Jam live … dari maks 40 jam" (0 = tanpa batas)
         picName: "Bayu Prasetyo",                // Jadwal saya · Bulan: nama PIC jadwal di kartu "Ada yang tidak sesuai?"
         holidays: Concat(varHolidays, Text(Value, "yyyy-mm-dd"), ","),   // hari libur nasional (blok 0)
@@ -506,7 +513,7 @@ Set(varMsLoading, false)"""
                       "canvas memuat bulan itu). Pilih *Bulan* → tetap Bulan saat kembali ke layar; panel *Bulan lalu* terisi."))
 
     ck_vis = """
-Set(varCkLoading, true);
+Set(varCkLoading, true); Set(varCkCam, false); Set(varCkSelfie, "");
 Concurrent(
     ClearCollect(colCkLoc, Filter('Studio Location - PBS', IsActive = true)),
     ClearCollect(colCkClk, Filter(clockInFiltered, HostID = varMe.Title, ClockInDate >= Today() - 1)),
@@ -525,6 +532,7 @@ Set(varCkLoading, false)"""
         ("IsLoading", "varCkLoading", ""),
         ("ReferenceDate", '""', "kosong"),
         ("ActionResult", "varCkResult", ""),
+        ("CanvasSelfie", "varCkSelfie", "foto dari kamera Power Apps (overlay kamera di 10.5)"),
     ]
     doc.append(screen(10, "Layar Clock in (`scrClockIn`)", "scrClockIn", "PBS Host App Clock In",
                       "Clock in dan clock out: GPS terhadap radius `Studio Location - PBS`, selfie, alasan kalau di luar radius. "
@@ -534,7 +542,13 @@ Set(varCkLoading, false)"""
                       "ClockOutDate (Date only), ClockOutTime (teks \"HH:mm\"), CheckOut…, CheckOutDevice, CheckOutDeviceInfo, WorkingDuration, TotalReports, SelfieOutPhotoUrl` (kolom Device: Text, baru, buat dulu). Hapus dari formula kolom yang "
                       "tidak ada di list kamu.",
                       ck_vis, ck_rows, clockin_onchange(),
-                      "Clock in → baris `CLK-…` baru dengan `SelfiePhotoUrl`; kembali ke Hari ini kartu shift berubah jadi *Sedang shift*."))
+                      "Clock in → baris `CLK-…` baru dengan `SelfiePhotoUrl`; kembali ke Hari ini kartu shift berubah jadi *Sedang shift*.\n\n"
+                      "**Overlay kamera Power Apps** (cadangan kalau app force close saat kamera dibuka): container `conCkCam` di atas "
+                      "control, ukuran layar, `Visible = varCkCam`; di dalamnya **Camera** `camCkSelfie` (`Camera = 1` = depan) dan tombol "
+                      "*Ambil foto* `OnSelect = Set(varCkSelfie, JSON(camCkSelfie.Photo, JSONFormat.IncludeBinaryData)); Set(varCkCam, false)` "
+                      "plus tombol *Batal* `OnSelect = Set(varCkCam, false)`. Izinkan juga Kamera untuk Power Apps di Pengaturan HP.\n\n"
+                      "**Wajib di dalam radius:** `Set(varRequireInsideRadius, true)` di App.OnStart (Langkah 3) → di luar radius tombol "
+                      "Clock in terkunci dan OnChange menolak. Clock out: `varRequireInsideRadiusOut`."))
 
     cs_vis = """
 Set(varCsLoading, true);

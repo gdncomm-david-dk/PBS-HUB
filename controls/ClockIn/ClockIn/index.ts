@@ -14,6 +14,7 @@ interface ShellProps {
   schedules: Row[];
   reports: Row[];
   canvasLocation: Row[];
+  canvasSelfie: string;
   loading: boolean;
   referenceDate: string | null;
   minute: number;
@@ -67,6 +68,7 @@ export class ClockIn implements ComponentFramework.StandardControl<IInputs, IOut
         schedules: this.cache.get("s", p.SchedulesJson?.raw),
         reports: this.cache.get("r", p.ReportsJson?.raw),
         canvasLocation: this.cache.get("g", p.DeviceLocationJson?.raw),
+        canvasSelfie: p.CanvasSelfie?.raw ?? "",
         loading: flag(p.IsLoading),
         referenceDate: p.ReferenceDate?.raw ?? null,
         minute: Math.floor(Date.now() / 30000),

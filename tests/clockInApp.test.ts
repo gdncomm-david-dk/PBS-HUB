@@ -2,6 +2,7 @@ import {
   DEFAULT_CLOCKIN_OPTIONS,
   checkGeofence,
   clockBlockers,
+  OUTSIDE_BLOCKED,
   clockInOptions,
   clockInPayload,
   clockOutPayload,
@@ -141,9 +142,22 @@ describe("blockers", () => {
     expect(clockBlockers({ fix, locations: 2, geofence: g, selfie: true, reason: "short", minReasonChars: 10 })).toEqual(["Isi alasan di luar radius (min. 10 karakter)"]);
     expect(clockBlockers({ fix, locations: 2, geofence: g, selfie: true, reason: "live di gudang brand", minReasonChars: 10 })).toEqual([]);
     expect(clockBlockers({ fix, locations: 2, geofence: { ...g, inside: true }, selfie: true, reason: "", minReasonChars: 10 })).toEqual([]);
+    // requireInside: outside is a hard stop, a reason does not help
+    expect(clockBlockers({ fix, locations: 2, geofence: g, selfie: true, reason: "live di gudang brand", minReasonChars: 10, requireInside: true })).toEqual([OUTSIDE_BLOCKED]);
+    expect(clockBlockers({ fix, locations: 2, geofence: { ...g, inside: true }, selfie: true, reason: "", minReasonChars: 10, requireInside: true })).toEqual([]);
   });
 
   test("selfie file name", () => {
     expect(selfieFileName("HST-001", now, "OUT")).toBe("HST-001_20260925_OUT_0803.jpg");
+  });
+});
+
+describe("requireInsideRadius config", () => {
+  it("parses booleans and text", () => {
+    expect(clockInOptions({}).requireInside).toBe(false);
+    expect(clockInOptions({ requireInsideRadius: true }).requireInside).toBe(true);
+    expect(clockInOptions({ requireInsideRadius: "ya" }).requireInside).toBe(true);
+    expect(clockInOptions({ requireInsideRadius: "false" }).requireInside).toBe(false);
+    expect(clockInOptions({ requireInsideRadiusOut: 1 }).requireInsideOut).toBe(true);
   });
 });

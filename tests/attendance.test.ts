@@ -16,11 +16,12 @@ describe("buildAttendance", () => {
   });
   it("reads where the shift started and ended and whether each end was inside the radius", () => {
     const [d] = buildAttendance(
-      [{ ID: 9, HostID: "H1", ClockInDate: "2026-08-06", CheckInTime: "2026-08-06T08:00:00", CheckOutTime: "2026-08-06T16:00:00", CheckInOffice: "Studio A", CheckInDistance: 20, IsInsideGeofence: true, CheckOutOffice: "Studio B", CheckOutDistance: 480, IsInsideGeofenceOut: false }],
+      [{ ID: 9, HostID: "H1", ClockInDate: "2026-08-06", CheckInTime: "2026-08-06T08:00:00", CheckOutTime: "2026-08-06T16:00:00", CheckInOffice: "Studio A", CheckInDistance: 20, IsInsideGeofence: true, CheckOutOffice: "Studio B", CheckOutDistance: 480, IsInsideGeofenceOut: false, CheckInAccuracy: 12, SelfiePhotoUrl: "https://x/in.jpg", CheckInDevice: "Mobile", CheckInDeviceInfo: "Android 14 · Power Apps" }],
       "H1",
       {},
     );
-    expect(d?.place).toEqual({ officeIn: "Studio A", officeOut: "Studio B", distIn: 20, distOut: 480, insideIn: true, insideOut: false });
+    expect(d?.place).toEqual({ officeIn: "Studio A", officeOut: "Studio B", distIn: 20, distOut: 480, insideIn: true, insideOut: false, accIn: 12, accOut: null });
+    expect(d).toMatchObject({ photoIn: "https://x/in.jpg", photoOut: "", deviceInfoIn: "Android 14 · Power Apps", deviceInfoOut: "" });
     expect(d?.outsideGeofence).toBe(true);
   });
   it("reads open shifts, manual text times past midnight, geofence and audit", () => {

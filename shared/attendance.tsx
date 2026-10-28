@@ -118,12 +118,20 @@ export interface AttendanceDay {
     distOut: number | null;
     insideIn: boolean | null;
     insideOut: boolean | null;
+    /** GPS accuracy (m) reported by the phone; null = not stored. */
+    accIn: number | null;
+    accOut: number | null;
   };
+  /** Selfie links (SharePoint webUrl) taken at clock in / out; "" = none. */
+  photoIn: string;
+  photoOut: string;
   manual: boolean;
   /** Device the clock in / out was made on (Mobile | Tablet | Desktop), "" for rows without it. */
   deviceIn: string;
   deviceOut: string;
   deviceInfo: string;
+  deviceInfoIn: string;
+  deviceInfoOut: string;
   adjusted: { by: string; at: Date | null; reason: string } | null;
 }
 
@@ -133,6 +141,7 @@ function PlaceLine(props: {
   office: string;
   dist: number | null;
   inside: boolean | null;
+  acc: number | null;
 }): React.ReactElement {
   const known = props.office || props.dist !== null || props.inside !== null;
   return (
@@ -143,6 +152,9 @@ function PlaceLine(props: {
           {props.office || "—"}
           {props.dist !== null ? (
             <span className="pbs-muted"> · {fmtDistance(props.dist)}</span>
+          ) : null}
+          {props.acc !== null ? (
+            <span className="pbs-muted" title="Akurasi GPS saat itu"> · ±{fmtDistance(props.acc)}</span>
           ) : null}{" "}
           {props.inside === false ? (
             <span className="pbs-t-warn">Luar radius</span>
@@ -153,6 +165,17 @@ function PlaceLine(props: {
       ) : (
         <span className="pbs-muted">—</span>
       )}
+    </div>
+  );
+}
+
+/** Device of one end of the shift: HP / Tablet / Laptop plus the OS · browser · screen line. */
+function DeviceLine(props: { label: string; type: string; info: string }): React.ReactElement {
+  return (
+    <div>
+      <span className="pbs-muted">{props.label} </span>
+      {props.type ? deviceLabel(props.type) : "—"}
+      {props.info ? <div className="pbs-muted" style={{ fontSize: 11.5 }}>{props.info}</div> : null}
     </div>
   );
 }
@@ -208,13 +231,19 @@ export function buildAttendance(
         distOut: num(c, "CheckOutDistance"),
         insideIn: bool(c, "IsInsideGeofence"),
         insideOut: bool(c, "IsInsideGeofenceOut"),
+        accIn: num(c, "CheckInAccuracy"),
+        accOut: num(c, "CheckOutAccuracy"),
       },
+      photoIn: str(c, "SelfiePhotoUrl", "SelfieUrl"),
+      photoOut: str(c, "SelfieOutPhotoUrl", "SelfieOutUrl"),
       // Manual rows (ADD_CLOCK_IN) carry text times and no GPS check-in.
       deviceIn: str(c, "CheckInDevice"),
       deviceOut: str(c, "CheckOutDevice"),
       deviceInfo: [str(c, "CheckInDeviceInfo"), str(c, "CheckOutDeviceInfo")]
         .filter(Boolean)
         .join(" → "),
+      deviceInfoIn: str(c, "CheckInDeviceInfo"),
+      deviceInfoOut: str(c, "CheckOutDeviceInfo"),
       manual: !date(c, "CheckInTime") && !!str(c, "ClockInTime"),
       adjusted:
         adjAt || adjBy
@@ -378,6 +407,7 @@ export function AttendanceTab(props: {
                 <th>Durasi</th>
                 <th>Lokasi</th>
                 <th>Perangkat</th>
+                <th>Selfie</th>
                 <th>Status</th>
                 <th>Tier</th>
                 <th className="r">Insentif</th>
@@ -389,7 +419,7 @@ export function AttendanceTab(props: {
             </thead>
             <tbody>
               {firstLoad ? (
-                <SkeletonRows rows={6} cols={props.canEdit ? 13 : 12} />
+                <SkeletonRows rows={6} cols={props.canEdit ? 14 : 13} />
               ) : (
                 paged.rows.map((d) => {
                   const open = !!d.inAt && !d.outAt;
@@ -427,22 +457,43 @@ export function AttendanceTab(props: {
                         {dur(d.minutes)}
                       </td>
                       <td style={{ fontSize: 12.5, lineHeight: 1.45 }}>
-                        <PlaceLine label="In" office={d.place.officeIn} dist={d.place.distIn} inside={d.place.insideIn} />
+                        <PlaceLine label="In" office={d.place.officeIn} dist={d.place.distIn} inside={d.place.insideIn} acc={d.place.accIn} />
                         {d.outAt || d.place.officeOut || d.place.insideOut !== null ? (
-                          <PlaceLine label="Out" office={d.place.officeOut} dist={d.place.distOut} inside={d.place.insideOut} />
+                          <PlaceLine label="Out" office={d.place.officeOut} dist={d.place.distOut} inside={d.place.insideOut} acc={d.place.accOut} />
                         ) : null}
                       </td>
-                      <td style={{ whiteSpace: "nowrap" }} title={d.deviceInfo}>
-                        {d.deviceIn ? (
-                          <>
-                            {deviceLabel(d.deviceIn)}
-                            {d.deviceOut && d.deviceOut !== d.deviceIn ? (
-                              <span className="pbs-muted">
-                                {" → "}
-                                {deviceLabel(d.deviceOut)}
-                              </span>
-                            ) : null}
-                          </>
+                      <td style={{ fontSize: 12.5, lineHeight: 1.45, minWidth: 150 }}>
+                        {d.deviceIn || d.deviceInfoIn ? (
+                          <DeviceLine label="In" type={d.deviceIn} info={d.deviceInfoIn} />
+                        ) : (
+                          <span className="pbs-muted">—</span>
+                        )}
+                        {d.deviceOut || d.deviceInfoOut ? (
+                          <DeviceLine label="Out" type={d.deviceOut} info={d.deviceInfoOut} />
+                        ) : null}
+                      </td>
+                      <td style={{ whiteSpace: "nowrap" }}>
+                        {d.photoIn || d.photoOut ? (
+                          <span style={{ display: "inline-flex", gap: 6 }}>
+                            {[
+                              ["In", d.photoIn],
+                              ["Out", d.photoOut],
+                            ].map(([label, url]) =>
+                              url ? (
+                                <Button
+                                  key={label}
+                                  variant="secondary"
+                                  size="sm"
+                                  title={`Buka selfie clock ${label!.toLowerCase()}`}
+                                  onClick={() =>
+                                    action.fire("OPEN_EVIDENCE", { url, kind: `selfie-${label!.toLowerCase()}`, clockInId: d.id })
+                                  }
+                                >
+                                  <Icon name="image" size={13} /> {label}
+                                </Button>
+                              ) : null,
+                            )}
+                          </span>
                         ) : (
                           <span className="pbs-muted">—</span>
                         )}

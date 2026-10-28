@@ -21,7 +21,7 @@ export function fitSize(w: number, h: number, maxPx: number): { width: number; h
   return { width: Math.round(w * k), height: Math.round(h * k) };
 }
 
-function loadImage(file: File): Promise<HTMLImageElement> {
+function loadImage(file: Blob): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
     const url = URL.createObjectURL(file);
     const img = new Image();
@@ -37,10 +37,35 @@ function loadImage(file: File): Promise<HTMLImageElement> {
   });
 }
 
+/** A decoded picture: its size and how to paint it. */
+interface Decoded {
+  width: number;
+  height: number;
+  paint: (g: CanvasRenderingContext2D, w: number, h: number) => void;
+  close: () => void;
+}
+
+/**
+ * Phone cameras hand over 12+ MP photos. Decoding one at full size inside the Power Apps WebView can run
+ * it out of memory (the app closes), so large files are decoded already shrunk when the browser can.
+ */
+async function decode(file: Blob, maxPx: number): Promise<Decoded> {
+  if (file.size > 1_500_000 && typeof createImageBitmap === "function") {
+    try {
+      const bmp = await createImageBitmap(file, { resizeWidth: maxPx, resizeQuality: "medium", imageOrientation: "from-image" });
+      return { width: bmp.width, height: bmp.height, paint: (g, w, h) => g.drawImage(bmp, 0, 0, w, h), close: () => bmp.close() };
+    } catch {
+      // older WebView: fall through to <img>
+    }
+  }
+  const img = await loadImage(file);
+  return { width: img.naturalWidth, height: img.naturalHeight, paint: (g, w, h) => g.drawImage(img, 0, 0, w, h), close: () => undefined };
+}
+
 export async function prepareImage(file: File, maxPx: number, maxKb: number): Promise<PreparedImage> {
   if (!/^image\//.test(file.type)) throw new Error("Pilih file gambar (PNG atau JPG).");
-  const img = await loadImage(file);
-  let { width, height } = fitSize(img.naturalWidth, img.naturalHeight, maxPx);
+  const src = await decode(file, maxPx);
+  let { width, height } = fitSize(src.width, src.height, maxPx);
   const canvas = document.createElement("canvas");
   const draw = () => {
     canvas.width = width;
@@ -49,24 +74,51 @@ export async function prepareImage(file: File, maxPx: number, maxKb: number): Pr
     if (!g) throw new Error("Browser tidak bisa memproses gambar.");
     g.fillStyle = "#fff"; // transparent PNG → white, not black, in JPEG
     g.fillRect(0, 0, width, height);
-    g.drawImage(img, 0, 0, width, height);
+    src.paint(g, width, height);
   };
-  draw();
-  const limit = maxKb * 1024;
-  let quality = 0.9;
-  let dataUrl = canvas.toDataURL("image/jpeg", quality);
-  // Lower quality first, then size, until it fits.
-  for (let i = 0; i < 8 && base64Bytes(dataUrl.slice(dataUrl.indexOf(",") + 1)) > limit; i++) {
-    if (quality > 0.62) quality -= 0.1;
-    else {
-      width = Math.round(width * 0.85);
-      height = Math.round(height * 0.85);
-      draw();
+  try {
+    draw();
+    const limit = maxKb * 1024;
+    let quality = 0.9;
+    let dataUrl = canvas.toDataURL("image/jpeg", quality);
+    // Lower quality first, then size, until it fits.
+    for (let i = 0; i < 8 && base64Bytes(dataUrl.slice(dataUrl.indexOf(",") + 1)) > limit; i++) {
+      if (quality > 0.62) quality -= 0.1;
+      else {
+        width = Math.round(width * 0.85);
+        height = Math.round(height * 0.85);
+        draw();
+      }
+      dataUrl = canvas.toDataURL("image/jpeg", quality);
     }
-    dataUrl = canvas.toDataURL("image/jpeg", quality);
+    const base64 = dataUrl.slice(dataUrl.indexOf(",") + 1);
+    return { base64, dataUrl, width, height, bytes: base64Bytes(base64), originalBytes: file.size, originalName: file.name };
+  } finally {
+    src.close();
+    canvas.width = 0; // free the backing store right away on low-memory phones
+    canvas.height = 0;
   }
-  const base64 = dataUrl.slice(dataUrl.indexOf(",") + 1);
-  return { base64, dataUrl, width, height, bytes: base64Bytes(base64), originalBytes: file.size, originalName: file.name };
+}
+
+/**
+ * A photo handed over by canvas (Camera control): `JSON(cam.Photo, JSONFormat.IncludeBinaryData)` gives a quoted
+ * data URI; a bare data URI works too. Anything else (appres:// or blob: links) cannot be read from here.
+ */
+export function canvasPhotoFile(raw: string, name: string): File | null {
+  let t = raw.trim();
+  if (t.startsWith('"') && t.endsWith('"')) {
+    try {
+      t = JSON.parse(t) as string;
+    } catch {
+      return null;
+    }
+  }
+  const m = /^data:(image\/[a-z+.-]+);base64,(.+)$/i.exec(t);
+  if (!m || !m[1] || !m[2]) return null;
+  const bin = atob(m[2]);
+  const bytes = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+  return new File([bytes], name, { type: m[1].toLowerCase(), lastModified: Date.now() });
 }
 
 export const fmtBytes = (n: number): string => (n >= 1048576 ? `${(n / 1048576).toLocaleString("id-ID", { maximumFractionDigits: 1 })} MB` : `${Math.max(1, Math.round(n / 1024))} KB`);

@@ -350,6 +350,7 @@ font-family:"Blibli","Helvetica Neue",Arial,sans-serif;font-size:13px;line-heigh
 .hc-grid2{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:14px 16px}
 .hc-grid3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px 16px}
 .hc-drop{display:flex;align-items:center;gap:14px;padding:14px;border:1px dashed var(--info-bd);border-radius:8px;background:var(--p-tint2)}
+.hc-cam-alt{display:block;margin:10px 0 0;font-size:12.5px;text-align:left;background:none;border:0;padding:0;cursor:pointer}
 .hc-drop.has{border-style:solid;border-color:var(--bd);background:#fff}
 .hc-thumb{width:84px;height:64px;border-radius:6px;background:var(--sf);display:flex;align-items:center;justify-content:center;overflow:hidden;flex:none;color:var(--tx2)}
 .hc-thumb img{width:100%;height:100%;object-fit:cover}

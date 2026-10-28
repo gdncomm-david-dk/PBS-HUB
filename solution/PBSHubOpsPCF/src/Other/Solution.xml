@@ -10,7 +10,7 @@
     <Descriptions>
       <Description description="PBS Hub Ops Console code components: Dashboard, ReportReview, ReportDetail, PayrollRuns, PayrollRunDetail, HostList, HostDetail, HostScore (credit score ledger: add, deduct, void), HostForm (add and edit a host) and BrandAccount (brands and accounts: add, edit) under pbs_Ops." languagecode="1033" />
     </Descriptions>
-    <Version>1.6.21.0</Version>
+    <Version>1.6.22.0</Version>
     <!-- Solution Package Type: Unmanaged(0)/Managed(1)/Both(2)-->
     <Managed>2</Managed>
     <Publisher>

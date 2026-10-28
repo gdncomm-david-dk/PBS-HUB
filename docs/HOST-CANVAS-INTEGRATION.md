@@ -484,6 +484,9 @@ Alur host: **Cek lokasi** (GPS HP, akurasi tinggi, maks. 20 detik) → **Ambil s
 foto dikecilkan jadi JPEG ≤ `selfieMaxKb`) → kalau **di luar radius**, isi **Alasan** (wajib, min. `minReasonChars`
 karakter) → **Clock in sekarang** / **Clock out sekarang**. Posisi yang lebih tua dari 5 menit harus dicek ulang.
 Di luar radius **tetap boleh** clock in/out; baris ditandai `IsInsideGeofence = false` dan alasannya tersimpan.
+Kalau `requireInsideRadius = true` (dan/atau `requireInsideRadiusOut` untuk clock out), di luar radius tombol
+terkunci: tidak ada kolom alasan, host harus pindah ke area studio lalu *Cek lokasi* lagi. OnChange ikut menolak
+(lihat guard `varRequireInsideRadius` di bawah), jadi aturannya tetap jalan walaupun control lama masih terpasang.
 
 Geofence: jarak ke setiap baris aktif `Studio Location - PBS` (`IsActive = Yes`, `Latitude`/`Longitude` terisi).
 *Di dalam radius* = jarak ≤ `RadiusMeter`; `RadiusMeter` kosong memakai `defaultRadiusM`. Kalau di luar semua
@@ -498,13 +501,19 @@ statusAbsence: "",                // nilai Choice StatusAbsence saat clock out; 
 defaultRadiusM: 100,              // radius kalau RadiusMeter kosong
 weakAccuracyM: 100,               // akurasi GPS di atas ini diberi peringatan (tidak memblokir)
 minReasonChars: 10,               // panjang minimum alasan di luar radius
-selfieMaxPx: 960, selfieMaxKb: 350
+selfieMaxPx: 960, selfieMaxKb: 350,
+requireInsideRadius: varRequireInsideRadius,       // true = clock in hanya dari dalam radius
+requireInsideRadiusOut: varRequireInsideRadiusOut, // true = clock out hanya dari dalam radius
+selfieMode: "browser"             // "canvas" = selalu pakai kamera Power Apps (Camera control)
 ```
+
+Di **App.OnStart** (sebelum `Set(varHostCtx, …)`): `Set(varRequireInsideRadius, false); Set(varRequireInsideRadiusOut, false);`
+— ganti ke `true` untuk mewajibkan.
 
 **OnVisible**
 
 ```powerfx
-Set(varCkLoading, true);
+Set(varCkLoading, true); Set(varCkCam, false); Set(varCkSelfie, "");
 Concurrent(
     ClearCollect(colCkLoc, Filter('Studio Location - PBS', IsActive = true)),
     ClearCollect(colCkClk, Filter(clockInFiltered, HostID = varMe.Title, ClockInDate >= Today() - 1)),
@@ -527,6 +536,20 @@ Set(varCkLoading, false)
 | `DeviceLocationJson` | `JSON({Latitude: Location.Latitude, Longitude: Location.Longitude}, JSONFormat.Compact)` — cadangan kalau browser/WebView menolak GPS; akurasinya tidak diketahui |
 | `IsLoading` / `ActionResult` | `varCkLoading` / `varCkResult` |
 | `ReferenceDate` | kosong (hanya untuk tes) |
+| `CanvasSelfie` | `varCkSelfie` — foto dari kamera Power Apps (lihat *Kamera Power Apps* di bawah) |
+
+**Kamera Power Apps (cadangan kalau app force close saat kamera dibuka).** Di sebagian HP Android, kamera
+browser (`Ambil selfie`) menutup Power Apps — biasanya karena izin Kamera untuk Power Apps belum diberikan
+(Pengaturan › Aplikasi › Power Apps › Izin › Kamera) atau memori HP penuh. Control mendeteksinya dan menawarkan
+**Kamera Power Apps**, yang mengirim `OPEN_CAMERA`. Siapkan di `scrClockIn`:
+
+1. Container `conCkCam` di atas control (X/Y 0, ukuran layar), `Visible = varCkCam`, Fill hitam.
+2. Di dalamnya **Camera** `camCkSelfie`: `Camera = 1` (kamera depan; kalau terbalik pakai 0), ukuran penuh.
+3. Tombol **Ambil foto**: `OnSelect = Set(varCkSelfie, JSON(camCkSelfie.Photo, JSONFormat.IncludeBinaryData)); Set(varCkCam, false)`.
+4. Tombol **Batal**: `OnSelect = Set(varCkCam, false)`.
+
+Foto masuk lewat `CanvasSelfie`, dikecilkan control seperti selfie biasa. `selfieMode: "canvas"` di config membuat
+tombol *Ambil selfie* langsung memakai kamera ini.
 
 Output kedua **`UploadData`** berisi base64 JPEG selfie, terisi bersama `CLOCK_IN` / `CLOCK_OUT` — polanya sama
 dengan screenshot report (bagian 5). Nama file disusun control: `HST-001_20260925_IN_0803.jpg` / `…_OUT_1733.jpg`.
@@ -558,8 +581,11 @@ If(!IsBlank(Self.ActionPayload),
             If(!(rid in colPbsProcessed.Id),
                 Collect(colPbsProcessed, {Id: rid});
                 Switch(act,
+                    "OPEN_CAMERA", Set(varCkCam, true),   // kamera Power Apps (lihat di atas)
                     "CLOCK_IN",
-                        If(!IsBlank(LookUp(clockInFiltered, HostID = varMe.Title && ClockInDate = Today())),
+                        If(varRequireInsideRadius && !Boolean(p.inside),
+                            Set(varCkResult, JSON({requestId: rid, status: "error", message: "Di luar radius studio: clock in hanya bisa dari dalam radius."}, JSONFormat.Compact)),
+                        !IsBlank(LookUp(clockInFiltered, HostID = varMe.Title && ClockInDate = Today())),
                             Set(varCkResult, JSON({requestId: rid, status: "conflict", message: "Kamu sudah clock in hari ini. Satu hari hanya satu clock in."}, JSONFormat.Compact)),
                         // Shift semalam yang masih berjalan (< 16 jam) harus di-clock out dulu. 16 = maxShiftHours.
                         !IsBlank(LookUp(clockInFiltered, HostID = varMe.Title && IsBlank(CheckOutTime) && !IsBlank(CheckInTime) && DateDiff(CheckInTime, Now(), TimeUnit.Minutes) < 16 * 60)),
@@ -596,7 +622,9 @@ If(!IsBlank(Self.ActionPayload),
                         ),
                     "CLOCK_OUT",
                         With({cur: LookUp(clockInFiltered, ID = Value(p.clockInId) && HostID = varMe.Title)},
-                            If(IsBlank(cur) || !IsBlank(cur.CheckOutTime),
+                            If(varRequireInsideRadiusOut && !Boolean(p.inside),
+                                Set(varCkResult, JSON({requestId: rid, status: "error", message: "Di luar radius studio: clock out hanya bisa dari dalam radius."}, JSONFormat.Compact)),
+                            IsBlank(cur) || !IsBlank(cur.CheckOutTime),
                                 Set(varCkResult, JSON({requestId: rid, status: "conflict", message: "Shift ini sudah di-clock out. Muat ulang."}, JSONFormat.Compact)),
                             // Shift maksimal 16 jam (= maxShiftHours): lewat dari itu jam clock out diisi Ops.
                             DateDiff(cur.CheckInTime, Now(), TimeUnit.Minutes) > 16 * 60,

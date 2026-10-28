@@ -6,7 +6,8 @@ import { clockInStatuses } from "./clockIn";
 /**
  * Host clock in / clock out (H-0). The control reads the device position, finds the nearest active
  * row of `Studio Location - PBS`, takes a selfie, and emits CLOCK_IN / CLOCK_OUT. Canvas writes the
- * `Clock In - PBS Hub` row. Outside the radius the host may still clock in, but must give a reason.
+ * `Clock In - PBS Hub` row. Outside the radius the host may still clock in with a reason, unless
+ * config requireInsideRadius makes the radius a hard stop.
  */
 
 export interface StudioLocation {
@@ -43,6 +44,16 @@ export interface ClockInOptions {
   minReasonChars: number;
   selfieMaxPx: number;
   selfieMaxKb: number;
+  /**
+   * How the selfie is taken: "browser" = the phone camera through the file picker (with the canvas Camera
+   * control as a fallback), "canvas" = always the canvas Camera control (for phones where the picker closes
+   * Power Apps).
+   */
+  selfieMode: "browser" | "canvas";
+  /** Clock in only from inside a studio radius (no outside-with-reason). */
+  requireInside: boolean;
+  /** Same rule for clock out. */
+  requireInsideOut: boolean;
 }
 
 export const DEFAULT_CLOCKIN_OPTIONS: ClockInOptions = {
@@ -54,11 +65,24 @@ export const DEFAULT_CLOCKIN_OPTIONS: ClockInOptions = {
   minReasonChars: 10,
   selfieMaxPx: 960,
   selfieMaxKb: 350,
+  selfieMode: "browser",
+  requireInside: false,
+  requireInsideOut: false,
 };
 
 const cfgNum = (v: unknown, fallback: number): number => {
   const n = typeof v === "number" ? v : typeof v === "string" && v.trim() !== "" ? Number(v) : NaN;
   return Number.isFinite(n) ? n : fallback;
+};
+const cfgBool = (v: unknown, fallback: boolean): boolean => {
+  if (typeof v === "boolean") return v;
+  if (typeof v === "number") return v !== 0;
+  if (typeof v === "string") {
+    const t = v.trim().toLowerCase();
+    if (["true", "yes", "ya", "1", "on"].includes(t)) return true;
+    if (["false", "no", "tidak", "0", "off"].includes(t)) return false;
+  }
+  return fallback;
 };
 const cfgStr = (v: unknown, fallback: string): string => (typeof v === "string" ? v.trim() : fallback);
 
@@ -76,6 +100,9 @@ export function clockInOptions(config: Record<string, unknown>): ClockInOptions 
     minReasonChars: cfgNum(config.minReasonChars, d.minReasonChars),
     selfieMaxPx: cfgNum(config.selfieMaxPx, d.selfieMaxPx),
     selfieMaxKb: cfgNum(config.selfieMaxKb, d.selfieMaxKb),
+    selfieMode: cfgStr(config.selfieMode, d.selfieMode).toLowerCase() === "canvas" ? "canvas" : "browser",
+    requireInside: cfgBool(config.requireInsideRadius, d.requireInside),
+    requireInsideOut: cfgBool(config.requireInsideRadiusOut, d.requireInsideOut),
   };
 }
 
@@ -268,12 +295,24 @@ export function clockOutPayload(i: ClockOutInput): Record<string, unknown> {
   };
 }
 
+export const OUTSIDE_BLOCKED = "Pindah ke dalam radius studio";
+
 /** What still stops the submit button, in the order the host fixes it. */
-export function clockBlockers(p: { fix: GeoFix | null; locations: number; geofence: GeofenceResult | null; selfie: boolean; reason: string; minReasonChars: number }): string[] {
+export function clockBlockers(p: {
+  fix: GeoFix | null;
+  locations: number;
+  geofence: GeofenceResult | null;
+  selfie: boolean;
+  reason: string;
+  minReasonChars: number;
+  /** Outside the radius is a hard stop, not a reason to fill in. */
+  requireInside?: boolean;
+}): string[] {
   const out: string[] = [];
   if (p.locations === 0) out.push("Lokasi studio belum diatur. Hubungi tim PBS.");
   if (!p.fix) out.push("Cek lokasi dulu");
   if (!p.selfie) out.push("Ambil selfie");
-  if (p.fix && p.geofence && !p.geofence.inside && p.reason.trim().length < p.minReasonChars) out.push(`Isi alasan di luar radius (min. ${p.minReasonChars} karakter)`);
+  if (p.fix && p.geofence && !p.geofence.inside && p.requireInside) out.push(OUTSIDE_BLOCKED);
+  else if (p.fix && p.geofence && !p.geofence.inside && p.reason.trim().length < p.minReasonChars) out.push(`Isi alasan di luar radius (min. ${p.minReasonChars} karakter)`);
   return out;
 }

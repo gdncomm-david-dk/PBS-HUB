@@ -420,7 +420,7 @@ const assert = (c, m) => { if (!c) { console.log("FAIL", m); process.exitCode = 
   await p.waitForTimeout(150);
   assert(await p.getByText(/sudah memakai kehadiran Agustus 2026/).isVisible(), "payroll run using August is named before editing");
   const augRow = await pageTo(p.locator("tr", { hasText: "Senin, 3 Agustus" }));
-  assert((await augRow.getByText("HP", { exact: false }).isVisible()) && (await augRow.getByText("→ Laptop").isVisible()), "Perangkat column: clocked in on HP, out on Laptop");
+  assert(/In HP[\s\S]*Out Laptop/.test(await augRow.innerText()), "Perangkat column: clocked in on HP, out on Laptop");
   assert((await augRow.getByText("Studio Kemang").first().isVisible()) && (await augRow.getByText("Dalam radius").first().isVisible()), "Lokasi column: studio, distance and inside the radius for clock in");
   assert((await augRow.getByText("Out di luar radius").isVisible()) && (await augRow.getByText("Luar radius").first().isVisible()), "Lokasi column: clock out far from the studio is flagged Out di luar radius");
   await augRow.getByRole("button", { name: "Edit", exact: true }).click();
@@ -943,6 +943,26 @@ const assert = (c, m) => { if (!c) { console.log("FAIL", m); process.exitCode = 
   assert(await p.getByText("Clock in tersimpan. Selamat bekerja!").isVisible() && (await p.getByRole("button", { name: "Clock Out Now" }).isVisible()), "after clock in the screen turns to clock out");
   await shot("f-clockin-done");
 
+  // Fallback when the phone camera closes Power Apps: the canvas Camera control photo comes back on CanvasSelfie.
+  await go("c=ClockIn&shift=none&w=390");
+  await p.getByRole("button", { name: "Check Location" }).click();
+  await p.waitForTimeout(300);
+  await p.getByRole("button", { name: /Pakai kamera Power Apps/ }).click();
+  await p.waitForTimeout(900);
+  pl = await payloads();
+  assert(pl.some((x) => x.action === "OPEN_CAMERA" && x.payload.dir === "IN") && (await p.getByText("Selfie siap").isVisible()), "OPEN_CAMERA, then the canvas photo becomes the selfie");
+  await p.getByRole("button", { name: "Clock In Now" }).click();
+  await p.waitForTimeout(800);
+  pl = await payloads();
+  assert(pl.some((x) => x.action === "CLOCK_IN" && x.payload.selfieSource === "Camera"), "CLOCK_IN with the canvas camera selfie");
+  // Power Apps closed while the phone camera was open: the next start offers the canvas camera.
+  await go("c=ClockIn&shift=none&w=390");
+  await p.evaluate(() => localStorage.setItem("pbs-clockin-camera-open", String(Date.now() - 60000)));
+  await go("c=ClockIn&shift=none&w=390");
+  assert(await p.getByText("Power Apps tertutup saat kamera dibuka.").isVisible(), "crash during the camera is noticed on the next start");
+  await shot("f-clockin-camera-crash");
+  await p.evaluate(() => localStorage.removeItem("pbs-clockin-camera-open"));
+
   await go("c=ClockIn&shift=none&geo=-6.2300,106.8031,35&w=390");
   await p.getByRole("button", { name: "Check Location" }).click();
   await p.waitForTimeout(400);
@@ -957,6 +977,17 @@ const assert = (c, m) => { if (!c) { console.log("FAIL", m); process.exitCode = 
   pl = await payloads();
   const kOut = pl.find((x) => x.action === "CLOCK_IN");
   assert(kOut && kOut.payload.inside === false && kOut.payload.reason === "Live di gudang brand hari ini" && kOut.payload.distance > 150, "outside CLOCK_IN carries the reason");
+
+  await go("c=ClockIn&shift=none&geo=-6.2300,106.8031,35&inside=1&w=390");
+  await p.getByRole("button", { name: "Check Location" }).click();
+  await p.waitForTimeout(400);
+  await p.setInputFiles("input[type=file]", { name: "selfie.png", mimeType: "image/png", buffer: selfiePng });
+  await p.waitForTimeout(600);
+  assert(
+    (await p.getByText("Di luar radius studio.", { exact: true }).isVisible()) && (await p.locator("#hc-ci-reason").count()) === 0 && (await p.getByRole("button", { name: "Clock In Now" }).isDisabled()),
+    "requireInsideRadius: outside the radius is a hard stop, no reason field",
+  );
+  await shot("f-clockin-require-inside");
 
   await go("c=ClockIn&shift=none&geo=deny");
   await p.getByRole("button", { name: "Check Location" }).click();
@@ -984,6 +1015,16 @@ const assert = (c, m) => { if (!c) { console.log("FAIL", m); process.exitCode = 
   assert(kDone && kDone.payload.clockInId && kDone.payload.workingMinutes === 287 && kDone.payload.clockOutTime === "11:42" && typeof kDone.payload.scheduleCount === "number" && typeof kDone.payload.totalReports === "number" && /_OUT_/.test(kDone.payload.file.name), "CLOCK_OUT payload with duration and counts");
   assert(await p.getByText("Clock out tersimpan. Terima kasih!").isVisible() && (await p.getByText(/Shift selesai/).count()) > 0, "after clock out the shift reads finished");
   await shot("f-clockout-done");
+
+  // ---- HostDetail attendance: selfie links, GPS accuracy, device details ----
+  await go("c=HostDetail&h=HST-001&tab=Attendance");
+  await p.selectOption("select[aria-label='Bulan kehadiran']", "2026-08");
+  await p.waitForTimeout(150);
+  assert((await p.getByText(/±\d+ m/).count()) > 0 && (await p.getByText("Android 14 · Chrome 126 · 412x915").count()) > 0, "attendance shows GPS accuracy and the device line");
+  await p.locator("tbody tr").first().getByRole("button", { name: "In", exact: true }).click();
+  pl = await payloads();
+  assert(pl.some((x) => x.action === "OPEN_EVIDENCE" && /_IN\.jpg$/.test(x.payload.url)), "Selfie In opens the clock in photo");
+  await shot("hd-attendance-selfie");
 
   // ---- Brand & Account: brands on the left, accounts on the right, Add Brand / Add Account / Edit ----
   await go("c=BrandAccount");

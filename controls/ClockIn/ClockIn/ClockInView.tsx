@@ -4,7 +4,7 @@ import { Row, num, str } from "../../../shared/data";
 import { detectDevice } from "../../../shared/device";
 import { fmtDateTimeShort, fmtLongDate, fmtTime } from "../../../shared/format";
 import { Shift, hostName, hostOptions, shiftToday } from "../../../shared/hostApp";
-import { PreparedImage, prepareImage } from "../../../shared/hostImage";
+import { PreparedImage, canvasPhotoFile, prepareImage } from "../../../shared/hostImage";
 import {
   GeoFix,
   StudioLocation,
@@ -38,6 +38,8 @@ export interface ClockInViewProps {
   locations: Row[];
   /** Canvas Location signal, used only when the browser position is not available. */
   canvasLocation: Row[];
+  /** Photo from the canvas Camera control (after OPEN_CAMERA), JSON(…, IncludeBinaryData). */
+  canvasSelfie: string;
   loading: boolean;
   now: Date;
   /** The moment a button is pressed (ReferenceDate in tests, else the device clock). */
@@ -50,6 +52,25 @@ const fmtDur = (min: number): string =>
   min >= 60 ? `${Math.floor(min / 60)}j ${min % 60}m` : `${min}m`;
 /** A position older than this is read again before submit. */
 const FIX_MAX_AGE_MS = 5 * 60000;
+/**
+ * Set just before the phone camera opens and cleared when the control gets the photo or the focus back.
+ * Still there on the next start means Power Apps closed while the camera was open.
+ */
+const CAMERA_FLAG = "pbs-clockin-camera-open";
+const CAMERA_FLAG_MAX_AGE_MS = 15 * 60000;
+function cameraFlag(op: "set" | "clear" | "read"): number | null {
+  try {
+    if (op === "set") localStorage.setItem(CAMERA_FLAG, String(Date.now()));
+    else if (op === "clear") localStorage.removeItem(CAMERA_FLAG);
+    else {
+      const v = Number(localStorage.getItem(CAMERA_FLAG));
+      return Number.isFinite(v) && v > 0 ? v : null;
+    }
+  } catch {
+    // storage blocked: no crash hint, everything else works
+  }
+  return null;
+}
 
 type GeoState =
   | { kind: "idle" }
@@ -99,6 +120,29 @@ export function ClockInView(props: ClockInViewProps): React.ReactElement {
   const [selfieErr, setSelfieErr] = React.useState("");
   const [reason, setReason] = React.useState("");
   const fileRef = React.useRef<HTMLInputElement>(null);
+  // Power Apps closed last time the camera opened: offer the canvas camera straight away.
+  const [cameraCrashed, setCameraCrashed] = React.useState(() => {
+    const at = cameraFlag("read");
+    cameraFlag("clear");
+    return at !== null && Date.now() - at < CAMERA_FLAG_MAX_AGE_MS;
+  });
+  const useCanvasCamera = opts.selfieMode === "canvas";
+  const openPhoneCamera = () => {
+    cameraFlag("set");
+    // Coming back from the camera (photo or cancel) gives the page its focus again.
+    const back = () => {
+      window.removeEventListener("focus", back);
+      setTimeout(() => cameraFlag("clear"), 1500);
+    };
+    window.addEventListener("focus", back);
+    fileRef.current?.click();
+  };
+  const openCanvasCamera = () => {
+    setSelfieErr("");
+    action.fire("OPEN_CAMERA", { dir: dir === "OUT" ? "OUT" : "IN" });
+  };
+  // A photo canvas hands back after OPEN_CAMERA. The value already there when the screen opened is old.
+  const seenCanvasSelfie = React.useRef(props.canvasSelfie);
 
   // A finished action starts the next direction from scratch (new position, new selfie).
   const last = action.lastResult;
@@ -154,7 +198,8 @@ export function ClockInView(props: ClockInViewProps): React.ReactElement {
     );
   };
 
-  const pick = async (file: File | undefined) => {
+  const pick = async (file: File | undefined, source?: string) => {
+    cameraFlag("clear");
     if (!file) return;
     setSelfieBusy(true);
     setSelfieErr("");
@@ -164,7 +209,8 @@ export function ClockInView(props: ClockInViewProps): React.ReactElement {
       const fresh =
         !file.lastModified ||
         Math.abs(Date.now() - file.lastModified) < 10 * 60000;
-      setSelfie({ img, source: fresh ? "Camera" : "Gallery" });
+      setSelfie({ img, source: source ?? (fresh ? "Camera" : "Gallery") });
+      setCameraCrashed(false);
     } catch (e) {
       setSelfieErr(e instanceof Error ? e.message : "Foto tidak bisa dibaca.");
     } finally {
@@ -173,7 +219,23 @@ export function ClockInView(props: ClockInViewProps): React.ReactElement {
     }
   };
 
+  React.useEffect(() => {
+    const raw = props.canvasSelfie;
+    if (raw === seenCanvasSelfie.current) return;
+    seenCanvasSelfie.current = raw;
+    if (!raw.trim()) return;
+    const file = canvasPhotoFile(raw, "selfie.jpg");
+    if (!file) {
+      setSelfieErr("Foto dari kamera Power Apps tidak terbaca. CanvasSelfie harus JSON(Camera.Photo, JSONFormat.IncludeBinaryData).");
+      return;
+    }
+    void pick(file, "Camera");
+    // pick only reads stable values; re-running on its identity would re-read the same photo
+  }, [props.canvasSelfie]);
+
+  const mustInside = dir === "OUT" ? opts.requireInsideOut : opts.requireInside;
   const blockers = clockBlockers({
+    requireInside: mustInside,
     fix,
     locations: locations.length,
     geofence,
@@ -389,25 +451,51 @@ export function ClockInView(props: ClockInViewProps): React.ReactElement {
                   <div className="pbs-muted" style={{ fontSize: 12 }}>
                     {selfie
                       ? `${selfie.img.width}×${selfie.img.height} · ${Math.round(selfie.img.bytes / 1024)} KB`
-                      : "Kamera depan terbuka saat tombol ditekan."}
+                      : useCanvasCamera
+                        ? "Kamera Power Apps terbuka saat tombol ditekan."
+                        : "Kamera depan terbuka saat tombol ditekan."}
                   </div>
                 </div>
                 <Button
                   variant="secondary"
                   size="sm"
-                  onClick={() => fileRef.current?.click()}
+                  onClick={useCanvasCamera ? openCanvasCamera : openPhoneCamera}
                   disabled={pending || selfieBusy}
                 >
                   <Icon name="camera" size={14} />{" "}
                   {selfie ? "Retake" : "Take Selfie"}
                 </Button>
               </div>
+              {cameraCrashed && !selfie && !useCanvasCamera ? (
+                <InfoBanner
+                  tone="warn"
+                  action={
+                    <Button size="sm" onClick={openCanvasCamera} disabled={pending || selfieBusy}>
+                      Kamera Power Apps
+                    </Button>
+                  }
+                >
+                  <b>Power Apps tertutup saat kamera dibuka.</b> Pakai kamera Power Apps, atau izinkan Kamera
+                  untuk aplikasi Power Apps di Pengaturan HP (Aplikasi › Power Apps › Izin › Kamera).
+                </InfoBanner>
+              ) : null}
+              {!useCanvasCamera && !cameraCrashed && !selfie ? (
+                <button type="button" className="pbs-link hc-cam-alt" onClick={openCanvasCamera} disabled={pending || selfieBusy}>
+                  Kamera tidak terbuka atau app tertutup? Pakai kamera Power Apps
+                </button>
+              ) : null}
               {selfieErr ? (
                 <InfoBanner tone="err">{selfieErr}</InfoBanner>
               ) : null}
             </div>
 
-            {fix && geofence && !geofence.inside ? (
+            {fix && geofence && !geofence.inside && mustInside ? (
+              <InfoBanner tone="err">
+                <b>Di luar radius studio.</b> {dir === "OUT" ? "Clock out" : "Clock in"} hanya bisa dari dalam radius
+                studio. Pindah ke area studio lalu cek lokasi lagi.
+              </InfoBanner>
+            ) : null}
+            {fix && geofence && !geofence.inside && !mustInside ? (
               <div className="hc-card hc-shift">
                 <StepHead
                   n={3}
@@ -482,7 +570,7 @@ export function ClockInView(props: ClockInViewProps): React.ReactElement {
               <dl className="hc-kv">
                 <div>
                   <dt>Di luar radius</dt>
-                  <dd>Tetap bisa, wajib alasan</dd>
+                  <dd>{mustInside ? "Tidak bisa, pindah ke studio" : "Tetap bisa, wajib alasan"}</dd>
                 </div>
                 <div>
                   <dt>GPS lemah</dt>

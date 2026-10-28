@@ -160,6 +160,7 @@
         // day 3 clocked out far from the studio; host 5 day 12 clocked in outside the radius
         CheckInOffice: "Studio Kemang", CheckInDistance: i === 5 && day === 12 ? 640 : 18 + day, CheckOutOffice: day === 3 ? "Studio Kemang" : "Studio Kemang", CheckOutDistance: day === 3 ? 1450 : 25, IsInsideGeofenceOut: day !== 3,
         CheckOutDevice: day === 3 ? "Desktop" : day % 2 ? "Mobile" : "Desktop", CheckOutDeviceInfo: day === 3 ? "Windows · Edge 126 · 1920x1080" : "",
+        CheckInAccuracy: 8 + (day % 5) * 6, CheckOutAccuracy: openShift ? null : 15, SelfiePhotoUrl: `https://contoso.sharepoint.com/selfie/${h.Title}_${day}_IN.jpg`, SelfieOutPhotoUrl: openShift ? "" : `https://contoso.sharepoint.com/selfie/${h.Title}_${day}_OUT.jpg`,
       });
     });
   });
