@@ -54,6 +54,10 @@ export interface ClockInOptions {
   requireInside: boolean;
   /** Same rule for clock out. */
   requireInsideOut: boolean;
+  /** Clock in only from a phone or tablet; a laptop/desktop browser is refused. */
+  mobileOnly: boolean;
+  /** Same rule for clock out. */
+  mobileOnlyOut: boolean;
 }
 
 export const DEFAULT_CLOCKIN_OPTIONS: ClockInOptions = {
@@ -68,6 +72,8 @@ export const DEFAULT_CLOCKIN_OPTIONS: ClockInOptions = {
   selfieMode: "browser",
   requireInside: false,
   requireInsideOut: false,
+  mobileOnly: false,
+  mobileOnlyOut: false,
 };
 
 const cfgNum = (v: unknown, fallback: number): number => {
@@ -103,6 +109,8 @@ export function clockInOptions(config: Record<string, unknown>): ClockInOptions 
     selfieMode: cfgStr(config.selfieMode, d.selfieMode).toLowerCase() === "canvas" ? "canvas" : "browser",
     requireInside: cfgBool(config.requireInsideRadius, d.requireInside),
     requireInsideOut: cfgBool(config.requireInsideRadiusOut, d.requireInsideOut),
+    mobileOnly: cfgBool(config.mobileOnly, d.mobileOnly),
+    mobileOnlyOut: cfgBool(config.mobileOnlyOut, d.mobileOnlyOut),
   };
 }
 
@@ -295,6 +303,7 @@ export function clockOutPayload(i: ClockOutInput): Record<string, unknown> {
   };
 }
 
+export const DESKTOP_BLOCKED = "Buka dari HP";
 export const OUTSIDE_BLOCKED = "Pindah ke dalam radius studio";
 
 /** What still stops the submit button, in the order the host fixes it. */
@@ -307,8 +316,11 @@ export function clockBlockers(p: {
   minReasonChars: number;
   /** Outside the radius is a hard stop, not a reason to fill in. */
   requireInside?: boolean;
+  /** Device is a desktop while config allows phones/tablets only. */
+  desktopBlocked?: boolean;
 }): string[] {
   const out: string[] = [];
+  if (p.desktopBlocked) out.push(DESKTOP_BLOCKED);
   if (p.locations === 0) out.push("Lokasi studio belum diatur. Hubungi tim PBS.");
   if (!p.fix) out.push("Cek lokasi dulu");
   if (!p.selfie) out.push("Ambil selfie");

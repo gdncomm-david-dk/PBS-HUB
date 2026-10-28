@@ -234,7 +234,10 @@ export function ClockInView(props: ClockInViewProps): React.ReactElement {
   }, [props.canvasSelfie]);
 
   const mustInside = dir === "OUT" ? opts.requireInsideOut : opts.requireInside;
+  const deviceType = React.useMemo(() => detectDevice().type, []);
+  const desktopBlocked = (dir === "OUT" ? opts.mobileOnlyOut : opts.mobileOnly) && deviceType === "Desktop";
   const blockers = clockBlockers({
+    desktopBlocked,
     requireInside: mustInside,
     fix,
     locations: locations.length,
@@ -374,6 +377,12 @@ export function ClockInView(props: ClockInViewProps): React.ReactElement {
       ) : (
         <div className="hc-split">
           <div className="hc-main">
+            {desktopBlocked ? (
+              <InfoBanner tone="err">
+                <b>{dir === "OUT" ? "Clock out" : "Clock in"} hanya bisa dari HP.</b> Perangkat ini terbaca sebagai
+                laptop/komputer. Buka app Power Apps di HP lalu {dir === "OUT" ? "clock out" : "clock in"} dari sana.
+              </InfoBanner>
+            ) : null}
             {locations.length === 0 ? (
               <InfoBanner tone="err">
                 Lokasi studio belum diatur (Studio Location - PBS kosong atau

@@ -3,6 +3,7 @@ import {
   checkGeofence,
   clockBlockers,
   OUTSIDE_BLOCKED,
+  DESKTOP_BLOCKED,
   clockInOptions,
   clockInPayload,
   clockOutPayload,
@@ -159,5 +160,17 @@ describe("requireInsideRadius config", () => {
     expect(clockInOptions({ requireInsideRadius: "ya" }).requireInside).toBe(true);
     expect(clockInOptions({ requireInsideRadius: "false" }).requireInside).toBe(false);
     expect(clockInOptions({ requireInsideRadiusOut: 1 }).requireInsideOut).toBe(true);
+  });
+});
+
+describe("mobileOnly config", () => {
+  it("parses and blocks desktops", () => {
+    expect(clockInOptions({}).mobileOnly).toBe(false);
+    expect(clockInOptions({ mobileOnly: true }).mobileOnly).toBe(true);
+    expect(clockInOptions({ mobileOnlyOut: "true" }).mobileOnlyOut).toBe(true);
+    const fix = { lat: -6.2246, lng: 106.8031, accuracy: 10, source: "device" as const, at: new Date() };
+    const g = { location: null, distance: 0, inside: true };
+    expect(clockBlockers({ fix, locations: 1, geofence: g, selfie: true, reason: "", minReasonChars: 10, desktopBlocked: true })).toEqual([DESKTOP_BLOCKED]);
+    expect(clockBlockers({ fix, locations: 1, geofence: g, selfie: true, reason: "", minReasonChars: 10, desktopBlocked: false })).toEqual([]);
   });
 });

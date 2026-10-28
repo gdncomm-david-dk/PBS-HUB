@@ -218,6 +218,9 @@ Set(varHolidays, [                                                  // tanggal m
 // Clock in wajib di dalam radius studio? true = di luar radius tombol clock in terkunci (tanpa opsi alasan).
 Set(varRequireInsideRadius, false);
 Set(varRequireInsideRadiusOut, false);                              // aturan yang sama untuk clock out
+// Clock in hanya dari HP/tablet? true = laptop/komputer tidak bisa clock in.
+Set(varCkMobileOnly, false);
+Set(varCkMobileOnlyOut, false);                                     // aturan yang sama untuk clock out
 
 // 1. Context: dikirim ke properti Context semua control host.
 Set(varHostCtx, JSON({
@@ -240,6 +243,8 @@ Set(varHostCtx, JSON({
         selfieMaxPx: 960, selfieMaxKb: 350,
         requireInsideRadius: varRequireInsideRadius,       // clock in hanya dari dalam radius
         requireInsideRadiusOut: varRequireInsideRadiusOut, // clock out hanya dari dalam radius
+        mobileOnly: varCkMobileOnly,             // clock in hanya dari HP/tablet
+        mobileOnlyOut: varCkMobileOnlyOut,       // clock out hanya dari HP/tablet
         selfieMode: "browser",                   // "canvas" = selalu kamera Power Apps (HP yang force close saat kamera dibuka)
         weekMaxHours: 40,                        // Jadwal saya · Minggu: "Jam live … dari maks 40 jam" (0 = tanpa batas)
         picName: "Bayu Prasetyo",                // Jadwal saya · Bulan: nama PIC jadwal di kartu "Ada yang tidak sesuai?"
@@ -548,7 +553,9 @@ Set(varCkLoading, false)"""
                       "*Ambil foto* `OnSelect = Set(varCkSelfie, JSON(camCkSelfie.Photo, JSONFormat.IncludeBinaryData)); Set(varCkCam, false)` "
                       "plus tombol *Batal* `OnSelect = Set(varCkCam, false)`. Izinkan juga Kamera untuk Power Apps di Pengaturan HP.\n\n"
                       "**Wajib di dalam radius:** `Set(varRequireInsideRadius, true)` di App.OnStart (Langkah 3) → di luar radius tombol "
-                      "Clock in terkunci dan OnChange menolak. Clock out: `varRequireInsideRadiusOut`."))
+                      "Clock in terkunci dan OnChange menolak. Clock out: `varRequireInsideRadiusOut`.\n\n"
+                      "**Hanya dari HP:** `Set(varCkMobileOnly, true)` di App.OnStart → laptop/komputer tidak bisa clock in (tablet boleh). "
+                      "Clock out: `varCkMobileOnlyOut`."))
 
     cs_vis = """
 Set(varCsLoading, true);

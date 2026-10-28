@@ -989,6 +989,18 @@ const assert = (c, m) => { if (!c) { console.log("FAIL", m); process.exitCode = 
   );
   await shot("f-clockin-require-inside");
 
+  // Harness Chromium reports a desktop user agent.
+  await go("c=ClockIn&shift=none&mob=1&w=390");
+  await p.getByRole("button", { name: "Check Location" }).click();
+  await p.waitForTimeout(400);
+  await p.setInputFiles("input[type=file]", { name: "selfie.png", mimeType: "image/png", buffer: selfiePng });
+  await p.waitForTimeout(600);
+  assert(
+    (await p.getByText("Clock in hanya bisa dari HP.").isVisible()) && (await p.getByRole("button", { name: "Clock In Now" }).isDisabled()),
+    "mobileOnly: a desktop browser cannot clock in",
+  );
+  await shot("f-clockin-mobile-only");
+
   await go("c=ClockIn&shift=none&geo=deny");
   await p.getByRole("button", { name: "Check Location" }).click();
   await p.waitForTimeout(400);

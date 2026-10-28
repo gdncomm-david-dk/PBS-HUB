@@ -504,11 +504,17 @@ minReasonChars: 10,               // panjang minimum alasan di luar radius
 selfieMaxPx: 960, selfieMaxKb: 350,
 requireInsideRadius: varRequireInsideRadius,       // true = clock in hanya dari dalam radius
 requireInsideRadiusOut: varRequireInsideRadiusOut, // true = clock out hanya dari dalam radius
+mobileOnly: varCkMobileOnly,                       // true = clock in hanya dari HP/tablet (laptop ditolak)
+mobileOnlyOut: varCkMobileOnlyOut,                 // true = clock out hanya dari HP/tablet
 selfieMode: "browser"             // "canvas" = selalu pakai kamera Power Apps (Camera control)
 ```
 
-Di **App.OnStart** (sebelum `Set(varHostCtx, …)`): `Set(varRequireInsideRadius, false); Set(varRequireInsideRadiusOut, false);`
-— ganti ke `true` untuk mewajibkan.
+Di **App.OnStart** (sebelum `Set(varHostCtx, …)`): `Set(varRequireInsideRadius, false); Set(varRequireInsideRadiusOut, false);
+Set(varCkMobileOnly, false); Set(varCkMobileOnlyOut, false);` — ganti ke `true` untuk mewajibkan.
+
+**Hanya dari HP.** `mobileOnly` membaca perangkat yang sama dengan `deviceType` di payload (HP / tablet / laptop).
+Laptop/komputer → tombol terkunci dengan pesan *Clock in hanya bisa dari HP*. Tablet dianggap mobile. OnChange
+ikut menolak `deviceType = "Desktop"` (guard di bawah).
 
 **OnVisible**
 
@@ -583,7 +589,9 @@ If(!IsBlank(Self.ActionPayload),
                 Switch(act,
                     "OPEN_CAMERA", Set(varCkCam, true),   // kamera Power Apps (lihat di atas)
                     "CLOCK_IN",
-                        If(varRequireInsideRadius && !Boolean(p.inside),
+                        If(varCkMobileOnly && Text(p.deviceType) = "Desktop",
+                            Set(varCkResult, JSON({requestId: rid, status: "error", message: "Clock in hanya bisa dari HP."}, JSONFormat.Compact)),
+                        varRequireInsideRadius && !Boolean(p.inside),
                             Set(varCkResult, JSON({requestId: rid, status: "error", message: "Di luar radius studio: clock in hanya bisa dari dalam radius."}, JSONFormat.Compact)),
                         !IsBlank(LookUp(clockInFiltered, HostID = varMe.Title && ClockInDate = Today())),
                             Set(varCkResult, JSON({requestId: rid, status: "conflict", message: "Kamu sudah clock in hari ini. Satu hari hanya satu clock in."}, JSONFormat.Compact)),
@@ -622,7 +630,9 @@ If(!IsBlank(Self.ActionPayload),
                         ),
                     "CLOCK_OUT",
                         With({cur: LookUp(clockInFiltered, ID = Value(p.clockInId) && HostID = varMe.Title)},
-                            If(varRequireInsideRadiusOut && !Boolean(p.inside),
+                            If(varCkMobileOnlyOut && Text(p.deviceType) = "Desktop",
+                                Set(varCkResult, JSON({requestId: rid, status: "error", message: "Clock out hanya bisa dari HP."}, JSONFormat.Compact)),
+                            varRequireInsideRadiusOut && !Boolean(p.inside),
                                 Set(varCkResult, JSON({requestId: rid, status: "error", message: "Di luar radius studio: clock out hanya bisa dari dalam radius."}, JSONFormat.Compact)),
                             IsBlank(cur) || !IsBlank(cur.CheckOutTime),
                                 Set(varCkResult, JSON({requestId: rid, status: "conflict", message: "Shift ini sudah di-clock out. Muat ulang."}, JSONFormat.Compact)),
