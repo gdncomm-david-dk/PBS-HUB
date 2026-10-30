@@ -1,6 +1,6 @@
 # PBS Hub — canvas formulas (copy sheet)
 
-All `Items`, inputs and `OnChange` for the three screens, for **Studio Hub 1.8.4** and **Schedule Hub 1.9.2**.
+All `Items`, inputs and `OnChange` for the three screens, for **Studio Hub 1.8.4** and **Schedule Hub 2 (2.0.0)**.
 Explanations and troubleshooting are in [`SETUP.md`](SETUP.md); this file only collects what you paste.
 
 For every dataset, also open **Fields → Edit** and add the columns the property description lists.
@@ -123,7 +123,7 @@ If(rid <> varLastStudioRid,
 
 ---
 
-## 2. Schedule screen (`pbs_Ops.ScheduleHub`, `View = "Board"`)
+## 2. Schedule screen (`pbs_Ops.ScheduleHub2`, `View = "Board"`)
 
 ### Screen.OnVisible
 
@@ -327,7 +327,7 @@ If(rid <> varLastSchedRid,
 
 ## 3. Schedule Detail screen (`scrScheduleDetail`, `View = "Detail"`)
 
-A second **PBS Schedule Hub** control that shows one session. Link to it from any screen:
+A second **PBS Schedule Hub 2** control that shows one session. Link to it from any screen:
 
 ```powerfx
 Set(varLinkScheduleId, ThisItem.ScheduleID);   // e.g. "SCD-447"

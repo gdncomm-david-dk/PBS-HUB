@@ -3,7 +3,7 @@
 | Control | Screens | Managed solution | Canvas setup |
 |---|---|---|---|
 | `pbs_Ops.StudioHub` | Studio list, Studio detail | `releases/PBSStudioHub_managed_1.8.4.zip` | [`docs/SETUP.md` § B](docs/SETUP.md), formulas in [`docs/FORMULAS.md`](docs/FORMULAS.md) |
-| `pbs_Ops.ScheduleHub` | Schedule board, session detail, create/edit, bulk & AI upload, Parse PDF/Excel | `releases/PBSScheduleHub_managed_1.9.2.zip` | [`docs/SETUP.md` § C](docs/SETUP.md), formulas in [`docs/FORMULAS.md`](docs/FORMULAS.md) |
+| `pbs_Ops.ScheduleHub2` | Schedule board, session detail, create/edit, bulk & AI upload, Parse PDF/Excel | `releases/PBSScheduleHub2_managed_2.0.0.zip` | [`docs/SETUP.md` § C](docs/SETUP.md), formulas in [`docs/FORMULAS.md`](docs/FORMULAS.md) |
 
 ## `pbs_Ops.StudioHub` (Studio list + Studio detail)
 
@@ -28,7 +28,7 @@ built on the SharePoint data model in `DESIGN.md`.
     session of the month** with GMV and report status.
 - Create / edit studio modal, including the Lokasi (LocationID) picker.
 
-## `pbs_Ops.ScheduleHub` (Schedule + session detail)
+## `pbs_Ops.ScheduleHub2` (Schedule + session detail)
 
 - **Board** — KPIs (sessions and live hours in range, live now, conflicts, ended sessions without a report),
   date range with Hari ini / Minggu ini / Bulan ini, Brand / Host / Studio / Platform / Status filters and search.
@@ -57,9 +57,9 @@ pcf/StudioDirectory/            PCF project (pac pcf init, standard control, Rea
   StudioDirectory/ui/           React UI
   tests/                        Jest unit tests for core/
   harness/                      local preview with mock data (not shipped)
-pcf/Schedule/                   PCF project for pbs_Ops.ScheduleHub (same layout)
+pcf/Schedule/                   PCF project for pbs_Ops.ScheduleHub2(same layout)
 solution/PBSStudioHub/          Dataverse solution project (pac solution init), builds the managed zip
-solution/PBSScheduleHub/           same, for pbs_Ops.ScheduleHub
+solution/PBSScheduleHub2/          same, for pbs_Ops.ScheduleHub2
 releases/                       built managed solution
 ```
 
@@ -69,7 +69,7 @@ releases/                       built managed solution
 cd pcf/StudioDirectory && npm install && npm test && npm run build
 # preview: open pcf/StudioDirectory/harness/index.html (after npm run build)
 cd ../../solution/PBSStudioHub && dotnet build -c Release   # → bin/Release/PBSStudioHub.zip (managed)
-# Schedule: same steps in pcf/Schedule and solution/PBSScheduleHub
+# Schedule: same steps in pcf/Schedule and solution/PBSScheduleHub2
 ```
 
 Requires Node 18+, .NET SDK 8 and the Power Platform CLI (`dotnet tool install -g Microsoft.PowerApps.CLI.Tool`).

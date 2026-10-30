@@ -8,7 +8,7 @@ for the Studio screens and part C for the Schedule screen.
 | Control | Display name | Solution (managed) | Version | Screens |
 |---|---|---|---|---|
 | `pbs_Ops.StudioHub` | PBS Studio Hub | `releases/PBSStudioHub_managed_1.8.4.zip` (`PBSStudioHub`) | 1.8.4 | Studio list, Studio detail |
-| `pbs_Ops.ScheduleHub` | PBS Schedule Hub | `releases/PBSScheduleHub_managed_1.9.2.zip` (`PBSScheduleHub`) | 1.9.2 | Schedule board, session detail, create/edit, bulk & AI upload, Parse PDF/Excel |
+| `pbs_Ops.ScheduleHub2` | PBS Schedule Hub 2 | `releases/PBSScheduleHub2_managed_2.0.0.zip` (`PBSScheduleHub2`) | 2.0.0 | Schedule board, session detail, create/edit, bulk & AI upload, Parse PDF/Excel |
 
 Neither control writes to SharePoint. Each one emits an `ActionPayload` `{ action, requestId, payload }`; the
 canvas app does the `Patch` and replies through `ActionResult` with the same `requestId`. Until that reply
@@ -22,7 +22,7 @@ arrives the control stays locked. It gives up after 30 seconds for a save, or 3 
 
 1. Power Apps → **Solutions → Import**. Import both zips from `releases/` as managed solutions.
 2. Canvas app → **Settings → Updates** → turn on **Power Apps component framework for canvas apps**.
-3. **Insert → Get more components → Code** → add **PBS Studio Hub** and **PBS Schedule Hub**.
+3. **Insert → Get more components → Code** → add **PBS Studio Hub** and **PBS Schedule Hub 2**.
 4. Give each control the full screen next to `BlibliUniversalSidebar` (desktop layout from 1040 px). On a phone the
    controls switch to their portrait layout by themselves once the app stops scaling: see A4.
 5. When you later import a newer version, accept **Update code components** in the editor, then save and publish.
@@ -83,7 +83,7 @@ Both controls pick their layout from the width they are given: desktop from 1040
 landscape desktop when the app is **scaled**: the canvas keeps its 1366 px design width and shrinks it, so the
 controls never see a phone width. Nothing changes in the controls; the app settings and the screen layout do.
 
-Under 640 px the Schedule board (1.9.2) shows a compact head: **Buat jadwal** plus a ⋯ menu (Muat ulang, AI Schedule,
+Under 640 px the Schedule board (1.9.0 and later) shows a compact head: **Buat jadwal** plus a ⋯ menu (Muat ulang, AI Schedule,
 Parse PDF / Excel, Upload massal), four small counters (tap *bentrok* or *belum report* to filter), and a search box
 with a **Filter** button that folds out the date range and dropdowns. The calendar shows one day at a time with day
 tabs over the week. The detail page stacks *Report host vs AI* per field and *Sesi lain* per session. Forms and the
@@ -118,7 +118,7 @@ Visible: App.Width < 640    OnSelect: Set(varMenuOpen, !varMenuOpen)
 X: 0    Y: conHeader.Height    Height: Parent.Height - conHeader.Height
 Visible: App.Width >= 640 || varMenuOpen
 
-// PBS Studio Hub / PBS Schedule Hub control
+// PBS Studio Hub / PBS Schedule Hub 2 control
 X: If(App.Width < 640, 0, BlibliUniversalSidebar.Width)
 Y: conHeader.Height
 Width: Parent.Width - Self.X
@@ -302,13 +302,13 @@ These are display metrics. Nothing that money depends on is computed in the cont
 
 ---
 
-# C. PBS Schedule Hub (`pbs_Ops.ScheduleHub` 1.9.2)
+# C. PBS Schedule Hub 2 (`pbs_Ops.ScheduleHub2` 2.0.0)
 
-> **Moving from the old `pbs_Ops.Schedule` (1.4.x).** Since 1.5.0 the control has a new identity (`pbs_Ops.ScheduleHub`, solution `PBSScheduleHub`), so Power Apps cannot keep loading a cached old build.
-> 1. Import `releases/PBSScheduleHub_managed_1.9.2.zip`.
-> 2. In the app, copy the old control's **Items / Context / Mode / ActionResult / SelectedScheduleId / OnChange** formulas somewhere safe, then delete that control.
-> 3. **Insert → Get more components → Code → PBS Schedule Hub**, then paste the formulas back (same names as in C2–C4).
-> 4. Check that the header reads `pbs_Ops.ScheduleHub 1.9.2`. Once no app uses the old control, the `PBSSchedule` solution can be deleted.
+> **Moving from `pbs_Ops.ScheduleHub` (1.5.0–1.9.2).** 2.0.0 is the same control under a new identity (`pbs_Ops.ScheduleHub2`, solution `PBSScheduleHub2`), for apps where *Update code components* never appeared and the old build stayed cached. Do this on every screen that holds the Schedule control (board and detail):
+> 1. Import `releases/PBSScheduleHub2_managed_2.0.0.zip`.
+> 2. In the app, copy the old control's **Items / Context / Mode / ActionResult / SelectedScheduleId / View / OnChange** formulas (and the dataset **Fields**: `brands` incl. `Studio`, `studios`, …) somewhere safe, note its **X / Y / Width / Height**, then delete that control.
+> 3. **Insert → Get more components → Code → PBS Schedule Hub 2**, give it the same name the formulas refer to (e.g. `ScheduleHub1`), then paste the formulas, Fields and size back (same names as in C2–C4).
+> 4. Check that the header reads `pbs_Ops.ScheduleHub2 2.0.0`, then save and publish. Once no app uses the old control, delete the `PBSScheduleHub` solution (and the older `PBSSchedule`).
 
 The control renders the **Schedule board (S-1)** as a calendar (week × brand lanes, or studio lanes) or a list, grouped by brand and sorted by start time,, and the
 **session detail (S-2)** with the seven-step evidence chain. It also provides three ways to create schedules:
@@ -637,7 +637,7 @@ reads the column straight from the `reports` dataset, so `OnChange` needs no bra
 Use this when another screen (Studio, Host, a report list…) links to one schedule. The Schedule screen stays as it
 is; the new screen shows only the session detail, with the same buttons (Ubah, Duplikat, Hapus, Lampiran, review).
 
-1. Add a screen `scrScheduleDetail` and insert **PBS Schedule Hub** on it.
+1. Add a screen `scrScheduleDetail` and insert **PBS Schedule Hub 2** on it.
 2. Link to it from any screen:
    ```powerfx
    Set(varLinkScheduleId, ThisItem.ScheduleID);   // e.g. "SCD-447"
@@ -743,8 +743,8 @@ file was uploaded.
 | Parse PDF: *PDF tidak berisi teks (hasil scan/foto)* | The PDF is an image | Export the sheet again as PDF (File → Download → PDF), or parse the .xlsx itself |
 | Parse PDF: every host says *tidak ada di master Host* | `hosts` misses `NamaHost`, or the file uses nicknames | Bind `NamaHost` (C2); add the nicknames to `Host.Alias` and to the dataset's Fields |
 | Parse PDF: *Studio belum diketahui* on every row | No `Brand.Studio`, no `Studio.Brands` and no earlier session of that brand in the loaded period | Fill `Brand.Studio` and add it to the `brands` Fields (or fill `Studio.Brands` and add it to the `studios` Fields), or pick the studio once (similar rows follow) |
-| Parse PDF: brand *—* although the title is above the table | Before 1.9.2 a title starting with *Toko* or *Store* (`TOKO …`) was taken for the Account column header | Import 1.9.2 |
-| A dialog opens behind the sidebar or wider than the control | Before 1.9.2 dialogs covered the whole app window | Import 1.9.2: dialogs stay inside the control's own box |
+| Parse PDF: brand *—* although the title is above the table | Before 1.9.2 a title starting with *Toko* or *Store* (`TOKO …`) was taken for the Account column header | Import 2.0.0 |
+| A dialog opens behind the sidebar or wider than the control | Before 1.9.2 dialogs covered the whole app window | Import 2.0.0: dialogs stay inside the control's own box |
 | Parse PDF: *Buat jadwal* says *tidak membalas* | `BULK_CREATE_SCHEDULE` is missing from the Switch or the reply list | Add it as in C4 (same branch as Duplikat) |
 | Schedule Detail screen says *Jadwal “3828” tidak ditemukan* | Before 1.7.1 only the ScheduleID (`SCD-3828`) was accepted; or the `schedules` filter does not reach that date because `varDetailDate` is blank | Import 1.7.1 (accepts the item ID too) and use the `OnVisible` in FORMULAS.md § 3, which finds the date from either form |
 | Schedule Detail screen shows the board, or Kembali does nothing | `View` is not `"Detail"`, or `OnChange` lacks `"NAV_BACK", Back(),` | See C4d |
@@ -765,11 +765,12 @@ file was uploaded.
 | Upload dialog: *Aplikasi tidak membalas dalam 180 detik* / *belum dikonfirmasi*, but the file and the flow are fine | The reply (`varSchedResult`) is never set (the final `If(action in [...])` block commented out or missing), or set after `PBS0001A….Run()` | Use the C4 handler: upload branch sets the message only, `.Run()` at the bottom after the reply. Check that `"UPLOAD_SCHEDULE_FILE"` is in the `If(action in [...])` list and that `ActionResult` = `varSchedResult` |
 | Upload works, but the reply never comes (or only REVIEW_REPORT replies) | The `)` that closes `Switch(` sits inside a `/* … */` comment, so the reply block became part of the last Switch branch | Keep `);` after the last branch outside any comment (C4) |
 | Schedule opens a session detail straight away instead of the list | Before Schedule 1.4.0 the bound `SelectedScheduleId` reopened the last session on return | Import 1.4.0: the control always starts on the list |
-| Lampiran shows only *Memuat lampiran dari SharePoint…* | The app still runs Schedule 1.4.1/1.4.2 | Import the current zip, accept **Update code components**, then check the header reads `pbs_Ops.ScheduleHub 1.9.2` |
+| Lampiran shows only *Memuat lampiran dari SharePoint…* | The app still runs Schedule 1.4.1/1.4.2 | Import the current zip, accept **Update code components**, then check the header reads `pbs_Ops.ScheduleHub2 2.0.0` |
 | Lampiran report says *belum punya lampiran* although the report has links | `Attachment` is not in the `reports` dataset (or `reportFiltered`), or the text holds no full `https://` URL | Add `Attachment` under **Fields → Edit** (C4c) |
 | Bulk Duplikat / Hapus shows *tidak membalas* | `BULK_CREATE_SCHEDULE` / `BULK_DELETE_SCHEDULE` are missing from the Switch or from the reply list | Add both branches and both names as in C4 |
 | Deleted schedule comes back after reopening the screen | `schedules` is bound to a collection, or `DELETE_SCHEDULE` has no `Refresh` | Bind to the list / `Filter(...)` and keep the `Refresh('Schedule - PBS Hub')` in C4 |
-| Every week change shows a loading grid | The app still runs 1.5.0 or older | Import the current zip; the header should read `pbs_Ops.ScheduleHub 1.9.2` |
+| Header still shows an old `pbs_Ops.ScheduleHub` version after importing, and no *Update code components* appears | The app keeps a cached copy of the old control | Move to `pbs_Ops.ScheduleHub2` as in the note at the top of C |
+| Every week change shows a loading grid | The app still runs 1.5.0 or older | Import the current zip; the header should read `pbs_Ops.ScheduleHub2 2.0.0` |
 | Board opens on an old week | Build 1.5.2–1.5.6 kept the week in browser storage | Update to 1.5.7: the week is kept only while the app page is open; a browser refresh or new session starts on this week |
 | *Bukti AI* says no OCR result, but the report is Done/Match | The Report Automation row is not in `evidence` (LiveDate blank or outside the period, or `Filter` not delegable) | Add the `LOAD_EVIDENCE` branch in C4, and make sure `automationFiltered` is not filtered on `LiveDate`. The detail then looks the row up by Title and shows its LiveDate |
 | New schedules from a flow do not appear | Canvas apps are not pushed SharePoint changes | Press **Muat ulang**, or add the Timer in C4 *Auto update* |
