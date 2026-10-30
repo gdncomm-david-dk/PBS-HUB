@@ -212,6 +212,7 @@ export const C = {
     scheduleId: ["ScheduleID", "Schedule ID"],
     liveDate: ["LiveDate", "Live Date", "Date"],
     alias: ["Alias", "Aliases", "NamaPanggilan", "Nama Panggilan", "Panggilan", "Nickname"],
+    brandStudios: ["Studio", "Studios", "StudioID", "Studio ID", "StudioIDs"],
     studioBrands: ["Brands", "Brand", "BrandPlacement", "Placement", "Brand / Placement"],
     durasi: ["Durasi_x0028_Min_x0029_0", "Durasi_x0028_Min_x0029_", "Durasi(Min)", "Durasi (Min)", "Durasi"],
 } as const;
@@ -255,7 +256,7 @@ export function mapBrands(recs: RawRecord[]): BrandRow[] {
         if (!brandId) continue;
         const status = toText(r.get(C.status));
         const namaBrand = toText(r.get(C.namaBrand)) || (title && title !== brandId ? title : "");
-        out.push({ key: uniqueKey(seen, brandId, r.id), itemId: toNum(r.get(C.id)), brandId, title, namaBrand: namaBrand || brandId, hasName: !!namaBrand, status, isActive: isActiveStatus(status), aliases: listText(r.get(C.alias)) });
+        out.push({ key: uniqueKey(seen, brandId, r.id), itemId: toNum(r.get(C.id)), brandId, title, namaBrand: namaBrand || brandId, hasName: !!namaBrand, status, isActive: isActiveStatus(status), aliases: listText(r.get(C.alias)), studios: listText(r.get(C.brandStudios)) });
     }
     return out;
 }

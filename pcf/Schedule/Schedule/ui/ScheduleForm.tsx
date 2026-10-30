@@ -1,6 +1,7 @@
 import * as React from "react";
 import { ScheduleRow } from "../core/types";
 import { conflictsFor, offAirOf, Slot } from "../core/schedule";
+import { brandStudios } from "../core/parseResolve";
 import { formatMinutes, parseTimeToMinutes } from "../core/time";
 import { Banner, Button, cx, Field, Icon, Modal } from "./components";
 import { Env, scheduleStatus } from "./shared";
@@ -56,7 +57,10 @@ export function ScheduleForm(props: {
 
     const accounts = env.accounts.filter((a) => v.brandId && a.brandId.toLowerCase() === v.brandId.toLowerCase());
     const pickBrand = (brandId: string): void => {
-        set({ brandId, accountId: "" });
+        // A brand placed in exactly one studio (Studio column on the Brand list) fills an empty Studio.
+        const brand = env.lk.brands.get(brandId.toLowerCase());
+        const own = brand ? brandStudios(brand, env.studios) : [];
+        set({ brandId, accountId: "", ...(!v.studioId && own.length === 1 ? { studioId: own[0].studioId } : {}) });
     };
     const pickAccount = (accountId: string): void => {
         const a = env.lk.accounts.get(accountId.toLowerCase());

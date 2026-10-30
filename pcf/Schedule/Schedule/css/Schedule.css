@@ -31,7 +31,7 @@
     box-sizing: border-box;
     width: 100%;
     height: 100%;
-    overflow: auto;
+    overflow: hidden;
     background: var(--background);
     color: var(--text-primary);
     font-family: "Blibli", "Helvetica Neue", Arial, sans-serif;
@@ -242,7 +242,10 @@
 .sc-toggle input:focus-visible + .sc-toggle__track { outline: 2px solid var(--primary); outline-offset: 2px; }
 
 /* ---------- modal */
-.sc-modal { position: fixed; inset: 0; z-index: 50; display: flex; align-items: center; justify-content: center; }
+/* The page scrolls, not the root: dialogs sit over the control's own box (absolute to .pbs-sc), never over the
+   rest of the canvas screen such as a sidebar, and stay put while the page behind them scrolls. */
+.pbs-sc > .sc-page { height: 100%; overflow: auto; -webkit-overflow-scrolling: touch; }
+.sc-modal { position: absolute; inset: 0; z-index: 50; display: flex; align-items: center; justify-content: center; }
 .sc-modal__scrim { position: absolute; inset: 0; background: rgba(0, 0, 0, .4); }
 .sc-modal__panel { position: relative; max-width: calc(100% - 32px); max-height: calc(100% - 32px); display: flex; flex-direction: column; background: #fff; border-radius: 8px; border: 1px solid var(--border); }
 .sc-modal__head { display: flex; align-items: center; justify-content: space-between; padding: 16px 20px; border-bottom: 1px solid var(--border); }

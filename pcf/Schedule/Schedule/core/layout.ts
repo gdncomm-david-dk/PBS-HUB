@@ -64,7 +64,8 @@ export function headerField(text: string): Field | null {
     if (/^(host|namahost|talent|streamer|presenter)/.test(n)) return "host";
     if (/^(platform|channel)/.test(n)) return "platform";
     if (/^(studio|lokasi|ruang)/.test(n)) return "studio";
-    if (/^(account|akun|toko|store)/.test(n)) return "account";
+    // "Toko" / "Store" only as the whole header: a brand title such as "TOKO MAWAR" over the table is not a column.
+    if (/^(account|akun)/.test(n) || /^(toko|namatoko|store|storename|shop)$/.test(n)) return "account";
     if (/^(date|tanggal|tgl)/.test(n)) return "date";
     if (/^(day|hari)$/.test(n)) return "day";
     return null;

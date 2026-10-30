@@ -165,6 +165,12 @@ function matchStudio(text: string, studios: StudioRow[]): StudioRow[] {
     return studios.filter((s) => (alnum(s.namaStudio).includes(n) || n.includes(alnum(s.namaStudio))) && alnum(s.namaStudio).length >= 4);
 }
 
+/** Studios named in the Brand list's Studio column, as master rows (an ID missing from the Studio list is skipped). */
+export function brandStudios(brand: BrandRow, studios: StudioRow[]): StudioRow[] {
+    const ids = new Set((brand.studios ?? []).map(alnum));
+    return ids.size ? studios.filter((st) => ids.has(alnum(st.studioId))) : [];
+}
+
 /** Studio a brand usually goes live in: the most used studio over its last 30 sessions. */
 function studioFromHistory(brandId: string, schedules: ScheduleRow[]): string {
     const recent = schedules
@@ -235,8 +241,10 @@ export function resolveSession(s: RawSession, cx: ResolveContext): Resolved {
         else notes.studio = `Studio "${s.studio}" tidak ada di master Studio`;
     }
     if (!studioId && !studioOptions.length && brand) {
+        // The Studio column on the Brand list first, else the Brands column on the Studio list.
+        const own = brandStudios(brand, cx.studios);
         const keys = new Set([alnum(brand.brandId), alnum(brand.namaBrand), ...(brand.aliases ?? []).map(alnum), alnum(s.label.replace(/\([^)]*\)/g, ""))].filter(Boolean));
-        const placed = cx.studios.filter((st) => (st.brands ?? []).some((b) => keys.has(alnum(b))));
+        const placed = own.length ? own : cx.studios.filter((st) => (st.brands ?? []).some((b) => keys.has(alnum(b))));
         if (placed.length === 1) [studioId, studioFrom] = [placed[0].studioId, "master"];
         else if (placed.length > 1) studioOptions = placed.map((x) => x.studioId);
         else {
@@ -244,7 +252,7 @@ export function resolveSession(s: RawSession, cx: ResolveContext): Resolved {
             if (h) [studioId, studioFrom] = [h, "riwayat"];
         }
     }
-    if (!studioId && !notes.studio) notes.studio = studioOptions.length ? `${studioOptions.length} studio cocok — pilih studio` : "Studio belum diketahui — pilih studio (atau isi kolom Brands di list Studio)";
+    if (!studioId && !notes.studio) notes.studio = studioOptions.length ? `${studioOptions.length} studio cocok — pilih studio` : "Studio belum diketahui — pilih studio (atau isi kolom Studio di list Brand)";
 
     const host = matchHost(s.host, cx.hosts);
     if (host.note) notes.host = host.note;

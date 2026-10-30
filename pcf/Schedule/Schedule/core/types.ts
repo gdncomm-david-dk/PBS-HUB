@@ -10,6 +10,7 @@ export interface BrandRow {
     status: string;
     isActive: boolean;
     aliases?: string[];        // Alias (optional): other names used in schedule documents, e.g. Milkita for UNIFAM
+    studios?: string[];        // Studio (optional, choice or multi-choice): StudioIDs the brand goes live in, e.g. CWG-04
 }
 
 export interface AccountRow {

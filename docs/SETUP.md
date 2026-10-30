@@ -7,8 +7,8 @@ for the Studio screens and part C for the Schedule screen.
 
 | Control | Display name | Solution (managed) | Version | Screens |
 |---|---|---|---|---|
-| `pbs_Ops.StudioHub` | PBS Studio Hub | `releases/PBSStudioHub_managed_1.8.3.zip` (`PBSStudioHub`) | 1.8.3 | Studio list, Studio detail |
-| `pbs_Ops.ScheduleHub` | PBS Schedule Hub | `releases/PBSScheduleHub_managed_1.9.1.zip` (`PBSScheduleHub`) | 1.9.1 | Schedule board, session detail, create/edit, bulk & AI upload, Parse PDF/Excel |
+| `pbs_Ops.StudioHub` | PBS Studio Hub | `releases/PBSStudioHub_managed_1.8.4.zip` (`PBSStudioHub`) | 1.8.4 | Studio list, Studio detail |
+| `pbs_Ops.ScheduleHub` | PBS Schedule Hub | `releases/PBSScheduleHub_managed_1.9.2.zip` (`PBSScheduleHub`) | 1.9.2 | Schedule board, session detail, create/edit, bulk & AI upload, Parse PDF/Excel |
 
 Neither control writes to SharePoint. Each one emits an `ActionPayload` `{ action, requestId, payload }`; the
 canvas app does the `Patch` and replies through `ActionResult` with the same `requestId`. Until that reply
@@ -30,7 +30,7 @@ arrives the control stays locked. It gives up after 30 seconds for a save, or 3 
 **Check the version.** From 1.5.0 the Studio control is a new component, **PBS Studio Hub**
 (`pbs_Ops.StudioHub`, solution `PBSStudioHub`), so the app cannot keep running a cached older build. Delete the old
 *PBS Studio Master* / *PBS Studio Directory* control from the screen, insert *PBS Studio Hub* and set the same
-properties and `OnChange` on it. The header then shows `pbs_Ops.StudioHub 1.8.3`.
+properties and `OnChange` on it. The header then shows `pbs_Ops.StudioHub 1.8.4`.
 
 The old solutions `PBSStudioMaster`, `PBSHubStudio` and `PBSStudioDirectory` can be deleted once the app runs
 `pbs_Ops.StudioHub`.
@@ -49,6 +49,7 @@ The old solutions `PBSStudioMaster`, `PBSHubStudio` and `PBSStudioDirectory` can
 | `Brand - PBS Hub` / `Host - PBS Hub` | `NamaBrand` / `NamaHost` | Used to show names instead of IDs |
 | `Host - PBS Hub` | `Alias` (optional) | **Single line of text**: nicknames used in schedule files, comma separated (`Rina`, `Uci, Ucii`). Parse PDF matches full name first, then Alias |
 | `Brand - PBS Hub` | `Alias` (optional) | **Single line of text**: other names of the brand in schedule files (`Milkita` for UNIFAM, `Sido Muncul`) |
+| `Brand - PBS Hub` | `Studio` (optional) | **Choice** (multiple selections allowed) with StudioIDs (`CWG-04`, …). Parse PDF takes the studio from it before `Studio.Brands`; one studio fills Studio by itself, several become a pick list. *Buat jadwal* fills an empty Studio when the brand has one. Add the column to the `brands` dataset's **Fields** |
 | `Studio - PBS Hub` | `Brands` (optional) | **Single line of text**: brands placed in the studio, comma separated (`Milkita, Inlite`; names, aliases or BrandIDs). Parse PDF picks the studio from it when the file names none |
 
 ## A3. Fields decide which columns arrive
@@ -82,11 +83,11 @@ Both controls pick their layout from the width they are given: desktop from 1040
 landscape desktop when the app is **scaled**: the canvas keeps its 1366 px design width and shrinks it, so the
 controls never see a phone width. Nothing changes in the controls; the app settings and the screen layout do.
 
-Under 640 px the Schedule board (1.9.1) shows a compact head: **Buat jadwal** plus a ⋯ menu (Muat ulang, AI Schedule,
+Under 640 px the Schedule board (1.9.2) shows a compact head: **Buat jadwal** plus a ⋯ menu (Muat ulang, AI Schedule,
 Parse PDF / Excel, Upload massal), four small counters (tap *bentrok* or *belum report* to filter), and a search box
 with a **Filter** button that folds out the date range and dropdowns. The calendar shows one day at a time with day
 tabs over the week. The detail page stacks *Report host vs AI* per field and *Sesi lain* per session. Forms and the
-upload dialogs, and the Studio form (Studio 1.8.3), take the whole screen; delete confirmations stay a bottom sheet.
+upload dialogs, and the Studio form (Studio 1.8.4), take the whole screen; delete confirmations stay a bottom sheet.
 
 **1. Settings → Display**
 
@@ -128,7 +129,7 @@ Put the sidebar above the control in the tree so the phone overlay covers it, an
 chosen (`Set(varMenuOpen, false)` in its navigation). Check on a phone: upright shows the cards, turning it sideways
 shows the single-column layout, both without reopening the app.
 
-# B. PBS Studio Hub (`pbs_Ops.StudioHub` 1.8.3)
+# B. PBS Studio Hub (`pbs_Ops.StudioHub` 1.8.4)
 
 ## B1. Period variables
 
@@ -301,13 +302,13 @@ These are display metrics. Nothing that money depends on is computed in the cont
 
 ---
 
-# C. PBS Schedule Hub (`pbs_Ops.ScheduleHub` 1.9.1)
+# C. PBS Schedule Hub (`pbs_Ops.ScheduleHub` 1.9.2)
 
 > **Moving from the old `pbs_Ops.Schedule` (1.4.x).** Since 1.5.0 the control has a new identity (`pbs_Ops.ScheduleHub`, solution `PBSScheduleHub`), so Power Apps cannot keep loading a cached old build.
-> 1. Import `releases/PBSScheduleHub_managed_1.9.1.zip`.
+> 1. Import `releases/PBSScheduleHub_managed_1.9.2.zip`.
 > 2. In the app, copy the old control's **Items / Context / Mode / ActionResult / SelectedScheduleId / OnChange** formulas somewhere safe, then delete that control.
 > 3. **Insert → Get more components → Code → PBS Schedule Hub**, then paste the formulas back (same names as in C2–C4).
-> 4. Check that the header reads `pbs_Ops.ScheduleHub 1.9.1`. Once no app uses the old control, the `PBSSchedule` solution can be deleted.
+> 4. Check that the header reads `pbs_Ops.ScheduleHub 1.9.2`. Once no app uses the old control, the `PBSSchedule` solution can be deleted.
 
 The control renders the **Schedule board (S-1)** as a calendar (week × brand lanes, or studio lanes) or a list, grouped by brand and sorted by start time,, and the
 **session detail (S-2)** with the seven-step evidence chain. It also provides three ways to create schedules:
@@ -682,7 +683,7 @@ account works as soon as it is in SharePoint:
 | Brand / BrandID | Brand title matched to `NamaBrand`, then `Brand.Alias`, then an account handle (`Milkita` → `milkita.id`). `Milkita (Shopee)` also sets the platform. The title is the text right above the brand block; when none names a brand, other text above the table and then the file name words are tried (exact name, Alias, BrandID or handle only) |
 | Account | The account the title names; else the brand's account on the row's platform; no platform → the brand's only TikTok account. Two or more fit (Sidomuncul Shopee) → left empty, *pilih akun* |
 | Platform | Platform column, else from the account |
-| StudioID | Studio column when the file has one; else the studio whose `Brands` column lists the brand; else the studio the brand used most in its last 30 loaded sessions; else *pilih studio* |
+| StudioID | Studio column when the file has one; else the `Studio` column on the Brand list; else the studio whose `Brands` column lists the brand; else the studio the brand used most in its last 30 loaded sessions; else *pilih studio* |
 | HostID | Full name, then `Host.Alias`, then a unique start of the name (`Wulan Anatasya` → Wulan Anatasya Putri), first name, or single name. Two or more fit (`Nayla`) → *pilih host* with the candidates starred |
 | Date | Date column; a date without a year (`5 October`) takes the year in the file name, else the current year |
 | StartTime / EndTime | `HH:mm`; `0:00` / `24:00` at the end is midnight of the same day, not a warning |
@@ -741,13 +742,15 @@ file was uploaded.
 |---|---|---|
 | Parse PDF: *PDF tidak berisi teks (hasil scan/foto)* | The PDF is an image | Export the sheet again as PDF (File → Download → PDF), or parse the .xlsx itself |
 | Parse PDF: every host says *tidak ada di master Host* | `hosts` misses `NamaHost`, or the file uses nicknames | Bind `NamaHost` (C2); add the nicknames to `Host.Alias` and to the dataset's Fields |
-| Parse PDF: *Studio belum diketahui* on every row | No `Studio.Brands` and no earlier session of that brand in the loaded period | Fill `Studio.Brands`, add it to the `studios` Fields, or pick the studio once (similar rows follow) |
+| Parse PDF: *Studio belum diketahui* on every row | No `Brand.Studio`, no `Studio.Brands` and no earlier session of that brand in the loaded period | Fill `Brand.Studio` and add it to the `brands` Fields (or fill `Studio.Brands` and add it to the `studios` Fields), or pick the studio once (similar rows follow) |
+| Parse PDF: brand *—* although the title is above the table | Before 1.9.2 a title starting with *Toko* or *Store* (`TOKO …`) was taken for the Account column header | Import 1.9.2 |
+| A dialog opens behind the sidebar or wider than the control | Before 1.9.2 dialogs covered the whole app window | Import 1.9.2: dialogs stay inside the control's own box |
 | Parse PDF: *Buat jadwal* says *tidak membalas* | `BULK_CREATE_SCHEDULE` is missing from the Switch or the reply list | Add it as in C4 (same branch as Duplikat) |
 | Schedule Detail screen says *Jadwal “3828” tidak ditemukan* | Before 1.7.1 only the ScheduleID (`SCD-3828`) was accepted; or the `schedules` filter does not reach that date because `varDetailDate` is blank | Import 1.7.1 (accepts the item ID too) and use the `OnVisible` in FORMULAS.md § 3, which finds the date from either form |
 | Schedule Detail screen shows the board, or Kembali does nothing | `View` is not `"Detail"`, or `OnChange` lacks `"NAV_BACK", Back(),` | See C4d |
 | On a phone the Schedule screen is cut off or tiny | The control is not sized to the screen, or the app uses *Scale to fit* | Set Width/Height to `Parent.Width`/`Parent.Height` and turn off *Scale to fit* and *Lock orientation* (A4) |
 | A phone still shows the landscape (desktop) layout | *Scale to fit* is on, or `App.MinScreenWidth` is above the phone width | A4: *Scale to fit* off, *Lock orientation* off, `MinScreenWidth` 320, control `Width: Parent.Width - Self.X` |
-| Studio header does not show `pbs_Ops.StudioHub 1.8.3` | The screen still holds the old control, or the code component was not updated | Delete the control, insert **PBS Studio Hub**, then save and publish. After an import, accept **Update code components** |
+| Studio header does not show `pbs_Ops.StudioHub 1.8.4` | The screen still holds the old control, or the code component was not updated | Delete the control, insert **PBS Studio Hub**, then save and publish. After an import, accept **Update code components** |
 | *Mapping lokasi* banner: studios not linked | `LocationID` is missing from **Fields** on `studios` or `locations` | Open **Lihat kolom** in the banner to see which columns actually arrive. Add `LocationID` under **Fields → Edit** on both datasets, or use `StudiosJson` as in B2 |
 | *LocationID tidak ditemukan* on a studio | The studio's `LocationID` is not carried by any item in the `locations` dataset (typo, extra space, or the item is filtered out) | Bind the whole `Studio Location - PBS` list, or pick another location in the Geofence tab |
 | Brand or host shows an ID, with a yellow banner | `brands` / `hosts` are not bound, or lack `ID`, `Title`, `BrandID`/`HostID` or the name column | See C2 *Names, not IDs* |
@@ -762,11 +765,11 @@ file was uploaded.
 | Upload dialog: *Aplikasi tidak membalas dalam 180 detik* / *belum dikonfirmasi*, but the file and the flow are fine | The reply (`varSchedResult`) is never set (the final `If(action in [...])` block commented out or missing), or set after `PBS0001A….Run()` | Use the C4 handler: upload branch sets the message only, `.Run()` at the bottom after the reply. Check that `"UPLOAD_SCHEDULE_FILE"` is in the `If(action in [...])` list and that `ActionResult` = `varSchedResult` |
 | Upload works, but the reply never comes (or only REVIEW_REPORT replies) | The `)` that closes `Switch(` sits inside a `/* … */` comment, so the reply block became part of the last Switch branch | Keep `);` after the last branch outside any comment (C4) |
 | Schedule opens a session detail straight away instead of the list | Before Schedule 1.4.0 the bound `SelectedScheduleId` reopened the last session on return | Import 1.4.0: the control always starts on the list |
-| Lampiran shows only *Memuat lampiran dari SharePoint…* | The app still runs Schedule 1.4.1/1.4.2 | Import the current zip, accept **Update code components**, then check the header reads `pbs_Ops.ScheduleHub 1.9.1` |
+| Lampiran shows only *Memuat lampiran dari SharePoint…* | The app still runs Schedule 1.4.1/1.4.2 | Import the current zip, accept **Update code components**, then check the header reads `pbs_Ops.ScheduleHub 1.9.2` |
 | Lampiran report says *belum punya lampiran* although the report has links | `Attachment` is not in the `reports` dataset (or `reportFiltered`), or the text holds no full `https://` URL | Add `Attachment` under **Fields → Edit** (C4c) |
 | Bulk Duplikat / Hapus shows *tidak membalas* | `BULK_CREATE_SCHEDULE` / `BULK_DELETE_SCHEDULE` are missing from the Switch or from the reply list | Add both branches and both names as in C4 |
 | Deleted schedule comes back after reopening the screen | `schedules` is bound to a collection, or `DELETE_SCHEDULE` has no `Refresh` | Bind to the list / `Filter(...)` and keep the `Refresh('Schedule - PBS Hub')` in C4 |
-| Every week change shows a loading grid | The app still runs 1.5.0 or older | Import the current zip; the header should read `pbs_Ops.ScheduleHub 1.9.1` |
+| Every week change shows a loading grid | The app still runs 1.5.0 or older | Import the current zip; the header should read `pbs_Ops.ScheduleHub 1.9.2` |
 | Board opens on an old week | Build 1.5.2–1.5.6 kept the week in browser storage | Update to 1.5.7: the week is kept only while the app page is open; a browser refresh or new session starts on this week |
 | *Bukti AI* says no OCR result, but the report is Done/Match | The Report Automation row is not in `evidence` (LiveDate blank or outside the period, or `Filter` not delegable) | Add the `LOAD_EVIDENCE` branch in C4, and make sure `automationFiltered` is not filtered on `LiveDate`. The detail then looks the row up by Title and shows its LiveDate |
 | New schedules from a flow do not appear | Canvas apps are not pushed SharePoint changes | Press **Muat ulang**, or add the Timer in C4 *Auto update* |

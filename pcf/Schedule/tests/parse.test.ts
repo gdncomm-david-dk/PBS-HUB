@@ -47,6 +47,8 @@ describe("layout helpers", () => {
     it("reads header words", () => {
         expect(["Start Hour", "End Hour", "Duratio n (in hours)", "Host", "Platform", "Date", "Day"].map(headerField)).toEqual(["start", "end", "duration", "host", "platform", "date", "day"]);
         expect(headerField("Aruna")).toBeNull();
+        // A brand title that starts with Toko / Store is not the Account column header.
+        expect(["TOKO MAWAR", "Store Contoh", "Toko", "Nama Toko", "Akun"].map(headerField)).toEqual([null, null, "account", "account", "account"]);
     });
     it("parses loose dates", () => {
         expect(parseLooseDate("5 October", 2026)).toBe("2026-10-05");
@@ -225,6 +227,15 @@ describe("matching", () => {
             cx,
         );
         expect([s.studioId, s.studioFrom, s.accountId, s.platform, s.jamLive]).toEqual(["TBN-02", "riwayat", "AC-008", "Tiktok", 2]);
+    });
+    it("takes the studio from the Studio choice column on the Brand list first", () => {
+        const b2 = mapBrands(recs([{ Title: "BRND-0004", NamaBrand: "KIRANA", Studio: [{ Value: "CWG-05" }] }]));
+        const cx2: ResolveContext = { ...cx, brands: b2, lk: buildLookups(b2, hosts, studios, accounts) };
+        const raw = { file: "f", group: "PDF", where: "Hal. 1", order: 0, label: "Kirana", dateKey: "2026-10-01", dateText: "", startMin: 600, endMin: 720, startText: "10:00", endText: "12:00", duration: null, host: "Uci", platform: "", studio: "", account: "" };
+        expect([resolveSession(raw, cx2).studioId, resolveSession(raw, cx2).studioFrom]).toEqual(["CWG-05", "master"]);
+        const b3 = mapBrands(recs([{ Title: "BRND-0004", NamaBrand: "KIRANA", Studio: "CWG-04, CWG-05" }]));
+        const s3 = resolveSession(raw, { ...cx, brands: b3, lk: buildLookups(b3, hosts, studios, accounts) });
+        expect([s3.studioId, s3.studioOptions]).toEqual(["", ["CWG-04", "CWG-05"]]);
     });
 });
 
