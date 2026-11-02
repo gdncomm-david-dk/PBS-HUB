@@ -241,6 +241,8 @@
         ScoreBefore: before, ScoreAfter: score, Reason, Notes: voided ? "Salah host, dibatalkan" : Point < 0 ? "Dicatat dari laporan PIC studio" : "", Status: { Value: voided ? "Void" : "Active" },
         CreatedDate: `2026-${md}T10:${String(n * 3).padStart(2, "0")}:00`, CreatedBy: { DisplayName: "Bayu Prasetyo", Email: "bayu@example.com" },
         Evidence: Point < 0 && !voided ? `https://example.sharepoint.com/sites/StudioTeamBlibli/PBS%20Power%20Apps/Credit%20Score/${hostId}/2026-${md.slice(0, 2)}/${encodeURIComponent(Reason)}%20-%20TX.jpg` : "" };
+      // Written 5 Sep for a live on 30 Aug: TanggalKejadian puts it in August.
+      if (hostId === "HST-001" && md === "09-05") row.TanggalKejadian = "2026-08-30";
       if (voided) score = before; // the void is recorded on the row; CurrentScore is not recomputed in v1
       return row;
     });

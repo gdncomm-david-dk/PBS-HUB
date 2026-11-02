@@ -110,7 +110,7 @@ bisa memperbaikinya).
 |---|---|
 | `Context` | `varHostCtx` (config `scoreInitial`, `scoreMin`, `scoreMax` dari `[FAS STUDIO] ScoreConfig`) |
 | `HostJson` | baris host yang login: `Title, HostCode, NamaHost, Package, CurrentScore, InitialScore` |
-| `ScoreTxJson` | `[FAS STUDIO] HostScoreTransactions` host ini, terbaru dulu: `ID, TransactionID, RuleID, TransactionType, Point, ScoreBefore, ScoreAfter, Reason, Notes, Status, CreatedDate, CreatedBy` |
+| `ScoreTxJson` | `[FAS STUDIO] HostScoreTransactions` host ini, terbaru dulu: `ID, TransactionID, RuleID, TransactionType, Point, ScoreBefore, ScoreAfter, Reason, Notes, Status, TanggalKejadian, CreatedDate, CreatedBy` |
 | `ThresholdsJson` | `[FAS STUDIO] HostScoreThreshold`: `ThresholdID, Label, Description, MinimumScore, MaximumScore, Tone, Active, SortOrder` |
 | `RulesJson` | opsional: `RuleID, RuleName, RuleType, Point, Description, Active` |
 | `Period` | `yyyy-mm`, `All`, atau kosong (bulan ini) |

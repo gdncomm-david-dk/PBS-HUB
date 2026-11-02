@@ -8,8 +8,10 @@ import {
   bandOf,
   buildHost,
   buildLedger,
+  eventDiffers,
   parseBands,
   scoreDefaults,
+  txDay,
 } from "../../../shared/host";
 import {
   ScorePoint,
@@ -124,7 +126,10 @@ export function CreditScoreView(props: CreditScoreProps): React.ReactElement {
       }
     };
     for (let i = 0; i < 6; i++) add(addMonths(thisMonth, -i));
-    for (const t of ledger) if (t.when) add(periodOf(t.when));
+    for (const t of ledger) {
+      const d = txDay(t);
+      if (d) add(periodOf(d));
+    }
     if (period) add(period);
     return list.sort((a, b) => b.year * 12 + b.month - (a.year * 12 + a.month));
   }, [ledger, period, thisMonth.year, thisMonth.month]);
@@ -132,7 +137,7 @@ export function CreditScoreView(props: CreditScoreProps): React.ReactElement {
   const inScope = ledger.filter((t) => txInPeriod(t, period));
   const sum = summarize(inScope);
   const monthNet = summarize(
-    ledger.filter((t) => inPeriod(t.when, thisMonth)),
+    ledger.filter((t) => inPeriod(txDay(t), thisMonth)),
   ).net;
   const count = (f: TxFilter) =>
     inScope.filter((t) => matchesFilter(t, f)).length;
@@ -535,12 +540,12 @@ function TxRow(props: { t: ScoreTx; onOpen: (url: string) => void }): React.Reac
   return (
     <div className={`hc-row tx${t.active || t.reversal ? "" : " void"}`}>
       <span className="pbs-num">
-        {fmtDayMonth(t.when)}
+        {fmtDayMonth(txDay(t))}
         <span
           className="pbs-muted"
           style={{ display: "block", fontSize: 11.5 }}
         >
-          {fmtTime(t.when)}
+          {eventDiffers(t) ? `dicatat ${fmtDayMonth(t.when)}` : fmtTime(t.when)}
         </span>
       </span>
       <span style={{ minWidth: 0 }}>

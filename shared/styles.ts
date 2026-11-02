@@ -228,6 +228,8 @@ font-family:"Blibli","Helvetica Neue",Arial,sans-serif;font-size:13px;line-heigh
 .pbs-sc-sq{width:12px;height:12px;border-radius:3px;flex:none}
 .pbs-sc-name{display:inline-flex;align-items:center;gap:8px;flex-wrap:wrap}.pbs-sc-name .pbs-link{font-size:13px;color:inherit}
 .pbs-table td.pbs-sc-score{font-size:24px;font-weight:700;letter-spacing:-.01em;line-height:1}
+.pbs-table td.pbs-sc-rank{width:40px;color:var(--tx2)}
+.pbs-sc-rank b{color:var(--p);font-size:15px}
 .pbs-table tbody tr.pbs-sc-drift td{background:var(--bad-bg2)}
 .pbs-table tbody tr.pbs-sc-rev td{background:var(--p-tint2)}
 .pbs-sc-rule{display:block;font-weight:600}.pbs-table tr.void .pbs-sc-rule{font-weight:400}

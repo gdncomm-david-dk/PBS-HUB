@@ -9,7 +9,7 @@ SharePoint → import solution → App Ops → App Host. Semua rumus bisa ditemp
 |---|---|---|---|
 | 1 | SharePoint `[FAS STUDIO] HostScoreTransactions` | Kolom baru `Evidence` | Baru |
 | 2 | SharePoint library *PBS Power Apps* | Folder `Credit Score` + izin baca untuk host | Baru |
-| 3 | Power Apps | Import `PBSHubOpsPCF_1_6_24_0_managed.zip` dan `PBSHubHostApp_1_0_25_0_managed.zip` | Upgrade |
+| 3 | Power Apps | Import `PBSHubOpsPCF_1_6_25_0_managed.zip` dan `PBSHubHostApp_1_0_26_0_managed.zip` | Upgrade |
 | 4 | App Ops · App.OnStart | `varSiteID`, `varDriveID` (+ opsional config) | Baru |
 | 5 | App Ops · `scrCreditScore` · control HostScore | `LedgerJson` | Diubah |
 | 6 | App Ops · `scrCreditScore` · control HostScore | `OnChange` (upload bukti + `OPEN_EVIDENCE`) | Diubah |
@@ -66,7 +66,7 @@ scoreEvidenceFolder: "Credit Score" // default; ganti kalau mau folder lain di l
 Layar `scrCreditScore`, pilih control HostScore → properti **LedgerJson** (yang baru: `Evidence: Evidence` di akhir):
 
 ```powerfx
-JSON(ForAll(colScLedger, {ID: ID, TransactionID: TransactionID, HostID: HostID, RuleID: RuleID, TransactionType: TransactionType.Value, Point: Point, ScoreBefore: ScoreBefore, ScoreAfter: ScoreAfter, Reason: Reason, Notes: Notes, Status: Status.Value, CreatedDate: CreatedDate, CreatedBy: CreatedBy.DisplayName, Evidence: Evidence}), JSONFormat.Compact)
+JSON(ForAll(colScLedger, {ID: ID, TransactionID: TransactionID, HostID: HostID, RuleID: RuleID, TransactionType: TransactionType.Value, Point: Point, ScoreBefore: ScoreBefore, ScoreAfter: ScoreAfter, Reason: Reason, Notes: Notes, Status: Status.Value, TanggalKejadian: Text(TanggalKejadian, "yyyy-mm-dd"), CreatedDate: CreatedDate, CreatedBy: CreatedBy.DisplayName, Evidence: Evidence}), JSONFormat.Compact)
 ```
 
 ## 6. App Ops · HostScore · `OnChange`
@@ -128,6 +128,7 @@ If(!IsBlank(Self.ActionPayload),
                                         Notes: Text(p.notesText),                            // catatan + alasan override + konfirmasi
                                         Evidence: varScUrls,                                 // link bukti, satu per baris (kosong kalau tanpa bukti)
                                         Status: {Value: "Active"},
+                                        TanggalKejadian: DateValue(Text(p.tanggalKejadian)),   // kolom Date only baru: bulan transaksi ini dihitung
                                         CreatedDate: Now(),
                                         // Hapus kalau CreatedBy bukan kolom Person sendiri (pakai 'Created By' bawaan).
                                         CreatedBy: {Claims: "i:0#.f|membership|" & Lower(User().Email), DisplayName: User().FullName, Email: User().Email, Department: "", JobTitle: "", Picture: ""}
@@ -172,6 +173,7 @@ If(!IsBlank(Self.ActionPayload),
                                         Reason: "Pembatalan transaksi",
                                         Notes: Text(p.notesText),                            // "Membatalkan TX-…: alasan"
                                         Status: {Value: "Reversal"},
+                                        TanggalKejadian: o.TanggalKejadian,                   // ikut bulan transaksi yang dibatalkan
                                         CreatedDate: Now(),
                                         CreatedBy: {Claims: "i:0#.f|membership|" & Lower(User().Email), DisplayName: User().FullName, Email: User().Email, Department: "", JobTitle: "", Picture: ""}
                                     });
@@ -182,7 +184,7 @@ If(!IsBlank(Self.ActionPayload),
                                         Patch('Host - PBS Hub', h, {CurrentScore: after});
                                         Patch(colScHost, LookUp(colScHost, Title = h.Title), {CurrentScore: after});
                                         ClearCollect(colScLedger, Filter('[FAS STUDIO] HostScoreTransactions', HostID = h.Title));
-                                        ClearCollect(colScRecent, Filter('[FAS STUDIO] HostScoreTransactions', CreatedDate >= DateAdd(Today(), -60, TimeUnit.Days)));
+                                        ClearCollect(colScRecent, Filter('[FAS STUDIO] HostScoreTransactions', CreatedDate >= DateAdd(Date(Year(Today()), Month(Today()), 1), -5, TimeUnit.Months)));
                                         Set(varScResult, JSON({requestId: rid, status: "ok", message: Text(p.transactionId) & " dibatalkan · skor " & cur & " → " & after}, JSONFormat.Compact)),
                                         Set(varScResult, JSON({requestId: rid, status: "error", message: "Transaksi dibatalkan, tapi CurrentScore gagal diperbarui (" & FirstError.Message & "). Isi CurrentScore " & after & " secara manual."}, JSONFormat.Compact))
                                     ),
@@ -208,7 +210,7 @@ Catatan:
 Layar `scrHostDetail`, control HostDetail → properti **ScoreTxJson**:
 
 ```powerfx
-JSON(ForAll(colHdTx, {ID: ID, TransactionID: TransactionID, RuleID: RuleID, TransactionType: TransactionType.Value, Point: Point, ScoreBefore: ScoreBefore, ScoreAfter: ScoreAfter, Reason: Reason, Notes: Notes, Status: Status.Value, CreatedDate: CreatedDate, CreatedBy: CreatedBy.DisplayName, Evidence: Evidence}), JSONFormat.Compact)
+JSON(ForAll(colHdTx, {ID: ID, TransactionID: TransactionID, RuleID: RuleID, TransactionType: TransactionType.Value, Point: Point, ScoreBefore: ScoreBefore, ScoreAfter: ScoreAfter, Reason: Reason, Notes: Notes, Status: Status.Value, TanggalKejadian: Text(TanggalKejadian, "yyyy-mm-dd"), CreatedDate: CreatedDate, CreatedBy: CreatedBy.DisplayName, Evidence: Evidence}), JSONFormat.Compact)
 ```
 
 Properti **OnChange** — tambahkan satu baris di dalam `Switch(act, …)`, mis. setelah `"HIDE_PII", …,`:
@@ -223,7 +225,7 @@ Layar `scrCreditScore` di app host, control CreditScore → properti **ScoreTxJs
 
 ```powerfx
 JSON(ForAll(colCsTx, {ID: ID, TransactionID: TransactionID, RuleID: RuleID, TransactionType: TransactionType.Value, Point: Point,
-    ScoreBefore: ScoreBefore, ScoreAfter: ScoreAfter, Reason: Reason, Notes: Notes, Status: Status.Value,
+    ScoreBefore: ScoreBefore, ScoreAfter: ScoreAfter, Reason: Reason, Notes: Notes, Status: Status.Value, TanggalKejadian: Text(TanggalKejadian, "yyyy-mm-dd"),
     CreatedDate: CreatedDate, CreatedBy: CreatedBy.DisplayName, Evidence: Evidence}), JSONFormat.Compact)
 ```
 

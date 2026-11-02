@@ -1,5 +1,5 @@
 import { Row, bool, num, str } from "./data";
-import { ScoreBand, ScoreTx, TxType } from "./host";
+import { ScoreBand, ScoreTx, TxType, txDay } from "./host";
 import { Period, inPeriod } from "./payroll";
 
 /**
@@ -23,8 +23,8 @@ export function matchesFilter(t: ScoreTx, f: TxFilter): boolean {
   return t.active && (f === "Reward" ? t.type === "REWARD" : t.type === "PENALTY");
 }
 
-/** null = every month. */
-export const txInPeriod = (t: ScoreTx, period: Period | null): boolean => period === null || inPeriod(t.when, period);
+/** null = every month. A transaction belongs to the month of its TanggalKejadian (else the day it was written). */
+export const txInPeriod = (t: ScoreTx, period: Period | null): boolean => period === null || inPeriod(txDay(t), period);
 
 export interface ScoreSummary {
   reward: number;

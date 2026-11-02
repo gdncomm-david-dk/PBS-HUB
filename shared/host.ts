@@ -209,7 +209,10 @@ export interface ScoreTx {
   row: Row;
   id: string;
   txId: string;
+  /** When the row was written (Created). */
   when: Date | null;
+  /** TanggalKejadian: the day the reward/penalty happened; decides its month. null on older rows. */
+  eventDate: Date | null;
   ruleId: string;
   rule: string;
   type: TxType;
@@ -242,6 +245,16 @@ function txType(row: Row, point: number | null): TxType {
   return "OTHER";
 }
 
+/** The day a transaction counts for: TanggalKejadian, else the day it was written. */
+export const txDay = (t: Pick<ScoreTx, "eventDate" | "when">): Date | null => t.eventDate ?? t.when;
+
+/** TanggalKejadian is worth showing next to the written date only when it is another day. */
+export function eventDiffers(t: Pick<ScoreTx, "eventDate" | "when">): boolean {
+  const e = t.eventDate;
+  const w = t.when;
+  return !!e && (!w || e.getFullYear() !== w.getFullYear() || e.getMonth() !== w.getMonth() || e.getDate() !== w.getDate());
+}
+
 export function buildLedger(rows: Row[]): ScoreTx[] {
   return rows
     .map((r) => {
@@ -255,6 +268,7 @@ export function buildLedger(rows: Row[]): ScoreTx[] {
         id: rowId(r),
         txId: str(r, "TransactionID", "Title"),
         when: date(r, "CreatedDate", "Created"),
+        eventDate: date(r, "TanggalKejadian", "EventDate", "IncidentDate"),
         ruleId: str(r, "RuleID"),
         rule: str(r, "Reason", "RuleName") || str(r, "RuleID") || "—",
         type: txType(r, point),

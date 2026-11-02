@@ -10,7 +10,6 @@ import { AttendanceTab } from "../../../shared/attendance";
 import { NO_REPORT_LABEL, Row, nameIndex } from "../../../shared/data";
 import {
   fmtDateShort,
-  fmtDateTimeShort,
   fmtDayMonth,
   fmtNumber,
   fmtRupiah,
@@ -45,7 +44,7 @@ import {
 } from "../../../shared/host";
 import { buildRuns, fmtPeriod } from "../../../shared/payroll";
 import { reviewBadge } from "../../../shared/reconcile";
-import { BandChart, EvidenceLinks } from "../../../shared/scoreUi";
+import { BandChart, EvidenceLinks, TxDate } from "../../../shared/scoreUi";
 import {
   Badge,
   Button,
@@ -840,7 +839,7 @@ function SummaryTab(props: {
                     key={t.id || t.txId}
                     className={t.active || t.reversal ? undefined : "void"}
                   >
-                    <td className="pbs-num">{fmtDateTimeShort(t.when)}</td>
+                    <td className="pbs-num"><TxDate t={t} /></td>
                     <td style={{ whiteSpace: "normal", minWidth: 160 }}>
                       {t.rule}
                     </td>

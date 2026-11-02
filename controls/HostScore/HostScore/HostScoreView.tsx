@@ -19,6 +19,7 @@ import {
   ScoreBand,
   ScoreTx,
   TxType,
+  bandOf,
   buildHosts,
   buildLedger,
   checkLedger,
@@ -50,9 +51,21 @@ import {
   evidencePath,
   evidenceRequired,
   evidenceRuleOf,
+  eventDateIssue,
+  isoDay,
+  monthlyBase,
+  monthlyScores,
 } from "../../../shared/scoreAdmin";
+import { Period, addMonths, fmtPeriod, periodKey, periodOf } from "../../../shared/payroll";
+
+const MONTHS_ID = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"];
+/** "2026-10-12" → "Oktober 2026". */
+const monthLabel = (iso: string): string => {
+  const m = /^(\d{4})-(\d{2})/.exec(iso);
+  return m ? `${MONTHS_ID[Number(m[2]) - 1] ?? ""} ${m[1]}` : "";
+};
 import { fmtBytes, prepareImage } from "../../../shared/hostImage";
-import { EvidenceLinks } from "../../../shared/scoreUi";
+import { EvidenceLinks, TxDate } from "../../../shared/scoreUi";
 import {
   Badge,
   byTime,
@@ -226,11 +239,33 @@ function ListPage(
     onAdd: () => void;
   },
 ): React.ReactElement {
-  const { hosts, bands, action } = props;
-  const recent = React.useMemo(
-    () => lastTxByHost(buildLedger(props.recent)),
-    [props.recent],
+  const { bands, action } = props;
+  const txs = React.useMemo(() => buildLedger(props.recent), [props.recent]);
+  const recent = React.useMemo(() => lastTxByHost(txs), [txs]);
+  // Every month starts again from the base score; the list ranks hosts by that month's score.
+  const thisMonth = periodOf(props.now);
+  const [month, setMonth] = React.useState<Period>(thisMonth);
+  const base = monthlyBase(props.ctx.config);
+  const monthly = React.useMemo(
+    () => monthlyScores(props.hosts, txs, month, base),
+    [props.hosts, txs, month, base],
   );
+  const monthOf = (h: HostModel) => monthly.get(h.hostId.toLowerCase());
+  const hosts = React.useMemo(
+    () =>
+      props.hosts.map((h) => {
+        const m = monthly.get(h.hostId.toLowerCase());
+        return m ? { ...h, score: m.score, band: bandOf(m.score, bands) } : h;
+      }),
+    [props.hosts, monthly, bands],
+  );
+  const monthOptions = Array.from({ length: 6 }, (_, i) => addMonths(thisMonth, -i));
+  const pickMonth = (key: string) => {
+    const p = monthOptions.find((m) => periodKey(m) === key);
+    if (!p) return;
+    setMonth(p);
+    action.fire("SCORE_MONTH", { month: key });
+  };
   const [filters, setFilters] = React.useState<ListFilters>(NO_FILTERS);
   const [sort, setSort] = React.useState<SortKey>("scoreDesc");
   const filterActive = Object.values(filters).some((v) => v !== "");
@@ -303,7 +338,7 @@ function ListPage(
         subtitle={
           firstLoad
             ? "Memuat host…"
-            : `${fmtNumber(hosts.length)}${props.hasMore ? "+" : ""} host${avg !== null ? ` · skor rata-rata ${fmtNumber(avg)}` : ""}${drifted ? ` · ${fmtNumber(drifted)} skor tidak sinkron dengan ledger` : ""}`
+            : `Skor ${fmtPeriod(month)} · tiap bulan mulai dari ${fmtNumber(base)} · ${fmtNumber(hosts.length)}${props.hasMore ? "+" : ""} host${avg !== null ? ` · rata-rata ${fmtNumber(avg)}` : ""}${drifted ? ` · ${fmtNumber(drifted)} skor tidak sinkron dengan ledger` : ""}`
         }
         actions={
           <>
@@ -390,6 +425,21 @@ function ListPage(
       ) : null}
 
       <div className="pbs-filters">
+        <label className="pbs-chip">
+          <span className="pbs-sr">Bulan</span>
+          <select
+            value={periodKey(month)}
+            aria-label="Bulan"
+            onChange={(e) => pickMonth(e.target.value)}
+          >
+            {monthOptions.map((m) => (
+              <option key={periodKey(m)} value={periodKey(m)}>
+                {fmtPeriod(m)}
+              </option>
+            ))}
+          </select>
+          <Icon name="chevronDown" size={14} />
+        </label>
         <label className="pbs-search">
           <Icon name="search" size={14} />
           <input
@@ -445,10 +495,12 @@ function ListPage(
           <table className="pbs-table pbs-sc-list" aria-busy={props.loading}>
             <thead>
               <tr>
+                <th className="r">#</th>
                 <th>HostCode</th>
                 <th>Nama</th>
                 <th className="r">Skor</th>
                 <th>Band</th>
+                <th className="r">Poin bulan ini</th>
                 <th>Transaksi terakhir</th>
                 <th>Tanggal</th>
                 <th aria-label="Aksi" />
@@ -456,10 +508,11 @@ function ListPage(
             </thead>
             <tbody>
               {firstLoad ? (
-                <SkeletonRows rows={8} cols={7} />
+                <SkeletonRows rows={8} cols={9} />
               ) : (
                 paged.rows.map((h) => {
                   const t = recent.get(h.hostId);
+                  const m = monthOf(h);
                   const openLedger = () =>
                     action.fire("OPEN_LEDGER", { hostId: h.hostId, id: h.id });
                   return (
@@ -473,6 +526,13 @@ function ListPage(
                             : undefined
                       }
                     >
+                      <td className="r pbs-num pbs-sc-rank">
+                        {m?.rank ? (
+                          m.rank <= 3 ? <b>{m.rank}</b> : m.rank
+                        ) : (
+                          <span className="pbs-muted">—</span>
+                        )}
+                      </td>
                       <td className="pbs-mono" style={{ whiteSpace: "nowrap" }}>
                         {h.code}
                       </td>
@@ -513,6 +573,16 @@ function ListPage(
                           </Badge>
                         ) : (
                           <span className="pbs-muted">—</span>
+                        )}
+                      </td>
+                      <td className="r pbs-num" style={{ whiteSpace: "nowrap" }}>
+                        {m && m.count ? (
+                          <span title={`Reward ${signed(m.rewards)} · penalty ${signed(m.penalties)}`}>
+                            <b className={pointClass(m.points)}>{signed(m.points)}</b>
+                            <span className="pbs-muted"> · {m.count} trx</span>
+                          </span>
+                        ) : (
+                          <span className="pbs-muted">0</span>
                         )}
                       </td>
                       <td style={{ whiteSpace: "normal", minWidth: 200 }}>
@@ -600,11 +670,10 @@ function ListPage(
         )}
       </div>
       <p className="pbs-muted pbs-sc-note">
-        Skor di kolom ini adalah nilai tersimpan di Host
-        {drifted || hosts.some((h) => h.ledgerScore !== null)
-          ? "; jumlah ledger dihitung ulang saat halaman dibuka, dan selisihnya ditandai"
-          : ""}
-        .
+        Skor = {fmtNumber(base)} + poin transaksi aktif {fmtPeriod(month)} (reward
+        dan penalty, menurut tanggal kejadian). Peringkat hanya untuk host aktif;
+        skor sama berbagi peringkat.
+        {drifted ? " Tanda tidak sinkron membandingkan skor tersimpan (kumulatif) dengan ledger." : ""}
       </p>
     </>
   );
@@ -819,7 +888,7 @@ function LedgerPage(
                       }
                     >
                       <td className="pbs-num" style={{ whiteSpace: "nowrap" }}>
-                        {fmtDateTimeShort(t.when)}
+                        <TxDate t={t} />
                       </td>
                       <td style={{ whiteSpace: "normal", minWidth: 160 }}>
                         <b className="pbs-sc-rule">{t.rule}</b>
@@ -1042,6 +1111,7 @@ function ScoreModal(props: {
   const [pointText, setPointText] = React.useState("");
   const [overrideReason, setOverrideReason] = React.useState("");
   const [notes, setNotes] = React.useState("");
+  const [eventDay, setEventDay] = React.useState(() => isoDay(props.now));
   const [ack, setAck] = React.useState(false);
   const [files, setFiles] = React.useState<PickedFile[]>([]);
   const [fileBusy, setFileBusy] = React.useState(false);
@@ -1073,6 +1143,8 @@ function ScoreModal(props: {
         bigPenalty,
       })
     : ["host"];
+  const eventIssue = eventDateIssue(eventDay, props.now);
+  if (h && eventIssue) missing.push(eventIssue);
   if (h && evidenceRequired(evRule, type) && files.length === 0) missing.push("bukti");
   if (fileBusy) missing.push("bukti sedang diproses");
 
@@ -1123,6 +1195,8 @@ function ScoreModal(props: {
       category: rule.category,
       severity: rule.severity,
       transactionType: type === "PENALTY" ? "Penalty" : "Reward",
+      // yyyy-mm-dd: the month this reward/penalty counts for (TanggalKejadian).
+      tanggalKejadian: eventDay,
       point,
       defaultPoint: rule.point,
       overridden: override,
@@ -1308,6 +1382,28 @@ function ScoreModal(props: {
           <div>
             <span className="pbs-label">Pratinjau skor</span>
             <PreviewBox p={preview} />
+          </div>
+        </div>
+
+        <div className="pbs-field">
+          <label className="pbs-label" htmlFor="pbs-sc-day">
+            Tanggal kejadian
+          </label>
+          <input
+            id="pbs-sc-day"
+            type="date"
+            className="pbs-sc-input"
+            value={eventDay}
+            max={isoDay(props.now)}
+            onChange={(e) => setEventDay(e.target.value)}
+            disabled={pending}
+          />
+          <div className="pbs-sc-hint">
+            {eventIssue
+              ? eventIssue === "tanggal kejadian"
+                ? "Isi tanggal kejadian."
+                : "Tanggal kejadian tidak boleh setelah hari ini."
+              : `Dihitung di bulan ${monthLabel(eventDay)}.`}
           </div>
         </div>
 

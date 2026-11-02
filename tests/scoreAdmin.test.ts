@@ -1,6 +1,10 @@
 import { buildHosts, buildLedger, checkLedger, parseBands } from "../shared/host";
 import { matchesFilter, scoreRules, summarize } from "../shared/hostScore";
 import {
+  eventDateIssue,
+  monthlyBase,
+  monthlyScores,
+  isoDay,
   addScoreMissing,
   bandCounts,
   canVoid,
@@ -160,5 +164,57 @@ describe("band counts", () => {
       ["Kritis", 1],
       ["none", 1],
     ]);
+  });
+});
+
+describe("eventDateIssue", () => {
+  const now = new Date(2026, 10, 2, 14, 0);
+  it("needs a real day that is not after today", () => {
+    expect(eventDateIssue("2026-11-02", now)).toBeNull();
+    expect(eventDateIssue("2026-09-28", now)).toBeNull();
+    expect(eventDateIssue("", now)).toBe("tanggal kejadian");
+    expect(eventDateIssue("2026-02-30", now)).toBe("tanggal kejadian");
+    expect(eventDateIssue("2026-11-03", now)).toBe("tanggal kejadian tidak boleh setelah hari ini");
+    expect(isoDay(now)).toBe("2026-11-02");
+  });
+});
+
+describe("monthlyScores", () => {
+  const hs = buildHosts(
+    [
+      { ID: 1, Title: "H1", HostCode: "A", NamaHost: "A", Status: "Active" },
+      { ID: 2, Title: "H2", HostCode: "B", NamaHost: "B", Status: "Active" },
+      { ID: 3, Title: "H3", HostCode: "C", NamaHost: "C", Status: "Active" },
+      { ID: 4, Title: "H4", HostCode: "D", NamaHost: "D", Status: "Inactive" },
+    ],
+    [],
+    { initial: 100, min: 0, max: 200 },
+  );
+  const tx = buildLedger([
+    { ID: 1, HostID: "H1", Point: -5, Status: "Active", CreatedDate: "2026-10-03T09:00:00" },
+    { ID: 2, HostID: "H1", Point: 3, Status: "Active", CreatedDate: "2026-10-04T09:00:00" },
+    { ID: 3, HostID: "H2", Point: 4, Status: "Active", CreatedDate: "2026-10-05T09:00:00" },
+    // happened in September, written in October → September
+    { ID: 4, HostID: "H3", Point: -10, Status: "Active", CreatedDate: "2026-10-02T09:00:00", TanggalKejadian: "2026-09-29" },
+    { ID: 5, HostID: "H2", Point: -20, Status: "Void", CreatedDate: "2026-10-06T09:00:00" },
+  ]);
+  it("starts each month at the base, counts rewards and penalties, may pass 100, ranks with ties", () => {
+    const oct = monthlyScores(hs, tx, { year: 2026, month: 9 }, 100);
+    expect(["H1", "H2", "H3", "H4"].map((h) => [oct.get(h.toLowerCase())?.score, oct.get(h.toLowerCase())?.rank])).toEqual([
+      [98, 3],
+      [104, 1],
+      [100, 2],
+      [100, null],
+    ]);
+    const sep = monthlyScores(hs, tx, { year: 2026, month: 8 }, 100);
+    expect(["H1", "H2", "H3"].map((h) => [sep.get(h.toLowerCase())?.score, sep.get(h.toLowerCase())?.rank])).toEqual([
+      [100, 1],
+      [100, 1],
+      [90, 3],
+    ]);
+  });
+  it("reads the base from config", () => {
+    expect(monthlyBase({})).toBe(100);
+    expect(monthlyBase({ monthlyBaseScore: "120" })).toBe(120);
   });
 });

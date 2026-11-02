@@ -1,5 +1,7 @@
 import { Row, bool, num, str } from "./data";
 import { HostModel, ScoreBand, ScoreTx, TxType, bandOf, clamp } from "./host";
+import { Period } from "./payroll";
+import { txInPeriod } from "./hostScore";
 
 /**
  * Ops SL-1 / SL-2: managing credit score transactions (`[FAS STUDIO] HostScoreTransactions`).
@@ -139,6 +141,23 @@ export function addScoreMissing(i: AddScoreInput): string[] {
   return out;
 }
 
+const pad2 = (n: number): string => String(n).padStart(2, "0");
+/** yyyy-mm-dd of a local day. */
+export const isoDay = (d: Date): string => `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
+
+/**
+ * TanggalKejadian for ADD_SCORE: the day it happened decides the month it counts for. Required, a real
+ * date, not after today. null = fine.
+ */
+export function eventDateIssue(iso: string, now: Date): string | null {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso.trim());
+  if (!m) return "tanggal kejadian";
+  const d = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+  if (Number.isNaN(d.getTime()) || isoDay(d) !== iso.trim()) return "tanggal kejadian";
+  if (iso.trim() > isoDay(now)) return "tanggal kejadian tidak boleh setelah hari ini";
+  return null;
+}
+
 /** One ledger note for the transaction: the notes, the override reason, the confirmation (the ledger has one Notes column). */
 export function composeNotes(notes: string, override: { from: number | null; reason: string } | null, acknowledged = false): string {
   const parts = [notes.trim()];
@@ -254,3 +273,52 @@ export const evidenceRuleOf = (v: unknown): EvidenceRule => {
   return /^(all|semua|always|true|yes)$/.test(t) ? "all" : /penal|pelanggaran|kurang|deduct/.test(t) ? "penalty" : "none";
 };
 export const evidenceRequired = (rule: EvidenceRule, type: TxType): boolean => rule === "all" || (rule === "penalty" && type === "PENALTY");
+
+// ---- monthly score and ranking ------------------------------------------------------------------
+
+export interface MonthlyScore {
+  /** base + Σ active points of the month (reward and penalty); may go above the base. */
+  score: number;
+  points: number;
+  rewards: number;
+  penalties: number;
+  count: number;
+  /** 1 = highest; ties share a rank (1, 2, 2, 4). null for inactive hosts. */
+  rank: number | null;
+}
+
+/** Every month starts from this score (config.monthlyBaseScore, default 100). */
+export function monthlyBase(config: Record<string, unknown>): number {
+  const v = config.monthlyBaseScore;
+  const n = typeof v === "number" ? v : typeof v === "string" && v.trim() ? Number(v) : NaN;
+  return Number.isFinite(n) ? n : 100;
+}
+
+/**
+ * Score of each host for one month: the month resets to `base`, then every active transaction whose
+ * TanggalKejadian (else written date) falls in that month adds its points. Voided and reversal rows never count.
+ */
+export function monthlyScores(hosts: HostModel[], txs: ScoreTx[], period: Period, base: number): Map<string, MonthlyScore> {
+  const out = new Map<string, MonthlyScore>();
+  for (const h of hosts) out.set(h.hostId.toLowerCase(), { score: base, points: 0, rewards: 0, penalties: 0, count: 0, rank: null });
+  for (const t of txs) {
+    if (!t.active || t.reversal || !txInPeriod(t, period)) continue;
+    const m = out.get(str(t.row, "HostID", "HostId").toLowerCase());
+    if (!m) continue;
+    const p = t.point ?? 0;
+    m.points += p;
+    if (p >= 0) m.rewards += p;
+    else m.penalties += p;
+    m.count++;
+    m.score = Math.max(0, base + m.points);
+  }
+  const ranked = hosts
+    .filter((h) => h.status !== "INACTIVE")
+    .map((h) => out.get(h.hostId.toLowerCase())!)
+    .sort((a, b) => b.score - a.score);
+  ranked.forEach((m, i) => {
+    const prev = ranked[i - 1];
+    m.rank = prev && prev.score === m.score ? prev.rank : i + 1;
+  });
+  return out;
+}

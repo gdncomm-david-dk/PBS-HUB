@@ -915,7 +915,7 @@ ClockInJson     = JSON(ForAll(colHdClockIn, {ID: ID, Title: Title, HostID: HostI
 // Tier: pakai Tier.Value kalau kolomnya Choice, Tier kalau Text. AdjustedBy/At/Reason opsional (lihat Kehadiran di bawah).
 PayrollDataJson = JSON(ForAll(colHdLine, {Title: Title, payroll_id: payroll_id, HostID: varSelectedHostId, Periode: Periode, JumlahHari: JumlahHari, TotalGaji: TotalGaji, PPh21: PPh21, NetTHP: NetTHP, Bank: Bank, NorekLast4: Right(Norek, 4), HasRekening: !IsBlank(Norek) && !IsBlank(Bank)}), JSONFormat.Compact)
 PayrollJson     = JSON(ForAll(colHdRun, {ID: ID, Title: Title, PayrollName: PayrollName, Periode: Periode, Status: Status.Value, PBSApproval: PBSApproval, HCApproval: HCApproval, FASApproval: FASApproval, Created: Created, Modified: Modified}), JSONFormat.Compact)
-ScoreTxJson     = JSON(ForAll(colHdTx, {ID: ID, TransactionID: TransactionID, RuleID: RuleID, TransactionType: TransactionType.Value, Point: Point, ScoreBefore: ScoreBefore, ScoreAfter: ScoreAfter, Reason: Reason, Notes: Notes, Status: Status.Value, CreatedDate: CreatedDate, CreatedBy: CreatedBy.DisplayName, Evidence: Evidence}), JSONFormat.Compact)
+ScoreTxJson     = JSON(ForAll(colHdTx, {ID: ID, TransactionID: TransactionID, RuleID: RuleID, TransactionType: TransactionType.Value, Point: Point, ScoreBefore: ScoreBefore, ScoreAfter: ScoreAfter, Reason: Reason, Notes: Notes, Status: Status.Value, TanggalKejadian: Text(TanggalKejadian, "yyyy-mm-dd"), CreatedDate: CreatedDate, CreatedBy: CreatedBy.DisplayName, Evidence: Evidence}), JSONFormat.Compact)
 ThresholdsJson  = JSON(ForAll(colScoreBand, {ThresholdID: ThresholdID, Label: Label, Description: Description, MinimumScore: MinimumScore, MaximumScore: MaximumScore, Tone: Tone.Value, Active: Active, SortOrder: SortOrder}), JSONFormat.Compact)
 BrandsJson      = JSON(ShowColumns('Brand - PBS Hub', Title, NamaBrand), JSONFormat.Compact)
 StudiosJson     = JSON(ShowColumns('Studio - PBS Hub', Title, NamaStudio), JSONFormat.Compact)
@@ -1124,6 +1124,15 @@ Aturan form (dijaga control, canvas tetap memeriksa ulang skor): rule wajib; poi
 diubah, tapi **alasan override wajib**; severity *berat* wajib catatan; konfirmasi untuk pengurangan besar;
 pembatalan wajib alasan (tampil di aplikasi host). Pratinjau skor sebelum → sesudah memakai clamp Min/Max host.
 
+**Skor bulanan & ranking.** Daftar host menampilkan skor **per bulan**: setiap bulan mulai dari
+`monthlyBaseScore` (default 100), lalu ditambah semua poin transaksi *Active* bulan itu (reward + penalty, boleh
+di atas 100; minimal 0). Bulan transaksi = **`TanggalKejadian`** (kolom *Date only* baru di
+`[FAS STUDIO] HostScoreTransactions`); baris lama tanpa tanggal kejadian memakai `CreatedDate`. Host aktif diurutkan
+dan diberi peringkat (#1 = skor tertinggi; skor sama = peringkat sama). Pilih bulan di filter *Bulan* (6 bulan
+terakhir) → aksi informasi `SCORE_MONTH` `{month: "2026-10"}`. Form *Tambah/Kurangi poin* punya isian
+**Tanggal kejadian** (default hari ini, tidak boleh setelah hari ini) → `p.tanggalKejadian` ("yyyy-mm-dd").
+`CurrentScore` di Host tetap diperbarui seperti biasa (kumulatif); ranking tidak memakainya.
+
 **Screen.OnVisible**
 
 ```powerfx
@@ -1131,8 +1140,8 @@ Set(varScLoading, true);
 Set(varScCfg, First('[FAS STUDIO] ScoreConfig'));
 Concurrent(
     ClearCollect(colScHost, 'Host - PBS Hub'),
-    // Kolom Transaksi terakhir: cukup transaksi 60 hari terakhir semua host.
-    ClearCollect(colScRecent, Filter('[FAS STUDIO] HostScoreTransactions', CreatedDate >= DateAdd(Today(), -60, TimeUnit.Days))),
+    // Skor bulanan + ranking (6 bulan terakhir) dan kolom Transaksi terakhir: transaksi semua host sejak awal bulan ke-6 lalu.
+    ClearCollect(colScRecent, Filter('[FAS STUDIO] HostScoreTransactions', CreatedDate >= DateAdd(Date(Year(Today()), Month(Today()), 1), -5, TimeUnit.Months))),
     ClearCollect(colScRule, Filter('[FAS STUDIO] HostScoreRule', Active)),
     ClearCollect(colScoreBand, Filter('[FAS STUDIO] HostScoreThreshold', Active))
 );
@@ -1149,13 +1158,13 @@ Sidebar *Skor host*: `Set(varScHostId, ""); Navigate(scrCreditScore)`. Di HostDe
 **Properti**
 
 ```powerfx
-Context        = varPbsCtx          // config: scoreInitial/scoreMin/scoreMax (+ opsional bigPenaltyPoints, scheduleMinScore)
+Context        = varPbsCtx          // config: scoreInitial/scoreMin/scoreMax (+ opsional bigPenaltyPoints, scheduleMinScore, monthlyBaseScore = 100)
 HostId         = varScHostId
 IsLoading      = varScLoading
 ActionResult   = varScResult
 HostsJson      = JSON(ForAll(colScHost, {ID: ID, Title: Title, HostCode: HostCode, NamaHost: NamaHost, Status: Status.Value, Package: Package.Value, InitialScore: InitialScore, CurrentScore: CurrentScore, MinimumScore: MinimumScore, MaximumScore: MaximumScore}), JSONFormat.Compact)
-ScoreTxJson    = JSON(ForAll(colScRecent, {ID: ID, TransactionID: TransactionID, HostID: HostID, RuleID: RuleID, TransactionType: TransactionType.Value, Point: Point, Reason: Reason, Status: Status.Value, CreatedDate: CreatedDate}), JSONFormat.Compact)
-LedgerJson     = JSON(ForAll(colScLedger, {ID: ID, TransactionID: TransactionID, HostID: HostID, RuleID: RuleID, TransactionType: TransactionType.Value, Point: Point, ScoreBefore: ScoreBefore, ScoreAfter: ScoreAfter, Reason: Reason, Notes: Notes, Status: Status.Value, CreatedDate: CreatedDate, CreatedBy: CreatedBy.DisplayName, Evidence: Evidence}), JSONFormat.Compact)
+ScoreTxJson    = JSON(ForAll(colScRecent, {ID: ID, TransactionID: TransactionID, HostID: HostID, RuleID: RuleID, TransactionType: TransactionType.Value, Point: Point, Reason: Reason, Status: Status.Value, TanggalKejadian: Text(TanggalKejadian, "yyyy-mm-dd"), CreatedDate: CreatedDate}), JSONFormat.Compact)
+LedgerJson     = JSON(ForAll(colScLedger, {ID: ID, TransactionID: TransactionID, HostID: HostID, RuleID: RuleID, TransactionType: TransactionType.Value, Point: Point, ScoreBefore: ScoreBefore, ScoreAfter: ScoreAfter, Reason: Reason, Notes: Notes, Status: Status.Value, TanggalKejadian: Text(TanggalKejadian, "yyyy-mm-dd"), CreatedDate: CreatedDate, CreatedBy: CreatedBy.DisplayName, Evidence: Evidence}), JSONFormat.Compact)
 RulesJson      = JSON(ForAll(colScRule, {RuleID: RuleID, RuleName: RuleName, RuleType: RuleType.Value, Point: Point, Category: Category, Severity: Severity.Value, Description: Description, Active: Active}), JSONFormat.Compact)
 ThresholdsJson = JSON(ForAll(colScoreBand, {ThresholdID: ThresholdID, Label: Label, Description: Description, MinimumScore: MinimumScore, MaximumScore: MaximumScore, Tone: Tone.Value, Active: Active, SortOrder: SortOrder}), JSONFormat.Compact)
 // RuleID: kolom ID rule di list (RuleID; pakai Title kalau ID disimpan di Title). RuleType boleh Reward/Penalty
@@ -1221,6 +1230,7 @@ If(!IsBlank(Self.ActionPayload),
                                         Notes: Text(p.notesText),                            // catatan + alasan override + konfirmasi
                                         Evidence: varScUrls,                                 // link bukti, satu per baris (kosong kalau tanpa bukti)
                                         Status: {Value: "Active"},
+                                        TanggalKejadian: DateValue(Text(p.tanggalKejadian)),   // kolom Date only baru: bulan transaksi ini dihitung
                                         CreatedDate: Now(),
                                         // Hapus kalau CreatedBy bukan kolom Person sendiri (pakai 'Created By' bawaan).
                                         CreatedBy: {Claims: "i:0#.f|membership|" & Lower(User().Email), DisplayName: User().FullName, Email: User().Email, Department: "", JobTitle: "", Picture: ""}
@@ -1265,6 +1275,7 @@ If(!IsBlank(Self.ActionPayload),
                                         Reason: "Pembatalan transaksi",
                                         Notes: Text(p.notesText),                            // "Membatalkan TX-…: alasan"
                                         Status: {Value: "Reversal"},
+                                        TanggalKejadian: o.TanggalKejadian,                   // ikut bulan transaksi yang dibatalkan
                                         CreatedDate: Now(),
                                         CreatedBy: {Claims: "i:0#.f|membership|" & Lower(User().Email), DisplayName: User().FullName, Email: User().Email, Department: "", JobTitle: "", Picture: ""}
                                     });
@@ -1275,7 +1286,7 @@ If(!IsBlank(Self.ActionPayload),
                                         Patch('Host - PBS Hub', h, {CurrentScore: after});
                                         Patch(colScHost, LookUp(colScHost, Title = h.Title), {CurrentScore: after});
                                         ClearCollect(colScLedger, Filter('[FAS STUDIO] HostScoreTransactions', HostID = h.Title));
-                                        ClearCollect(colScRecent, Filter('[FAS STUDIO] HostScoreTransactions', CreatedDate >= DateAdd(Today(), -60, TimeUnit.Days)));
+                                        ClearCollect(colScRecent, Filter('[FAS STUDIO] HostScoreTransactions', CreatedDate >= DateAdd(Date(Year(Today()), Month(Today()), 1), -5, TimeUnit.Months)));
                                         Set(varScResult, JSON({requestId: rid, status: "ok", message: Text(p.transactionId) & " dibatalkan · skor " & cur & " → " & after}, JSONFormat.Compact)),
                                         Set(varScResult, JSON({requestId: rid, status: "error", message: "Transaksi dibatalkan, tapi CurrentScore gagal diperbarui (" & FirstError.Message & "). Isi CurrentScore " & after & " secara manual."}, JSONFormat.Compact))
                                     ),
@@ -1303,6 +1314,7 @@ tampil di dalam dialog; `ok` menutup dialog dan menampilkan pesannya sebagai ban
 | `BACK` | `{}` |
 | `NAV` | `{target: "RULES"}` |
 | `FILTER_CHANGED` / `LOAD_MORE` | `{filters, sort}` / `{loaded, filters, sort}` — informasi saja; `HasMore` hanya perlu kalau host > 2000 |
+| `SCORE_MONTH` | `{month: "yyyy-mm"}` — bulan ranking dipilih; informasi saja (data 6 bulan sudah dimuat di OnVisible) |
 
 `notesText` sudah disusun control (catatan · *Poin diubah dari default +4: alasan* · *Host dan atasan sudah diberi
 tahu*), jadi canvas cukup menulisnya ke `Notes`. Canvas menghitung ulang `after` dari skor segar di server, bukan

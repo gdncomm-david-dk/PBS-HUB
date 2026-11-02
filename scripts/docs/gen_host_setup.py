@@ -50,7 +50,7 @@ STUDIOS = "JSON(ForAll(colStudios, {Title: Title, NamaStudio: NamaStudio}), JSON
 PLAYBOOKS = "JSON(Choices([@'Report - PBS Hub'].Playbook), JSONFormat.Compact)"
 
 TX = """{ID: ID, TransactionID: TransactionID, RuleID: RuleID, TransactionType: TransactionType.Value, Point: Point,
-    ScoreBefore: ScoreBefore, ScoreAfter: ScoreAfter, Reason: Reason, Notes: Notes, Status: Status.Value,
+    ScoreBefore: ScoreBefore, ScoreAfter: ScoreAfter, Reason: Reason, Notes: Notes, Status: Status.Value, TanggalKejadian: Text(TanggalKejadian, "yyyy-mm-dd"),
     CreatedDate: CreatedDate, CreatedBy: CreatedBy.DisplayName, Evidence: Evidence}"""
 
 BANDS = """{ThresholdID: ThresholdID, Label: Label, Description: Description, MinimumScore: MinimumScore,
@@ -169,7 +169,7 @@ belum ada di list lama, cek dulu.
 **`Brand - PBS Hub`** — `Title`, `NamaBrand` · **`Studio - PBS Hub`** — `Title`, `NamaStudio` ·
 **`Studio Location - PBS`** — `Title`, `LocationID`, `Latitude`, `Longitude`, `RadiusMeter`, `IsActive`
 
-**Skor (kartu skor di Hari ini + layar Skor saya)** — `[FAS STUDIO] HostScoreTransactions` (`TransactionID, HostID, RuleID, TransactionType, Point, ScoreBefore, ScoreAfter, Reason, Notes, Status, CreatedDate`), `[FAS STUDIO] HostScoreThreshold` (`ThresholdID, Label, Description, MinimumScore, MaximumScore, Tone, Active, SortOrder`), `[FAS STUDIO] ScoreConfig` (`InitialScore, MinimumScore, MaximumScore`, dipakai kalau kolom skor di Host kosong). Host perlu izin **baca** ketiga list; tidak ada yang ditulis dari app host.""")
+**Skor (kartu skor di Hari ini + layar Skor saya)** — `[FAS STUDIO] HostScoreTransactions` (`TransactionID, HostID, RuleID, TransactionType, Point, ScoreBefore, ScoreAfter, Reason, Notes, Status, TanggalKejadian, CreatedDate`), `[FAS STUDIO] HostScoreThreshold` (`ThresholdID, Label, Description, MinimumScore, MaximumScore, Tone, Active, SortOrder`), `[FAS STUDIO] ScoreConfig` (`InitialScore, MinimumScore, MaximumScore`, dipakai kalau kolom skor di Host kosong). Host perlu izin **baca** ketiga list; tidak ada yang ditulis dari app host.""")
 
     doc.append("""## Langkah 1 — Import solusi dan tambahkan data source
 
@@ -369,7 +369,7 @@ Set(varHdLoading, false)"""
         ("ClockInJson", js("colMyClk", CLK), ""),
         ("AbsenceJson", js("colMyAbs", ABS), ""),
         ("ReportsJson", js("colMyRep", REP), ""),
-        ("ScoreTxJson", js("colMyTx", "{Point: Point, Status: Status.Value, CreatedDate: CreatedDate, Reason: Reason}"), "opsional; isi `\"[]\"` kalau tanpa skor"),
+        ("ScoreTxJson", js("colMyTx", "{Point: Point, Status: Status.Value, TanggalKejadian: Text(TanggalKejadian, \"yyyy-mm-dd\"), CreatedDate: CreatedDate, Reason: Reason}"), "opsional; isi `\"[]\"` kalau tanpa skor"),
         ("ThresholdsJson", js("colScoreBand", BANDS), "opsional; isi `\"[]\"` kalau tanpa skor"),
         ("BrandsJson", BRANDS, ""),
         ("StudiosJson", STUDIOS, ""),

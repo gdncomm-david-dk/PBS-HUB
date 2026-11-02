@@ -1,4 +1,4 @@
-import { buildLedger, parseBands } from "../shared/host";
+import { buildLedger, eventDiffers, parseBands } from "../shared/host";
 import { marginBelow, matchesFilter, nextBand, scoreRules, scoreSeries, summarize, txInPeriod } from "../shared/hostScore";
 
 const bands = parseBands([
@@ -83,5 +83,20 @@ describe("score rules", () => {
       ["R1", "REWARD", 2, ""],
       ["R4", "PENALTY", 0, "Tanpa kabar ke PIC"],
     ]);
+  });
+});
+
+describe("TanggalKejadian", () => {
+  const rows = buildLedger([
+    // written 2 Oct, happened 28 Sep → counts for September
+    { ID: 5, TransactionID: "TX-5", Reason: "Telat live", Point: -3, Status: "Active", CreatedDate: "2026-10-02T09:00:00", TanggalKejadian: "2026-09-28" },
+    { ID: 6, TransactionID: "TX-6", Reason: "Live tepat waktu", Point: 2, Status: "Active", CreatedDate: "2026-10-03T09:00:00" },
+  ]);
+  it("decides the month; rows without it use the written date", () => {
+    expect(rows.filter((t) => txInPeriod(t, SEP)).map((t) => t.txId)).toEqual(["TX-5"]);
+    expect(rows.filter((t) => txInPeriod(t, { year: 2026, month: 9 })).map((t) => t.txId)).toEqual(["TX-6"]);
+  });
+  it("shows the event day only when it differs from the written day", () => {
+    expect(rows.map((t) => [t.txId, eventDiffers(t)])).toEqual([["TX-6", false], ["TX-5", true]]);
   });
 });

@@ -1,7 +1,21 @@
 import * as React from "react";
-import { fmtNumber } from "./format";
-import { ScoreBand } from "./host";
+import { fmtDateTimeShort, fmtDayMonth, fmtNumber } from "./format";
+import { ScoreBand, ScoreTx, eventDiffers } from "./host";
 import { Icon, TONE_DOT } from "./ui";
+
+/** Ledger date cell: TanggalKejadian when it is another day than the row was written, else the written time. */
+export function TxDate(props: { t: Pick<ScoreTx, "eventDate" | "when"> }): React.ReactElement {
+  const { t } = props;
+  if (!eventDiffers(t)) return <>{fmtDateTimeShort(t.when)}</>;
+  return (
+    <span title="Tanggal kejadian; transaksi dihitung di bulan ini">
+      {fmtDayMonth(t.eventDate)}
+      <span className="pbs-muted" style={{ display: "block", fontSize: 11.5 }}>
+        dicatat {fmtDateTimeShort(t.when)}
+      </span>
+    </span>
+  );
+}
 
 /** The score bands as one bar with a marker at the score (HostDetail summary, host app Skor saya). */
 export function BandChart(props: { bands: ScoreBand[]; score: number | null; min: number | null; max: number | null }): React.ReactElement | null {

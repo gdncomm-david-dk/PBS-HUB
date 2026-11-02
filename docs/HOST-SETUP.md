@@ -68,7 +68,7 @@ belum ada di list lama, cek dulu.
 **`Brand - PBS Hub`** — `Title`, `NamaBrand` · **`Studio - PBS Hub`** — `Title`, `NamaStudio` ·
 **`Studio Location - PBS`** — `Title`, `LocationID`, `Latitude`, `Longitude`, `RadiusMeter`, `IsActive`
 
-**Skor (kartu skor di Hari ini + layar Skor saya)** — `[FAS STUDIO] HostScoreTransactions` (`TransactionID, HostID, RuleID, TransactionType, Point, ScoreBefore, ScoreAfter, Reason, Notes, Status, CreatedDate`), `[FAS STUDIO] HostScoreThreshold` (`ThresholdID, Label, Description, MinimumScore, MaximumScore, Tone, Active, SortOrder`), `[FAS STUDIO] ScoreConfig` (`InitialScore, MinimumScore, MaximumScore`, dipakai kalau kolom skor di Host kosong). Host perlu izin **baca** ketiga list; tidak ada yang ditulis dari app host.
+**Skor (kartu skor di Hari ini + layar Skor saya)** — `[FAS STUDIO] HostScoreTransactions` (`TransactionID, HostID, RuleID, TransactionType, Point, ScoreBefore, ScoreAfter, Reason, Notes, Status, TanggalKejadian, CreatedDate`), `[FAS STUDIO] HostScoreThreshold` (`ThresholdID, Label, Description, MinimumScore, MaximumScore, Tone, Active, SortOrder`), `[FAS STUDIO] ScoreConfig` (`InitialScore, MinimumScore, MaximumScore`, dipakai kalau kolom skor di Host kosong). Host perlu izin **baca** ketiga list; tidak ada yang ditulis dari app host.
 
 ## Langkah 1 — Import solusi dan tambahkan data source
 
@@ -320,7 +320,7 @@ JSON(ForAll(colMyRep, {ID: ID, Title: Title, ScheduleID: ScheduleID, HostID: Hos
 7. **`ScoreTxJson`** — opsional; isi `"[]"` kalau tanpa skor
 
 ```powerfx
-JSON(ForAll(colMyTx, {Point: Point, Status: Status.Value, CreatedDate: CreatedDate, Reason: Reason}), JSONFormat.Compact)
+JSON(ForAll(colMyTx, {Point: Point, Status: Status.Value, TanggalKejadian: Text(TanggalKejadian, "yyyy-mm-dd"), CreatedDate: CreatedDate, Reason: Reason}), JSONFormat.Compact)
 ```
 
 8. **`ThresholdsJson`** — opsional; isi `"[]"` kalau tanpa skor
@@ -1988,7 +1988,7 @@ JSON(ForAll(Table(varMe), {Title: Title, HostCode: HostCode, NamaHost: NamaHost,
 
 ```powerfx
 JSON(ForAll(colCsTx, {ID: ID, TransactionID: TransactionID, RuleID: RuleID, TransactionType: TransactionType.Value, Point: Point,
-    ScoreBefore: ScoreBefore, ScoreAfter: ScoreAfter, Reason: Reason, Notes: Notes, Status: Status.Value,
+    ScoreBefore: ScoreBefore, ScoreAfter: ScoreAfter, Reason: Reason, Notes: Notes, Status: Status.Value, TanggalKejadian: Text(TanggalKejadian, "yyyy-mm-dd"),
     CreatedDate: CreatedDate, CreatedBy: CreatedBy.DisplayName, Evidence: Evidence}), JSONFormat.Compact)
 ```
 

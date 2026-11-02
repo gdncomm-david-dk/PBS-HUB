@@ -530,13 +530,28 @@ const assert = (c, m) => { if (!c) { console.log("FAIL", m); process.exitCode = 
 
   // ---- Ops: Skor host (SL-1 list, SL-2 ledger, add / deduct / void) -----------------------------
   await go("c=HostScore");
-  assert(await p.getByText("12 host · skor rata-rata 92 · 1 skor tidak sinkron dengan ledger").isVisible(), "SL-1 subtitle: hosts, average, drift count");
-  assert((await p.locator(".pbs-sc-kpi", { hasText: "Baik · 85–114" }).locator(".v").textContent()) === "7", "band KPI counts hosts per band");
+  // Monthly score: every month starts at 100 and adds that month's active points (TanggalKejadian decides the month).
+  assert(await p.getByText("Skor September 2026 · tiap bulan mulai dari 100 · 12 host · rata-rata 100 · 1 skor tidak sinkron dengan ledger").isVisible(), "SL-1 subtitle: month, base, hosts, average, drift count");
+  assert((await p.locator(".pbs-sc-kpi", { hasText: "Baik · 85–114" }).locator(".v").textContent()) === "12", "band KPI counts hosts per band on the monthly score");
   assert(await p.locator("tr.pbs-sc-drift").getByText("Jumlah ledger 90, tersimpan 92").isVisible(), "drift row names ledger sum vs stored score");
-  assert((await p.locator(".pbs-sc-list tbody tr").first().locator("td").nth(2).textContent()) === "118", "sorted by score, highest first");
-  await p.locator(".pbs-sc-kpi", { hasText: "Kritis" }).click();
-  assert((await p.locator(".pbs-sc-list tbody tr").count()) === 1, "band KPI filters the list");
-  await p.locator(".pbs-sc-kpi", { hasText: "Kritis" }).click();
+  {
+    const first = await p.locator(".pbs-sc-list tbody tr").first().locator("td").allTextContents();
+    assert(first[0] === "1" && first[1] === "PBSH-003" && first[3] === "105" && first[5].startsWith("+5"), `ranked by September score, #1 first (got ${first.slice(0, 6).join(" | ")})`);
+    const inactive = await p.locator("tr", { hasText: "PBSH-012" }).locator("td").first().textContent();
+    assert(inactive === "—", "inactive host has no rank");
+  }
+  await p.locator("select[aria-label=Bulan]").selectOption("2026-08");
+  await p.waitForTimeout(200);
+  {
+    const first = await p.locator(".pbs-sc-list tbody tr").first().locator("td").allTextContents();
+    // HST-001 August: +2 +5 −5 +3 +2, plus the 5 Sep row whose TanggalKejadian is 30 Aug (+2) = 109
+    assert(first[0] === "1" && first[1] === "PBSH-001" && first[3] === "109", `August ranking uses TanggalKejadian (got ${first.slice(0, 6).join(" | ")})`);
+    assert((await payloads()).some((x) => x.action === "SCORE_MONTH" && x.payload.month === "2026-08"), "SCORE_MONTH fired with the month");
+    await shot("sc-ranking-august");
+  }
+  await p.locator(".pbs-sc-kpi", { hasText: "Perlu perhatian" }).click();
+  assert((await p.locator(".pbs-sc-list tbody tr").count()) === 1, "band KPI filters the list (monthly band)");
+  await p.locator(".pbs-sc-kpi", { hasText: "Perlu perhatian" }).click();
   await (await pageTo(p.locator("tr", { hasText: "PBSH-001" }))).getByRole("button", { name: "Ledger" }).click();
   await p.waitForTimeout(200);
   pl = await payloads();
@@ -553,11 +568,14 @@ const assert = (c, m) => { if (!c) { console.log("FAIL", m); process.exitCode = 
   assert(await p.getByText("Poin diubah dari default rule (+4)").isVisible() && (await p.getByRole("button", { name: "Save Transaction" }).isDisabled()), "override needs a reason before saving");
   await p.fill("#pbs-sc-ovr", "Menggantikan dua sesi sekaligus");
   await p.fill("#pbs-sc-notes", "Gantikan host lain mendadak di sesi Hanasui");
+  assert((await p.inputValue("#pbs-sc-day")).length === 10, "TanggalKejadian defaults to today");
+  await p.fill("#pbs-sc-day", "2026-08-28");
+  assert(await p.getByText("Dihitung di bulan Agustus 2026.").isVisible(), "TanggalKejadian names the month it counts for");
   await p.getByRole("button", { name: "Save Transaction" }).click();
   await p.waitForTimeout(700);
   pl = await payloads();
   const scAdd = pl.find((x) => x.action === "ADD_SCORE");
-  assert(scAdd && scAdd.payload.point === 6 && scAdd.payload.defaultPoint === 4 && scAdd.payload.overridden && scAdd.payload.expectedScore === 112 && scAdd.payload.scoreAfter === 118 && scAdd.payload.transactionType === "Reward" && /^TX-\d{8}-\d{6}-/.test(scAdd.payload.transactionId) && scAdd.payload.notesText.includes("Poin diubah dari default +4: Menggantikan"), "ADD_SCORE payload: points, default, override, expected score, notes");
+  assert(scAdd && scAdd.payload.point === 6 && scAdd.payload.defaultPoint === 4 && scAdd.payload.overridden && scAdd.payload.expectedScore === 112 && scAdd.payload.scoreAfter === 118 && scAdd.payload.transactionType === "Reward" && /^TX-\d{8}-\d{6}-/.test(scAdd.payload.transactionId) && scAdd.payload.notesText.includes("Poin diubah dari default +4: Menggantikan") && scAdd.payload.tanggalKejadian === "2026-08-28", "ADD_SCORE payload: tanggalKejadian,: points, default, override, expected score, notes");
   assert((await p.getByRole("dialog").count()) === 0 && (await p.getByText("118 · sinkron · 10 transaksi").isVisible()), "dialog closes on ok, ledger refreshed and still in sync");
   // Void: reversal row, score back, still in sync.
   await p.locator("tbody tr", { hasText: "Live tepat waktu" }).first().getByRole("button", { name: "Void" }).click();
@@ -604,9 +622,10 @@ const assert = (c, m) => { if (!c) { console.log("FAIL", m); process.exitCode = 
   await go("c=CreditScore");
   assert(await p.locator(".hc-scorec-n").getByText("112", { exact: true }).isVisible() && (await p.locator(".hc-scorec-n").getByText("Baik", { exact: true }).isVisible()), "score 112 with its level Baik");
   assert(await p.getByText("3 poin lagi").isVisible() && (await p.locator(".hc-sc-next").getByText("Sangat baik").isVisible()), "points to the next level");
-  assert((await p.locator(".hc-row.tx:not(.head)").count()) === 3, "September: 3 transactions (voided one included)");
-  assert(await p.getByText("Total 3 transaksi · September 2026").isVisible(), "footer total for the month");
-  assert((await p.locator(".hc-kpi", { hasText: "Reward" }).locator(".v").textContent()).startsWith("+5"), "reward KPI counts active rows only");
+  // The 5 Sep row happened on 30 Aug (TanggalKejadian), so it counts for August.
+  assert((await p.locator(".hc-row.tx:not(.head)").count()) === 2, "September: 2 transactions (voided one included, 30 Aug event moved out)");
+  assert(await p.getByText("Total 2 transaksi · September 2026").isVisible(), "footer total for the month");
+  assert((await p.locator(".hc-kpi", { hasText: "Reward" }).locator(".v").textContent()).startsWith("+3"), "reward KPI counts active rows only");
   assert(await p.locator(".hc-lv li.on").getByText("Kamu di sini").isVisible(), "current level highlighted");
   await p.getByRole("tab", { name: /Dibatalkan/ }).click();
   assert((await p.locator(".hc-row.tx.void").count()) === 1 && (await p.locator(".hc-row.tx:not(.head)").count()) === 1, "void filter");
