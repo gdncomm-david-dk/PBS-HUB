@@ -36,6 +36,7 @@ import {
   periodOf,
 } from "../../../shared/payroll";
 import { BandChart, EvidenceLinks } from "../../../shared/scoreUi";
+import { monthlyBase, withMonthlyScore } from "../../../shared/scoreAdmin";
 import {
   Badge,
   Button,
@@ -92,10 +93,6 @@ export function CreditScoreView(props: CreditScoreProps): React.ReactElement {
   );
   const defaults = React.useMemo(() => scoreDefaults(ctx.config), [ctx]);
   const hostRow = props.host[0];
-  const h = React.useMemo(
-    () => (hostRow ? buildHost(hostRow, bands, defaults) : null),
-    [hostRow, bands, defaults],
-  );
   const ledger = React.useMemo(() => buildLedger(props.txs), [props.txs]);
   const rules = React.useMemo(
     () => scoreRules(props.rules, ledger),
@@ -116,6 +113,14 @@ export function CreditScoreView(props: CreditScoreProps): React.ReactElement {
   React.useEffect(() => setFilter(initialFilter), [initialFilter]);
 
   const thisMonth = periodOf(now);
+  // Every month starts again from the base score: the hero shows the chosen month (all time → this month).
+  const h = React.useMemo(
+    () =>
+      hostRow
+        ? withMonthlyScore(buildHost(hostRow, bands, defaults), ledger, period ?? thisMonth, monthlyBase(ctx.config), bands)
+        : null,
+    [hostRow, bands, defaults, ledger, period, thisMonth.year, thisMonth.month, ctx],
+  );
   const months = React.useMemo(() => {
     const keys = new Set<string>();
     const list: Period[] = [];

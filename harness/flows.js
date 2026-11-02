@@ -337,7 +337,7 @@ const assert = (c, m) => { if (!c) { console.log("FAIL", m); process.exitCode = 
   assert(await p.getByText("Belum ada host").isVisible(), "empty host list");
 
   await go("c=HostDetail&h=HST-003");
-  assert(await p.getByText("Skor tersimpan tidak cocok dengan ledger.").isVisible(), "ledger drift warning");
+  assert(await p.getByText("CurrentScore (kumulatif) tidak cocok dengan ledger.").isVisible(), "ledger drift warning");
   assert((await p.locator("tr.void").count()) === 1, "voided transaction struck through");
   await go("c=HostDetail&h=HST-012");
   assert(await p.getByText(/Host nonaktif sejak 5 Sep 2026/).isVisible(), "deactivated host names the date");
@@ -634,8 +634,8 @@ const assert = (c, m) => { if (!c) { console.log("FAIL", m); process.exitCode = 
 
   // ---- Host app: credit score (Skor saya) -------------------------------------------------------
   await go("c=CreditScore");
-  assert(await p.locator(".hc-scorec-n").getByText("112", { exact: true }).isVisible() && (await p.locator(".hc-scorec-n").getByText("Baik", { exact: true }).isVisible()), "score 112 with its level Baik");
-  assert(await p.getByText("3 poin lagi").isVisible() && (await p.locator(".hc-sc-next").getByText("Sangat baik").isVisible()), "points to the next level");
+  assert(await p.locator(".hc-scorec-n").getByText("103", { exact: true }).isVisible() && (await p.locator(".hc-scorec-n").getByText("Baik", { exact: true }).isVisible()), "September score 103 (100 + this month) with its level Baik");
+  assert(await p.getByText("12 poin lagi").isVisible() && (await p.locator(".hc-sc-next").getByText("Sangat baik").isVisible()), "points to the next level");
   // The 5 Sep row happened on 30 Aug (TanggalKejadian), so it counts for August.
   assert((await p.locator(".hc-row.tx:not(.head)").count()) === 2, "September: 2 transactions (voided one included, 30 Aug event moved out)");
   assert(await p.getByText("Total 2 transaksi · September 2026").isVisible(), "footer total for the month");

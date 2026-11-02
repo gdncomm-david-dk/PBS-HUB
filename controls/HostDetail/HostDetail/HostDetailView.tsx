@@ -42,9 +42,10 @@ import {
   revealedFor,
   scoreDefaults,
 } from "../../../shared/host";
-import { buildRuns, fmtPeriod } from "../../../shared/payroll";
+import { buildRuns, fmtPeriod, periodOf } from "../../../shared/payroll";
 import { reviewBadge } from "../../../shared/reconcile";
 import { BandChart, EvidenceLinks, TxDate } from "../../../shared/scoreUi";
+import { monthlyBase, withMonthlyScore } from "../../../shared/scoreAdmin";
 import {
   Badge,
   Button,
@@ -114,9 +115,14 @@ export function HostDetailView(props: HostDetailProps): React.ReactElement {
   );
   const defaults = React.useMemo(() => scoreDefaults(ctx.config), [ctx]);
   const hostRow = props.host[0];
+  const ledger = React.useMemo(() => buildLedger(props.txs), [props.txs]);
+  // Every month starts again from the base score: the summary shows this month's score from the ledger.
   const h = React.useMemo(
-    () => (hostRow ? buildHost(hostRow, bands, defaults) : null),
-    [hostRow, bands, defaults],
+    () =>
+      hostRow
+        ? withMonthlyScore(buildHost(hostRow, bands, defaults), ledger, periodOf(now), monthlyBase(ctx.config), bands)
+        : null,
+    [hostRow, bands, defaults, ledger, now, ctx],
   );
 
   const brandNames = React.useMemo(
@@ -166,7 +172,6 @@ export function HostDetailView(props: HostDetailProps): React.ReactElement {
     () => buildHostPayLines(props.lines, runModels),
     [props.lines, runModels],
   );
-  const ledger = React.useMemo(() => buildLedger(props.txs), [props.txs]);
 
   const canPii = hasPermission(ctx, "HOST_PII_VIEW");
   const canPay = hasPermission(ctx, "PAYROLL_VIEW");
@@ -358,7 +363,7 @@ export function HostDetailView(props: HostDetailProps): React.ReactElement {
             <Meta label="Package" value={h.pkg || "—"} />
             <Meta label="Bergabung" value={fmtDateShort(h.joined)} />
             <Meta
-              label="Skor"
+              label={`Skor ${fmtPeriod(periodOf(now))}`}
               value={
                 h.score === null ? (
                   "—"
@@ -642,7 +647,7 @@ function SummaryTab(props: {
   now: Date;
   action: UseActionResult;
 }): React.ReactElement {
-  const { h, check, action } = props;
+  const { h, check, action, now } = props;
   const act = hostActivity(
     props.sessions,
     props.clockIns,
@@ -668,7 +673,7 @@ function SummaryTab(props: {
       <div className="pbs-two" style={{ marginBottom: 16 }}>
         <div className="pbs-card pbs-card-pad">
           <SectionHeader
-            label="Skor kredit"
+            label={`Skor kredit · ${fmtPeriod(periodOf(now))}`}
             right={
               <button
                 type="button"
@@ -730,7 +735,8 @@ function SummaryTab(props: {
             >
               <Icon name="alert" />
               <div className="grow">
-                <b>Skor tersimpan tidak cocok dengan ledger.</b> CurrentScore{" "}
+                <b>CurrentScore (kumulatif) tidak cocok dengan ledger.</b> Skor di atas adalah skor{" "}
+                {fmtPeriod(periodOf(now))} dari ledger; CurrentScore tidak dipakai. CurrentScore{" "}
                 {fmtNumber(h.storedScore)}, sedangkan awal{" "}
                 {fmtNumber(h.initial)} + {check.activeCount} transaksi aktif ={" "}
                 {fmtNumber(check.expected)} (selisih {signed(check.diff)}).

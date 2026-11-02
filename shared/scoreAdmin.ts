@@ -322,3 +322,13 @@ export function monthlyScores(hosts: HostModel[], txs: ScoreTx[], period: Period
   });
   return out;
 }
+
+/**
+ * The host as the score screens show it: score and band of one month from the ledger (base + that month's
+ * active points). storedScore keeps CurrentScore for the drift check.
+ */
+export function withMonthlyScore(h: HostModel, txs: ScoreTx[], period: Period, base: number, bands: ScoreBand[]): HostModel {
+  const own = txs.map((t) => (str(t.row, "HostID", "HostId") ? t : { ...t, row: { ...t.row, HostID: h.hostId } }));
+  const m = monthlyScores([{ ...h, status: "ACTIVE" }], own, period, base).get(h.hostId.toLowerCase());
+  return m ? { ...h, score: m.score, band: bandOf(m.score, bands) } : h;
+}
