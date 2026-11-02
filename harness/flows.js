@@ -540,6 +540,12 @@ const assert = (c, m) => { if (!c) { console.log("FAIL", m); process.exitCode = 
     const inactive = await p.locator("tr", { hasText: "PBSH-012" }).locator("td").first().textContent();
     assert(inactive === "—", "inactive host has no rank");
   }
+  {
+    const pod = await p.locator(".pbs-lb-pod li").allTextContents();
+    assert(pod.length === 3 && pod[0].includes("Bagus Nugroho") && pod[0].includes("105") && pod[1].includes("103"), `leaderboard podium: top 3 of the month (got ${pod.join(" | ")})`);
+    assert((await p.getByText("Terbawah").count()) === 0, "no 'Terbawah' list when every host is already in the top 10");
+    await shot("sc-leaderboard");
+  }
   await p.locator("select[aria-label=Bulan]").selectOption("2026-08");
   await p.waitForTimeout(200);
   {
@@ -556,7 +562,15 @@ const assert = (c, m) => { if (!c) { console.log("FAIL", m); process.exitCode = 
   await p.waitForTimeout(200);
   pl = await payloads();
   assert(pl.some((x) => x.action === "OPEN_LEDGER" && x.payload.hostId === "HST-001"), "OPEN_LEDGER with hostId");
-  assert(await p.getByText("112 · sinkron · 9 transaksi").isVisible(), "ledger header: sum in sync");
+  assert(await p.getByText("112 · sinkron").isVisible(), "ledger header: cumulative CurrentScore in sync");
+  // Score per month: September (this month) is the default; August holds the 30 Aug event written on 5 Sep.
+  assert((await p.locator(".pbs-sc-month", { hasText: "September 2026" }).locator(".v").textContent()) === "103" && (await p.locator(".pbs-sc-month", { hasText: "Agustus 2026" }).locator(".v").textContent()) === "109", "ledger shows the score of each month");
+  assert((await p.locator(".pbs-sc-ledger tbody tr").count()) === 3, "ledger opens on this month's rows");
+  await p.locator(".pbs-sc-month", { hasText: "Agustus 2026" }).click();
+  assert((await p.locator(".pbs-sc-ledger tbody tr").count()) === 6 && (await p.getByText("Skor Agustus 2026").isVisible()), "month card filters the ledger to August");
+  await shot("sc-ledger-month");
+  await p.locator("select[aria-label=Bulan]").selectOption("");
+  assert((await p.locator(".pbs-sc-ledger tbody tr").count()) === 9, "Semua bulan shows every row");
   assert(await p.locator("tr.pbs-sc-rev").getByText("Koreksi").isVisible() && (await p.locator("tr.void").getByText(/dibatalkan 3 Sep oleh Annisa H/).isVisible()), "reversal row Koreksi; voided row says when and by whom");
   assert((await p.locator("tr.pbs-sc-rev").getByRole("button", { name: "Void" }).count()) === 0 && (await p.locator("tr.void").getByRole("button", { name: "Void" }).count()) === 0, "void / reversal rows cannot be voided");
   // Add: rule prefills points; changing them asks for an override reason.
@@ -576,7 +590,7 @@ const assert = (c, m) => { if (!c) { console.log("FAIL", m); process.exitCode = 
   pl = await payloads();
   const scAdd = pl.find((x) => x.action === "ADD_SCORE");
   assert(scAdd && scAdd.payload.point === 6 && scAdd.payload.defaultPoint === 4 && scAdd.payload.overridden && scAdd.payload.expectedScore === 112 && scAdd.payload.scoreAfter === 118 && scAdd.payload.transactionType === "Reward" && /^TX-\d{8}-\d{6}-/.test(scAdd.payload.transactionId) && scAdd.payload.notesText.includes("Poin diubah dari default +4: Menggantikan") && scAdd.payload.tanggalKejadian === "2026-08-28", "ADD_SCORE payload: tanggalKejadian,: points, default, override, expected score, notes");
-  assert((await p.getByRole("dialog").count()) === 0 && (await p.getByText("118 · sinkron · 10 transaksi").isVisible()), "dialog closes on ok, ledger refreshed and still in sync");
+  assert((await p.getByRole("dialog").count()) === 0 && (await p.getByText("118 · sinkron").isVisible()), "dialog closes on ok, ledger refreshed and still in sync");
   // Void: reversal row, score back, still in sync.
   await p.locator("tbody tr", { hasText: "Live tepat waktu" }).first().getByRole("button", { name: "Void" }).click();
   assert(await p.getByText("Pembatalan masuk ledger sebagai baris baru").isVisible() && (await p.getByRole("button", { name: "Void Transaction" }).isDisabled()), "void asks for a reason");
@@ -586,14 +600,14 @@ const assert = (c, m) => { if (!c) { console.log("FAIL", m); process.exitCode = 
   pl = await payloads();
   const vo = pl.find((x) => x.action === "VOID_SCORE");
   assert(vo && vo.payload.point === -2 && vo.payload.originalPoint === 2 && vo.payload.scoreAfter === 116 && vo.payload.notesText.startsWith("Membatalkan TX-20260905") && vo.payload.transactionType === "Penalty", "VOID_SCORE payload: opposite points, note names the voided TX");
-  assert(await p.getByText("116 · sinkron · 11 transaksi").isVisible() && (await p.locator("tr.pbs-sc-rev").count()) === 2, "after void: reversal appended, ledger in sync");
+  assert(await p.getByText("116 · sinkron").isVisible() && (await p.locator("tr.pbs-sc-rev").count()) === 2, "after void: reversal appended, ledger in sync");
   await shot("f-host-score-ledger");
   await p.getByRole("button", { name: "Host Score" }).click();
   await p.waitForTimeout(200);
   assert((await payloads()).some((x) => x.action === "BACK") && (await p.getByText("Skor host", { exact: true }).nth(1).isVisible()), "BACK returns to the list");
   // Deduct: big penalty needs the confirmation and notes (severity berat).
   await go("c=HostScore&h=HST-003&cfg=min");
-  assert(await p.getByText("Skor tersimpan tidak cocok dengan ledger.").isVisible(), "ledger drift banner");
+  assert(await p.getByText("CurrentScore (kumulatif) tidak cocok dengan ledger.").isVisible(), "ledger drift banner");
   await p.getByRole("button", { name: "Deduct Points" }).click();
   await p.selectOption("#pbs-sc-rule", "RULE-04");
   await p.fill("#pbs-sc-pt", "35");

@@ -5,7 +5,7 @@ import {
   configNumber,
   hasPermission,
 } from "../../../shared/contract";
-import { Row } from "../../../shared/data";
+import { Row, str } from "../../../shared/data";
 import {
   fmtDateTimeShort,
   fmtDayMonth,
@@ -20,13 +20,14 @@ import {
   ScoreTx,
   TxType,
   bandOf,
+  txDay,
   buildHosts,
   buildLedger,
   checkLedger,
   parseBands,
   scoreDefaults,
 } from "../../../shared/host";
-import { TX_FILTERS, TxFilter, matchesFilter } from "../../../shared/hostScore";
+import { TX_FILTERS, TxFilter, matchesFilter, txInPeriod } from "../../../shared/hostScore";
 import {
   AdminRule,
   ScorePreview,
@@ -53,6 +54,7 @@ import {
   evidenceRuleOf,
   eventDateIssue,
   isoDay,
+  MonthlyScore,
   monthlyBase,
   monthlyScores,
 } from "../../../shared/scoreAdmin";
@@ -370,6 +372,17 @@ function ListPage(
         </InfoBanner>
       ) : null}
 
+      {!firstLoad ? (
+        <Leaderboard
+          month={month}
+          base={base}
+          hosts={hosts}
+          monthly={monthly}
+          bands={bands}
+          onOpen={(h) => action.fire("OPEN_LEDGER", { hostId: h.hostId, id: h.id })}
+        />
+      ) : null}
+
       {bands.length > 0 ? (
         <div className="pbs-sc-kpis" role="group" aria-label="Host per band">
           {counts.map((c) => {
@@ -579,6 +592,9 @@ function ListPage(
                         {m && m.count ? (
                           <span title={`Reward ${signed(m.rewards)} · penalty ${signed(m.penalties)}`}>
                             <b className={pointClass(m.points)}>{signed(m.points)}</b>
+                            {m.rewards && m.penalties ? (
+                              <span className="pbs-muted"> ({signed(m.rewards)} / {signed(m.penalties)})</span>
+                            ) : null}
                             <span className="pbs-muted"> · {m.count} trx</span>
                           </span>
                         ) : (
@@ -679,6 +695,91 @@ function ListPage(
   );
 }
 
+/** Monthly leaderboard: podium for the top 3, then ranks 4–10 and the lowest active hosts. */
+function Leaderboard(props: {
+  month: Period;
+  base: number;
+  hosts: HostModel[];
+  monthly: Map<string, MonthlyScore>;
+  bands: ScoreBand[];
+  onOpen: (h: HostModel) => void;
+}): React.ReactElement | null {
+  const ranked = props.hosts
+    .map((h) => ({ h, m: props.monthly.get(h.hostId.toLowerCase()) }))
+    .filter((x): x is { h: HostModel; m: MonthlyScore } => !!x.m && x.m.rank !== null)
+    .sort((a, b) => (a.m.rank ?? 0) - (b.m.rank ?? 0) || a.h.code.localeCompare(b.h.code, undefined, { numeric: true }));
+  if (ranked.length === 0) return null;
+  const withTx = ranked.filter((x) => x.m.count > 0).length;
+  const top = ranked.slice(0, 3);
+  const next = ranked.slice(3, 10);
+  // Lowest three, only when they are not already in the top 10.
+  const bottom = ranked.length > 12 ? ranked.slice(-3).reverse() : [];
+  const row = (x: { h: HostModel; m: MonthlyScore }) => {
+    const b = bandOf(x.m.score, props.bands);
+    return (
+      <li key={x.h.hostId}>
+        <span className="pbs-lb-rk pbs-num">{x.m.rank}</span>
+        <button type="button" className="pbs-link pbs-lb-nm" onClick={() => props.onOpen(x.h)}>
+          {x.h.name || x.h.code}
+        </button>
+        <span className="pbs-muted pbs-mono pbs-lb-cd">{x.h.code}</span>
+        <span className={`pbs-lb-pt pbs-num ${pointClass(x.m.points)}`}>{x.m.count ? signed(x.m.points) : ""}</span>
+        <b className={`pbs-lb-sc pbs-num ${b ? BAND_TEXT[b.tone] : ""}`}>{fmtNumber(x.m.score)}</b>
+      </li>
+    );
+  };
+  return (
+    <section className="pbs-card pbs-card-pad pbs-lb" aria-label={`Leaderboard ${fmtPeriod(props.month)}`}>
+      <div className="pbs-lb-h">
+        <h2>Leaderboard {fmtPeriod(props.month)}</h2>
+        <span className="pbs-muted">
+          {fmtNumber(ranked.length)} host aktif · {fmtNumber(withTx)} punya transaksi · mulai {fmtNumber(props.base)}
+        </span>
+      </div>
+      <ol className="pbs-lb-pod">
+        {top.map((x) => {
+          const b = bandOf(x.m.score, props.bands);
+          return (
+            <li key={x.h.hostId} className={`r${x.m.rank}`}>
+              <span className="pbs-lb-medal" aria-label={`Peringkat ${x.m.rank}`}>
+                {x.m.rank}
+              </span>
+              <button type="button" className="pbs-link pbs-lb-nm" onClick={() => props.onOpen(x.h)}>
+                {x.h.name || x.h.code}
+              </button>
+              <span className="pbs-muted pbs-mono" style={{ fontSize: 12 }}>
+                {x.h.code}
+              </span>
+              <b className={`pbs-lb-big pbs-num ${b ? BAND_TEXT[b.tone] : ""}`}>{fmtNumber(x.m.score)}</b>
+              <span className="pbs-muted" style={{ fontSize: 12 }}>
+                {x.m.count
+                  ? `${x.m.rewards ? signed(x.m.rewards) : ""}${x.m.rewards && x.m.penalties ? " / " : ""}${x.m.penalties ? signed(x.m.penalties) : ""} · ${x.m.count} trx`
+                  : "tanpa transaksi"}
+              </span>
+            </li>
+          );
+        })}
+      </ol>
+      {next.length || bottom.length ? (
+        <div className="pbs-lb-lists">
+          {next.length ? (
+            <div>
+              <div className="pbs-sec-l">Peringkat 4–{3 + next.length}</div>
+              <ol className="pbs-lb-list">{next.map(row)}</ol>
+            </div>
+          ) : null}
+          {bottom.length ? (
+            <div>
+              <div className="pbs-sec-l">Terbawah</div>
+              <ol className="pbs-lb-list">{bottom.map(row)}</ol>
+            </div>
+          ) : null}
+        </div>
+      ) : null}
+    </section>
+  );
+}
+
 // ---- SL-2 ledger of one host --------------------------------------------------------------------
 
 function LedgerPage(
@@ -696,22 +797,48 @@ function LedgerPage(
   const check = h ? checkLedger(h, ledger) : null;
   const [filter, setFilter] = React.useState<TxFilter | "Reversal">("All");
   const [order, setOrder] = React.useState<SortOrder>("newest");
-  const rows = ledger
+  // Monthly score: every month starts at the base and adds that month's active points (TanggalKejadian).
+  const base = monthlyBase(props.ctx.config);
+  const thisMonth = periodOf(props.now);
+  const [month, setMonth] = React.useState<Period | null>(thisMonth);
+  const months = React.useMemo(() => {
+    const keys = new Set<string>();
+    const out: Period[] = [];
+    const add = (p: Period) => {
+      if (!keys.has(periodKey(p))) {
+        keys.add(periodKey(p));
+        out.push(p);
+      }
+    };
+    for (let i = 0; i < 3; i++) add(addMonths(thisMonth, -i));
+    for (const t of ledger) {
+      const d = txDay(t);
+      if (d && !t.reversal) add(periodOf(d));
+    }
+    return out.sort((a, b) => b.year * 12 + b.month - (a.year * 12 + a.month));
+  }, [ledger, thisMonth.year, thisMonth.month]);
+  const scoreOf = (p: Period) =>
+    h ? monthlyScores([{ ...h, status: "ACTIVE" }], ledger.map((t) => (str(t.row, "HostID") ? t : { ...t, row: { ...t.row, HostID: h.hostId } })), p, base).get(h.hostId.toLowerCase()) : undefined;
+  const shown = month ?? thisMonth;
+  const shownScore = scoreOf(shown);
+  const shownBand = shownScore ? bandOf(shownScore.score, props.bands) : null;
+  const inMonth = ledger.filter((t) => txInPeriod(t, month));
+  const rows = inMonth
     .filter((t) =>
       filter === "Reversal" ? t.reversal : matchesFilter(t, filter),
     )
     .sort(byTime(order, (t) => t.when));
-  const paged = usePaged(rows, `${filter}|${order}`);
+  const paged = usePaged(rows, `${filter}|${order}|${month ? periodKey(month) : "all"}`);
   const visible = paged.rows;
   const firstLoad = props.loading && (!h || ledger.length === 0);
   const back = () => action.fire("BACK", {});
   const busy = !!action.pending;
-  const reversalCount = ledger.filter((t) => t.reversal).length;
+  const reversalCount = inMonth.filter((t) => t.reversal).length;
   const chips: { key: TxFilter | "Reversal"; label: string; n: number }[] = [
     ...TX_FILTERS.map((f) => ({
       key: f.key,
       label: f.label,
-      n: ledger.filter((t) => matchesFilter(t, f.key)).length,
+      n: inMonth.filter((t) => matchesFilter(t, f.key)).length,
     })),
     { key: "Reversal", label: "Koreksi", n: reversalCount },
   ];
@@ -763,35 +890,49 @@ function LedgerPage(
         <div className="pbs-rec-g">
           <Meta label="Nama" value={h?.name ?? "—"} />
           <Meta
-            label="Skor sekarang"
+            label={`Skor ${fmtPeriod(shown)}`}
             value={
               <span className="pbs-sc-now">
                 <b
-                  className={`pbs-num ${h?.band ? BAND_TEXT[h.band.tone] : ""}`}
+                  className={`pbs-num ${shownBand ? BAND_TEXT[shownBand.tone] : ""}`}
                 >
-                  {fmtNumber(h?.score)}
+                  {fmtNumber(shownScore?.score ?? null)}
                 </b>
-                {h?.band ? (
-                  <Badge tone={h.band.tone} small>
-                    {h.band.label}
+                {shownBand ? (
+                  <Badge tone={shownBand.tone} small>
+                    {shownBand.label}
                   </Badge>
                 ) : null}
               </span>
             }
           />
           <Meta
-            label="Jumlah ledger"
+            label="Poin bulan itu"
             value={
-              check && check.expected !== null ? (
-                <span className={check.drift ? "pbs-t-bad" : undefined}>
-                  {fmtNumber(check.expected)} ·{" "}
-                  {check.drift
-                    ? `tidak sinkron (${signed(check.diff === null ? null : Math.round(check.diff))})`
-                    : "sinkron"}{" "}
-                  · {fmtNumber(ledger.length)} transaksi
+              shownScore && shownScore.count ? (
+                <span>
+                  {fmtNumber(base)}
+                  {shownScore.rewards ? <b className="pbs-t-ok"> {signed(shownScore.rewards)}</b> : null}
+                  {shownScore.penalties ? <b className="pbs-t-bad"> {signed(shownScore.penalties)}</b> : null}
+                  {" "}· {fmtNumber(shownScore.count)} transaksi
                 </span>
               ) : (
-                `${fmtNumber(ledger.length)} transaksi`
+                `${fmtNumber(base)} · belum ada transaksi`
+              )
+            }
+          />
+          <Meta
+            label="CurrentScore (kumulatif)"
+            value={
+              check && check.expected !== null ? (
+                <span className={check.drift ? "pbs-t-bad" : "pbs-muted"}>
+                  {fmtNumber(h?.storedScore)}
+                  {check.drift
+                    ? ` · ledger ${fmtNumber(check.expected)} (${signed(check.diff === null ? null : Math.round(check.diff))})`
+                    : " · sinkron"}
+                </span>
+              ) : (
+                <span className="pbs-muted">{fmtNumber(h?.storedScore)}</span>
               )
             }
           />
@@ -819,9 +960,32 @@ function LedgerPage(
         ) : null}
       </div>
 
+      <div className="pbs-sc-months" role="group" aria-label="Skor per bulan">
+        {months.map((p) => {
+          const m = scoreOf(p);
+          const on = !!month && periodKey(month) === periodKey(p);
+          const b = m ? bandOf(m.score, props.bands) : null;
+          return (
+            <button
+              key={periodKey(p)}
+              type="button"
+              className={`pbs-kpi pbs-sc-month${on ? " on" : ""}`}
+              aria-pressed={on}
+              onClick={() => setMonth(on ? null : p)}
+            >
+              <span className="l">{fmtPeriod(p)}</span>
+              <span className={`v ${b ? BAND_TEXT[b.tone] : ""}`}>{fmtNumber(m?.score ?? null)}</span>
+              <span className="n">
+                {m && m.count ? `${signed(m.points)} · ${m.count} trx` : "tanpa transaksi"}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+
       {check?.drift && h ? (
         <InfoBanner tone="warn">
-          <b>Skor tersimpan tidak cocok dengan ledger.</b> CurrentScore{" "}
+          <b>CurrentScore (kumulatif) tidak cocok dengan ledger.</b> Skor bulanan dan ranking tidak memakai angka ini. CurrentScore{" "}
           {fmtNumber(h.storedScore)}, sedangkan awal {fmtNumber(h.initial)} +{" "}
           {check.activeCount} transaksi aktif = {fmtNumber(check.expected)}.
           Transaksi baru dihitung dari skor tersimpan; minta admin menyamakan{" "}
@@ -848,6 +1012,22 @@ function LedgerPage(
             </button>
           ))}
         <span style={{ flex: 1 }} />
+        <label className="pbs-chip">
+          <span className="pbs-sr">Bulan</span>
+          <select
+            value={month ? periodKey(month) : ""}
+            aria-label="Bulan"
+            onChange={(e) => setMonth(months.find((p) => periodKey(p) === e.target.value) ?? null)}
+          >
+            <option value="">Semua bulan</option>
+            {months.map((p) => (
+              <option key={periodKey(p)} value={periodKey(p)}>
+                {fmtPeriod(p)}
+              </option>
+            ))}
+          </select>
+          <Icon name="chevronDown" size={14} />
+        </label>
         <SortSelect value={order} onChange={setOrder} />
       </div>
 
